@@ -52,12 +52,28 @@ Open <http://localhost:3000>.
 ```ini
 AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE.openai.azure.com
 AZURE_OPENAI_API_VERSION=2024-10-21
-AZURE_OPENAI_DEPLOYMENT=gpt-4o                            # chat deployment name
-AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-small  # embedding deployment name
+AZURE_OPENAI_DEPLOYMENT=gpt-5                             # chat deployment name
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-large  # embedding deployment name
 # DATA_DIR=./.data                                        # optional
 ```
 
 Both deployment values are **deployment names** from Azure AI Foundry, not model names.
+List what your resource actually has:
+
+```bash
+az cognitiveservices account deployment list -n <resource> -g <rg> -o table
+```
+
+> `AZURE_OPENAI_API_VERSION` is a dated **API** release such as `2024-10-21`.
+> It is not a model version — setting it to something like gpt-5's `2025-08-07`
+> makes every call return a confusing 404. The app detects this and says so.
+
+### Reasoning models (gpt-5, o-series)
+
+These deployments reject a custom `temperature` and accept only the default.
+Because a deployment name is user-chosen, the model family can't be inferred from
+it, so the client probes once, caches the result for the process, and transparently
+retries without `temperature`. No configuration needed — gpt-4o and gpt-5 both work.
 
 ### Authentication (Microsoft Entra ID)
 

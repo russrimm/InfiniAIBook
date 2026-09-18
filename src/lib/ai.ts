@@ -8,8 +8,29 @@ import {
 
 const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
 const apiKey = process.env.AZURE_OPENAI_API_KEY;
-const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-10-21";
+const DEFAULT_API_VERSION = "2024-10-21";
+const apiVersion = process.env.AZURE_OPENAI_API_VERSION || DEFAULT_API_VERSION;
 const SCOPE = "https://cognitiveservices.azure.com/.default";
+
+/**
+ * Azure data-plane API versions are dated releases, not model versions. Picking
+ * a model version (e.g. gpt-5's "2025-08-07") yields a confusing 404 on every
+ * call, so flag anything that isn't a published release.
+ */
+const KNOWN_API_VERSIONS = new Set([
+  "2023-05-15",
+  "2024-02-01",
+  "2024-06-01",
+  "2024-08-01-preview",
+  "2024-10-21",
+  "2024-12-01-preview",
+  "2025-01-01-preview",
+  "2025-03-01-preview",
+  "2025-04-01-preview",
+]);
+
+const apiVersionLooksWrong =
+  !KNOWN_API_VERSIONS.has(apiVersion) && !/-preview$/.test(apiVersion);
 
 export const CHAT_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o";
 export const EMBED_DEPLOYMENT =
@@ -57,8 +78,20 @@ export function getClient(): AzureOpenAI {
 
 /** Surface Entra failures as actionable setup guidance rather than a raw 401. */
 export function describeAuthError(e: unknown): string | null {
-  if (apiKey) return null;
   const msg = e instanceof Error ? e.message : String(e);
+  const status = (e as { status?: number })?.status;
+
+  // A 404 here almost always means a misconfigured api-version or a deployment
+  // name that does not exist, not a missing resource.
+  if (status === 404) {
+    const hint = apiVersionLooksWrong
+      ? `AZURE_OPENAI_API_VERSION is set to "${apiVersion}", which is not an Azure API version — model versions like "2025-08-07" are not valid here. Use "${DEFAULT_API_VERSION}".`
+      : `Check that the deployment names AZURE_OPENAI_DEPLOYMENT ("${CHAT_DEPLOYMENT}") and AZURE_OPENAI_EMBEDDING_DEPLOYMENT ("${EMBED_DEPLOYMENT}") exist on ${endpoint}.`;
+    return `Azure OpenAI returned 404. ${hint}`;
+  }
+
+  if (apiKey) return null;
+
   const isAuth =
     /CredentialUnavailable|AuthenticationRequired|DefaultAzureCredential|AADSTS|managed identity/i.test(
       msg
@@ -76,33 +109,74 @@ export function describeAuthError(e: unknown): string | null {
 
 export type ChatMsg = { role: "system" | "user" | "assistant"; content: string };
 
+type ChatParams = Parameters<AzureOpenAI["chat"]["completions"]["create"]>[0];
+
+/**
+ * Reasoning deployments (gpt-5, o-series) reject a custom `temperature` and
+ * accept only the default. We can't infer that from the deployment name, which
+ * is user-chosen, so probe once and remember the answer for the process.
+ */
+let supportsTemperature: boolean | null = null;
+
+function isTemperatureRejection(e: unknown): boolean {
+  const err = e as { param?: string; code?: string; message?: string };
+  const msg = err?.message ?? String(e);
+  return (
+    err?.param === "temperature" ||
+    /'temperature' does not support|temperature.*not supported/i.test(msg)
+  );
+}
+
+/** Run a chat call, retrying without `temperature` if the model refuses it. */
+async function createChat(params: ChatParams & { temperature?: number }) {
+  const client = getClient();
+  if (supportsTemperature === false) {
+    const { temperature: _omit, ...rest } = params;
+    return client.chat.completions.create(rest as ChatParams);
+  }
+  try {
+    const res = await client.chat.completions.create(params as ChatParams);
+    if (supportsTemperature === null) supportsTemperature = true;
+    return res;
+  } catch (e) {
+    if (!isTemperatureRejection(e)) throw e;
+    supportsTemperature = false;
+    const { temperature: _omit, ...rest } = params;
+    return client.chat.completions.create(rest as ChatParams);
+  }
+}
+
 export async function chatText(messages: ChatMsg[], temperature = 0.3): Promise<string> {
-  const res = await getClient().chat.completions.create({
-    model: CHAT_DEPLOYMENT,
-    temperature,
-    messages,
-  });
-  return res.choices[0]?.message?.content?.trim() ?? "";
+  const res = await createChat({ model: CHAT_DEPLOYMENT, temperature, messages });
+  return (
+    (res as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content?.trim() ??
+    ""
+  );
 }
 
 export async function chatStream(messages: ChatMsg[], temperature = 0.3) {
-  return getClient().chat.completions.create({
+  const res = await createChat({
     model: CHAT_DEPLOYMENT,
     temperature,
     stream: true,
     messages,
   });
+  return res as AsyncIterable<{
+    choices?: { delta?: { content?: string | null } }[];
+  }>;
 }
 
 /** Ask the model for a JSON object and parse it defensively. */
 export async function chatJSON<T>(messages: ChatMsg[], temperature = 0.4): Promise<T> {
-  const res = await getClient().chat.completions.create({
+  const res = await createChat({
     model: CHAT_DEPLOYMENT,
     temperature,
     response_format: { type: "json_object" },
     messages,
   });
-  const raw = res.choices[0]?.message?.content?.trim() ?? "";
+  const raw =
+    (res as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content?.trim() ??
+    "";
   return parseJSON<T>(raw);
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MindNode } from "@/lib/types";
 
 type Laid = {
@@ -73,10 +73,40 @@ function layout(root: MindNode): { nodes: Laid[]; height: number } {
 }
 
 export default function MindMap({ root, title }: { root: MindNode; title: string }) {
-  const [zoom, setZoom] = useState(1);
   const { nodes, height } = useMemo(() => layout(root), [root]);
   const maxDepth = nodes.reduce((m, n) => Math.max(m, n.depth), 0);
   const width = (maxDepth + 1) * COL_W + 40;
+
+  const viewRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState<number | null>(null);
+
+  // Large trees overflow badly at 1:1 and scroll the root out of view, so fit
+  // the whole map to the viewport on first paint.
+  const fit = useCallback(() => {
+    const el = viewRef.current;
+    if (!el) return;
+    const pad = 16;
+    const scale = Math.min(
+      (el.clientWidth - pad) / width,
+      (el.clientHeight - pad) / height,
+      1
+    );
+    setZoom(Math.max(0.25, +scale.toFixed(2)));
+  }, [width, height]);
+
+  useLayoutEffect(() => {
+    fit();
+    const el = viewRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      if (zoom === null) fit();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fit]);
+
+  const z = zoom ?? 1;
 
   return (
     <div className="flex h-full flex-col">
@@ -87,29 +117,35 @@ export default function MindMap({ root, title }: { root: MindNode; title: string
         <div className="flex gap-1">
           <button
             className="btn !px-2.5 !py-1 !text-xs"
-            onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))}
+            onClick={() => setZoom(Math.max(0.25, +(z - 0.1).toFixed(2)))}
           >
             −
+          </button>
+          <button className="btn !px-2.5 !py-1 !text-xs" onClick={fit}>
+            Fit
           </button>
           <button
             className="btn !px-2.5 !py-1 !text-xs"
             onClick={() => setZoom(1)}
           >
-            {Math.round(zoom * 100)}%
+            {Math.round(z * 100)}%
           </button>
           <button
             className="btn !px-2.5 !py-1 !text-xs"
-            onClick={() => setZoom((z) => Math.min(2, +(z + 0.1).toFixed(2)))}
+            onClick={() => setZoom(Math.min(2, +(z + 0.1).toFixed(2)))}
           >
             +
           </button>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-[var(--border)] bg-[#0e1116]">
+      <div
+        ref={viewRef}
+        className="min-h-0 flex-1 overflow-auto rounded-xl border border-[var(--border)] bg-[#0e1116]"
+      >
         <svg
-          width={width * zoom}
-          height={height * zoom}
+          width={width * z}
+          height={height * z}
           viewBox={`0 0 ${width} ${height}`}
           role="img"
           aria-label={title}

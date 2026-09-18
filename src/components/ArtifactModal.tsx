@@ -165,7 +165,7 @@ function Body({ artifact, citations }: { artifact: Artifact; citations: Citation
     case "mindmap": {
       const m = c as MindMapContent;
       return (
-        <div className="h-[70vh]">
+        <div className="h-[calc(100vh-15rem)] min-h-[24rem]">
           <MindMap root={m.root} title={m.title} />
         </div>
       );
