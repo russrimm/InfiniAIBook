@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import { db, floatsToBlob } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 import { chunkText, extractFromFile, extractFromUrl } from "@/lib/ingest";
-import { chatText, embed } from "@/lib/ai";
+import { chatText, embed, describeAuthError } from "@/lib/ai";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -16,7 +16,8 @@ async function ingestOne(
   title: string,
   kind: string,
   url: string | null,
-  text: string
+  text: string,
+  warnings: string[]
 ) {
   if (!text.trim()) throw new Error(`No readable text found in "${title}".`);
 
@@ -37,6 +38,9 @@ async function ingestOne(
     vectors = await embed(chunks);
   } catch (e) {
     console.warn("[ingest] embeddings unavailable, keyword search only:", e);
+    const detail =
+      describeAuthError(e) ?? (e instanceof Error ? e.message : "embedding call failed");
+    warnings.push(`Semantic search is disabled — ${detail}`);
   }
 
   chunks.forEach((c, i) => {
@@ -86,6 +90,7 @@ export async function POST(req: Request, { params }: Ctx) {
 
     const added: unknown[] = [];
     const errors: string[] = [];
+    const warnings: string[] = [];
     const ctype = req.headers.get("content-type") ?? "";
 
     if (ctype.includes("multipart/form-data")) {
@@ -94,7 +99,9 @@ export async function POST(req: Request, { params }: Ctx) {
       for (const f of files) {
         try {
           const ex = await extractFromFile(f);
-          added.push(await ingestOne(notebookId, ex.title, ex.kind, null, ex.text));
+          added.push(
+            await ingestOne(notebookId, ex.title, ex.kind, null, ex.text, warnings)
+          );
         } catch (e) {
           errors.push(`${f.name}: ${e instanceof Error ? e.message : "failed"}`);
         }
@@ -109,7 +116,14 @@ export async function POST(req: Request, { params }: Ctx) {
         try {
           const ex = await extractFromUrl(body.url);
           added.push(
-            await ingestOne(notebookId, body.title || ex.title, "url", body.url, ex.text)
+            await ingestOne(
+              notebookId,
+              body.title || ex.title,
+              "url",
+              body.url,
+              ex.text,
+              warnings
+            )
           );
         } catch (e) {
           errors.push(`${body.url}: ${e instanceof Error ? e.message : "failed"}`);
@@ -122,7 +136,8 @@ export async function POST(req: Request, { params }: Ctx) {
               body.title || "Pasted text",
               "text",
               null,
-              body.text
+              body.text,
+              warnings
             )
           );
         } catch (e) {
@@ -150,7 +165,7 @@ export async function POST(req: Request, { params }: Ctx) {
       }
     }
 
-    return ok({ added, errors });
+    return ok({ added, errors, warnings: [...new Set(warnings)] });
   } catch (e) {
     return fail(e);
   }

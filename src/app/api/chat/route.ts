@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import { fail } from "@/lib/http";
-import { chatStream, type ChatMsg } from "@/lib/ai";
+import { chatStream, describeAuthError, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, retrieve } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
 import { NextResponse } from "next/server";
@@ -93,7 +93,8 @@ export async function POST(req: Request) {
           );
           send({ type: "done", id, citations: kept.length ? kept : citations.slice(0, 4) });
         } catch (e) {
-          send({ type: "error", error: e instanceof Error ? e.message : "stream failed" });
+          const msg = describeAuthError(e) ?? (e instanceof Error ? e.message : "stream failed");
+          send({ type: "error", error: msg });
         } finally {
           controller.close();
         }

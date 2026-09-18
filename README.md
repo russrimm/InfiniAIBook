@@ -38,7 +38,8 @@ Every artifact can be copied or exported to Markdown.
 
 ```bash
 npm install
-cp .env.example .env.local   # then fill in your Azure OpenAI values
+cp .env.example .env.local   # then set your endpoint + deployment names
+az login                     # Entra sign-in; see Authentication below
 npm run dev
 ```
 
@@ -50,17 +51,53 @@ Open <http://localhost:3000>.
 
 ```ini
 AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE.openai.azure.com
-AZURE_OPENAI_API_KEY=...
 AZURE_OPENAI_API_VERSION=2024-10-21
-AZURE_OPENAI_DEPLOYMENT=gpt-4o                           # chat deployment name
+AZURE_OPENAI_DEPLOYMENT=gpt-4o                            # chat deployment name
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-small  # embedding deployment name
 # DATA_DIR=./.data                                        # optional
 ```
 
-Both values are **deployment names** from Azure AI Foundry, not model names.
+Both deployment values are **deployment names** from Azure AI Foundry, not model names.
 
-Without credentials the app still runs: sources ingest and are searchable by
-keyword, but chat and studio generation return a clear "not configured" error.
+### Authentication (Microsoft Entra ID)
+
+There is no API key. The app authenticates with `DefaultAzureCredential` and
+requests tokens for `https://cognitiveservices.azure.com/.default`.
+
+**Locally** — sign in once, then start the app:
+
+```bash
+az login
+npm run dev
+```
+
+Your account needs the **Cognitive Services OpenAI User** role on the Azure
+OpenAI resource:
+
+```bash
+az role assignment create \
+  --assignee "$(az ad signed-in-user show --query id -o tsv)" \
+  --role "Cognitive Services OpenAI User" \
+  --scope "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<resource>"
+```
+
+**On Azure** (App Service, Container Apps, AKS, VM) — enable a managed identity
+and grant it the same role. Nothing else to configure. For a *user-assigned*
+identity, set `AZURE_CLIENT_ID` to its client id.
+
+**CI / off-Azure containers** — supply a service principal via
+`AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and `AZURE_CLIENT_SECRET`.
+
+Token acquisition, caching and refresh are handled per request, so long-running
+servers never serve an expired token. Auth failures are translated into
+actionable messages in the UI (missing credential vs. missing role assignment)
+rather than a bare 401.
+
+> A legacy `AZURE_OPENAI_API_KEY` is still honoured if present, and takes
+> precedence over Entra. Leave it unset to use Entra.
+
+Without any working credential the app still runs: sources ingest and are
+searchable by keyword, but chat and studio generation return a clear error.
 
 ---
 
@@ -104,7 +141,7 @@ src/
     ArtifactModal  SourceModal  MindMap  Quiz  Infographic  Markdown
   lib/
     db.ts        SQLite schema (node:sqlite, no native build step)
-    ai.ts        Azure OpenAI chat / JSON / embeddings
+    ai.ts        Azure OpenAI client (Entra ID auth), chat / JSON / embeddings
     ingest.ts    text extraction + chunking
     retrieve.ts  hybrid retrieval, corpus sampling, citation building
     studio.ts    per-format prompts and schemas

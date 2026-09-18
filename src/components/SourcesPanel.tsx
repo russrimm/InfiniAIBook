@@ -43,6 +43,7 @@ export default function SourcesPanel({
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [warn, setWarn] = useState<string | null>(null);
   const [mode, setMode] = useState<"none" | "url" | "text">("none");
   const [urlValue, setUrlValue] = useState("");
   const [textValue, setTextValue] = useState("");
@@ -60,6 +61,8 @@ export default function SourcesPanel({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Upload failed");
       if (json.errors?.length) setErr(json.errors.join("; "));
+      if (json.warnings?.length) setWarn(json.warnings.join(" "));
+      else setWarn(null);
       await onChanged();
       setMode("none");
       setUrlValue("");
@@ -220,6 +223,9 @@ export default function SourcesPanel({
           <p className="mt-2 animate-pulse text-xs text-[var(--accent)]">{busy}</p>
         )}
         {err && <p className="mt-2 text-xs text-red-400">{err}</p>}
+        {warn && (
+          <p className="mt-2 text-xs leading-snug text-amber-400/90">{warn}</p>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
