@@ -1,36 +1,128 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OpenNotebook
 
-## Getting Started
+A self-hosted NotebookLM-style research studio. Upload your own sources, chat with
+them, and turn them into **reports, briefings, infographics, mind maps, quizzes,
+study guides, FAQs and timelines** — every claim cited back to the document it came from.
 
-First, run the development server:
+Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
+
+---
+
+## What it does
+
+| | |
+|---|---|
+| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON or HTML; paste raw text; or add a URL (the page is fetched and stripped to readable text). Each source is chunked, embedded and summarised. |
+| **Grounded chat** | Streaming answers built only from the sources you have selected, with hoverable inline citations `[1]` that show the exact excerpt used. |
+| **Studio** | Eight generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
+| **Everything is local** | Sources, chunks, embeddings, chat history and artifacts live in a single SQLite file under `.data/`. |
+
+### Studio formats
+
+| Format | Output |
+|---|---|
+| 📄 Report | Executive summary, analytical sections, key takeaways, open questions |
+| 🧾 Briefing doc | Under 700 words: bottom line, evidence, risks, next steps |
+| 📊 Infographic | Headline stats, themed sections, key takeaway — rendered as a real visual layout |
+| 🕸️ Mind map | Interactive zoomable SVG concept tree |
+| 🧠 Quiz | 10 multiple-choice questions, interactive, scored, with explanations |
+| 🎓 Study guide | Core concepts, glossary table, short-answer questions + answer key |
+| ❓ FAQ | Collapsible Q&A the sources actually answer |
+| 🗓️ Timeline | Chronology extracted from the material |
+
+Every artifact can be copied or exported to Markdown.
+
+---
+
+## Quick start
 
 ```bash
+npm install
+cp .env.example .env.local   # then fill in your Azure OpenAI values
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Configuration
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`.env.local`:
 
-## Learn More
+```ini
+AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE.openai.azure.com
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_API_VERSION=2024-10-21
+AZURE_OPENAI_DEPLOYMENT=gpt-4o                           # chat deployment name
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-small  # embedding deployment name
+# DATA_DIR=./.data                                        # optional
+```
 
-To learn more about Next.js, take a look at the following resources:
+Both values are **deployment names** from Azure AI Foundry, not model names.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Without credentials the app still runs: sources ingest and are searchable by
+keyword, but chat and studio generation return a clear "not configured" error.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## How grounding works
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. **Ingest** — text is extracted (`unpdf` for PDF, `mammoth` for DOCX, `cheerio`
+   for HTML), normalised, and split into ~1400-character chunks with 200 characters
+   of overlap on paragraph boundaries.
+2. **Embed** — each chunk is embedded and stored as a `Float32Array` blob in SQLite.
+3. **Retrieve** — queries are embedded and ranked by cosine similarity, blended
+   with a lexical overlap score (85/15) so rare proper nouns are not lost. If the
+   embedding call fails, retrieval degrades gracefully to keyword-only.
+4. **Generate** — chat uses the top-k passages; studio generation uses an evenly
+   spread sample across *every* selected source, so a report is not written from
+   page one alone.
+5. **Cite** — passages are numbered in the prompt, the model emits `[n]` markers,
+   and the UI resolves them back to source title, part number and the raw excerpt.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Studio outputs are requested as JSON, then parsed defensively and normalised
+(clamped answer indices, depth-limited mind-map trees, validated stat blocks) so a
+malformed model response can never break the UI.
+
+---
+
+## Architecture
+
+```
+src/
+  app/
+    page.tsx                       notebook list
+    notebook/[id]/page.tsx         workspace shell
+    api/
+      notebooks/                   CRUD + detail (sources, artifacts, messages)
+      notebooks/[id]/sources/      ingestion (multipart files | url | text)
+      sources/[id]/                read full text, delete
+      chat/                        NDJSON streaming, grounded answers
+      generate/                    studio artifact generation
+      artifacts/[id]/              delete
+  components/
+    Workspace  SourcesPanel  ChatPanel  StudioPanel
+    ArtifactModal  SourceModal  MindMap  Quiz  Infographic  Markdown
+  lib/
+    db.ts        SQLite schema (node:sqlite, no native build step)
+    ai.ts        Azure OpenAI chat / JSON / embeddings
+    ingest.ts    text extraction + chunking
+    retrieve.ts  hybrid retrieval, corpus sampling, citation building
+    studio.ts    per-format prompts and schemas
+```
+
+**Storage note:** the database uses Node 22+'s built-in `node:sqlite`, so there is
+no native compilation step. The handle is opened lazily on first query.
+
+---
+
+## Roadmap ideas
+
+- YouTube transcript ingestion
+- Audio overview (text-to-speech podcast) via Azure Speech
+- Per-source notes and multiple saved chat threads
+- Postgres + pgvector adapter for multi-user deployments
+- Auth and sharing
+
+## Licence
+
+MIT

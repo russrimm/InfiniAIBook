@@ -1,103 +1,105 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { Notebook } from "@/lib/types";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const router = useRouter();
+  const [notebooks, setNotebooks] = useState<Notebook[] | null>(null);
+  const [creating, setCreating] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const load = async () => {
+    const res = await fetch("/api/notebooks");
+    setNotebooks(res.ok ? await res.json() : []);
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const create = async () => {
+    setCreating(true);
+    const res = await fetch("/api/notebooks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const { id } = await res.json();
+    router.push(`/notebook/${id}`);
+  };
+
+  const remove = async (id: string, title: string) => {
+    if (!confirm(`Delete "${title}" and all of its sources?`)) return;
+    await fetch(`/api/notebooks/${id}`, { method: "DELETE" });
+    void load();
+  };
+
+  return (
+    <main className="mx-auto min-h-screen w-full max-w-6xl px-6 py-14">
+      <header className="mb-12 flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-xs font-medium tracking-widest text-[var(--muted)] uppercase">
+            <span className="inline-block h-2 w-2 rounded-full bg-[var(--accent)]" />
+            Grounded research studio
+          </div>
+          <h1 className="text-4xl font-semibold tracking-tight">OpenNotebook</h1>
+          <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-[var(--muted)]">
+            Upload your sources. Ask them anything. Turn them into reports, quizzes,
+            mind maps and infographics — every claim cited back to your documents.
+          </p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        <button className="btn btn-primary" onClick={create} disabled={creating}>
+          {creating ? "Creating…" : "+ New notebook"}
+        </button>
+      </header>
+
+      {notebooks === null ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="card shimmer h-36" />
+          ))}
+        </div>
+      ) : notebooks.length === 0 ? (
+        <div className="card flex flex-col items-center gap-4 px-6 py-20 text-center">
+          <div className="text-5xl">📚</div>
+          <h2 className="text-lg font-medium">No notebooks yet</h2>
+          <p className="max-w-sm text-sm text-[var(--muted)]">
+            A notebook holds a set of sources — PDFs, docs, web pages or pasted text —
+            and everything you generate from them.
+          </p>
+          <button className="btn btn-primary" onClick={create} disabled={creating}>
+            Create your first notebook
+          </button>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {notebooks.map((n) => (
+            <div
+              key={n.id}
+              className="card fade-up group relative cursor-pointer p-5 transition hover:border-[#39424f]"
+              onClick={() => router.push(`/notebook/${n.id}`)}
+            >
+              <div className="mb-4 text-3xl">{n.emoji}</div>
+              <h3 className="mb-1 line-clamp-2 font-medium">{n.title}</h3>
+              <p className="text-xs text-[var(--muted)]">
+                {n.sourceCount ?? 0} source{n.sourceCount === 1 ? "" : "s"} ·{" "}
+                {new Date(n.createdAt).toLocaleDateString()}
+              </p>
+              <button
+                aria-label="Delete notebook"
+                className="absolute top-3 right-3 rounded-lg px-2 py-1 text-xs text-[var(--muted)] opacity-0 transition group-hover:opacity-100 hover:bg-[#1e2430] hover:text-red-400"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void remove(n.id, n.title);
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </main>
   );
 }

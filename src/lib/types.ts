@@ -1,0 +1,88 @@
+export type ArtifactType =
+  | "report"
+  | "briefing"
+  | "study_guide"
+  | "faq"
+  | "quiz"
+  | "mindmap"
+  | "timeline"
+  | "infographic";
+
+export type Citation = {
+  n: number;
+  sourceId: string;
+  sourceTitle: string;
+  part: number;
+  snippet: string;
+};
+
+export type DocContent = { title: string; subtitle?: string; markdown: string };
+export type FaqContent = { title: string; items: { q: string; a: string }[] };
+export type QuizQuestion = {
+  question: string;
+  choices: string[];
+  answerIndex: number;
+  explanation: string;
+};
+export type QuizContent = { title: string; questions: QuizQuestion[] };
+
+export type MindNode = { label: string; note?: string; children?: MindNode[] };
+export type MindMapContent = { title: string; root: MindNode };
+
+export type TimelineContent = {
+  title: string;
+  items: { date: string; title: string; text: string }[];
+};
+
+export type InfographicContent = {
+  title: string;
+  subtitle?: string;
+  accent?: string;
+  stats: { value: string; label: string; caption?: string }[];
+  sections: { heading: string; icon?: string; bullets: string[] }[];
+  takeaway?: string;
+};
+
+export type ArtifactContent =
+  | DocContent
+  | FaqContent
+  | QuizContent
+  | MindMapContent
+  | TimelineContent
+  | InfographicContent;
+
+export type Artifact = {
+  id: string;
+  notebookId: string;
+  type: ArtifactType;
+  title: string;
+  content: ArtifactContent & { citations?: Citation[] };
+  createdAt: number;
+};
+
+export type Source = {
+  id: string;
+  notebookId: string;
+  title: string;
+  kind: string;
+  url: string | null;
+  chars: number;
+  summary: string | null;
+  createdAt: number;
+};
+
+export type Notebook = {
+  id: string;
+  title: string;
+  emoji: string;
+  createdAt: number;
+  sourceCount?: number;
+};
+
+export type Message = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  citations?: Citation[];
+  createdAt: number;
+};
