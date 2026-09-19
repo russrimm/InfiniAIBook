@@ -93,24 +93,6 @@ export default function StudioPanel({
           onChange={(e) => setTopic(e.target.value)}
         />
 
-        <label className="mb-3 block">
-          <span className="mb-1.5 flex items-center gap-1.5 text-[11px] text-[var(--muted)]">
-            <span>{INFOGRAPHIC_STYLES[style].icon}</span>
-            Infographic style
-          </span>
-          <select
-            className="input cursor-pointer appearance-none"
-            value={style}
-            onChange={(e) => setStyle(e.target.value as InfographicStyle)}
-          >
-            {STYLE_ORDER.map((key) => (
-              <option key={key} value={key}>
-                {INFOGRAPHIC_STYLES[key].label} — {INFOGRAPHIC_STYLES[key].blurb}
-              </option>
-            ))}
-          </select>
-        </label>
-
         <button
           disabled={blocked || !!busy}
           onClick={() => void generateAudio()}
@@ -135,6 +117,54 @@ export default function StudioPanel({
           {STUDIO_ORDER.map((type) => {
             const s = STUDIO[type];
             const isBusy = busy === type;
+
+            // The infographic has 17 styles, so its card carries its own
+            // chooser. A picker elsewhere in the panel reads as a global
+            // setting and gets missed.
+            if (type === "infographic") {
+              return (
+                <div
+                  key={type}
+                  className={`card relative col-span-2 overflow-hidden transition ${
+                    isBusy ? "shimmer border-[var(--accent)]" : ""
+                  }`}
+                >
+                  <button
+                    disabled={blocked || !!busy}
+                    onClick={() => void generate(type)}
+                    className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <span className="text-lg">{s.icon}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px] font-medium">{s.label}</span>
+                      <span className="block text-[10px] leading-snug text-[var(--muted)]">
+                        {isBusy ? "Generating…" : s.blurb}
+                      </span>
+                    </span>
+                  </button>
+
+                  <label className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-2">
+                    <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Style
+                    </span>
+                    <select
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                      value={style}
+                      disabled={!!busy}
+                      onChange={(e) => setStyle(e.target.value as InfographicStyle)}
+                    >
+                      {STYLE_ORDER.map((key) => (
+                        <option key={key} value={key}>
+                          {INFOGRAPHIC_STYLES[key].icon} {INFOGRAPHIC_STYLES[key].label} —{" "}
+                          {INFOGRAPHIC_STYLES[key].blurb}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              );
+            }
+
             return (
               <button
                 key={type}
