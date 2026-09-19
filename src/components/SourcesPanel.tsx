@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Source } from "@/lib/types";
+import type { DiscoverHit } from "./DiscoverModal";
 
 const ICONS: Record<string, string> = {
   pdf: "📕",
@@ -23,6 +24,21 @@ function bytes(n: number) {
   return `${(n / 1_000_000).toFixed(1)}M chars`;
 }
 
+function iconFor(name: string, fallback = "📄") {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  return ICONS[ext] ?? fallback;
+}
+
+/** An upload still being processed on the server. */
+type Job = {
+  id: string;
+  label: string;
+  icon: string;
+  error?: string;
+};
+
+let jobSeq = 0;
+
 export default function SourcesPanel({
   notebookId,
   sources,
@@ -32,6 +48,8 @@ export default function SourcesPanel({
   onToggleAll,
   onOpen,
   onChanged,
+  onDiscover,
+  addRef,
 }: {
   notebookId: string;
   sources: Source[];
@@ -41,54 +59,99 @@ export default function SourcesPanel({
   onToggleAll: () => void;
   onOpen: (id: string) => void;
   onChanged: () => Promise<void> | void;
+  onDiscover: () => void;
+  addRef: React.MutableRefObject<((hits: DiscoverHit[]) => void) | null>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [warn, setWarn] = useState<string | null>(null);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [mode, setMode] = useState<"none" | "url" | "text">("none");
   const [urlValue, setUrlValue] = useState("");
   const [textValue, setTextValue] = useState("");
   const [textTitle, setTextTitle] = useState("");
   const [dragging, setDragging] = useState(false);
 
-  const post = async (init: RequestInit, label: string) => {
-    setBusy(label);
-    setErr(null);
-    try {
-      const res = await fetch(`/api/notebooks/${notebookId}/sources`, {
-        method: "POST",
-        ...init,
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Upload failed");
-      if (json.errors?.length) setErr(json.errors.join("; "));
-      if (json.warnings?.length) setWarn(json.warnings.join(" "));
-      else setWarn(null);
-      await onChanged();
-      setMode("none");
-      setUrlValue("");
-      setTextValue("");
-      setTextTitle("");
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Upload failed");
-    } finally {
-      setBusy(null);
-    }
+  /**
+   * Each source is ingested by its own request, so slow items (a large PDF, a
+   * page fetch, embedding a long transcript) never block the next upload. The
+   * panel stays interactive and shows one spinner per item in flight.
+   */
+  const startJob = (label: string, icon: string, init: RequestInit) => {
+    const id = `job-${++jobSeq}`;
+    setJobs((prev) => [...prev, { id, label, icon }]);
+
+    void (async () => {
+      try {
+        const res = await fetch(`/api/notebooks/${notebookId}/sources`, {
+          method: "POST",
+          ...init,
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || "Could not add this source");
+
+        const warning: string | undefined = json.warnings?.[0];
+        const failure: string | undefined = json.errors?.[0];
+        if (failure) throw new Error(failure);
+
+        await onChanged();
+        setJobs((prev) => prev.filter((j) => j.id !== id));
+        if (warning) {
+          // Not fatal, but the user should know the source is degraded.
+          setJobs((prev) => [
+            ...prev,
+            { id: `${id}-warn`, label, icon: "⚠️", error: warning },
+          ]);
+        }
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Could not add this source";
+        setJobs((prev) =>
+          prev.map((j) => (j.id === id ? { ...j, error: message } : j))
+        );
+      }
+    })();
   };
 
   const uploadFiles = (files: FileList | File[]) => {
-    const list = Array.from(files);
-    if (!list.length) return;
-    const fd = new FormData();
-    list.forEach((f) => fd.append("files", f));
-    void post({ body: fd }, `Reading ${list.length} file${list.length > 1 ? "s" : ""}…`);
+    for (const file of Array.from(files)) {
+      const fd = new FormData();
+      fd.append("files", file);
+      startJob(file.name, iconFor(file.name), { body: fd });
+    }
   };
+
+  const addUrl = (url: string, title?: string) => {
+    const label =
+      title ??
+      (() => {
+        try {
+          const u = new URL(url);
+          return u.hostname.replace(/^www\./, "") + (u.pathname === "/" ? "" : u.pathname);
+        } catch {
+          return url;
+        }
+      })();
+    return startJob(label.slice(0, 90), /youtu\.?be/i.test(url) ? "📺" : "🌐", {
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url, title }),
+    });
+  };
+
+  // Lets the Discover modal queue its selections through the same pipeline.
+  useEffect(() => {
+    addRef.current = (hits: DiscoverHit[]) =>
+      hits.forEach((h) => addUrl(h.url, h.title));
+    return () => {
+      addRef.current = null;
+    };
+  });
 
   const remove = async (id: string) => {
     await fetch(`/api/sources/${id}`, { method: "DELETE" });
     await onChanged();
   };
+
+  const dismissJob = (id: string) => setJobs((prev) => prev.filter((j) => j.id !== id));
+
+  const active = jobs.filter((j) => !j.error);
 
   return (
     <aside className="flex h-full min-h-0 flex-col bg-[var(--panel)]">
@@ -141,7 +204,7 @@ export default function SourcesPanel({
           }}
         />
 
-        <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className="mt-2 grid grid-cols-3 gap-2">
           <button
             className="btn !px-2 !py-1.5 !text-xs"
             onClick={() => setMode(mode === "url" ? "none" : "url")}
@@ -154,6 +217,9 @@ export default function SourcesPanel({
           >
             📝 Paste
           </button>
+          <button className="btn !px-2 !py-1.5 !text-xs" onClick={onDiscover}>
+            🔎 Find
+          </button>
         </div>
 
         {mode === "url" && (
@@ -161,14 +227,11 @@ export default function SourcesPanel({
             className="fade-up mt-2 flex gap-2"
             onSubmit={(e) => {
               e.preventDefault();
-              if (!urlValue.trim()) return;
-              void post(
-                {
-                  headers: { "content-type": "application/json" },
-                  body: JSON.stringify({ url: urlValue.trim() }),
-                },
-                /youtu\.?be/i.test(urlValue) ? "Fetching transcript…" : "Fetching page…"
-              );
+              const v = urlValue.trim();
+              if (!v) return;
+              addUrl(v);
+              setUrlValue("");
+              setMode("none");
             }}
           >
             <input
@@ -178,9 +241,7 @@ export default function SourcesPanel({
               onChange={(e) => setUrlValue(e.target.value)}
               autoFocus
             />
-            <button className="btn btn-primary !px-3" disabled={!!busy}>
-              Add
-            </button>
+            <button className="btn btn-primary !px-3">Add</button>
           </form>
         )}
 
@@ -190,16 +251,14 @@ export default function SourcesPanel({
             onSubmit={(e) => {
               e.preventDefault();
               if (!textValue.trim()) return;
-              void post(
-                {
-                  headers: { "content-type": "application/json" },
-                  body: JSON.stringify({
-                    text: textValue,
-                    title: textTitle.trim() || "Pasted text",
-                  }),
-                },
-                "Adding text…"
-              );
+              const title = textTitle.trim() || "Pasted text";
+              startJob(title, "📝", {
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ text: textValue, title }),
+              });
+              setTextValue("");
+              setTextTitle("");
+              setMode("none");
             }}
           >
             <input
@@ -215,28 +274,58 @@ export default function SourcesPanel({
               onChange={(e) => setTextValue(e.target.value)}
               autoFocus
             />
-            <button className="btn btn-primary w-full" disabled={!!busy}>
-              Add source
-            </button>
+            <button className="btn btn-primary w-full">Add source</button>
           </form>
-        )}
-
-        {busy && (
-          <p className="mt-2 animate-pulse text-xs text-[var(--accent)]">{busy}</p>
-        )}
-        {err && <p className="mt-2 text-xs text-red-400">{err}</p>}
-        {warn && (
-          <p className="mt-2 text-xs leading-snug text-amber-400/90">{warn}</p>
         )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-        {sources.length === 0 ? (
+        {jobs.length === 0 && sources.length === 0 ? (
           <p className="px-2 py-8 text-center text-xs text-[var(--muted)]">
             No sources yet. Everything you generate is grounded in what you add here.
           </p>
         ) : (
           <ul className="space-y-1">
+            {jobs.map((job) => (
+              <li
+                key={job.id}
+                className={`fade-up flex gap-2.5 rounded-xl border px-2.5 py-2.5 ${
+                  job.error
+                    ? "border-amber-900/60 bg-amber-950/20"
+                    : "border-[var(--border)] bg-[#141922]"
+                }`}
+              >
+                <span className="mt-0.5 shrink-0">
+                  {job.error ? (
+                    <span className="text-sm">{job.icon}</span>
+                  ) : (
+                    <span className="spinner" aria-label="Processing" />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 text-[13px] leading-snug font-medium">
+                    {job.label}
+                  </p>
+                  <p
+                    className={`mt-1 text-[11px] leading-snug ${
+                      job.error ? "text-amber-300/90" : "text-[var(--accent)]"
+                    }`}
+                  >
+                    {job.error ?? "Processing…"}
+                  </p>
+                </div>
+                {job.error && (
+                  <button
+                    aria-label="Dismiss"
+                    className="h-fit shrink-0 rounded px-1 text-xs text-[var(--muted)] transition hover:text-[var(--fg)]"
+                    onClick={() => dismissJob(job.id)}
+                  >
+                    ✕
+                  </button>
+                )}
+              </li>
+            ))}
+
             {sources.map((s) => (
               <li
                 key={s.id}
@@ -252,10 +341,7 @@ export default function SourcesPanel({
                   checked={selected.has(s.id)}
                   onChange={() => onToggle(s.id)}
                 />
-                <button
-                  className="min-w-0 flex-1 text-left"
-                  onClick={() => onOpen(s.id)}
-                >
+                <button className="min-w-0 flex-1 text-left" onClick={() => onOpen(s.id)}>
                   <div className="flex items-start gap-1.5">
                     <span className="shrink-0 text-sm">{ICONS[s.kind] ?? "📄"}</span>
                     <span className="line-clamp-2 text-[13px] leading-snug font-medium">
@@ -281,6 +367,13 @@ export default function SourcesPanel({
           </ul>
         )}
       </div>
+
+      {active.length > 0 && (
+        <div className="shrink-0 border-t border-[var(--border)] px-4 py-2 text-[11px] text-[var(--accent)]">
+          Processing {active.length} source{active.length === 1 ? "" : "s"} — you can
+          keep adding more.
+        </div>
+      )}
     </aside>
   );
 }

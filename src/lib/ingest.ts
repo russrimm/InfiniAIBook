@@ -49,7 +49,27 @@ export async function extractFromUrl(url: string): Promise<Extracted> {
   const res = await fetch(url, {
     headers: { "user-agent": "Mozilla/5.0 (compatible; OpenNotebook/1.0)" },
   });
-  if (!res.ok) throw new Error(`Failed to fetch URL (${res.status})`);
+  if (!res.ok) {
+    const host = (() => {
+      try {
+        return new URL(url).hostname.replace(/^www\./, "");
+      } catch {
+        return url;
+      }
+    })();
+    // 401/403 here is the publisher refusing automated access, not a bug on
+    // our side, and the user can only act on it if we say so.
+    if (res.status === 403 || res.status === 401) {
+      throw new Error(
+        `${host} blocked automated access (${res.status}). Many publishers do. Open the page and use "Paste" to add its text.`
+      );
+    }
+    if (res.status === 404) throw new Error(`${host} returned 404 — the page is gone.`);
+    if (res.status === 429) {
+      throw new Error(`${host} is rate-limiting requests (429). Try again shortly.`);
+    }
+    throw new Error(`${host} returned ${res.status}.`);
+  }
   const ctype = res.headers.get("content-type") ?? "";
 
   if (ctype.includes("application/pdf")) {

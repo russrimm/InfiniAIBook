@@ -269,6 +269,21 @@ body {
   animation: typingDot 1.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spinner {
+  display: inline-block;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 999px;
+  border: 2px solid #2f3846;
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+
 @keyframes shimmer {
   100% {
     transform: translateX(100%);

@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import SourcesPanel from "./SourcesPanel";
 import ChatPanel from "./ChatPanel";
 import StudioPanel from "./StudioPanel";
 import ArtifactModal from "./ArtifactModal";
 import SourceModal from "./SourceModal";
+import DiscoverModal, { type DiscoverHit } from "./DiscoverModal";
 import type { Artifact, Message, Notebook, Source } from "@/lib/types";
 
 type Data = {
@@ -24,21 +25,40 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openArtifact, setOpenArtifact] = useState<Artifact | null>(null);
   const [openSourceId, setOpenSourceId] = useState<string | null>(null);
+  const [discovering, setDiscovering] = useState(false);
   const [tab, setTab] = useState<Tab>("chat");
 
+  /** Source ids already reflected in `selected`, to detect genuinely new ones. */
+  const seenSources = useRef<Set<string>>(new Set());
+  /** Guards against an older in-flight load overwriting a newer one. */
+  const loadSeq = useRef(0);
+  /** Set by SourcesPanel so Discover can queue URLs through the same pipeline. */
+  const addSources = useRef<((hits: DiscoverHit[]) => void) | null>(null);
+
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     const res = await fetch(`/api/notebooks/${notebookId}`);
     if (!res.ok) {
       setError("Notebook not found.");
       return;
     }
     const d: Data = await res.json();
+    // Uploads finish independently, so several loads can be in flight at once.
+    // Only the newest response may touch state, or an older one would drop
+    // sources that have since arrived.
+    if (seq !== loadSeq.current) return;
+
+    // Computed out here, not inside the state updater: updaters must stay pure
+    // (React invokes them twice in development to enforce exactly that).
+    const ids = d.sources.map((s) => s.id);
+    const live = new Set(ids);
+    const fresh = ids.filter((id) => !seenSources.current.has(id));
+    seenSources.current = live;
+
     setData(d);
     setSelected((prev) => {
-      const ids = new Set(d.sources.map((s) => s.id));
-      const next = new Set([...prev].filter((id) => ids.has(id)));
-      // default: everything selected
-      if (next.size === 0) d.sources.forEach((s) => next.add(s.id));
+      const next = new Set([...prev].filter((id) => live.has(id)));
+      for (const id of fresh) next.add(id);
       return next;
     });
   }, [notebookId]);
@@ -142,6 +162,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             }
             onOpen={setOpenSourceId}
             onChanged={load}
+            onDiscover={() => setDiscovering(true)}
+            addRef={addSources}
           />
         </div>
 
@@ -175,6 +197,13 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       )}
       {openSourceId && (
         <SourceModal sourceId={openSourceId} onClose={() => setOpenSourceId(null)} />
+      )}
+      {discovering && (
+        <DiscoverModal
+          notebookId={notebookId}
+          onClose={() => setDiscovering(false)}
+          onAdd={(hits) => addSources.current?.(hits)}
+        />
       )}
     </div>
   );

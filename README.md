@@ -12,7 +12,7 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 
 | | |
 |---|---|
-| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON or HTML; paste raw text; or add a URL — including **YouTube links**, which are ingested as transcripts (see caveats below). Each source is chunked, embedded and summarised. |
+| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON or HTML; paste raw text; add a URL — including **YouTube links**; or **discover sources** by describing a topic and picking from web results. Ingestion runs in the background, so you can keep adding while earlier items process. |
 | **Grounded chat** | Streaming answers built only from the sources you have selected, with hoverable inline citations `[1]` that show the exact excerpt used. |
 | **Studio** | Nine generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
 | **Everything is local** | Sources, chunks, embeddings, chat history, artifacts and generated audio live under `.data/`. |
@@ -138,6 +138,38 @@ az cognitiveservices account deployment list -n <resource> -g <rg> \
 
 ---
 
+## Adding sources
+
+Ingestion is **non-blocking**. Each source is sent as its own request and shows
+a spinner in the Sources list while it is extracted, chunked, embedded and
+summarised. You can keep dropping files, pasting links or running a discovery
+search while earlier items are still processing; a failure affects only its own
+row, which explains what happened and can be dismissed. Sources join the chat
+context automatically as they land.
+
+### Discover (🔎 Find)
+
+Describe a topic and OpenNotebook searches the web, then lets you choose which
+pages to add — checkboxes, snippets, and a link to preview each one first.
+
+Two things make the results usable rather than noisy:
+
+- **Query expansion.** The model rewrites your topic into three queries covering
+  different angles, and results are merged and de-duplicated. If Azure OpenAI is
+  unavailable it falls back to searching your text literally.
+- **Reachability checks.** Many publishers refuse automated fetches, which is
+  especially annoying for a link you did not hand-pick. Candidates are probed in
+  parallel before they are shown; blocked ones are badged **may block import**,
+  sorted last, and left out of the default selection. Pages already in the
+  notebook are marked and cannot be added twice.
+
+No API key is needed — discovery uses DuckDuckGo by default. Set any of
+`TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, or `GOOGLE_SEARCH_API_KEY` +
+`GOOGLE_SEARCH_CX` to use a higher-quality provider instead; the first one
+configured wins.
+
+---
+
 ## Audio overviews
 
 The 🎧 button writes a two-host dialogue grounded in your sources, then narrates
@@ -235,6 +267,7 @@ src/
     api/
       notebooks/                   CRUD + detail (sources, artifacts, messages)
       notebooks/[id]/sources/      ingestion (files | url | youtube | text)
+      discover/                    web search for candidate sources
       sources/[id]/                read full text, delete
       chat/                        NDJSON streaming, grounded answers
       generate/                    studio artifact generation
@@ -243,12 +276,13 @@ src/
       artifacts/[id]/              delete
   components/
     Workspace  SourcesPanel  ChatPanel  StudioPanel
-    ArtifactModal  SourceModal  MindMap  Quiz  Infographic
-    PodcastPlayer  Markdown
+    ArtifactModal  SourceModal  DiscoverModal
+    MindMap  Quiz  Infographic  PodcastPlayer  Markdown
   lib/
     db.ts        SQLite schema (node:sqlite, no native build step)
     ai.ts        Azure OpenAI client (Entra ID auth), chat / JSON / embeddings
     speech.ts    Azure Speech dialogue synthesis
+    websearch.ts pluggable search providers + reachability probing
     youtube.ts   transcript retrieval and URL parsing
     ingest.ts    text extraction + chunking
     retrieve.ts  hybrid retrieval, corpus sampling, citation building

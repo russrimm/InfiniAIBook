@@ -142,7 +142,9 @@ export async function POST(req: Request, { params }: Ctx) {
             );
           }
         } catch (e) {
-          errors.push(`${body.url}: ${e instanceof Error ? e.message : "failed"}`);
+          // No URL prefix: a URL request carries exactly one source, and the
+          // client already shows which one failed.
+          errors.push(e instanceof Error ? e.message : "Could not fetch that URL.");
         }
       } else if (body.text) {
         try {
