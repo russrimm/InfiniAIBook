@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
+import { removeAudio } from "@/lib/paths";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -116,6 +117,12 @@ export async function PATCH(req: Request, { params }: Ctx) {
 export async function DELETE(_req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
+    // The artifacts row cascades, but the audio files on disk do not.
+    const podcasts = db
+      .prepare("SELECT id FROM artifacts WHERE notebook_id = ? AND type = 'podcast'")
+      .all(id) as unknown as { id: string }[];
+    for (const p of podcasts) removeAudio(p.id);
+
     db.prepare("DELETE FROM notebooks WHERE id = ?").run(id);
     return ok({ ok: true });
   } catch (e) {

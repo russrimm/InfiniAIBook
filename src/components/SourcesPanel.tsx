@@ -8,6 +8,7 @@ const ICONS: Record<string, string> = {
   docx: "📘",
   url: "🌐",
   html: "🌐",
+  youtube: "📺",
   text: "📝",
   md: "📝",
   txt: "📄",
@@ -165,13 +166,13 @@ export default function SourcesPanel({
                   headers: { "content-type": "application/json" },
                   body: JSON.stringify({ url: urlValue.trim() }),
                 },
-                "Fetching page…"
+                /youtu\.?be/i.test(urlValue) ? "Fetching transcript…" : "Fetching page…"
               );
             }}
           >
             <input
               className="input"
-              placeholder="https://example.com/article"
+              placeholder="https://example.com or a YouTube link"
               value={urlValue}
               onChange={(e) => setUrlValue(e.target.value)}
               autoFocus

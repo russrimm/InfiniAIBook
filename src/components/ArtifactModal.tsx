@@ -5,6 +5,7 @@ import Markdown, { InlineCited } from "./Markdown";
 import MindMap from "./MindMap";
 import Quiz from "./Quiz";
 import Infographic from "./Infographic";
+import PodcastPlayer from "./PodcastPlayer";
 import { STUDIO } from "@/lib/studio";
 import type {
   Artifact,
@@ -15,6 +16,7 @@ import type {
   InfographicContent,
   MindMapContent,
   MindNode,
+  PodcastContent,
   QuizContent,
   TimelineContent,
 } from "@/lib/types";
@@ -69,6 +71,13 @@ function toMarkdown(a: Artifact): string {
         .map((s) => `### ${s.icon ?? ""} ${s.heading}\n\n${s.bullets.map((b) => `- ${b}`).join("\n")}`)
         .join("\n\n");
       return `${head}${g.subtitle ?? ""}\n\n## Key numbers\n\n${stats}\n\n${secs}\n\n> ${g.takeaway ?? ""}\n`;
+    }
+    case "podcast": {
+      const p = c as unknown as PodcastContent;
+      const body = p.turns
+        .map((t) => `**${t.speaker === "a" ? p.voices.a : p.voices.b}:** ${t.text}`)
+        .join("\n\n");
+      return `${head}${p.description ?? ""}\n\n${body}\n`;
     }
     default:
       return head + ((c as unknown as DocContent).markdown ?? "");
@@ -149,7 +158,10 @@ export default function ArtifactModal({
             Grounded in{" "}
             {new Set(citations.map((c) => c.sourceId)).size} source
             {new Set(citations.map((c) => c.sourceId)).size === 1 ? "" : "s"} ·{" "}
-            {citations.length} excerpts · hover a citation to see the evidence
+            {citations.length} excerpts
+            {artifact.type === "podcast"
+              ? " · spoken audio omits inline citation markers"
+              : " · hover a citation to see the evidence"}
           </footer>
         )}
       </div>
@@ -172,6 +184,8 @@ function Body({ artifact, citations }: { artifact: Artifact; citations: Citation
     }
     case "infographic":
       return <Infographic content={c as InfographicContent} citations={citations} />;
+    case "podcast":
+      return <PodcastPlayer content={c as PodcastContent} />;
     case "faq": {
       const f = c as FaqContent;
       return (

@@ -154,8 +154,41 @@ few numbers, use counts of things the sources enumerate. 3-4 sections, each with
 bullets (<= 14 words each) and a single emoji as "icon". "takeaway" is one memorable sentence.
 Include citation markers inside bullets and stat captions.`,
   },
+
+  podcast: {
+    label: "Audio overview",
+    blurb: "Two-host conversation",
+    icon: "🎧",
+    json: true,
+    instruction: (topic) => `Write a two-host audio overview of the sources${
+      topic ? `, focused on: ${topic}` : ""
+    }.
+${jsonNote}
+Schema:
+{
+  "title": string,        // episode title, <= 70 chars; do not use the words "podcast" or "episode"
+  "description": string,  // one sentence on what a listener will learn
+  "turns": [{ "speaker": "a" | "b", "text": string }]
+}
+Hosts: "a" drives the conversation and asks the questions. "b" is the analyst who
+explains and supplies detail.
+
+Rules:
+- 16-24 turns, strictly alternating, starting with "a".
+- This is spoken aloud: no markdown, bullets, headings, citation markers, URLs,
+  emoji or stage directions. Write only the words to be said.
+- Spell out anything a text-to-speech voice would mangle: "about 68 percent" not
+  "~68%", "carbon dioxide" not "CO2", "three times" not "3x".
+- Each turn is 2-5 sentences of natural speech. Vary the rhythm and let the hosts
+  react briefly to each other.
+- Open by naming the subject concretely — never "welcome to the show".
+- Ground every claim in the excerpts, attributing naturally in speech, e.g.
+  "the paper puts it at about a third". If the sources disagree, say so.
+- Close on the single thing worth remembering, not a sign-off.`,
+  },
 };
 
+/** Text formats offered in the studio grid. Audio is generated separately. */
 export const STUDIO_ORDER: ArtifactType[] = [
   "report",
   "briefing",
@@ -166,3 +199,5 @@ export const STUDIO_ORDER: ArtifactType[] = [
   "faq",
   "timeline",
 ];
+
+export const PODCAST_INSTRUCTION = STUDIO.podcast.instruction;

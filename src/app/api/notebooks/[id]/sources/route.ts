@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { db, floatsToBlob } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 import { chunkText, extractFromFile, extractFromUrl } from "@/lib/ingest";
+import { fetchYouTubeTranscript, isYouTubeUrl } from "@/lib/youtube";
 import { chatText, embed, describeAuthError } from "@/lib/ai";
 import { NextResponse } from "next/server";
 
@@ -114,17 +115,31 @@ export async function POST(req: Request, { params }: Ctx) {
       };
       if (body.url) {
         try {
-          const ex = await extractFromUrl(body.url);
-          added.push(
-            await ingestOne(
-              notebookId,
-              body.title || ex.title,
-              "url",
-              body.url,
-              ex.text,
-              warnings
-            )
-          );
+          if (isYouTubeUrl(body.url)) {
+            const yt = await fetchYouTubeTranscript(body.url);
+            added.push(
+              await ingestOne(
+                notebookId,
+                body.title || yt.title,
+                "youtube",
+                body.url,
+                yt.text,
+                warnings
+              )
+            );
+          } else {
+            const ex = await extractFromUrl(body.url);
+            added.push(
+              await ingestOne(
+                notebookId,
+                body.title || ex.title,
+                "url",
+                body.url,
+                ex.text,
+                warnings
+              )
+            );
+          }
         } catch (e) {
           errors.push(`${body.url}: ${e instanceof Error ? e.message : "failed"}`);
         }

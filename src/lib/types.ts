@@ -6,7 +6,8 @@ export type ArtifactType =
   | "quiz"
   | "mindmap"
   | "timeline"
-  | "infographic";
+  | "infographic"
+  | "podcast";
 
 export type Citation = {
   n: number;
@@ -43,13 +44,25 @@ export type InfographicContent = {
   takeaway?: string;
 };
 
+export type PodcastTurn = { speaker: "a" | "b"; text: string; at: number };
+
+export type PodcastContent = {
+  title: string;
+  description?: string;
+  turns: PodcastTurn[];
+  audioUrl: string;
+  durationSec: number;
+  voices: { a: string; b: string };
+};
+
 export type ArtifactContent =
   | DocContent
   | FaqContent
   | QuizContent
   | MindMapContent
   | TimelineContent
-  | InfographicContent;
+  | InfographicContent
+  | PodcastContent;
 
 export type Artifact = {
   id: string;

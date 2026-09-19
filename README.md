@@ -12,15 +12,16 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 
 | | |
 |---|---|
-| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON or HTML; paste raw text; or add a URL (the page is fetched and stripped to readable text). Each source is chunked, embedded and summarised. |
+| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON or HTML; paste raw text; or add a URL — including **YouTube links**, which are ingested as transcripts. Each source is chunked, embedded and summarised. |
 | **Grounded chat** | Streaming answers built only from the sources you have selected, with hoverable inline citations `[1]` that show the exact excerpt used. |
-| **Studio** | Eight generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
-| **Everything is local** | Sources, chunks, embeddings, chat history and artifacts live in a single SQLite file under `.data/`. |
+| **Studio** | Nine generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
+| **Everything is local** | Sources, chunks, embeddings, chat history, artifacts and generated audio live under `.data/`. |
 
 ### Studio formats
 
 | Format | Output |
 |---|---|
+| 🎧 Audio overview | Two hosts discuss your sources — real MP3 audio with a synced, clickable transcript |
 | 📄 Report | Executive summary, analytical sections, key takeaways, open questions |
 | 🧾 Briefing doc | Under 700 words: bottom line, evidence, risks, next steps |
 | 📊 Infographic | Headline stats, themed sections, key takeaway — rendered as a real visual layout |
@@ -30,7 +31,7 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 | ❓ FAQ | Collapsible Q&A the sources actually answer |
 | 🗓️ Timeline | Chronology extracted from the material |
 
-Every artifact can be copied or exported to Markdown.
+Every artifact can be copied or exported to Markdown; audio can be downloaded as MP3.
 
 ---
 
@@ -137,6 +138,51 @@ az cognitiveservices account deployment list -n <resource> -g <rg> \
 
 ---
 
+## Audio overviews
+
+The 🎧 button writes a two-host dialogue grounded in your sources, then narrates
+it with Azure Speech and stores an MP3 under `.data/audio/`.
+
+It uses `en-Multitalker:DragonHDLatestNeural`, Azure's multi-speaker voice, so a
+whole exchange renders in one request and the hosts actually sound like they are
+talking to each other. Turns are synthesised in small batches — a single large
+request has its connection dropped by the service — and the resulting MP3s are
+concatenated. Because the output is constant-bitrate, batch durations are exact,
+which is what drives the synced transcript.
+
+Setup:
+
+```ini
+AZURE_SPEECH_REGION=eastus2
+AZURE_SPEECH_RESOURCE_ID=/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<name>
+```
+
+The identity needs the **Cognitive Services Speech User** role. An
+`AZURE_SPEECH_KEY` works instead if you prefer key auth. Without either, the rest
+of the app is unaffected — only the audio button reports that it is unconfigured.
+
+The script prompt forbids markdown, citation markers and symbols that a voice
+would mangle, and the server strips any that slip through, so nothing reads
+"bracket two" aloud.
+
+## YouTube sources
+
+Paste a YouTube URL into **Link** and the transcript is ingested as a source.
+`watch?v=`, `youtu.be`, `/shorts/` and `/embed/` forms are all recognised.
+
+> **YouTube actively blocks this.** Its caption endpoint is gated behind a
+> proof-of-origin token; without one it answers `200` with an empty body rather
+> than an error. On many networks — including most corporate and datacenter
+> ranges — transcript fetching will therefore fail no matter how the request is
+> shaped. The app detects this precisely and says so, instead of reporting
+> "no captions available".
+>
+> If you hit it, either set `YOUTUBE_COOKIE` to the `Cookie` header from a
+> signed-in youtube.com session, or use **Paste** to add the transcript as a
+> text source. Video titles and authors still resolve either way.
+
+---
+
 ## How grounding works
 
 1. **Ingest** — text is extracted (`unpdf` for PDF, `mammoth` for DOCX, `cheerio`
@@ -167,20 +213,26 @@ src/
     notebook/[id]/page.tsx         workspace shell
     api/
       notebooks/                   CRUD + detail (sources, artifacts, messages)
-      notebooks/[id]/sources/      ingestion (multipart files | url | text)
+      notebooks/[id]/sources/      ingestion (files | url | youtube | text)
       sources/[id]/                read full text, delete
       chat/                        NDJSON streaming, grounded answers
       generate/                    studio artifact generation
+      podcast/                     dialogue script + speech synthesis
+      audio/[id]/                  MP3 streaming with byte-range support
       artifacts/[id]/              delete
   components/
     Workspace  SourcesPanel  ChatPanel  StudioPanel
-    ArtifactModal  SourceModal  MindMap  Quiz  Infographic  Markdown
+    ArtifactModal  SourceModal  MindMap  Quiz  Infographic
+    PodcastPlayer  Markdown
   lib/
     db.ts        SQLite schema (node:sqlite, no native build step)
     ai.ts        Azure OpenAI client (Entra ID auth), chat / JSON / embeddings
+    speech.ts    Azure Speech dialogue synthesis
+    youtube.ts   transcript retrieval and URL parsing
     ingest.ts    text extraction + chunking
     retrieve.ts  hybrid retrieval, corpus sampling, citation building
     studio.ts    per-format prompts and schemas
+    paths.ts     data/audio locations, traversal-safe id resolution
 ```
 
 **Storage note:** the database uses Node 22+'s built-in `node:sqlite`, so there is
@@ -190,8 +242,7 @@ no native compilation step. The handle is opened lazily on first query.
 
 ## Roadmap ideas
 
-- YouTube transcript ingestion
-- Audio overview (text-to-speech podcast) via Azure Speech
+- Voice and length controls for audio overviews
 - Per-source notes and multiple saved chat threads
 - Postgres + pgvector adapter for multi-user deployments
 - Auth and sharing

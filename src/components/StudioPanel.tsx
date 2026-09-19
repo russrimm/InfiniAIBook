@@ -23,19 +23,18 @@ export default function StudioPanel({
   const [busy, setBusy] = useState<ArtifactType | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const generate = async (type: ArtifactType) => {
+  const run = async (
+    type: ArtifactType,
+    url: string,
+    body: Record<string, unknown>
+  ) => {
     setBusy(type);
     setError(null);
     try {
-      const res = await fetch("/api/generate", {
+      const res = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          notebookId,
-          type,
-          topic: topic.trim() || undefined,
-          sourceIds: selectedIds,
-        }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Generation failed");
@@ -47,6 +46,21 @@ export default function StudioPanel({
       setBusy(null);
     }
   };
+
+  const generate = (type: ArtifactType) =>
+    run(type, "/api/generate", {
+      notebookId,
+      type,
+      topic: topic.trim() || undefined,
+      sourceIds: selectedIds,
+    });
+
+  const generateAudio = () =>
+    run("podcast", "/api/podcast", {
+      notebookId,
+      topic: topic.trim() || undefined,
+      sourceIds: selectedIds,
+    });
 
   const remove = async (id: string) => {
     await fetch(`/api/artifacts/${id}`, { method: "DELETE" });
@@ -71,6 +85,26 @@ export default function StudioPanel({
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
         />
+
+        <button
+          disabled={blocked || !!busy}
+          onClick={() => void generateAudio()}
+          className={`card group relative mb-2 flex w-full items-center gap-3 overflow-hidden px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
+            busy === "podcast"
+              ? "shimmer border-[var(--accent)]"
+              : "hover:border-[#39424f]"
+          }`}
+        >
+          <span className="text-xl">🎧</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-medium">Audio overview</span>
+            <span className="block text-[10px] leading-snug text-[var(--muted)]">
+              {busy === "podcast"
+                ? "Writing and narrating… this takes a minute"
+                : "Two hosts discuss your sources"}
+            </span>
+          </span>
+        </button>
 
         <div className="grid grid-cols-2 gap-2">
           {STUDIO_ORDER.map((type) => {
