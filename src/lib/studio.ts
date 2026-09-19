@@ -146,13 +146,17 @@ Schema:
   "accent": string,            // one of "indigo", "emerald", "amber", "rose", "sky", "violet"
   "stats": [{ "value": string, "label": string, "caption": string }],
   "sections": [{ "heading": string, "icon": string, "bullets": [string] }],
-  "takeaway": string
+  "takeaway": string,
+  "pullQuote": string,         // optional: the single most quotable line
+  "nextSteps": [string],       // optional: 3 concrete actions
+  "flow": [string]             // optional: ordered stage names, 2-4 words each
 }
 Rules: 3-4 stats whose "value" is a short figure taken literally from the sources
 (e.g. "68%", "$2.4B", "3x", "12 weeks"); never fabricate a number — if the sources have
 few numbers, use counts of things the sources enumerate. 3-4 sections, each with 2-4 short
 bullets (<= 14 words each) and a single emoji as "icon". "takeaway" is one memorable sentence.
-Include citation markers inside bullets and stat captions.`,
+Include citation markers inside bullets and stat captions.
+Omit "pullQuote", "nextSteps" and "flow" unless the style guidance below asks for them.`,
   },
 
   podcast: {

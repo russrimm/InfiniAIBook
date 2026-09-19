@@ -39,9 +39,17 @@ export type InfographicContent = {
   title: string;
   subtitle?: string;
   accent?: string;
+  /** Visual style key from src/lib/infographic.ts; defaults to "classic". */
+  style?: string;
   stats: { value: string; label: string; caption?: string }[];
   sections: { heading: string; icon?: string; bullets: string[] }[];
   takeaway?: string;
+  /** Used by editorial and watercolor styles. */
+  pullQuote?: string;
+  /** Used by the corporate style. */
+  nextSteps?: string[];
+  /** Ordered stages, used by the isometric and neon flow layouts. */
+  flow?: string[];
 };
 
 export type PodcastTurn = { speaker: "a" | "b"; text: string; at: number };

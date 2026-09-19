@@ -66,11 +66,32 @@ function toMarkdown(a: Artifact): string {
     }
     case "infographic": {
       const g = c as unknown as InfographicContent;
-      const stats = g.stats.map((s) => `- **${s.value}** ${s.label} — ${s.caption ?? ""}`).join("\n");
-      const secs = g.sections
-        .map((s) => `### ${s.icon ?? ""} ${s.heading}\n\n${s.bullets.map((b) => `- ${b}`).join("\n")}`)
-        .join("\n\n");
-      return `${head}${g.subtitle ?? ""}\n\n## Key numbers\n\n${stats}\n\n${secs}\n\n> ${g.takeaway ?? ""}\n`;
+      const parts = [head];
+      if (g.subtitle) parts.push(`${g.subtitle}\n`);
+      if (g.flow?.length) parts.push(`${g.flow.join(" → ")}\n`);
+      if (g.stats.length) {
+        parts.push(
+          `## Key numbers\n\n${g.stats
+            .map((s) => `- **${s.value}** ${s.label}${s.caption ? ` — ${s.caption}` : ""}`)
+            .join("\n")}\n`
+        );
+      }
+      parts.push(
+        g.sections
+          .map(
+            (s) =>
+              `### ${s.icon ?? ""} ${s.heading}\n\n${s.bullets.map((b) => `- ${b}`).join("\n")}`
+          )
+          .join("\n\n")
+      );
+      if (g.pullQuote) parts.push(`\n> “${g.pullQuote}”\n`);
+      if (g.nextSteps?.length) {
+        parts.push(
+          `\n## Next steps\n\n${g.nextSteps.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
+        );
+      }
+      if (g.takeaway) parts.push(`\n**Key takeaway:** ${g.takeaway}\n`);
+      return parts.join("\n");
     }
     case "podcast": {
       const p = c as unknown as PodcastContent;

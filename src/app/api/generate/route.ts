@@ -4,6 +4,7 @@ import { ok, fail } from "@/lib/http";
 import { chatJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES, STUDIO } from "@/lib/studio";
+import { styleDef } from "@/lib/infographic";
 import type { ArtifactType } from "@/lib/types";
 import { NextResponse } from "next/server";
 
@@ -102,6 +103,11 @@ function normalize(type: ArtifactType, raw: Loose): Loose {
             : null;
         })
         .filter(Boolean);
+      const list = (v: unknown, max: number) =>
+        arr(v)
+          .map((x) => str(x))
+          .filter(Boolean)
+          .slice(0, max);
       return {
         title: str(raw.title, "Infographic"),
         subtitle: str(raw.subtitle),
@@ -109,6 +115,9 @@ function normalize(type: ArtifactType, raw: Loose): Loose {
         stats,
         sections,
         takeaway: str(raw.takeaway),
+        pullQuote: str(raw.pullQuote) || undefined,
+        nextSteps: list(raw.nextSteps, 4).length ? list(raw.nextSteps, 4) : undefined,
+        flow: list(raw.flow, 6).length ? list(raw.flow, 6) : undefined,
       };
     }
     default: {
@@ -132,15 +141,22 @@ function isEmpty(type: ArtifactType, c: Loose): boolean {
 
 export async function POST(req: Request) {
   try {
-    const { notebookId, type, topic, sourceIds } = (await req.json()) as {
+    const { notebookId, type, topic, sourceIds, style } = (await req.json()) as {
       notebookId: string;
       type: ArtifactType;
       topic?: string;
       sourceIds?: string[];
+      style?: string;
     };
 
     const spec = STUDIO[type];
     if (!spec) return NextResponse.json({ error: "Unknown artifact type" }, { status: 400 });
+
+    // Infographic styles change the content shape, not just the palette.
+    const styleHint =
+      type === "infographic" && style
+        ? `\n\nSTYLE: ${styleDef(style).label}\n${styleDef(style).hint}`.trimEnd()
+        : "";
 
     const collect = (budget: number): Passage[] => {
       if (topic?.trim()) {
@@ -175,7 +191,7 @@ export async function POST(req: Request) {
       const messages: ChatMsg[] = [
         {
           role: "system",
-          content: `${GROUNDING_RULES}\n\n${spec.instruction(topic?.trim() ?? "")}`,
+          content: `${GROUNDING_RULES}\n\n${spec.instruction(topic?.trim() ?? "")}${styleHint}`,
         },
         {
           role: "user",
@@ -212,7 +228,11 @@ export async function POST(req: Request) {
 
     const id = nanoid(12);
     const title = str(content.title, spec.label);
-    const stored = { ...content, citations };
+    const stored = {
+      ...content,
+      ...(type === "infographic" ? { style: style || "classic" } : {}),
+      citations,
+    };
     db.prepare(
       "INSERT INTO artifacts (id, notebook_id, type, title, content, created_at) VALUES (?,?,?,?,?,?)"
     ).run(id, notebookId, type, title, JSON.stringify(stored), Date.now());

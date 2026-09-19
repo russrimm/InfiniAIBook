@@ -226,9 +226,9 @@ body {
   padding: 0 0.28rem;
   margin-left: 0.15rem;
   border-radius: 999px;
-  background: rgba(124, 140, 255, 0.16);
-  border: 1px solid rgba(124, 140, 255, 0.32);
-  color: #a7b2ff;
+  background: var(--cite-bg, rgba(124, 140, 255, 0.16));
+  border: 1px solid var(--cite-border, rgba(124, 140, 255, 0.32));
+  color: var(--cite-fg, #a7b2ff);
   font-size: 0.68rem;
   font-weight: 600;
   vertical-align: 0.1em;

@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import { STUDIO, STUDIO_ORDER } from "@/lib/studio";
+import {
+  INFOGRAPHIC_STYLES,
+  STYLE_ORDER,
+  type InfographicStyle,
+} from "@/lib/infographic";
 import type { Artifact, ArtifactType } from "@/lib/types";
 
 export default function StudioPanel({
@@ -20,6 +25,7 @@ export default function StudioPanel({
   onChanged: () => Promise<void> | void;
 }) {
   const [topic, setTopic] = useState("");
+  const [style, setStyle] = useState<InfographicStyle>("classic");
   const [busy, setBusy] = useState<ArtifactType | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,6 +59,7 @@ export default function StudioPanel({
       type,
       topic: topic.trim() || undefined,
       sourceIds: selectedIds,
+      ...(type === "infographic" ? { style } : {}),
     });
 
   const generateAudio = () =>
@@ -85,6 +92,24 @@ export default function StudioPanel({
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
         />
+
+        <label className="mb-3 block">
+          <span className="mb-1.5 flex items-center gap-1.5 text-[11px] text-[var(--muted)]">
+            <span>{INFOGRAPHIC_STYLES[style].icon}</span>
+            Infographic style
+          </span>
+          <select
+            className="input cursor-pointer appearance-none"
+            value={style}
+            onChange={(e) => setStyle(e.target.value as InfographicStyle)}
+          >
+            {STYLE_ORDER.map((key) => (
+              <option key={key} value={key}>
+                {INFOGRAPHIC_STYLES[key].label} — {INFOGRAPHIC_STYLES[key].blurb}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <button
           disabled={blocked || !!busy}

@@ -24,7 +24,7 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 | 🎧 Audio overview | Two hosts discuss your sources — real MP3 audio with a synced, clickable transcript |
 | 📄 Report | Executive summary, analytical sections, key takeaways, open questions |
 | 🧾 Briefing doc | Under 700 words: bottom line, evidence, risks, next steps |
-| 📊 Infographic | Headline stats, themed sections, key takeaway — rendered as a real visual layout |
+| 📊 Infographic | Headline stats, themed sections, key takeaway — **13 visual styles** |
 | 🕸️ Mind map | Interactive concept tree — starts collapsed, expand topic by topic |
 | 🧠 Quiz | 10 multiple-choice questions, interactive, scored, with explanations |
 | 🎓 Study guide | Core concepts, glossary table, short-answer questions + answer key |
@@ -135,6 +135,34 @@ if you see repeated throttling. Check what your deployment allows with:
 az cognitiveservices account deployment list -n <resource> -g <rg> \
   --query "[].{name:name, capacity:sku.capacity}" -o table
 ```
+
+---
+
+## Infographic styles
+
+Pick a style in the Studio panel before generating. Thirteen are available,
+adapted from the widely shared NotebookLM infographic prompt templates:
+
+| | | |
+|---|---|---|
+| **Classic** dark studio default | **Flat vector** geometric, airy | **Bento grid** cards sized by rank |
+| **Corporate report** metric callout, next steps | **Minimal mono** five essential points | **Editorial feature** serif, pull quote |
+| **Neon network** dark map with glowing paths | **Isometric system** connected stages | **Paper cutout** layered, biggest fact first |
+| **Clay explainer** friendly rounded cards | **Sketch note** hand-drawn clusters | **Chalkboard lesson** one rule, three examples |
+| **Watercolor story** beginning, middle, end | | |
+
+A style changes **both the look and the shape of the content**, because the two
+are not separable — a chalkboard lesson wants one rule and three supporting
+examples, a corporate report wants a headline metric and concrete next steps, a
+minimal layout wants the material cut to five points. Each style contributes its
+own guidance to the generation prompt, so `corporate` returns next steps,
+`editorial` returns a pull quote, and `neon` returns an ordered flow, while the
+others omit those fields entirely.
+
+Infographics render as **real HTML, not generated images**: the text stays
+selectable and searchable, citations remain hoverable, the layout reflows on
+narrow screens, and nothing is misspelled by an image model. Citation pills pick
+up each theme's accent colour rather than the app's dark default.
 
 ---
 
@@ -297,6 +325,7 @@ src/
   lib/
     db.ts        SQLite schema (node:sqlite, no native build step)
     ai.ts        Azure OpenAI client (Entra ID auth), chat / JSON / embeddings
+    infographic.ts  style registry: themes + per-style content guidance
     speech.ts    Azure Speech dialogue synthesis
     websearch.ts pluggable search providers + reachability probing
     youtube.ts   transcript retrieval and URL parsing
