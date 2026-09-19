@@ -33,6 +33,13 @@ export default function Infographic({ content, citations }: Props) {
 
   const cite = (text: string) => <InlineCited text={text} citations={citations} />;
 
+  /**
+   * Header text sits on a themed, often accent-coloured band where a citation
+   * pill is illegible. Newly generated artifacts have these stripped already;
+   * this also cleans up ones stored before that.
+   */
+  const plain = (s: string) => s.replace(/\s*\[\d+\](?:\[\d+\])*/g, "").trim();
+
   const Bullets = ({ items }: { items: string[] }) => (
     <ul className="space-y-1.5">
       {items.map((b, i) => (
@@ -499,14 +506,14 @@ export default function Infographic({ content, citations }: Props) {
             textShadow: t.glow ? `0 0 26px ${t.accent}55` : undefined,
           }}
         >
-          {content.title}
+          {plain(content.title)}
         </h1>
         {content.subtitle && (
           <p
             className="mx-auto mt-2 max-w-xl text-sm"
             style={{ color: t.headerSubText, fontFamily: t.font }}
           >
-            {cite(content.subtitle)}
+            {plain(content.subtitle)}
           </p>
         )}
       </header>

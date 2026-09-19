@@ -155,11 +155,16 @@ function normalize(type: ArtifactType, raw: Loose): Loose {
         .filter(Boolean)
         .slice(0, 10) as { title: string; detail: string }[];
 
+      // The header sits on a themed, often accent-coloured band, where a
+      // citation pill is either invisible or stray text depending on the
+      // style. Headings frame the piece; the claims they preview are cited
+      // again in the body, so strip markers from both.
+      const stripMarkers = (s: string) =>
+        s.replace(/\s*\[\d+\](?:\[\d+\])*/g, "").trim();
+
       return {
-        // A citation marker in the heading renders as stray text, and a title
-        // is not a claim that needs one.
-        title: str(raw.title, "Infographic").replace(/\s*\[\d+\](?:\[\d+\])*/g, "").trim(),
-        subtitle: str(raw.subtitle),
+        title: stripMarkers(str(raw.title, "Infographic")),
+        subtitle: stripMarkers(str(raw.subtitle)),
         accent,
         stats,
         sections,
