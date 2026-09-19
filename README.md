@@ -115,6 +115,26 @@ rather than a bare 401.
 Without any working credential the app still runs: sources ingest and are
 searchable by keyword, but chat and studio generation return a clear error.
 
+### Rate limits and deployment quota
+
+A deployment's tokens-per-minute quota caps how much context one request may
+carry, and studio generation is context-hungry. Two mechanisms keep it working
+on small deployments:
+
+1. **Retry with backoff** — 429 and 5xx responses are retried up to five times,
+   honouring `Retry-After` when Azure supplies it.
+2. **Adaptive context** — if rate limiting persists, generation halves its
+   excerpt budget and retries, down to a floor, rather than failing.
+
+`STUDIO_CONTEXT_CHARS` (default `30000`, roughly 7.5K prompt tokens) sets the
+starting budget. Raise it on a large deployment for richer artifacts; lower it
+if you see repeated throttling. Check what your deployment allows with:
+
+```bash
+az cognitiveservices account deployment list -n <resource> -g <rg> \
+  --query "[].{name:name, capacity:sku.capacity}" -o table
+```
+
 ---
 
 ## How grounding works

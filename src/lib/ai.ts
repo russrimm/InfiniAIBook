@@ -90,6 +90,11 @@ export function describeAuthError(e: unknown): string | null {
     return `Azure OpenAI returned 404. ${hint}`;
   }
 
+  // Retries are already exhausted by the time this is reached.
+  if (status === 429) {
+    return `Azure OpenAI rate limit exceeded for deployment "${CHAT_DEPLOYMENT}" and automatic retries did not clear it. The deployment's tokens-per-minute quota is likely too small for this much source material — raise its capacity in Azure AI Foundry, select fewer sources, or use a larger deployment.`;
+  }
+
   if (apiKey) return null;
 
   const isAuth =
@@ -111,6 +116,42 @@ export type ChatMsg = { role: "system" | "user" | "assistant"; content: string }
 
 type ChatParams = Parameters<AzureOpenAI["chat"]["completions"]["create"]>[0];
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Small deployments (e.g. a 10K-TPM gpt-5-mini) routinely 429 on the large
+ * contexts studio generation sends. Azure returns a Retry-After telling us
+ * exactly how long to wait, so honour it instead of failing the request.
+ */
+async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  const MAX_ATTEMPTS = 5;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastError = e;
+      const status = (e as { status?: number })?.status;
+      const retryable = status === 429 || (status !== undefined && status >= 500);
+      if (!retryable || attempt === MAX_ATTEMPTS - 1) throw e;
+
+      const headers = (e as { headers?: Record<string, string> })?.headers;
+      const after = Number(headers?.["retry-after"]);
+      const waitMs = Number.isFinite(after) && after > 0
+        ? after * 1000
+        : Math.min(30_000, 2 ** attempt * 1000) + Math.random() * 500;
+
+      console.warn(
+        `[ai] ${label} got ${status}, retrying in ${Math.round(waitMs / 1000)}s ` +
+          `(attempt ${attempt + 1}/${MAX_ATTEMPTS})`
+      );
+      await sleep(waitMs);
+    }
+  }
+  throw lastError;
+}
+
 /**
  * Reasoning deployments (gpt-5, o-series) reject a custom `temperature` and
  * accept only the default. We can't infer that from the deployment name, which
@@ -130,20 +171,25 @@ function isTemperatureRejection(e: unknown): boolean {
 /** Run a chat call, retrying without `temperature` if the model refuses it. */
 async function createChat(params: ChatParams & { temperature?: number }) {
   const client = getClient();
-  if (supportsTemperature === false) {
+  const withoutTemp = () => {
     const { temperature: _omit, ...rest } = params;
-    return client.chat.completions.create(rest as ChatParams);
-  }
-  try {
-    const res = await client.chat.completions.create(params as ChatParams);
-    if (supportsTemperature === null) supportsTemperature = true;
-    return res;
-  } catch (e) {
-    if (!isTemperatureRejection(e)) throw e;
-    supportsTemperature = false;
-    const { temperature: _omit, ...rest } = params;
-    return client.chat.completions.create(rest as ChatParams);
-  }
+    return rest as ChatParams;
+  };
+
+  return withRetry(async () => {
+    if (supportsTemperature === false) {
+      return client.chat.completions.create(withoutTemp());
+    }
+    try {
+      const res = await client.chat.completions.create(params as ChatParams);
+      if (supportsTemperature === null) supportsTemperature = true;
+      return res;
+    } catch (e) {
+      if (!isTemperatureRejection(e)) throw e;
+      supportsTemperature = false;
+      return client.chat.completions.create(withoutTemp());
+    }
+  }, "chat");
 }
 
 export async function chatText(messages: ChatMsg[], temperature = 0.3): Promise<string> {
@@ -202,10 +248,10 @@ export async function embed(texts: string[]): Promise<number[][]> {
   const BATCH = 64;
   for (let i = 0; i < texts.length; i += BATCH) {
     const slice = texts.slice(i, i + BATCH).map((t) => t.slice(0, 8000) || " ");
-    const res = await getClient().embeddings.create({
-      model: EMBED_DEPLOYMENT,
-      input: slice,
-    });
+    const res = await withRetry(
+      () => getClient().embeddings.create({ model: EMBED_DEPLOYMENT, input: slice }),
+      "embeddings"
+    );
     for (const d of res.data) out.push(d.embedding as number[]);
   }
   return out;

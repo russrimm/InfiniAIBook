@@ -13,6 +13,14 @@ export const maxDuration = 300;
 
 const ACCENTS = ["indigo", "emerald", "amber", "rose", "sky", "violet"];
 
+/**
+ * Characters of source material sent to the model. Roughly 4 chars per token,
+ * so the default lands near 7.5K prompt tokens — comfortably inside a modest
+ * per-minute deployment quota while still spanning the whole corpus.
+ */
+const MAX_CONTEXT_CHARS = Number(process.env.STUDIO_CONTEXT_CHARS || 30000);
+const MIN_CONTEXT_CHARS = 6000;
+
 type Loose = Record<string, unknown>;
 const str = (v: unknown, fallback = ""): string =>
   typeof v === "string" ? v : fallback;
@@ -134,15 +142,21 @@ export async function POST(req: Request) {
     const spec = STUDIO[type];
     if (!spec) return NextResponse.json({ error: "Unknown artifact type" }, { status: 400 });
 
-    let passages: Passage[];
-    if (topic?.trim()) {
-      const focused = await retrieve(notebookId, topic, sourceIds, 24);
-      const broad = sampleCorpus(notebookId, sourceIds, 24000);
-      const seen = new Set(focused.map((p) => p.id));
-      passages = [...focused, ...broad.filter((p) => !seen.has(p.id))].slice(0, 45);
-    } else {
-      passages = sampleCorpus(notebookId, sourceIds, 60000);
-    }
+    const collect = (budget: number): Passage[] => {
+      if (topic?.trim()) {
+        const broad = sampleCorpus(notebookId, sourceIds, Math.round(budget * 0.4));
+        const seen = new Set(focusedPassages.map((p) => p.id));
+        return [...focusedPassages, ...broad.filter((p) => !seen.has(p.id))].slice(0, 45);
+      }
+      return sampleCorpus(notebookId, sourceIds, budget);
+    };
+
+    const focusedPassages = topic?.trim()
+      ? await retrieve(notebookId, topic, sourceIds, 24)
+      : [];
+
+    let budget = MAX_CONTEXT_CHARS;
+    let passages = collect(budget);
 
     if (!passages.length) {
       return NextResponse.json(
@@ -151,16 +165,43 @@ export async function POST(req: Request) {
       );
     }
 
-    const citations = citationList(passages);
-    const messages: ChatMsg[] = [
-      { role: "system", content: `${GROUNDING_RULES}\n\n${spec.instruction(topic?.trim() ?? "")}` },
-      {
-        role: "user",
-        content: `SOURCE EXCERPTS\n===============\n${buildContext(passages)}`,
-      },
-    ];
+    // A deployment's tokens-per-minute quota caps how much context a single
+    // request may carry. Rather than fail, shrink the excerpt budget and retry
+    // so generation still succeeds on small deployments.
+    let raw: Loose | null = null;
+    let lastError: unknown;
 
-    const raw = await chatJSON<Loose>(messages, 0.5);
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const messages: ChatMsg[] = [
+        {
+          role: "system",
+          content: `${GROUNDING_RULES}\n\n${spec.instruction(topic?.trim() ?? "")}`,
+        },
+        {
+          role: "user",
+          content: `SOURCE EXCERPTS\n===============\n${buildContext(passages)}`,
+        },
+      ];
+      try {
+        raw = await chatJSON<Loose>(messages, 0.5);
+        break;
+      } catch (e) {
+        lastError = e;
+        const status = (e as { status?: number })?.status;
+        if (status !== 429 || budget <= MIN_CONTEXT_CHARS) throw e;
+        budget = Math.max(MIN_CONTEXT_CHARS, Math.floor(budget / 2));
+        const next = collect(budget);
+        if (!next.length) throw e;
+        passages = next;
+        console.warn(
+          `[generate] rate limited, retrying ${type} with ${budget} chars of context`
+        );
+      }
+    }
+
+    if (!raw) throw lastError;
+
+    const citations = citationList(passages);
     const content = normalize(type, raw);
     if (isEmpty(type, content)) {
       return NextResponse.json(

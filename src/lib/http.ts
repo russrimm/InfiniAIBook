@@ -10,9 +10,19 @@ export function fail(e: unknown) {
     return NextResponse.json({ error: e.message, code: "no_config" }, { status: 400 });
   }
 
-  const authMsg = describeAuthError(e);
-  if (authMsg) {
-    return NextResponse.json({ error: authMsg, code: "auth" }, { status: 401 });
+  const status = (e as { status?: number })?.status;
+  const described = describeAuthError(e);
+  if (described) {
+    if (status === 429) {
+      return NextResponse.json(
+        { error: described, code: "rate_limit" },
+        { status: 429 }
+      );
+    }
+    if (status === 404) {
+      return NextResponse.json({ error: described, code: "config" }, { status: 502 });
+    }
+    return NextResponse.json({ error: described, code: "auth" }, { status: 401 });
   }
 
   const msg = e instanceof Error ? e.message : "Unexpected error";
