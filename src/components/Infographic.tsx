@@ -117,38 +117,6 @@ export default function Infographic({ content, citations }: Props) {
       </div>
     );
 
-  const Flow = () =>
-    !content.flow?.length ? null : (
-      <div className="flex flex-wrap items-center gap-2">
-        {content.flow.map((stage, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <div
-              className="px-3 py-2 text-[12.5px] font-medium"
-              style={{
-                ...card,
-                borderColor: t.accent,
-                boxShadow: t.glow ? `0 0 14px -2px ${t.accent}55` : t.shadow,
-                color: t.heading,
-              }}
-            >
-              <span
-                className="mr-1.5 text-[10px] font-bold"
-                style={{ color: t.accent }}
-              >
-                {i + 1}
-              </span>
-              {stage}
-            </div>
-            {i < content.flow!.length - 1 && (
-              <span style={{ color: t.accent }} aria-hidden>
-                →
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
-    );
-
   const NextSteps = () =>
     !content.nextSteps?.length ? null : (
       <div className="p-4" style={card}>
@@ -238,11 +206,258 @@ export default function Infographic({ content, citations }: Props) {
     </div>
   );
 
+  /**
+   * Stages and their detail as one object, rather than a row of chips floating
+   * above unrelated cards — the weakness in both source templates this merges.
+   */
+  const FlowBody = () => {
+    const stages = content.flow ?? [];
+    if (!stages.length) return <StackBody />;
+    return (
+      <div className="space-y-2">
+        {stages.map((stage, i) => {
+          const section = content.sections[i];
+          return (
+            <div key={i}>
+              <div className="flex items-stretch gap-3">
+                <div className="flex shrink-0 flex-col items-center">
+                  <span
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-bold"
+                    style={{
+                      background: t.accent,
+                      color: t.surface,
+                      boxShadow: t.glow ? `0 0 16px -2px ${t.accent}` : undefined,
+                    }}
+                  >
+                    {i + 1}
+                  </span>
+                  {i < stages.length - 1 && (
+                    <span
+                      className="mt-1 w-px flex-1"
+                      style={{ background: `color-mix(in srgb, ${t.accent} 45%, transparent)` }}
+                      aria-hidden
+                    />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1 p-4" style={card}>
+                  <div className="mb-1.5 flex items-center gap-2">
+                    {section?.icon && <span className="text-lg">{section.icon}</span>}
+                    <h3 className="text-[15px] font-semibold" style={headingStyle}>
+                      {section?.heading || stage}
+                    </h3>
+                  </div>
+                  {section ? (
+                    <Bullets items={section.bullets} />
+                  ) : (
+                    <p className="text-[13px]" style={{ color: t.muted }}>
+                      {stage}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {i < stages.length - 1 && (
+                <div className="py-1 pl-[0.9rem] text-[13px]" style={{ color: t.accent }} aria-hidden>
+                  ↓
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {content.sections.slice(stages.length).map((s, i) => (
+          <Section key={`extra-${i}`} section={s} />
+        ))}
+      </div>
+    );
+  };
+
+  const Chart = () => {
+    const data = content.chart ?? [];
+    if (data.length < 2) return null;
+    const max = Math.max(...data.map((d) => d.value)) || 1;
+    return (
+      <div className="p-4" style={card}>
+        <h3 className="mb-3 text-[13px] font-semibold" style={headingStyle}>
+          By the numbers
+        </h3>
+        <div className="space-y-2.5">
+          {data.map((d, i) => (
+            <div key={i}>
+              <div className="mb-1 flex items-baseline justify-between gap-3">
+                <span className="truncate text-[12.5px]" style={{ color: t.text }}>
+                  {d.label}
+                </span>
+                <span
+                  className="shrink-0 text-[12.5px] font-semibold tabular-nums"
+                  style={{ color: t.statValue }}
+                >
+                  {d.display ?? d.value}
+                </span>
+              </div>
+              <div
+                className="h-2 w-full overflow-hidden rounded-full"
+                style={{ background: `color-mix(in srgb, ${t.accent} 12%, transparent)` }}
+              >
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.max(2, (d.value / max) * 100)}%`,
+                    background: `linear-gradient(90deg, ${t.accent}, ${t.accent2})`,
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const CompareBody = () => {
+    const c = content.compare;
+    if (!c) return <StackBody />;
+    const head: React.CSSProperties = {
+      color: t.heading,
+      fontFamily: t.headingFont,
+      fontWeight: 650,
+    };
+    return (
+      <div className="space-y-3">
+        <div className="overflow-hidden" style={card}>
+          <div
+            className="grid grid-cols-[1.1fr_1fr_1fr] gap-px"
+            style={{ background: t.border }}
+          >
+            <div className="px-3 py-2.5 text-[12px]" style={{ background: t.surface, color: t.muted }}>
+              &nbsp;
+            </div>
+            <div
+              className="px-3 py-2.5 text-center text-[13px]"
+              style={{ ...head, background: `color-mix(in srgb, ${t.accent} 12%, ${t.surface})` }}
+            >
+              {c.aLabel}
+            </div>
+            <div
+              className="px-3 py-2.5 text-center text-[13px]"
+              style={{ ...head, background: `color-mix(in srgb, ${t.accent2} 12%, ${t.surface})` }}
+            >
+              {c.bLabel}
+            </div>
+
+            {c.rows.map((row, i) => (
+              <div key={i} className="contents">
+                <div
+                  className="px-3 py-3 text-[12.5px] font-medium"
+                  style={{ background: t.surface, color: t.heading }}
+                >
+                  {row.feature}
+                </div>
+                <div
+                  className="px-3 py-3 text-[12.5px] leading-snug"
+                  style={{ background: `color-mix(in srgb, ${t.accent} 5%, ${t.surface})` }}
+                >
+                  {cite(row.a)}
+                </div>
+                <div
+                  className="px-3 py-3 text-[12.5px] leading-snug"
+                  style={{ background: `color-mix(in srgb, ${t.accent2} 5%, ${t.surface})` }}
+                >
+                  {cite(row.b)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {c.verdict && (
+          <div
+            className="px-5 py-4"
+            style={{
+              ...card,
+              background: `color-mix(in srgb, ${t.accent} 8%, ${t.surface})`,
+            }}
+          >
+            <div
+              className="mb-1 text-[10px] font-semibold tracking-[0.14em] uppercase"
+              style={{ color: t.accent }}
+            >
+              Verdict
+            </div>
+            <p className="text-[14px] leading-relaxed" style={{ color: t.heading }}>
+              {cite(c.verdict)}
+            </p>
+          </div>
+        )}
+
+        {content.sections.map((s, i) => (
+          <Section key={i} section={s} />
+        ))}
+      </div>
+    );
+  };
+
+  const ChecklistBody = () => {
+    const items = content.checklist ?? [];
+    if (!items.length) return <StackBody />;
+    return (
+      <div className="space-y-3">
+        <ul className="space-y-2">
+          {items.map((item, i) => (
+            <li key={i} className="flex gap-3 p-3.5" style={card}>
+              <span
+                className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded text-[12px] font-bold"
+                style={{
+                  background: `color-mix(in srgb, ${t.accent} 16%, transparent)`,
+                  color: t.accent,
+                  border: `1px solid color-mix(in srgb, ${t.accent} 45%, transparent)`,
+                }}
+                aria-hidden
+              >
+                ✓
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-semibold" style={{ color: t.heading }}>
+                  {item.title}
+                </p>
+                {item.detail && (
+                  <p className="mt-0.5 text-[12.5px] leading-snug" style={{ color: t.text }}>
+                    {cite(item.detail)}
+                  </p>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+        {content.sections.map((s, i) => (
+          <Section key={i} section={s} />
+        ))}
+      </div>
+    );
+  };
+
+  const DataBody = () => (
+    <div className="space-y-3">
+      <Chart />
+      <div className="grid gap-3 sm:grid-cols-2">
+        {content.sections.map((s, i) => (
+          <Section key={i} section={s} />
+        ))}
+      </div>
+    </div>
+  );
+
   const body =
     def.layout === "bento" ? (
       <BentoBody />
     ) : def.layout === "editorial" ? (
       <EditorialBody />
+    ) : def.layout === "flow" ? (
+      <FlowBody />
+    ) : def.layout === "compare" ? (
+      <CompareBody />
+    ) : def.layout === "checklist" ? (
+      <ChecklistBody />
+    ) : def.layout === "data" ? (
+      <DataBody />
     ) : (
       <StackBody />
     );
@@ -291,14 +506,13 @@ export default function Infographic({ content, citations }: Props) {
             className="mx-auto mt-2 max-w-xl text-sm"
             style={{ color: t.headerSubText, fontFamily: t.font }}
           >
-            {content.subtitle}
+            {cite(content.subtitle)}
           </p>
         )}
       </header>
 
       <div className="space-y-4 p-5 sm:p-6">
         {takeawayFirst && <Takeaway />}
-        <Flow />
         <Stats />
         {body}
         <NextSteps />

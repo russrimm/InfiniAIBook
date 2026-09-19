@@ -108,8 +108,57 @@ function normalize(type: ArtifactType, raw: Loose): Loose {
           .map((x) => str(x))
           .filter(Boolean)
           .slice(0, max);
+
+      const chart = arr(raw.chart)
+        .map((c) => {
+          const o = c as Loose;
+          const value = Number(o.value);
+          if (!str(o.label) || !Number.isFinite(value) || value < 0) return null;
+          // A sentence here wrecks the bar layout, so keep only a compact figure.
+          const display = str(o.display).trim();
+          return {
+            label: str(o.label).slice(0, 32),
+            value,
+            display: display && display.length <= 12 ? display : undefined,
+          };
+        })
+        .filter(Boolean)
+        .slice(0, 6) as { label: string; value: number; display?: string }[];
+
+      const rawCompare = (raw.compare ?? {}) as Loose;
+      const rows = arr(rawCompare.rows)
+        .map((r) => {
+          const o = r as Loose;
+          return str(o.feature)
+            ? { feature: str(o.feature), a: str(o.a), b: str(o.b) }
+            : null;
+        })
+        .filter(Boolean)
+        .slice(0, 6) as { feature: string; a: string; b: string }[];
+      const compare =
+        rows.length && str(rawCompare.aLabel) && str(rawCompare.bLabel)
+          ? {
+              aLabel: str(rawCompare.aLabel),
+              bLabel: str(rawCompare.bLabel),
+              rows,
+              verdict: str(rawCompare.verdict) || undefined,
+            }
+          : undefined;
+
+      const checklist = arr(raw.checklist)
+        .map((c) => {
+          const o = c as Loose;
+          return str(o.title)
+            ? { title: str(o.title), detail: str(o.detail) }
+            : null;
+        })
+        .filter(Boolean)
+        .slice(0, 10) as { title: string; detail: string }[];
+
       return {
-        title: str(raw.title, "Infographic"),
+        // A citation marker in the heading renders as stray text, and a title
+        // is not a claim that needs one.
+        title: str(raw.title, "Infographic").replace(/\s*\[\d+\](?:\[\d+\])*/g, "").trim(),
         subtitle: str(raw.subtitle),
         accent,
         stats,
@@ -118,6 +167,9 @@ function normalize(type: ArtifactType, raw: Loose): Loose {
         pullQuote: str(raw.pullQuote) || undefined,
         nextSteps: list(raw.nextSteps, 4).length ? list(raw.nextSteps, 4) : undefined,
         flow: list(raw.flow, 6).length ? list(raw.flow, 6) : undefined,
+        chart: chart.length >= 2 ? chart : undefined,
+        compare,
+        checklist: checklist.length ? checklist : undefined,
       };
     }
     default: {
@@ -134,7 +186,16 @@ function isEmpty(type: ArtifactType, c: Loose): boolean {
   if (type === "quiz") return (c.questions as unknown[]).length === 0;
   if (type === "faq") return (c.items as unknown[]).length === 0;
   if (type === "timeline") return (c.items as unknown[]).length === 0;
-  if (type === "infographic") return (c.sections as unknown[]).length === 0;
+  if (type === "infographic") {
+    // Checklist and comparison styles legitimately carry little or no
+    // "sections", so the body can live in any of these.
+    return (
+      (c.sections as unknown[]).length === 0 &&
+      !c.compare &&
+      !(c.checklist as unknown[] | undefined)?.length &&
+      !(c.chart as unknown[] | undefined)?.length
+    );
+  }
   if (type === "mindmap") return ((c.root as Loose).children as unknown[]).length === 0;
   return !str(c.markdown).trim();
 }

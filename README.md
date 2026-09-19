@@ -24,7 +24,7 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 | 🎧 Audio overview | Two hosts discuss your sources — real MP3 audio with a synced, clickable transcript |
 | 📄 Report | Executive summary, analytical sections, key takeaways, open questions |
 | 🧾 Briefing doc | Under 700 words: bottom line, evidence, risks, next steps |
-| 📊 Infographic | Headline stats, themed sections, key takeaway — **13 visual styles** |
+| 📊 Infographic | Headline stats, themed sections, key takeaway — **17 styles** incl. charts, comparisons, checklists |
 | 🕸️ Mind map | Interactive concept tree — starts collapsed, expand topic by topic |
 | 🧠 Quiz | 10 multiple-choice questions, interactive, scored, with explanations |
 | 🎓 Study guide | Core concepts, glossary table, short-answer questions + answer key |
@@ -140,24 +140,45 @@ az cognitiveservices account deployment list -n <resource> -g <rg> \
 
 ## Infographic styles
 
-Pick a style in the Studio panel before generating. Thirteen are available,
-adapted from the widely shared NotebookLM infographic prompt templates:
+Pick a style in the Studio panel before generating. Seventeen are available,
+drawn from two well-known sets of infographic prompt templates — one visual,
+one structural — reconciled into a single list.
 
-| | | |
-|---|---|---|
-| **Classic** dark studio default | **Flat vector** geometric, airy | **Bento grid** cards sized by rank |
-| **Corporate report** metric callout, next steps | **Minimal mono** five essential points | **Editorial feature** serif, pull quote |
-| **Neon network** dark map with glowing paths | **Isometric system** connected stages | **Paper cutout** layered, biggest fact first |
-| **Clay explainer** friendly rounded cards | **Sketch note** hand-drawn clusters | **Chalkboard lesson** one rule, three examples |
-| **Watercolor story** beginning, middle, end | | |
+**Structure-led** — these change what the infographic *is*:
 
-A style changes **both the look and the shape of the content**, because the two
-are not separable — a chalkboard lesson wants one rule and three supporting
-examples, a corporate report wants a headline metric and concrete next steps, a
-minimal layout wants the material cut to five points. Each style contributes its
-own guidance to the generation prompt, so `corporate` returns next steps,
-`editorial` returns a pull quote, and `neon` returns an ordered flow, while the
-others omit those fields entirely.
+| | |
+|---|---|
+| **Data-driven** headline stats, a real bar chart, then interpretation | **Process flow** numbered stages, each with its own detail |
+| **Comparison** two options side by side, with a verdict | **Checklist** 6-10 actionable items in working order |
+| **Educational** what it is, why it matters, how to apply it | |
+
+**Look-led** — these change the treatment: **Classic**, **Flat vector**,
+**Bento grid**, **Corporate report**, **Minimal mono**, **Editorial feature**,
+**Neon network**, **Paper cutout**, **Clay explainer**, **Sketch note**,
+**Chalkboard lesson**, **Watercolor story**.
+
+Even the look-led styles change the content, because the two are not separable:
+a chalkboard lesson wants one rule and three examples, a corporate report wants
+a headline metric and next steps, minimal wants the material cut to five points.
+Each style contributes its own guidance to the generation prompt and returns
+only the fields it needs.
+
+### What was merged, and what was left out
+
+*Process flow* is a deliberate merge. An "isometric connected system" and a
+"numbered process" are the same format wearing different clothes — both are an
+ordered sequence with arrows — so keeping both would have been a palette swap
+pretending to be a structure. The merged style keeps the isometric sense of
+connection and the process emphasis on direction, and fixes the flaw both
+originals shared: stage names now carry their own detail instead of sitting in a
+disconnected row above unrelated cards. The prompt also asks the model to make
+each hand-off explicit, so the stages read as a chain rather than a list.
+
+Three templates were deliberately not adopted. *Timeline* already exists as its
+own Studio format, where it gets a proper chronological layout. *Lead magnet* and
+*product benefits* are marketing briefs built around a product, brand and
+call-to-action — a notebook grounded in your own sources has none of those, and
+inventing them would violate the one rule the whole app rests on.
 
 Infographics render as **real HTML, not generated images**: the text stays
 selectable and searchable, citations remain hoverable, the layout reflows on

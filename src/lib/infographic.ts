@@ -14,7 +14,11 @@
 export type InfographicStyle =
   | "classic"
   | "flat"
-  | "isometric"
+  | "data"
+  | "process"
+  | "comparison"
+  | "checklist"
+  | "educational"
   | "sketch"
   | "chalkboard"
   | "cutout"
@@ -27,7 +31,14 @@ export type InfographicStyle =
   | "bento";
 
 /** How the body of the infographic is arranged. */
-export type InfographicLayout = "stack" | "bento" | "flow" | "editorial";
+export type InfographicLayout =
+  | "stack"
+  | "bento"
+  | "flow"
+  | "editorial"
+  | "compare"
+  | "checklist"
+  | "data";
 
 export type InfographicTheme = {
   bg: string;
@@ -130,14 +141,26 @@ statement. Keep headings to one or two words.`,
     },
   },
 
-  isometric: {
-    label: "Isometric system",
-    blurb: "Connected parts, left to right",
-    icon: "🧊",
+  /**
+   * Merged from two near-identical ideas: the isometric "connected system" and
+   * the classic numbered process flow. Both were an ordered left-to-right
+   * sequence, so keeping them apart would have been a palette swap pretending
+   * to be a format. This keeps the isometric sense of depth and connection, and
+   * the process emphasis on direction and action — and, unlike either original,
+   * attaches each stage's detail to the stage itself instead of stranding a row
+   * of chips above unrelated cards.
+   */
+  process: {
+    label: "Process flow",
+    blurb: "Numbered stages, each with detail",
+    icon: "🔗",
     layout: "flow",
-    hint: `Treat the material as a connected system of 4-6 parts that flow in order.
-Populate "flow" with those parts as short ordered stage names (2-4 words each),
-and let each section describe one stage. Emphasise how one stage feeds the next.`,
+    hint: `Treat the material as an ordered process of 4-6 connected stages.
+Populate "flow" with the stage names in order, 2-4 words each, phrased as actions
+("Capture light", "Fix carbon") rather than nouns.
+Provide exactly one section per stage, in the same order, with the same heading
+as the stage name. Each section's bullets explain what happens at that stage and
+what it produces for the next one — make the hand-off between stages explicit.`,
     theme: {
       bg: "#eef1f7",
       surface: "#ffffff",
@@ -157,6 +180,141 @@ and let each section describe one stage. Emphasise how one stage feeds the next.
       font: SANS,
       headingFont: SANS,
       shadow: "0 10px 24px -16px rgba(31,41,72,0.55)",
+    },
+  },
+
+  data: {
+    label: "Data-driven",
+    blurb: "Stats, chart, then insights",
+    icon: "📈",
+    layout: "data",
+    hint: `Lead with the numbers. Provide 4 stats as headline figures.
+Also populate "chart" with 3-6 entries that are directly comparable on one scale,
+each { "label": short name (<= 24 chars), "value": number, "display": the figure
+written compactly, 10 characters or fewer, e.g. "13%", "27 min", "3 weeks" }.
+Never put a sentence in "display".
+Only include figures the sources actually state — if they are not comparable on a
+single scale, omit "chart" entirely rather than inventing one.
+Then give 2-3 sections of brief interpretation: what the numbers mean and what
+trend they show.`,
+    theme: {
+      bg: "#f6f8fb",
+      surface: "#ffffff",
+      border: "#d5dfea",
+      borderStyle: "solid",
+      borderWidth: 1,
+      radius: 8,
+      text: "#2f3c4b",
+      muted: "#6b7b8d",
+      heading: "#101d2b",
+      accent: "#0f766e",
+      accent2: "#0ea5e9",
+      headerBg: "linear-gradient(135deg, #0f766e, #0ea5e9)",
+      headerText: "#ffffff",
+      headerSubText: "rgba(255,255,255,0.88)",
+      statValue: "#0f766e",
+      font: SANS,
+      headingFont: SANS,
+      shadow: "0 1px 2px rgba(16,29,43,0.06)",
+    },
+  },
+
+  comparison: {
+    label: "Comparison",
+    blurb: "Two options, side by side",
+    icon: "⚖️",
+    layout: "compare",
+    hint: `Compare the two main options, positions or approaches the sources
+discuss. Populate "compare" with { "aLabel", "bLabel", "rows": [{ "feature",
+"a", "b" }], "verdict" }. Give 3-5 rows, each a single point of difference with a
+short phrase for each side. "verdict" is one balanced sentence on when each is
+preferable — not a winner unless the sources clearly support one.
+Only compare things the sources genuinely set against each other; if there is no
+real comparison to make, say so in the subtitle and leave "compare" out.
+Keep "sections" to at most two, for context either side cannot cover alone.`,
+    theme: {
+      bg: "#f7f7f9",
+      surface: "#ffffff",
+      border: "#dcdfe6",
+      borderStyle: "solid",
+      borderWidth: 1,
+      radius: 8,
+      text: "#333a45",
+      muted: "#6f7784",
+      heading: "#16191f",
+      accent: "#7c3aed",
+      accent2: "#0891b2",
+      headerBg: "#16191f",
+      headerText: "#ffffff",
+      headerSubText: "rgba(255,255,255,0.82)",
+      statValue: "#7c3aed",
+      font: SANS,
+      headingFont: SANS,
+      shadow: "0 1px 2px rgba(22,25,31,0.05)",
+    },
+  },
+
+  checklist: {
+    label: "Checklist",
+    blurb: "Actionable items to work through",
+    icon: "✅",
+    layout: "checklist",
+    hint: `Turn the material into something the reader can act on.
+Populate "checklist" with 6-10 entries of { "title": a bold imperative of 2-6
+words, "detail": one short sentence of explanation with a citation }.
+Order them the way someone would actually work through them.
+Every item must come from the sources — do not pad the list to reach a count.
+Keep "sections" to at most one, and "stats" to at most two.`,
+    theme: {
+      bg: "#f6faf7",
+      surface: "#ffffff",
+      border: "#cfe3d6",
+      borderStyle: "solid",
+      borderWidth: 1,
+      radius: 10,
+      text: "#31423a",
+      muted: "#6c8177",
+      heading: "#14241c",
+      accent: "#16a34a",
+      accent2: "#0d9488",
+      headerBg: "linear-gradient(135deg, #16a34a, #0d9488)",
+      headerText: "#ffffff",
+      headerSubText: "rgba(255,255,255,0.9)",
+      statValue: "#16a34a",
+      font: SANS,
+      headingFont: SANS,
+      shadow: "0 1px 2px rgba(20,36,28,0.05)",
+    },
+  },
+
+  educational: {
+    label: "Educational",
+    blurb: "What it is, why, how to apply",
+    icon: "🎓",
+    layout: "stack",
+    hint: `Teach the concept in exactly three sections, headed "What it is",
+"Why it matters" and "How to apply it", in that order. Give each 2-3 bullets.
+The first defines plainly, the second gives consequence or significance, the
+third gives concrete application. The takeaway is the one thing to remember.`,
+    theme: {
+      bg: "#fffaf3",
+      surface: "#ffffff",
+      border: "#eddfc8",
+      borderStyle: "solid",
+      borderWidth: 1,
+      radius: 12,
+      text: "#413628",
+      muted: "#7e705c",
+      heading: "#291f13",
+      accent: "#c2410c",
+      accent2: "#ca8a04",
+      headerBg: "linear-gradient(135deg, #c2410c, #ca8a04)",
+      headerText: "#ffffff",
+      headerSubText: "rgba(255,255,255,0.9)",
+      statValue: "#c2410c",
+      font: SANS,
+      headingFont: SANS,
+      shadow: "0 1px 2px rgba(41,31,19,0.05)",
     },
   },
 
@@ -474,12 +632,16 @@ so the cards stay balanced.`,
 export const STYLE_ORDER: InfographicStyle[] = [
   "classic",
   "flat",
+  "data",
+  "process",
+  "comparison",
+  "checklist",
+  "educational",
   "bento",
   "corporate",
   "minimal",
   "editorial",
   "neon",
-  "isometric",
   "cutout",
   "clay",
   "sketch",
@@ -487,7 +649,12 @@ export const STYLE_ORDER: InfographicStyle[] = [
   "watercolor",
 ];
 
+/** Styles folded into another; kept so existing artifacts still render. */
+const ALIASES: Record<string, InfographicStyle> = {
+  isometric: "process",
+};
+
 export function styleDef(style?: string): StyleDef {
-  return INFOGRAPHIC_STYLES[(style as InfographicStyle) ?? "classic"] ??
-    INFOGRAPHIC_STYLES.classic;
+  const key = ALIASES[style ?? ""] ?? (style as InfographicStyle);
+  return INFOGRAPHIC_STYLES[key] ?? INFOGRAPHIC_STYLES.classic;
 }

@@ -69,6 +69,31 @@ function toMarkdown(a: Artifact): string {
       const parts = [head];
       if (g.subtitle) parts.push(`${g.subtitle}\n`);
       if (g.flow?.length) parts.push(`${g.flow.join(" → ")}\n`);
+      if (g.chart?.length) {
+        parts.push(
+          `## By the numbers\n\n${g.chart
+            .map((d) => `- ${d.label}: **${d.display ?? d.value}**`)
+            .join("\n")}\n`
+        );
+      }
+      if (g.compare) {
+        parts.push(
+          `## ${g.compare.aLabel} vs ${g.compare.bLabel}\n\n` +
+            `| | ${g.compare.aLabel} | ${g.compare.bLabel} |\n|---|---|---|\n` +
+            g.compare.rows
+              .map((r) => `| **${r.feature}** | ${r.a} | ${r.b} |`)
+              .join("\n") +
+            (g.compare.verdict ? `\n\n**Verdict:** ${g.compare.verdict}` : "") +
+            "\n"
+        );
+      }
+      if (g.checklist?.length) {
+        parts.push(
+          `## Checklist\n\n${g.checklist
+            .map((c) => `- [ ] **${c.title}** — ${c.detail}`)
+            .join("\n")}\n`
+        );
+      }
       if (g.stats.length) {
         parts.push(
           `## Key numbers\n\n${g.stats

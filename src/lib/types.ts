@@ -48,8 +48,19 @@ export type InfographicContent = {
   pullQuote?: string;
   /** Used by the corporate style. */
   nextSteps?: string[];
-  /** Ordered stages, used by the isometric and neon flow layouts. */
+  /** Ordered stages, used by the process flow layout. */
   flow?: string[];
+  /** Comparable figures on one scale, used by the data-driven layout. */
+  chart?: { label: string; value: number; display?: string }[];
+  /** Side-by-side comparison, used by the comparison layout. */
+  compare?: {
+    aLabel: string;
+    bLabel: string;
+    rows: { feature: string; a: string; b: string }[];
+    verdict?: string;
+  };
+  /** Actionable items, used by the checklist layout. */
+  checklist?: { title: string; detail: string }[];
 };
 
 export type PodcastTurn = { speaker: "a" | "b"; text: string; at: number };
