@@ -12,7 +12,7 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 
 | | |
 |---|---|
-| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON or HTML; paste raw text; or add a URL — including **YouTube links**, which are ingested as transcripts. Each source is chunked, embedded and summarised. |
+| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON or HTML; paste raw text; or add a URL — including **YouTube links**, which are ingested as transcripts (see caveats below). Each source is chunked, embedded and summarised. |
 | **Grounded chat** | Streaming answers built only from the sources you have selected, with hoverable inline citations `[1]` that show the exact excerpt used. |
 | **Studio** | Nine generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
 | **Everything is local** | Sources, chunks, embeddings, chat history, artifacts and generated audio live under `.data/`. |
@@ -167,19 +167,40 @@ would mangle, and the server strips any that slip through, so nothing reads
 
 ## YouTube sources
 
-Paste a YouTube URL into **Link** and the transcript is ingested as a source.
-`watch?v=`, `youtu.be`, `/shorts/` and `/embed/` forms are all recognised.
+Paste a YouTube URL into **Link**. `watch?v=`, `youtu.be`, `/shorts/` and
+`/embed/` forms are all recognised.
 
-> **YouTube actively blocks this.** Its caption endpoint is gated behind a
-> proof-of-origin token; without one it answers `200` with an empty body rather
-> than an error. On many networks — including most corporate and datacenter
-> ranges — transcript fetching will therefore fail no matter how the request is
-> shaped. The app detects this precisely and says so, instead of reporting
-> "no captions available".
->
-> If you hit it, either set `YOUTUBE_COOKIE` to the `Cookie` header from a
-> signed-in youtube.com session, or use **Paste** to add the transcript as a
-> text source. Video titles and authors still resolve either way.
+Setting a Data API v3 key improves this considerably:
+
+```ini
+YOUTUBE_API_KEY=...
+```
+
+It supplies authoritative title, channel, duration and description, and a
+definitive list of caption tracks. What it cannot do is return caption *text* —
+`captions.download` rejects API keys outright (`401: API keys are not supported
+by this API`) and requires OAuth as the **video's owner**, so it is no help for
+third-party videos.
+
+### When the transcript is unavailable
+
+YouTube's public transcript endpoint is gated behind a proof-of-origin token.
+Without one it answers `200` with an **empty body** rather than an error, so on
+many networks — most corporate and datacenter ranges included — transcripts
+cannot be fetched at all.
+
+The app handles this honestly rather than reporting "no captions available":
+
+- It names the caption tracks the Data API confirms exist, so you know the
+  captions are there and the refusal is YouTube's.
+- It falls back to ingesting the video **description**, which is often
+  substantial, clearly labelled `(description only)` with an in-text note and a
+  warning in the Sources panel — you are never led to believe you got a
+  transcript. Descriptions under 200 characters are rejected instead.
+- `YOUTUBE_COOKIE` (the `Cookie` header from a signed-in session) is used when
+  set, for networks where that is sufficient.
+
+For a guaranteed full transcript, use **Paste** to add it as a text source.
 
 ---
 

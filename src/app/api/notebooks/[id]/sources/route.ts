@@ -117,11 +117,12 @@ export async function POST(req: Request, { params }: Ctx) {
         try {
           if (isYouTubeUrl(body.url)) {
             const yt = await fetchYouTubeTranscript(body.url);
+            if (yt.warning) warnings.push(yt.warning);
             added.push(
               await ingestOne(
                 notebookId,
                 body.title || yt.title,
-                "youtube",
+                yt.kind,
                 body.url,
                 yt.text,
                 warnings

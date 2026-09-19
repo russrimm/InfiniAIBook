@@ -9,6 +9,7 @@ const ICONS: Record<string, string> = {
   url: "🌐",
   html: "🌐",
   youtube: "📺",
+  "youtube-description": "📺",
   text: "📝",
   md: "📝",
   txt: "📄",
