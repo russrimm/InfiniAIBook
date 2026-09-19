@@ -25,7 +25,7 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 | 📄 Report | Executive summary, analytical sections, key takeaways, open questions |
 | 🧾 Briefing doc | Under 700 words: bottom line, evidence, risks, next steps |
 | 📊 Infographic | Headline stats, themed sections, key takeaway — rendered as a real visual layout |
-| 🕸️ Mind map | Interactive zoomable SVG concept tree |
+| 🕸️ Mind map | Interactive concept tree — starts collapsed, expand topic by topic |
 | 🧠 Quiz | 10 multiple-choice questions, interactive, scored, with explanations |
 | 🎓 Study guide | Core concepts, glossary table, short-answer questions + answer key |
 | ❓ FAQ | Collapsible Q&A the sources actually answer |
@@ -167,6 +167,22 @@ No API key is needed — discovery uses DuckDuckGo by default. Set any of
 `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, or `GOOGLE_SEARCH_API_KEY` +
 `GOOGLE_SEARCH_CX` to use a higher-quality provider instead; the first one
 configured wins.
+
+---
+
+## Mind maps
+
+Mind maps open **fully collapsed**, showing only the central topic with a badge
+counting its subtopics. Clicking a node expands it one level; clicking again
+collapses it along with everything beneath, so re-opening a branch starts tidy
+rather than restoring a sprawl. **Expand all** and **Collapse all** are there
+when you want the whole picture at once.
+
+The layout is computed over only the visible nodes and refits after every
+change, so the map always stays in view, and nodes glide between positions
+instead of jumping. Branches are colour-coded from the root, nodes carry their
+source note as a tooltip, and the whole tree is keyboard reachable with proper
+`aria-expanded` state.
 
 ---
 

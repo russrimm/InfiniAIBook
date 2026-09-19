@@ -269,6 +269,49 @@ body {
   animation: typingDot 1.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
+/* Mind map: nodes glide to their new positions as branches open and close. */
+@keyframes mmIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.mm-node {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: mmIn 0.28s ease both;
+}
+.mm-node rect,
+.mm-node circle {
+  transition:
+    fill 0.2s ease,
+    stroke-opacity 0.2s ease;
+}
+.mm-node:focus {
+  outline: none;
+}
+.mm-node:focus-visible rect:first-of-type {
+  stroke: #fff;
+  stroke-opacity: 1;
+  stroke-width: 2;
+}
+.mm-node:hover rect:first-of-type {
+  stroke-opacity: 1;
+}
+.mm-link {
+  transition: d 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: mmIn 0.28s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mm-node,
+  .mm-link {
+    transition: none;
+    animation: none;
+  }
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

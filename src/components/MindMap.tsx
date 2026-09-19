@@ -1,18 +1,14 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { MindNode } from "@/lib/types";
-
-type Laid = {
-  node: MindNode;
-  depth: number;
-  branch: number;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  parent: Laid | null;
-};
 
 const COLORS = [
   "#7c8cff",
@@ -24,115 +20,191 @@ const COLORS = [
   "#f97316",
 ];
 
-const COL_W = 250;
-const ROW_H = 46;
-const PAD_Y = 14;
+const COL_W = 236;
+const ROW_H = 44;
+const NODE_H = 34;
+const PAD = 18;
 
-function measure(node: MindNode, depth: number): number {
-  const kids = node.children ?? [];
-  if (!kids.length || depth >= 3) return ROW_H;
-  return kids.reduce((sum, k) => sum + measure(k, depth + 1), 0);
+/** A node positioned for the currently expanded subset of the tree. */
+type Placed = {
+  path: string;
+  node: MindNode;
+  depth: number;
+  branch: number;
+  x: number;
+  y: number;
+  w: number;
+  childCount: number;
+  expanded: boolean;
+  parentPath: string | null;
+  parentX: number;
+  parentY: number;
+};
+
+const childrenOf = (n: MindNode) => n.children ?? [];
+
+function nodeWidth(label: string, depth: number): number {
+  if (depth === 0) return 200;
+  return Math.min(196, Math.max(118, label.length * 7.6 + 34));
 }
 
-function layout(root: MindNode): { nodes: Laid[]; height: number } {
-  const nodes: Laid[] = [];
+/** Rows a node occupies once only expanded branches are counted. */
+function visibleRows(node: MindNode, path: string, expanded: Set<string>): number {
+  const kids = childrenOf(node);
+  if (!kids.length || !expanded.has(path)) return 1;
+  return kids.reduce((sum, k, i) => sum + visibleRows(k, `${path}.${i}`, expanded), 0);
+}
+
+function layout(root: MindNode, expanded: Set<string>) {
+  const placed: Placed[] = [];
 
   const walk = (
     node: MindNode,
+    path: string,
     depth: number,
     top: number,
     branch: number,
-    parent: Laid | null
-  ): number => {
-    const height = measure(node, depth);
-    const w = depth === 0 ? 190 : Math.min(200, Math.max(120, node.label.length * 8 + 28));
-    const laid: Laid = {
+    parent: Placed | null
+  ) => {
+    const rows = visibleRows(node, path, expanded);
+    const kids = childrenOf(node);
+    const isOpen = expanded.has(path) && kids.length > 0;
+    const w = nodeWidth(node.label, depth);
+
+    const self: Placed = {
+      path,
       node,
       depth,
       branch,
       x: depth * COL_W,
-      y: top + height / 2,
+      y: top + (rows * ROW_H) / 2,
       w,
-      h: 34,
-      parent,
+      childCount: kids.length,
+      expanded: isOpen,
+      parentPath: parent?.path ?? null,
+      parentX: parent ? parent.x + parent.w : 0,
+      parentY: parent?.y ?? 0,
     };
-    nodes.push(laid);
+    placed.push(self);
 
-    const kids = depth >= 3 ? [] : (node.children ?? []);
+    if (!isOpen) return;
     let cursor = top;
-    kids.forEach((k, i) => {
-      const kh = measure(k, depth + 1);
-      walk(k, depth + 1, cursor, depth === 0 ? i : branch, laid);
-      cursor += kh;
+    kids.forEach((kid, i) => {
+      const kidPath = `${path}.${i}`;
+      walk(kid, kidPath, depth + 1, cursor, depth === 0 ? i : branch, self);
+      cursor += visibleRows(kid, kidPath, expanded) * ROW_H;
     });
-    return height;
   };
 
-  const total = walk(root, 0, PAD_Y, 0, null);
-  return { nodes, height: total + PAD_Y * 2 };
+  walk(root, "0", 0, PAD, 0, null);
+
+  const maxDepth = placed.reduce((m, p) => Math.max(m, p.depth), 0);
+  return {
+    placed,
+    width: (maxDepth + 1) * COL_W + 40,
+    height: visibleRows(root, "0", expanded) * ROW_H + PAD * 2,
+  };
+}
+
+/** Every path that has children, for expand-all. */
+function allBranchPaths(node: MindNode, path = "0", out: string[] = []): string[] {
+  if (childrenOf(node).length) {
+    out.push(path);
+    childrenOf(node).forEach((k, i) => allBranchPaths(k, `${path}.${i}`, out));
+  }
+  return out;
 }
 
 export default function MindMap({ root, title }: { root: MindNode; title: string }) {
-  const { nodes, height } = useMemo(() => layout(root), [root]);
-  const maxDepth = nodes.reduce((m, n) => Math.max(m, n.depth), 0);
-  const width = (maxDepth + 1) * COL_W + 40;
-
+  // Starts fully collapsed: only the central topic is showing.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [zoom, setZoom] = useState(1);
   const viewRef = useRef<HTMLDivElement>(null);
-  const [zoom, setZoom] = useState<number | null>(null);
 
-  // Large trees overflow badly at 1:1 and scroll the root out of view, so fit
-  // the whole map to the viewport on first paint.
+  const { placed, width, height } = useMemo(
+    () => layout(root, expanded),
+    [root, expanded]
+  );
+
+  const branchPaths = useMemo(() => allBranchPaths(root), [root]);
+  const totalNodes = useMemo(() => {
+    const count = (n: MindNode): number =>
+      1 + childrenOf(n).reduce((s, k) => s + count(k), 0);
+    return count(root);
+  }, [root]);
+
   const fit = useCallback(() => {
     const el = viewRef.current;
     if (!el) return;
-    const pad = 16;
     const scale = Math.min(
-      (el.clientWidth - pad) / width,
-      (el.clientHeight - pad) / height,
-      1
+      (el.clientWidth - 24) / width,
+      (el.clientHeight - 24) / height,
+      1.4
     );
-    setZoom(Math.max(0.25, +scale.toFixed(2)));
+    setZoom(Math.max(0.3, +scale.toFixed(2)));
   }, [width, height]);
 
+  // Refit whenever the visible tree changes, so expanding never pushes the
+  // map out of view.
   useLayoutEffect(() => {
     fit();
-    const el = viewRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => {
-      if (zoom === null) fit();
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fit]);
 
-  const z = zoom ?? 1;
+  useEffect(() => {
+    const el = viewRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => fit());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fit]);
+
+  const toggle = (path: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        // Collapsing a node also collapses everything beneath it, so
+        // re-opening it later starts tidy rather than restoring a deep tree.
+        for (const p of prev) {
+          if (p === path || p.startsWith(`${path}.`)) next.delete(p);
+        }
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+
+  const allOpen = expanded.size === branchPaths.length;
 
   return (
     <div className="flex h-full flex-col">
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-[var(--muted)]">
-          {nodes.length} nodes · hover a node for its note
+          {placed.length} of {totalNodes} nodes ·{" "}
+          {expanded.size === 0
+            ? "click the centre topic to explore"
+            : "click a topic to expand or collapse"}
         </p>
         <div className="flex gap-1">
           <button
             className="btn !px-2.5 !py-1 !text-xs"
-            onClick={() => setZoom(Math.max(0.25, +(z - 0.1).toFixed(2)))}
+            onClick={() => setExpanded(allOpen ? new Set() : new Set(branchPaths))}
+          >
+            {allOpen ? "Collapse all" : "Expand all"}
+          </button>
+          <button
+            className="btn !px-2.5 !py-1 !text-xs"
+            onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.1).toFixed(2)))}
+            aria-label="Zoom out"
           >
             −
           </button>
           <button className="btn !px-2.5 !py-1 !text-xs" onClick={fit}>
-            Fit
+            {Math.round(zoom * 100)}%
           </button>
           <button
             className="btn !px-2.5 !py-1 !text-xs"
-            onClick={() => setZoom(1)}
-          >
-            {Math.round(z * 100)}%
-          </button>
-          <button
-            className="btn !px-2.5 !py-1 !text-xs"
-            onClick={() => setZoom(Math.min(2, +(z + 0.1).toFixed(2)))}
+            onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)))}
+            aria-label="Zoom in"
           >
             +
           </button>
@@ -141,66 +213,118 @@ export default function MindMap({ root, title }: { root: MindNode; title: string
 
       <div
         ref={viewRef}
-        className="min-h-0 flex-1 overflow-auto rounded-xl border border-[var(--border)] bg-[#0e1116]"
+        className="grid min-h-0 flex-1 place-items-center overflow-auto rounded-xl border border-[var(--border)] bg-[#0e1116] p-3"
       >
         <svg
-          width={width * z}
-          height={height * z}
+          width={width * zoom}
+          height={height * zoom}
           viewBox={`0 0 ${width} ${height}`}
           role="img"
-          aria-label={title}
+          aria-label={`Mind map: ${title}`}
         >
-          {nodes
-            .filter((n) => n.parent)
-            .map((n, i) => {
-              const p = n.parent!;
-              const x1 = p.x + p.w;
-              const y1 = p.y;
-              const x2 = n.x;
-              const y2 = n.y;
-              const mx = (x1 + x2) / 2;
+          {placed
+            .filter((p) => p.parentPath !== null)
+            .map((p) => {
+              const mx = (p.parentX + p.x) / 2;
               return (
                 <path
-                  key={`l-${i}`}
-                  d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`}
+                  key={`link-${p.path}`}
+                  className="mm-link"
+                  d={`M ${p.parentX} ${p.parentY} C ${mx} ${p.parentY}, ${mx} ${p.y}, ${p.x} ${p.y}`}
                   fill="none"
-                  stroke={COLORS[n.branch % COLORS.length]}
-                  strokeOpacity={n.depth === 1 ? 0.6 : 0.32}
-                  strokeWidth={n.depth === 1 ? 2 : 1.4}
+                  stroke={COLORS[p.branch % COLORS.length]}
+                  strokeOpacity={p.depth === 1 ? 0.55 : 0.3}
+                  strokeWidth={p.depth === 1 ? 2 : 1.4}
                 />
               );
             })}
 
-          {nodes.map((n, i) => {
-            const color = COLORS[n.branch % COLORS.length];
-            const isRoot = n.depth === 0;
+          {placed.map((p) => {
+            const color = COLORS[p.branch % COLORS.length];
+            const isRoot = p.depth === 0;
+            const hasKids = p.childCount > 0;
+            const label =
+              p.node.label.length > 24 ? `${p.node.label.slice(0, 23)}…` : p.node.label;
+
             return (
-              <g key={`n-${i}`} transform={`translate(${n.x}, ${n.y - n.h / 2})`}>
-                <title>{n.node.note || n.node.label}</title>
+              <g
+                key={p.path}
+                className="mm-node"
+                transform={`translate(${p.x}, ${p.y - NODE_H / 2})`}
+                role={hasKids ? "button" : undefined}
+                tabIndex={hasKids ? 0 : undefined}
+                aria-expanded={hasKids ? p.expanded : undefined}
+                aria-label={
+                  hasKids
+                    ? `${p.node.label}, ${p.expanded ? "expanded" : "collapsed"}, ${p.childCount} subtopics`
+                    : p.node.label
+                }
+                style={{ cursor: hasKids ? "pointer" : "default" }}
+                onClick={() => hasKids && toggle(p.path)}
+                onKeyDown={(e) => {
+                  if (hasKids && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    toggle(p.path);
+                  }
+                }}
+              >
+                <title>{p.node.note || p.node.label}</title>
+
                 <rect
-                  width={n.w}
-                  height={n.h}
+                  width={p.w}
+                  height={NODE_H}
                   rx={9}
                   fill={isRoot ? color : "#151a21"}
                   stroke={color}
-                  strokeOpacity={isRoot ? 1 : 0.55}
+                  strokeOpacity={isRoot ? 1 : p.expanded ? 0.9 : 0.5}
                   strokeWidth={isRoot ? 0 : 1.2}
                 />
-                {n.depth > 0 && (
-                  <rect width={3} height={n.h} rx={1.5} fill={color} opacity={0.9} />
+                {!isRoot && (
+                  <rect width={3} height={NODE_H} rx={1.5} fill={color} opacity={0.9} />
                 )}
+
                 <text
-                  x={n.depth > 0 ? 12 : n.w / 2}
-                  y={n.h / 2 + 4.5}
+                  x={isRoot ? p.w / 2 - (hasKids ? 10 : 0) : 12}
+                  y={NODE_H / 2 + 4.5}
                   textAnchor={isRoot ? "middle" : "start"}
                   fill={isRoot ? "#0b0d10" : "#e7ebf0"}
                   fontSize={isRoot ? 13.5 : 12}
                   fontWeight={isRoot ? 700 : 500}
+                  style={{ pointerEvents: "none", userSelect: "none" }}
                 >
-                  {n.node.label.length > 26
-                    ? `${n.node.label.slice(0, 25)}…`
-                    : n.node.label}
+                  {label}
                 </text>
+
+                {hasKids && (
+                  <g transform={`translate(${p.w - 20}, ${NODE_H / 2})`}>
+                    <circle
+                      r={9}
+                      fill={isRoot ? "rgba(0,0,0,0.22)" : p.expanded ? color : "#1f2530"}
+                      stroke={isRoot ? "transparent" : color}
+                      strokeOpacity={0.55}
+                      strokeWidth={1}
+                    />
+                    {p.expanded ? (
+                      <path
+                        d="M -4 0 H 4"
+                        stroke={isRoot ? "#0b0d10" : "#0b0d10"}
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                      />
+                    ) : (
+                      <text
+                        y={3.4}
+                        textAnchor="middle"
+                        fontSize={9.5}
+                        fontWeight={700}
+                        fill={isRoot ? "#0b0d10" : color}
+                        style={{ pointerEvents: "none", userSelect: "none" }}
+                      >
+                        {p.childCount}
+                      </text>
+                    )}
+                  </g>
+                )}
               </g>
             );
           })}
