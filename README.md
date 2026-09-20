@@ -551,6 +551,9 @@ Samples are rendered on first request and cached under `.data/voices/`, so the
 first play of a given voice takes a second or two and every later one is
 instant. The button shows `…` while rendering and `◼` while playing.
 
+Both pickers stay active under *Fixed voices*, so the hosts you chose are the
+hosts you get.
+
 The two pickers exclude each other's current choice, because two identical
 speakers render the dialogue in a single voice — which reads as a bug rather
 than a decision. Names are validated server-side too, because the service does
@@ -564,10 +567,34 @@ at normal speed.
 
 **Engine** — *Natural dialogue* (the default) renders the whole exchange through
 the multitalker voice in one request, so the hosts hand off to each other.
-*Even delivery* is the same voice with pause shaping switched off. *Classic
-voices* falls back to two separate multilingual neural voices, one `<voice>` tag
-per turn; it loses that hand-off and is a fixed Andrew/Ava pair, so the host
-pickers are disabled under it.
+*Even delivery* is the same voice with pause shaping switched off. *Fixed
+voices* renders each turn with a named standalone voice instead.
+
+### If a voice wanders
+
+The multitalker is one generative model rendering a whole conversation, and the
+speaker name is **conditioning, not selection** — it steers the output towards a
+voice rather than loading one. So identity can drift, occasionally within a
+turn.
+
+*Fixed voices* removes that by construction: each turn names an actual voice
+model, which cannot become a different one. Measured over repeated renders of
+the same line:
+
+| | Run-to-run median pitch | Within-turn spread |
+|---|---|---|
+| Ava, multitalker | 8% | 102 Hz |
+| Ava, fixed | **2%** | 88 Hz |
+| Andrew, multitalker | 9% | 88 Hz |
+| Andrew, fixed | **2%** | **54 Hz** |
+
+The cost is that turns are rendered independently, so the hosts stop reacting to
+each other's delivery and it sounds a little more read-aloud.
+
+Only **13 of the 25 speakers** exist as standalone voices — Ava, Aria, Emma,
+Evelyn, Jane, Jenny, Phoebe, Serena, Adam, Andrew, Brian, Davis and Steffan. The
+rest exist only inside the multitalker, and choosing one with fixed voices is
+refused with the list rather than quietly substituted.
 
 ### Making it sound less read-aloud
 

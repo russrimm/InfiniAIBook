@@ -13,8 +13,13 @@ import {
   MULTITALKER_SPEAKERS,
   RATE_CHOICES,
   AUDIO_LENGTHS,
+  PINNED_VOICES,
+  canPin,
   type AudioLength,
 } from "@/lib/voices";
+
+/** Speakers that can be pinned, listed when a chosen one cannot be. */
+const PINNABLE = Object.keys(PINNED_VOICES);
 import type {
   Artifact,
   ArtifactType,
@@ -23,7 +28,7 @@ import type {
 } from "@/lib/types";
 
 /** How the dialogue is rendered: voice family plus pause shaping. */
-type Delivery = "natural" | "even" | "classic";
+type Delivery = "natural" | "even" | "pinned";
 
 export default function StudioPanel({
   notebookId,
@@ -128,10 +133,8 @@ export default function StudioPanel({
       notebookId,
       topic: topic.trim() || undefined,
       sourceIds: selectedIds,
-      preset: delivery === "classic" ? "classic" : "conversational",
-      // The classic pair uses full Azure voice names rather than the
-      // multitalker speaker set, so per-host choices do not apply to it.
-      ...(delivery === "classic" ? {} : { voices: { a: hostA, b: hostB } }),
+      preset: delivery === "pinned" ? "classic" : "conversational",
+      voices: { a: hostA, b: hostB },
       rate: speed,
       breath: delivery === "even" ? 0 : 1,
       length: audioLen,
@@ -143,7 +146,11 @@ export default function StudioPanel({
   };
 
   const blocked = !hasSources || selectedIds.length === 0;
-  const classicVoices = delivery === "classic";
+  const pinnedVoices = delivery === "pinned";
+  /** Fixed voices exist for only some speakers, so warn before generating. */
+  const unpinnable = pinnedVoices
+    ? [hostA, hostB].filter((n) => !canPin(n))
+    : [];
 
   return (
     <aside className="flex h-full min-h-0 flex-col bg-[var(--panel)]">
@@ -191,7 +198,7 @@ export default function StudioPanel({
               <SpeakerSelect
                 value={hostA}
                 exclude={hostB}
-                disabled={!!busy || classicVoices}
+                disabled={!!busy}
                 onChange={setHostA}
                 onPreview={preview}
                 previewing={previewing}
@@ -200,7 +207,7 @@ export default function StudioPanel({
               <SpeakerSelect
                 value={hostB}
                 exclude={hostA}
-                disabled={!!busy || classicVoices}
+                disabled={!!busy}
                 onChange={setHostB}
                 onPreview={preview}
                 previewing={previewing}
@@ -250,14 +257,25 @@ export default function StudioPanel({
               >
                 <option value="natural">Natural dialogue</option>
                 <option value="even">Even delivery</option>
-                <option value="classic">Classic voices</option>
+                <option value="pinned">Fixed voices</option>
               </select>
             </div>
 
-            {classicVoices && (
+            {pinnedVoices && (
               <p className="text-[10px] leading-snug text-[var(--muted)]">
-                Classic renders each turn as a separate voice, so it loses the
-                conversational hand-off. Fixed pair: Andrew and Ava.
+                {unpinnable.length ? (
+                  <span className="text-amber-200/90">
+                    {unpinnable.join(" and ")}{" "}
+                    {unpinnable.length === 1 ? "has" : "have"} no fixed voice — pick
+                    from: {PINNABLE.join(", ")}.
+                  </span>
+                ) : (
+                  <>
+                    Each turn is rendered by a named voice rather than by the
+                    multi-speaker model, so the voice cannot drift. The hosts stop
+                    handing off to each other, so it sounds a little more read-aloud.
+                  </>
+                )}
               </p>
             )}
             {previewError && (

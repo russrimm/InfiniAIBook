@@ -115,11 +115,11 @@ function buildSsml(
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function synthesize(ssml: string): Promise<Buffer> {
+async function synthesize(ssml: string, format?: string): Promise<Buffer> {
   const url = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
   const headers: Record<string, string> = {
     "Content-Type": "application/ssml+xml",
-    "X-Microsoft-OutputFormat": OUTPUT_FORMAT,
+    "X-Microsoft-OutputFormat": format || OUTPUT_FORMAT,
     "User-Agent": "OpenNotebook",
   };
   if (speechKey) headers["Ocp-Apim-Subscription-Key"] = speechKey;
@@ -167,10 +167,16 @@ export type SynthesisResult = {
  * Render hand-written SSML. Exposed for probing what the voice actually
  * supports: the service accepts and ignores markup it does not implement
  * rather than refusing it, so the only way to know is to measure.
+ *
+ * `format` overrides the output codec — uncompressed PCM makes the audio
+ * directly analysable without decoding.
  */
-export async function synthesizeRawSsml(ssml: string): Promise<Buffer> {
+export async function synthesizeRawSsml(
+  ssml: string,
+  format?: string
+): Promise<Buffer> {
   assertConfigured();
-  return synthesize(ssml);
+  return synthesize(ssml, format);
 }
 
 export function wrapSsml(inner: string, voice = MULTITALKER_VOICE): string {

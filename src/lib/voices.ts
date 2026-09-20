@@ -65,6 +65,33 @@ export const VOICE_PRESETS: Record<string, VoicePair> = {
 };
 
 /**
+ * Speakers that also exist as standalone voices.
+ *
+ * The multitalker renders a whole dialogue from one generative model and takes
+ * the speaker name as *conditioning*, not as a selection — so a voice can
+ * wander within a turn. Naming a standalone voice instead pins the exact model
+ * for that turn, which cannot drift. Only these thirteen of the twenty-five
+ * speaker names have one; the rest exist only inside the multitalker.
+ */
+export const PINNED_VOICES: Record<string, string> = {
+  Ava: "en-US-AvaMultilingualNeural",
+  Aria: "en-US-AriaNeural",
+  Emma: "en-US-EmmaMultilingualNeural",
+  Evelyn: "en-US-EvelynMultilingualNeural",
+  Jane: "en-US-JaneNeural",
+  Jenny: "en-US-JennyMultilingualNeural",
+  Phoebe: "en-US-PhoebeMultilingualNeural",
+  Serena: "en-US-SerenaMultilingualNeural",
+  Adam: "en-US-AdamMultilingualNeural",
+  Andrew: "en-US-AndrewMultilingualNeural",
+  Brian: "en-US-BrianMultilingualNeural",
+  Davis: "en-US-DavisMultilingualNeural",
+  Steffan: "en-US-SteffanMultilingualNeural",
+};
+
+export const canPin = (speaker: string): boolean => speaker in PINNED_VOICES;
+
+/**
  * Playback speed. Measured against the multitalker voice: 0.8 lengthened a
  * sample by about a third and 1.25 shortened it, so the control is effective
  * on both voice families.
@@ -75,6 +102,24 @@ export const RATE_CHOICES = [0.8, 0.9, 1, 1.1, 1.25];
 
 export function resolveVoices(preset?: string, custom?: Partial<VoicePair>): VoicePair {
   const base = VOICE_PRESETS[preset ?? "conversational"] ?? VOICE_PRESETS.conversational;
+
+  // Pinned mode: the chosen hosts are rendered as standalone voices rather
+  // than as speaker names inside the multitalker, so identity cannot wander.
+  if (!base.multitalker && (custom?.a || custom?.b)) {
+    const pin = (name: string | undefined, fallback: string) => {
+      if (!name) return fallback;
+      if (PINNED_VOICES[name]) return PINNED_VOICES[name];
+      // Already a full voice name.
+      if (/^[a-z]{2}-[A-Z]{2}-/.test(name)) return name;
+      throw new Error(
+        `"${name}" has no standalone voice, so it cannot be used with fixed voices. Pick one of: ${Object.keys(
+          PINNED_VOICES
+        ).join(", ")}.`
+      );
+    };
+    return { multitalker: false, a: pin(custom.a, base.a), b: pin(custom.b, base.b) };
+  }
+
   if (!custom?.a && !custom?.b) return base;
 
   const pick = (name: string | undefined, fallback: string) => {
