@@ -14,7 +14,7 @@ import {
 } from "@/lib/retrieve";
 import { GROUNDING_RULES, PODCAST_INSTRUCTION } from "@/lib/studio";
 import { synthesizeDialogue, type Turn } from "@/lib/speech";
-import { clampRate, resolveVoices, VOICE_PRESETS } from "@/lib/voices";
+import { clampRate, resolveVoices, VOICE_PRESETS, audioLength, AUDIO_LENGTHS, WORDS_PER_MINUTE } from "@/lib/voices";
 import { audioDir } from "@/lib/paths";
 
 export const runtime = "nodejs";
@@ -58,9 +58,37 @@ function normalizeTurns(raw: unknown): Turn[] {
   return texts.map((text, i) => ({ speaker: i % 2 === 0 ? "a" : "b", text }));
 }
 
+const countWords = (turns: Turn[]) =>
+  turns.reduce((n, t) => n + (t.text.match(/\S+/g)?.length ?? 0), 0);
+
+/**
+ * Cut a script down to a word budget, keeping the opening and the last two
+ * turns. Speakers are reassigned by position afterwards, so removing turns
+ * from the middle cannot leave one voice talking to itself.
+ */
+function trimToWords(turns: Turn[], target: number): Turn[] {
+  if (turns.length <= 4) return turns;
+  const tail = turns.slice(-2);
+  const tailWords = countWords(tail);
+
+  const kept: Turn[] = [];
+  let used = tailWords;
+  for (const t of turns.slice(0, -2)) {
+    const w = t.text.match(/\S+/g)?.length ?? 0;
+    if (used + w > target && kept.length >= 2) break;
+    kept.push(t);
+    used += w;
+  }
+
+  return [...kept, ...tail].map((t, i) => ({
+    ...t,
+    speaker: i % 2 === 0 ? ("a" as const) : ("b" as const),
+  }));
+}
+
 export async function POST(req: Request) {
   try {
-    const { notebookId, topic, sourceIds, preset, voices: customVoices, rate, breath } =
+    const { notebookId, topic, sourceIds, preset, voices: customVoices, rate, breath, length } =
       (await req.json()) as {
         notebookId: string;
         topic?: string;
@@ -69,7 +97,10 @@ export async function POST(req: Request) {
         voices?: { a?: string; b?: string };
         rate?: number;
         breath?: number;
+        length?: string;
       };
+
+    const wanted = audioLength(length);
 
     const focused = topic?.trim()
       ? await retrieve(notebookId, topic, sourceIds, 24)
@@ -95,12 +126,16 @@ export async function POST(req: Request) {
 
     let script: Script | null = null;
     let lastError: unknown;
+    /** Fed back into the next attempt when a draft misses the running time. */
+    let lengthNote = "";
 
     for (let attempt = 0; attempt < 4; attempt++) {
       const messages: ChatMsg[] = [
         {
           role: "system",
-          content: `${GROUNDING_RULES}\n\n${PODCAST_INSTRUCTION(topic?.trim() ?? "")}`,
+          content: `${GROUNDING_RULES}\n\n${PODCAST_INSTRUCTION(topic?.trim() ?? "", {
+            audioLength: wanted,
+          })}${lengthNote}`,
         },
         {
           role: "user",
@@ -122,12 +157,83 @@ export async function POST(req: Request) {
     }
     if (!script) throw lastError;
 
-    const turns = normalizeTurns(script.turns);
+    let turns = normalizeTurns(script.turns);
     if (turns.length < 2) {
       return NextResponse.json(
         { error: "The model did not return a usable dialogue. Try again." },
         { status: 502 }
       );
+    }
+
+    /**
+     * Hit the requested running time.
+     *
+     * Stating a word budget in the prompt is not enough on its own: asked for
+     * a three minute overview the model wrote 885 words against a 480 target,
+     * and for ten minutes it wrote 3,849 against 1,610 — over twice the
+     * length, twice. So the draft is measured and rewritten with the actual
+     * numbers quoted back, which is concrete in a way "about 1,610 words" is
+     * not.
+     */
+    const targetWords = AUDIO_LENGTHS[wanted].words;
+    for (let pass = 0; pass < 2; pass++) {
+      const words = countWords(turns);
+      const ratio = words / targetWords;
+      if (ratio <= 1.2 && ratio >= 0.75) break;
+
+      const minutes = words / WORDS_PER_MINUTE;
+      lengthNote = `\n\nLENGTH CORRECTION
+Your previous draft was ${words} words, which runs about ${minutes.toFixed(
+        1
+      )} minutes. The target is ${AUDIO_LENGTHS[wanted].minutes} minutes, which is ${targetWords} words.
+Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"} — you were ${
+        ratio > 1 ? (ratio).toFixed(1) : (1 / ratio).toFixed(1)
+      } times ${ratio > 1 ? "too long" : "too short"}.
+${
+  ratio > 1
+    ? "Cover the same ground in fewer words: cut repetition, drop the least important thread entirely, and keep turns tighter. Do not simply delete the ending."
+    : "Go deeper rather than padding: take on more of the material, follow the implications further, and let the hosts disagree at more length."
+}
+Count the words in your answer before returning it.`;
+
+      try {
+        const retry = await chatJSON<Script>(
+          [
+            {
+              role: "system",
+              content: `${GROUNDING_RULES}\n\n${PODCAST_INSTRUCTION(
+                topic?.trim() ?? "",
+                { audioLength: wanted }
+              )}${lengthNote}`,
+            },
+            {
+              role: "user",
+              content: `SOURCE EXCERPTS\n===============\n${buildContext(passages)}`,
+            },
+          ],
+          0.7
+        );
+        const next = normalizeTurns(retry.turns);
+        // Only take the rewrite if it actually moved towards the target.
+        if (
+          next.length >= 2 &&
+          Math.abs(countWords(next) - targetWords) < Math.abs(words - targetWords)
+        ) {
+          turns = next;
+          script = retry;
+        }
+      } catch {
+        // A failed correction is not worth failing the whole request over.
+        break;
+      }
+    }
+
+    // Backstop. A rewrite can still come back long, and the running time was
+    // asked for explicitly, so an over-long script is trimmed rather than
+    // narrated. The opening and the close are kept — cutting the tail would
+    // end the conversation mid-thought.
+    if (countWords(turns) > targetWords * 1.35) {
+      turns = trimToWords(turns, targetWords);
     }
 
     const voices = resolveVoices(preset, customVoices);
@@ -157,6 +263,8 @@ export async function POST(req: Request) {
       durationSec: Number(durationSec.toFixed(2)),
       voices: { a: voices.a, b: voices.b },
       rate: speed,
+      length: wanted,
+      targetMinutes: AUDIO_LENGTHS[wanted].minutes,
       citations: citationList(passages),
     };
 

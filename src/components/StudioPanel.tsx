@@ -8,7 +8,13 @@ import {
   STYLE_ORDER,
   type InfographicStyle,
 } from "@/lib/infographic";
-import { VOICE_PRESETS, MULTITALKER_SPEAKERS, RATE_CHOICES } from "@/lib/voices";
+import {
+  VOICE_PRESETS,
+  MULTITALKER_SPEAKERS,
+  RATE_CHOICES,
+  AUDIO_LENGTHS,
+  type AudioLength,
+} from "@/lib/voices";
 import type {
   Artifact,
   ArtifactType,
@@ -39,6 +45,7 @@ export default function StudioPanel({
   const [difficulty, setDifficulty] = useState<StudyDifficulty>("medium");
   const [length, setLength] = useState<StudyLength>("standard");
   const [delivery, setDelivery] = useState<Delivery>("natural");
+  const [audioLen, setAudioLen] = useState<AudioLength>("medium");
   const [hostA, setHostA] = useState(VOICE_PRESETS.conversational.a);
   const [hostB, setHostB] = useState(VOICE_PRESETS.conversational.b);
   const [speed, setSpeed] = useState(1);
@@ -127,6 +134,7 @@ export default function StudioPanel({
       ...(delivery === "classic" ? {} : { voices: { a: hostA, b: hostB } }),
       rate: speed,
       breath: delivery === "even" ? 0 : 1,
+      length: audioLen,
     });
 
   const remove = async (id: string) => {
@@ -169,7 +177,7 @@ export default function StudioPanel({
               <span className="block text-[13px] font-medium">Audio overview</span>
               <span className="block text-[10px] leading-snug text-[var(--muted)]">
                 {busy === "podcast"
-                  ? "Writing and narrating… this takes a minute"
+                  ? `Writing and narrating about ${AUDIO_LENGTHS[audioLen].minutes} minutes — this takes a while`
                   : "Two hosts discuss your sources"}
               </span>
             </span>
@@ -198,6 +206,24 @@ export default function StudioPanel({
                 previewing={previewing}
                 loading={previewLoading}
               />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                Length
+              </span>
+              <select
+                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                value={audioLen}
+                disabled={!!busy}
+                onChange={(e) => setAudioLen(e.target.value as AudioLength)}
+              >
+                {(Object.keys(AUDIO_LENGTHS) as AudioLength[]).map((k) => (
+                  <option key={k} value={k}>
+                    {AUDIO_LENGTHS[k].label} — about {AUDIO_LENGTHS[k].minutes} min
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="flex items-center gap-2">

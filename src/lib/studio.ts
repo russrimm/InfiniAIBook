@@ -1,4 +1,5 @@
 import type { ArtifactType, StudyDifficulty, StudyLength, StudyOptions } from "./types";
+import { AUDIO_LENGTHS, audioLength } from "./voices";
 
 export const GROUNDING_RULES = `
 You are OpenNotebook, a research assistant that answers ONLY from the provided source excerpts.
@@ -259,9 +260,11 @@ unless the style guidance below asks for them.`,
     blurb: "Two-host conversation",
     icon: "🎧",
     json: true,
-    instruction: (topic) => `Write a two-host audio overview of the sources${
-      topic ? `, focused on: ${topic}` : ""
-    }.
+    instruction: (topic, opts) => {
+      const len = AUDIO_LENGTHS[audioLength(opts?.audioLength)];
+      return `Write a two-host audio overview of the sources${
+        topic ? `, focused on: ${topic}` : ""
+      }.
 ${jsonNote}
 Schema:
 {
@@ -272,8 +275,20 @@ Schema:
 Hosts: "a" drives the conversation and asks the questions. "b" is the analyst who
 explains and supplies detail.
 
+LENGTH
+This is spoken at about 161 words per minute, and the target is ${len.minutes} minutes.
+Write roughly ${len.words} words in total across ${len.turns[0]}-${len.turns[1]} turns.
+The word count is the target that matters — it is what sets the running time.
+Count as you go and keep going until you reach it${
+        len.minutes >= 10
+          ? ". At this length, cover the material properly: take separate parts of it in turn, follow the implications, and let the hosts work through disagreements rather than summarising faster"
+          : ""
+      }.
+Do not pad to reach the number. If the sources genuinely do not support this
+much, write what they do support rather than repeating yourself.
+
 Rules:
-- 16-24 turns, strictly alternating, starting with "a".
+- Strictly alternating turns, starting with "a".
 - This is spoken aloud: no markdown, bullets, headings, citation markers, URLs,
   emoji or stage directions. Write only the words to be said.
 - Spell out anything a text-to-speech voice would mangle: "about 68 percent" not
@@ -305,7 +320,8 @@ like a document being narrated is almost entirely in the writing.
 - Ask real questions, including ones that push back. A host who only says
   "fascinating, tell me more" sounds like a prompt, not a person.
 - No filler that carries no meaning. "Um" and "uh" on a synthetic voice read as
-  a glitch rather than as thinking.`,
+  a glitch rather than as thinking.`;
+    },
   },
 };
 

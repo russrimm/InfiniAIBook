@@ -96,3 +96,27 @@ export function clampRate(rate?: number): number {
   if (!Number.isFinite(rate)) return 1;
   return Math.min(MAX_RATE, Math.max(MIN_RATE, rate as number));
 }
+
+/**
+ * Speaking rate, measured rather than assumed: 2,261 words across 14.0 minutes
+ * of generated overviews came to 161 words per minute, consistently across
+ * three separate notebooks. Target word counts below are derived from it.
+ */
+export const WORDS_PER_MINUTE = 161;
+
+export type AudioLength = "short" | "medium" | "long";
+
+export const AUDIO_LENGTHS: Record<
+  AudioLength,
+  { label: string; minutes: number; words: number; turns: [number, number] }
+> = {
+  // Turn ranges follow from the word budget at roughly 38 words a turn, which
+  // is what the existing overviews averaged.
+  short: { label: "Short", minutes: 3, words: 480, turns: [12, 16] },
+  medium: { label: "Medium", minutes: 6, words: 970, turns: [22, 28] },
+  long: { label: "Long", minutes: 10, words: 1610, turns: [36, 44] },
+};
+
+export function audioLength(key?: string): AudioLength {
+  return key === "short" || key === "long" ? key : "medium";
+}

@@ -21,7 +21,7 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 
 | Format | Output |
 |---|---|
-| 🎧 Audio overview | Two hosts discuss your sources — real MP3 audio with a synced, clickable transcript |
+| 🎧 Audio overview | Two hosts discuss your sources — real MP3 audio with a synced, clickable transcript, at roughly 3, 6 or 10 minutes |
 | 📄 Report | Executive summary, analytical sections, key takeaways, open questions |
 | 🧾 Briefing doc | Under 700 words: bottom line, evidence, risks, next steps |
 | 📊 Infographic | Headline stats, themed sections, key takeaway — **19 styles**, illustrated by default |
@@ -507,7 +507,33 @@ which is what drives the synced transcript.
 
 ### Voice and pace
 
-Four controls sit on the Audio overview card:
+Five controls sit on the Audio overview card:
+
+**Length** — Short, Medium or Long, with the rough running time shown against
+each:
+
+| | Target | Typical | Generation time |
+|---|---|---|---|
+| Short | ~3 min | 11–14 turns | ~2.5 min |
+| Medium | ~6 min | 22–26 turns | ~4 min |
+| Long | ~10 min | 34–38 turns | ~6 min |
+
+The targets come from measurement, not estimation: 2,261 words across 14.0
+minutes of generated overviews works out at **161 words per minute**,
+consistently across three separate notebooks. Each length is a word budget
+derived from that rate.
+
+Asking for a word count is not enough on its own. Asked for three minutes the
+model wrote 885 words against a 480 target; asked for ten it wrote 3,849 against
+1,610 — over twice the length, both times. So the draft is measured, and if it
+misses it is rewritten with its own numbers quoted back to it ("your draft was
+3,849 words, which runs about 23 minutes; the target is 10 minutes"), which is
+concrete in a way a target alone is not. If a rewrite still comes back far too
+long it is trimmed, keeping the opening and the closing two turns so the
+conversation does not end mid-thought.
+
+Measured after that change: 2.8 min against a 3 min target, 7.0 against 6, and
+9.5 against 10.
 
 **Hosts** — pick each voice individually from the 25 en-US DragonHD speakers,
 grouped by female and male:
@@ -587,7 +613,7 @@ The same choices are available on the API:
 
 ```bash
 curl -X POST localhost:3000/api/podcast -H 'content-type: application/json' \
-  -d '{"notebookId":"...","voices":{"a":"Davis","b":"Nova"},"rate":1.1}'
+  -d '{"notebookId":"...","voices":{"a":"Davis","b":"Nova"},"rate":1.1,"length":"long"}'
 
 # and a single speaker's sample
 curl localhost:3000/api/voice-preview/Nova --output nova.mp3

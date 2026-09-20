@@ -13,7 +13,12 @@ export type ArtifactType =
 /** Study aids can be tuned for depth and rigour at generation time. */
 export type StudyDifficulty = "easy" | "medium" | "hard";
 export type StudyLength = "short" | "standard" | "long";
-export type StudyOptions = { difficulty?: StudyDifficulty; length?: StudyLength };
+export type StudyOptions = {
+  difficulty?: StudyDifficulty;
+  length?: StudyLength;
+  /** Target running time for the audio overview. */
+  audioLength?: string;
+};
 
 export type Citation = {
   n: number;
@@ -109,6 +114,9 @@ export type PodcastContent = {
   audioUrl: string;
   durationSec: number;
   voices: { a: string; b: string };
+  /** Requested running time, so the result can be compared with the target. */
+  length?: string;
+  targetMinutes?: number;
 };
 
 export type ArtifactContent =
