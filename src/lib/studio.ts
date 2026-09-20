@@ -347,7 +347,15 @@ like a document being narrated is almost entirely in the writing.
 - Ask real questions, including ones that push back. A host who only says
   "fascinating, tell me more" sounds like a prompt, not a person.
 - No filler that carries no meaning. "Um" and "uh" on a synthetic voice read as
-  a glitch rather than as thinking.`;
+  a glitch rather than as thinking.
+- A reaction may be written out as a sound where a person would actually make
+  one: "Ha!" at something absurd, "Heh." at something wry, "Hmm." while
+  weighing an objection, "Oh!" at a genuine surprise, "Phew." at a large number.
+  Use at most two or three in the entire conversation, always at the start of a
+  turn and followed by the substance of the reaction, as in "Ha! That can't be
+  right — how did they land on that?". These are spoken as written, so a string
+  of them reads as a tic rather than as warmth. Never write one as a stage
+  direction: "(laughs)" is read out as the word.`;
     },
   },
 };

@@ -532,6 +532,33 @@ something else, and a segment cut away entirely loses its marker instead of
 pointing somewhere arbitrary. Overviews generated before this existed still play
 — they simply have no chapters.
 
+### Laughter, sighs and sound effects
+
+The hosts can react with a sound where a person would — "Ha!" at something
+absurd, "Hmm." while weighing an objection, "Phew." at a large number. These are
+written into the script and spoken as written, capped at two or three in a whole
+conversation: they are a tic rather than warmth if overused. A generated
+three-minute overview used one across fifteen turns.
+
+What is *not* possible, and why:
+
+**Emotion styles.** Of 116 en-US voices, only 24 declare any style, and none
+declares laughter or sighing — the closest are `cheerful`, `excited`, `sad` and
+`whispering`. The multitalker declares none at all, and `mstts:express-as` is
+accepted and ignored rather than refused.
+
+**Stage directions.** `(laughs)` and `[SFX: door closes]` are read aloud, word
+for word. The prompt forbids them and `cleanSpoken` strips them anyway, because
+a model trained on recording scripts reaches for them regardless.
+
+**Recorded clips** are possible but not wired up. `<audio src>` genuinely works
+— a two-second clip added 1.96 seconds to a multitalker turn and 1.55 to a
+classic one — and `<mstts:backgroundaudio>` mixes a bed underneath rather than
+appending it. Two things make it more than a one-line change: the service
+fetches the URL itself, so clips must be public HTTPS rather than served from
+`.data/`, and a clip it cannot reach is skipped **silently**, so a broken effect
+would be invisible rather than an error.
+
 ### Voice and pace
 
 Five controls sit on the Audio overview card:
