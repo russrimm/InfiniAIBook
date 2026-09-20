@@ -24,7 +24,7 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 | 🎧 Audio overview | Two hosts discuss your sources — real MP3 audio with a synced, clickable transcript |
 | 📄 Report | Executive summary, analytical sections, key takeaways, open questions |
 | 🧾 Briefing doc | Under 700 words: bottom line, evidence, risks, next steps |
-| 📊 Infographic | Headline stats, themed sections, key takeaway — **17 styles** incl. charts, comparisons, checklists |
+| 📊 Infographic | Headline stats, themed sections, key takeaway — **18 styles**, illustrated by default |
 | 🕸️ Mind map | Interactive concept tree — starts collapsed, expand topic by topic |
 | 🧠 Quiz | 10 multiple-choice questions, interactive, scored, with explanations |
 | 🎓 Study guide | Core concepts, glossary table, short-answer questions + answer key |
@@ -202,9 +202,21 @@ az cognitiveservices account deployment list -n <resource> -g <rg> \
 
 ## Infographic styles
 
-Pick a style in the Studio panel before generating. Seventeen are available,
-drawn from two well-known sets of infographic prompt templates — one visual,
-one structural — reconciled into a single list.
+Pick a style in the Studio panel before generating. Eighteen are available.
+
+**Illustrated** is the default: a wide editorial piece that turns each idea into
+a visual metaphor rather than a box of prose. It identifies the 6–10 most
+important ideas, groups them into 2–3 thematic regions, and gives each a bold
+takeaway, a hand-drawn SVG metaphor, one or two cited sentences, and an
+oversized figure where the sources state a real one.
+
+Metaphors are chosen by meaning, from a fixed vocabulary the prompt supplies —
+scales for comparisons, gauges for limits, pipes for flows, coins for cost,
+gears for configuration, shields for security, funnels for optimisation,
+roadmaps for processes, and ten more. They are drawn as inline SVG in one visual
+language (navy outlines, rounded geometry, blue/teal/green with selective
+orange), so they stay crisp at any size, tint to match their region, and never
+misspell a label.
 
 **Structure-led** — these change what the infographic *is*:
 

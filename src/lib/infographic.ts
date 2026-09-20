@@ -11,7 +11,10 @@
  * diffusion model.
  */
 
+import { METAPHOR_HINTS, METAPHOR_KEYS } from "./metaphors";
+
 export type InfographicStyle =
+  | "illustrated"
   | "classic"
   | "flat"
   | "data"
@@ -38,7 +41,8 @@ export type InfographicLayout =
   | "editorial"
   | "compare"
   | "checklist"
-  | "data";
+  | "data"
+  | "illustrated";
 
 export type InfographicTheme = {
   bg: string;
@@ -82,7 +86,60 @@ const MONO = 'var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace'
 const CASUAL =
   '"Segoe Print", "Bradley Hand", "Comic Sans MS", ui-rounded, cursive, sans-serif';
 
+/** Metaphor vocabulary, listed for the prompt so the model picks a real key. */
+const METAPHOR_LIST = METAPHOR_KEYS.map(
+  (k) => `  ${k} — ${METAPHOR_HINTS[k]}`
+).join("\n");
+
 export const INFOGRAPHIC_STYLES: Record<InfographicStyle, StyleDef> = {
+  /**
+   * The default. A wide editorial piece that turns each idea into a visual
+   * metaphor rather than a box of prose, grouped into a few thematic regions.
+   */
+  illustrated: {
+    label: "Illustrated",
+    blurb: "Editorial, visual metaphors",
+    icon: "🖼️",
+    layout: "illustrated",
+    hint: `Analyse the material and identify the 6-10 most important ideas. Do not
+restate paragraphs — turn each idea into something that can be shown.
+
+Populate "regions" with 2-3 thematic groups, each { "heading": 2-4 words,
+"concepts": [...] }, distributing the ideas between them. Each concept is
+{ "takeaway": a bold claim of 3-8 words, "detail": 1-3 short sentences with a
+citation marker, "metaphor": one key from the list below, "value": an optional
+short figure taken literally from the sources, e.g. "68%", "$2.4B", "12 weeks" }.
+
+Choose "metaphor" by what the idea *is*, not by decoration:
+${METAPHOR_LIST}
+
+Set "value" only where the sources state a real figure — it is rendered
+oversized, so an invented or vague number is conspicuous. Leave it out otherwise.
+Give "takeaway" the weight: it is read first and set in bold.
+Keep "sections" empty; "regions" replaces it for this style.
+"title" is one strong headline. "subtitle" is a single line of context.`,
+    theme: {
+      bg: "#f7faf9",
+      surface: "#ffffff",
+      border: "#d4e2e4",
+      borderStyle: "solid",
+      borderWidth: 1,
+      radius: 16,
+      text: "#2c3e4c",
+      muted: "#61798a",
+      heading: "#0f2233",
+      accent: "#0e7490",
+      accent2: "#15803d",
+      headerBg: "#f7faf9",
+      headerText: "#0b1b2b",
+      headerSubText: "#51677a",
+      statValue: "#0e7490",
+      font: SANS,
+      headingFont: SANS,
+      shadow: "0 10px 24px -18px rgba(15,34,51,0.45)",
+    },
+  },
+
   classic: {
     label: "Classic",
     blurb: "Dark studio default",
@@ -630,6 +687,7 @@ so the cards stay balanced.`,
 };
 
 export const STYLE_ORDER: InfographicStyle[] = [
+  "illustrated",
   "classic",
   "flat",
   "data",
@@ -654,7 +712,13 @@ const ALIASES: Record<string, InfographicStyle> = {
   isometric: "process",
 };
 
+/** What new infographics use unless the user picks otherwise. */
+export const DEFAULT_STYLE: InfographicStyle = "illustrated";
+
 export function styleDef(style?: string): StyleDef {
-  const key = ALIASES[style ?? ""] ?? (style as InfographicStyle);
+  // Artifacts created before styles existed have no key and no regions, so
+  // they must keep resolving to the original look rather than the new default.
+  if (!style) return INFOGRAPHIC_STYLES.classic;
+  const key = ALIASES[style] ?? (style as InfographicStyle);
   return INFOGRAPHIC_STYLES[key] ?? INFOGRAPHIC_STYLES.classic;
 }

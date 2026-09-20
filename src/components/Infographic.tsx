@@ -1,6 +1,7 @@
 "use client";
 
 import { InlineCited } from "./Markdown";
+import Metaphor from "./Metaphors";
 import { styleDef, type InfographicTheme } from "@/lib/infographic";
 import type { Citation, InfographicContent } from "@/lib/types";
 
@@ -452,11 +453,101 @@ export default function Infographic({ content, citations }: Props) {
     </div>
   );
 
+  /**
+   * Wide editorial layout: a few thematic regions, each holding concepts shown
+   * as a metaphor plus a bold takeaway, with any real figure set oversized.
+   */
+  const IllustratedBody = () => {
+    const regions = content.regions ?? [];
+    if (!regions.length) return <StackBody />;
+
+    // Alternate the two theme colours so regions read as distinct bands.
+    const tint = (i: number) => (i % 2 === 0 ? t.accent : t.accent2);
+
+    return (
+      <div className="space-y-5">
+        {regions.map((region, ri) => {
+          const c = tint(ri);
+          const soft = `color-mix(in srgb, ${c} 14%, #ffffff)`;
+          return (
+            <section
+              key={ri}
+              className="rounded-2xl px-4 py-4 sm:px-5"
+              style={{ background: `color-mix(in srgb, ${c} 5%, transparent)` }}
+            >
+              <div className="mb-3.5 flex items-center gap-2.5">
+                <span
+                  className="h-6 w-1.5 shrink-0 rounded-full"
+                  style={{ background: c }}
+                  aria-hidden
+                />
+                <h2
+                  className="text-[15px] font-bold tracking-tight sm:text-[17px]"
+                  style={{ color: t.heading, fontFamily: t.headingFont }}
+                >
+                  {region.heading}
+                </h2>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {region.concepts.map((concept, ci) => (
+                  <article
+                    key={ci}
+                    className="flex flex-col gap-2.5 p-4"
+                    style={{
+                      background: t.surface,
+                      border: `1px solid color-mix(in srgb, ${c} 26%, ${t.border})`,
+                      borderRadius: t.radius,
+                      boxShadow: t.shadow,
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <Metaphor metaphor={concept.metaphor} accent={c} soft={soft} size={56} />
+                      {concept.value && (
+                        <span
+                          className="text-[26px] leading-none font-extrabold tracking-tight tabular-nums sm:text-[30px]"
+                          style={{ color: c }}
+                        >
+                          {concept.value}
+                        </span>
+                      )}
+                    </div>
+                    <h3
+                      className="text-[14.5px] leading-snug font-bold"
+                      style={{ color: t.heading, fontFamily: t.headingFont }}
+                    >
+                      {concept.takeaway}
+                    </h3>
+                    {concept.detail && (
+                      <p className="text-[12.5px] leading-snug" style={{ color: t.text }}>
+                        {cite(concept.detail)}
+                      </p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+
+        {content.sections.length > 0 && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {content.sections.map((s, i) => (
+              <Section key={i} section={s} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const body =
     def.layout === "bento" ? (
       <BentoBody />
     ) : def.layout === "editorial" ? (
       <EditorialBody />
+    ) : def.layout === "illustrated" ? (
+      <IllustratedBody />
     ) : def.layout === "flow" ? (
       <FlowBody />
     ) : def.layout === "compare" ? (
@@ -488,7 +579,7 @@ export default function Infographic({ content, citations }: Props) {
       }}
     >
       <header
-        className="px-7 py-7 text-center"
+        className={`text-center ${def.layout === "illustrated" ? "px-7 py-9" : "px-7 py-7"}`}
         style={{
           background: t.headerBg,
           borderBottom:
@@ -498,7 +589,11 @@ export default function Infographic({ content, citations }: Props) {
         }}
       >
         <h1
-          className="text-[26px] leading-tight font-bold sm:text-[30px]"
+          className={
+            def.layout === "illustrated"
+              ? "mx-auto max-w-3xl text-[30px] leading-[1.12] font-extrabold tracking-tight sm:text-[40px]"
+              : "text-[26px] leading-tight font-bold sm:text-[30px]"
+          }
           style={{
             color: t.headerText,
             fontFamily: t.headingFont,

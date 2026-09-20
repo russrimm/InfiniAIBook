@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { STUDIO, STUDIO_ORDER } from "@/lib/studio";
 import {
+  DEFAULT_STYLE,
   INFOGRAPHIC_STYLES,
   STYLE_ORDER,
   type InfographicStyle,
@@ -26,7 +27,7 @@ export default function StudioPanel({
   onChanged: () => Promise<void> | void;
 }) {
   const [topic, setTopic] = useState("");
-  const [style, setStyle] = useState<InfographicStyle>("classic");
+  const [style, setStyle] = useState<InfographicStyle>(DEFAULT_STYLE);
   const [voicePreset, setVoicePreset] = useState("conversational");
   const [speed, setSpeed] = useState(1);
   const [busy, setBusy] = useState<ArtifactType | null>(null);

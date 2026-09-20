@@ -4,7 +4,7 @@ import { ok, fail } from "@/lib/http";
 import { chatJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES, STUDIO } from "@/lib/studio";
-import { styleDef } from "@/lib/infographic";
+import { DEFAULT_STYLE, styleDef } from "@/lib/infographic";
 import type { ArtifactType } from "@/lib/types";
 import { NextResponse } from "next/server";
 
@@ -155,6 +155,44 @@ function normalize(type: ArtifactType, raw: Loose): Loose {
         .filter(Boolean)
         .slice(0, 10) as { title: string; detail: string }[];
 
+      const regions = arr(raw.regions)
+        .map((r) => {
+          const o = r as Loose;
+          const concepts = arr(o.concepts)
+            .map((c) => {
+              const k = c as Loose;
+              if (!str(k.takeaway)) return null;
+              const value = str(k.value).trim();
+              return {
+                takeaway: str(k.takeaway),
+                detail: str(k.detail),
+                metaphor: str(k.metaphor, "lightbulb"),
+                // Rendered oversized, so a long string would dominate the card.
+                value: value && value.length <= 10 ? value : undefined,
+              };
+            })
+            .filter(Boolean)
+            .slice(0, 6) as {
+            takeaway: string;
+            detail: string;
+            metaphor: string;
+            value?: string;
+          }[];
+          return str(o.heading) && concepts.length
+            ? { heading: str(o.heading), concepts }
+            : null;
+        })
+        .filter(Boolean)
+        .slice(0, 3) as {
+        heading: string;
+        concepts: {
+          takeaway: string;
+          detail: string;
+          metaphor: string;
+          value?: string;
+        }[];
+      }[];
+
       // The header sits on a themed, often accent-coloured band, where a
       // citation pill is either invisible or stray text depending on the
       // style. Headings frame the piece; the claims they preview are cited
@@ -175,6 +213,7 @@ function normalize(type: ArtifactType, raw: Loose): Loose {
         chart: chart.length >= 2 ? chart : undefined,
         compare,
         checklist: checklist.length ? checklist : undefined,
+        regions: regions.length ? regions : undefined,
       };
     }
     default: {
@@ -192,13 +231,14 @@ function isEmpty(type: ArtifactType, c: Loose): boolean {
   if (type === "faq") return (c.items as unknown[]).length === 0;
   if (type === "timeline") return (c.items as unknown[]).length === 0;
   if (type === "infographic") {
-    // Checklist and comparison styles legitimately carry little or no
-    // "sections", so the body can live in any of these.
+    // Checklist, comparison and illustrated styles legitimately carry little
+    // or no "sections", so the body can live in any of these.
     return (
       (c.sections as unknown[]).length === 0 &&
       !c.compare &&
       !(c.checklist as unknown[] | undefined)?.length &&
-      !(c.chart as unknown[] | undefined)?.length
+      !(c.chart as unknown[] | undefined)?.length &&
+      !(c.regions as unknown[] | undefined)?.length
     );
   }
   if (type === "mindmap") return ((c.root as Loose).children as unknown[]).length === 0;
@@ -219,10 +259,12 @@ export async function POST(req: Request) {
     if (!spec) return NextResponse.json({ error: "Unknown artifact type" }, { status: 400 });
 
     // Infographic styles change the content shape, not just the palette.
-    const styleHint =
-      type === "infographic" && style
-        ? `\n\nSTYLE: ${styleDef(style).label}\n${styleDef(style).hint}`.trimEnd()
-        : "";
+    // Resolve once: the same key must drive both the prompt and what is
+    // stored, or the artifact renders in a style it was not written for.
+    const activeStyle = type === "infographic" ? style || DEFAULT_STYLE : undefined;
+    const styleHint = activeStyle
+      ? `\n\nSTYLE: ${styleDef(activeStyle).label}\n${styleDef(activeStyle).hint}`.trimEnd()
+      : "";
 
     const collect = (budget: number): Passage[] => {
       if (topic?.trim()) {
@@ -296,7 +338,7 @@ export async function POST(req: Request) {
     const title = str(content.title, spec.label);
     const stored = {
       ...content,
-      ...(type === "infographic" ? { style: style || "classic" } : {}),
+      ...(activeStyle ? { style: activeStyle } : {}),
       citations,
     };
     db.prepare(

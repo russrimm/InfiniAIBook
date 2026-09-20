@@ -169,7 +169,11 @@ export default function ArtifactModal({
       onClick={onClose}
     >
       <div
-        className="fade-up flex h-full w-full max-w-4xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] sm:rounded-2xl"
+        className={`fade-up flex h-full w-full flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] sm:rounded-2xl ${
+          // Infographics are composed as wide editorial pieces; at 4xl the
+          // illustrated layout reflows into a tall column instead.
+          artifact.type === "infographic" ? "max-w-6xl" : "max-w-4xl"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">

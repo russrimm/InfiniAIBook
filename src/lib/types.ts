@@ -61,6 +61,16 @@ export type InfographicContent = {
   };
   /** Actionable items, used by the checklist layout. */
   checklist?: { title: string; detail: string }[];
+  /** Thematic groups of visual concepts, used by the illustrated layout. */
+  regions?: {
+    heading: string;
+    concepts: {
+      takeaway: string;
+      detail: string;
+      metaphor: string;
+      value?: string;
+    }[];
+  }[];
 };
 
 export type PodcastTurn = { speaker: "a" | "b"; text: string; at: number };
