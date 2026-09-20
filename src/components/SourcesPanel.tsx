@@ -49,6 +49,7 @@ export default function SourcesPanel({
   onOpen,
   onChanged,
   onDiscover,
+  onBrowse,
   addRef,
 }: {
   notebookId: string;
@@ -60,6 +61,7 @@ export default function SourcesPanel({
   onOpen: (id: string) => void;
   onChanged: () => Promise<void> | void;
   onDiscover: () => void;
+  onBrowse: () => void;
   addRef: React.MutableRefObject<((hits: DiscoverHit[]) => void) | null>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -219,6 +221,9 @@ export default function SourcesPanel({
           </button>
           <button className="btn !px-2 !py-1.5 !text-xs" onClick={onDiscover}>
             🔎 Find
+          </button>
+          <button className="btn !px-2 !py-1.5 !text-xs" onClick={onBrowse}>
+            🌐 Browse
           </button>
         </div>
 

@@ -12,7 +12,7 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 
 | | |
 |---|---|
-| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON, HTML or **images** (described by a vision model); paste raw text; add a URL — including **YouTube links** and **RSS/Atom feeds**; or **discover sources** by describing a topic and picking from web results. Ingestion runs in the background, so you can keep adding while earlier items process. |
+| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON, HTML or **images** (described by a vision model); paste raw text; add a URL — including **YouTube links** and **RSS/Atom feeds**; or **discover sources** by describing a topic and picking from web results; or browse the web in-app and keep what is useful. Ingestion runs in the background, so you can keep adding while earlier items process. |
 | **Grounded chat** | Streaming answers built only from the sources you have selected, with hoverable inline citations `[1]` that show the exact excerpt used. |
 | **Studio** | Ten generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
 | **Everything is local** | Sources, chunks, embeddings, chat history, artifacts, generated audio, voice samples and images live under `.data/`. |
@@ -423,6 +423,27 @@ Two things make the results usable rather than noisy:
   the prediction matches the real result. Blocked ones are badged **may block
   import**, sorted last, and left out of the default selection. Pages already in
   the notebook are marked and cannot be added twice.
+
+### Built-in browser (🌐 Browse)
+
+An address bar, the page, and **Add to sources**. It tells you when a page is
+already a source in this notebook rather than letting you add it twice.
+
+Roughly **half of sites refuse to be framed**. Measured across 28 real sources,
+13 sent `X-Frame-Options` or a restrictive `frame-ancestors` — including PMC,
+arXiv, GitHub and the BBC, which is to say exactly the research sites this tool
+is pointed at. The browser enforces that, and nothing here can override it.
+
+So the panel checks the response headers *before* deciding how to show a page.
+Where framing is allowed, the real page loads in a sandboxed frame. Where it is
+not, the page opens in a reader view built by the same extractor that indexing
+uses — which means what you are reading is precisely what would be stored, and
+you can confirm the extraction worked before committing the source. The reader
+also lists the page's outbound links, so it is navigable rather than a dead end,
+and Back walks the history.
+
+Nothing is lost by the fallback: a page that cannot be fetched cannot be indexed
+either.
 
 ### When a page will not import
 

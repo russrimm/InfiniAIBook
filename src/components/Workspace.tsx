@@ -9,6 +9,7 @@ import StudioPanel from "./StudioPanel";
 import ArtifactModal from "./ArtifactModal";
 import SourceModal from "./SourceModal";
 import DiscoverModal, { type DiscoverHit } from "./DiscoverModal";
+import BrowserModal from "./BrowserModal";
 import ModelPicker from "./ModelPicker";
 import { STUDIO } from "@/lib/studio";
 import type { Artifact, ArtifactType, Message, Notebook, Source } from "@/lib/types";
@@ -29,6 +30,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [openArtifact, setOpenArtifact] = useState<Artifact | null>(null);
   const [openSourceId, setOpenSourceId] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
   const [pickingModel, setPickingModel] = useState(false);
   const [model, setModel] = useState("");
   const [tab, setTab] = useState<Tab>("chat");
@@ -111,9 +113,9 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
 
   useEffect(() => {
     occupied.current = Boolean(
-      openArtifact || openSourceId || discovering || pickingModel || showUpdates
+      openArtifact || openSourceId || discovering || browsing || pickingModel || showUpdates
     );
-  }, [openArtifact, openSourceId, discovering, pickingModel, showUpdates]);
+  }, [openArtifact, openSourceId, discovering, browsing, pickingModel, showUpdates]);
 
   // Shown in the header so the active model is visible without opening a dialog.
   const loadModel = useCallback(async () => {
@@ -264,6 +266,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             onOpen={setOpenSourceId}
             onChanged={load}
             onDiscover={() => setDiscovering(true)}
+            onBrowse={() => setBrowsing(true)}
             addRef={addSources}
           />
         </div>
@@ -304,6 +307,13 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           notebookId={notebookId}
           onClose={() => setDiscovering(false)}
           onAdd={(hits) => addSources.current?.(hits)}
+        />
+      )}
+      {browsing && (
+        <BrowserModal
+          notebookId={notebookId}
+          onClose={() => setBrowsing(false)}
+          onAdded={load}
         />
       )}
       {pickingModel && (
