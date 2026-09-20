@@ -13,7 +13,8 @@ import {
   type Passage,
 } from "@/lib/retrieve";
 import { GROUNDING_RULES, PODCAST_INSTRUCTION } from "@/lib/studio";
-import { synthesizeDialogue, VOICE_PRESETS, type Turn } from "@/lib/speech";
+import { synthesizeDialogue, type Turn } from "@/lib/speech";
+import { clampRate, resolveVoices, VOICE_PRESETS } from "@/lib/voices";
 import { audioDir } from "@/lib/paths";
 
 export const runtime = "nodejs";
@@ -59,12 +60,15 @@ function normalizeTurns(raw: unknown): Turn[] {
 
 export async function POST(req: Request) {
   try {
-    const { notebookId, topic, sourceIds, preset } = (await req.json()) as {
-      notebookId: string;
-      topic?: string;
-      sourceIds?: string[];
-      preset?: keyof typeof VOICE_PRESETS;
-    };
+    const { notebookId, topic, sourceIds, preset, voices: customVoices, rate } =
+      (await req.json()) as {
+        notebookId: string;
+        topic?: string;
+        sourceIds?: string[];
+        preset?: keyof typeof VOICE_PRESETS;
+        voices?: { a?: string; b?: string };
+        rate?: number;
+      };
 
     const focused = topic?.trim()
       ? await retrieve(notebookId, topic, sourceIds, 24)
@@ -125,9 +129,13 @@ export async function POST(req: Request) {
       );
     }
 
-    const voices =
-      VOICE_PRESETS[preset ?? "conversational"] ?? VOICE_PRESETS.conversational;
-    const { audio, durationSec, offsets } = await synthesizeDialogue(turns, voices);
+    const voices = resolveVoices(preset, customVoices);
+    const speed = clampRate(rate);
+    const { audio, durationSec, offsets } = await synthesizeDialogue(
+      turns,
+      voices,
+      speed
+    );
 
     const id = nanoid(12);
     fs.mkdirSync(audioDir(), { recursive: true });
@@ -140,6 +148,7 @@ export async function POST(req: Request) {
       audioUrl: `/api/audio/${id}`,
       durationSec: Number(durationSec.toFixed(2)),
       voices: { a: voices.a, b: voices.b },
+      rate: speed,
       citations: citationList(passages),
     };
 

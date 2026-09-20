@@ -7,6 +7,7 @@ import {
   STYLE_ORDER,
   type InfographicStyle,
 } from "@/lib/infographic";
+import { VOICE_PRESETS, RATE_CHOICES } from "@/lib/voices";
 import type { Artifact, ArtifactType } from "@/lib/types";
 
 export default function StudioPanel({
@@ -26,6 +27,8 @@ export default function StudioPanel({
 }) {
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState<InfographicStyle>("classic");
+  const [voicePreset, setVoicePreset] = useState("conversational");
+  const [speed, setSpeed] = useState(1);
   const [busy, setBusy] = useState<ArtifactType | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,6 +70,8 @@ export default function StudioPanel({
       notebookId,
       topic: topic.trim() || undefined,
       sourceIds: selectedIds,
+      preset: voicePreset,
+      rate: speed,
     });
 
   const remove = async (id: string) => {
@@ -93,25 +98,60 @@ export default function StudioPanel({
           onChange={(e) => setTopic(e.target.value)}
         />
 
-        <button
-          disabled={blocked || !!busy}
-          onClick={() => void generateAudio()}
-          className={`card group relative mb-2 flex w-full items-center gap-3 overflow-hidden px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
-            busy === "podcast"
-              ? "shimmer border-[var(--accent)]"
-              : "hover:border-[#39424f]"
+        <div
+          className={`card relative mb-2 overflow-hidden transition ${
+            busy === "podcast" ? "shimmer border-[var(--accent)]" : ""
           }`}
         >
-          <span className="text-xl">🎧</span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[13px] font-medium">Audio overview</span>
-            <span className="block text-[10px] leading-snug text-[var(--muted)]">
-              {busy === "podcast"
-                ? "Writing and narrating… this takes a minute"
-                : "Two hosts discuss your sources"}
+          <button
+            disabled={blocked || !!busy}
+            onClick={() => void generateAudio()}
+            className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span className="text-xl">🎧</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-medium">Audio overview</span>
+              <span className="block text-[10px] leading-snug text-[var(--muted)]">
+                {busy === "podcast"
+                  ? "Writing and narrating… this takes a minute"
+                  : "Two hosts discuss your sources"}
+              </span>
             </span>
-          </span>
-        </button>
+          </button>
+
+          <div className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-2">
+            <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+              Voices
+            </span>
+            <select
+              className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+              value={voicePreset}
+              disabled={!!busy}
+              onChange={(e) => setVoicePreset(e.target.value)}
+            >
+              {Object.entries(VOICE_PRESETS).map(([key, v]) => (
+                <option key={key} value={key}>
+                  {v.multitalker ? `${v.a} & ${v.b}` : "Classic pair"}
+                </option>
+              ))}
+            </select>
+            <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+              Speed
+            </span>
+            <select
+              className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+              value={speed}
+              disabled={!!busy}
+              onChange={(e) => setSpeed(Number(e.target.value))}
+            >
+              {RATE_CHOICES.map((r) => (
+                <option key={r} value={r}>
+                  {r === 1 ? "Normal" : `${r}×`}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         <div className="grid grid-cols-2 gap-2">
           {STUDIO_ORDER.map((type) => {

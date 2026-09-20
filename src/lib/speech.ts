@@ -21,18 +21,8 @@ export class SpeechNotConfiguredError extends Error {}
 
 export type Turn = { speaker: "a" | "b"; text: string };
 
-export type VoicePair = { a: string; b: string; multitalker: boolean };
-
-export const VOICE_PRESETS: Record<string, VoicePair> = {
-  // Azure's purpose-built multi-speaker voice: one request renders a whole
-  // exchange, so turn-to-turn prosody actually sounds like a conversation.
-  conversational: { a: "Andrew", b: "Ava", multitalker: true },
-  classic: {
-    a: "en-US-AndrewMultilingualNeural",
-    b: "en-US-AvaMultilingualNeural",
-    multitalker: false,
-  },
-};
+export type { VoicePair } from "./voices";
+import { VOICE_PRESETS, type VoicePair } from "./voices";
 
 function buildCredential(): TokenCredential {
   const tenantId = process.env.AZURE_TENANT_ID;
@@ -76,12 +66,24 @@ const escapeXml = (s: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 
-function buildSsml(turns: Turn[], voices: VoicePair): string {
+function buildSsml(turns: Turn[], voices: VoicePair, rate = 1): string {
+  // The multitalker voice takes a unitless multiplier; classic neural voices
+  // take a percentage offset. Omit entirely at normal speed so the default
+  // delivery is untouched.
+  const wrap = (text: string) => {
+    const escaped = escapeXml(text);
+    if (rate === 1) return escaped;
+    const value = voices.multitalker
+      ? rate.toFixed(2)
+      : `${rate >= 1 ? "+" : ""}${Math.round((rate - 1) * 100)}%`;
+    return `<prosody rate='${value}'>${escaped}</prosody>`;
+  };
+
   const body = voices.multitalker
     ? `<voice name='${MULTITALKER_VOICE}'><mstts:dialog>${turns
         .map(
           (t) =>
-            `<mstts:turn speaker='${t.speaker === "a" ? voices.a : voices.b}'>${escapeXml(
+            `<mstts:turn speaker='${t.speaker === "a" ? voices.a : voices.b}'>${wrap(
               t.text
             )}</mstts:turn>`
         )
@@ -89,7 +91,7 @@ function buildSsml(turns: Turn[], voices: VoicePair): string {
     : turns
         .map(
           (t) =>
-            `<voice name='${t.speaker === "a" ? voices.a : voices.b}'>${escapeXml(
+            `<voice name='${t.speaker === "a" ? voices.a : voices.b}'>${wrap(
               t.text
             )}</voice>`
         )
@@ -158,6 +160,7 @@ export type SynthesisResult = {
 export async function synthesizeDialogue(
   turns: Turn[],
   voices: VoicePair = VOICE_PRESETS.conversational,
+  rate = 1,
   batchSize = 6
 ): Promise<SynthesisResult> {
   assertConfigured();
@@ -169,7 +172,7 @@ export async function synthesizeDialogue(
 
   for (let i = 0; i < turns.length; i += batchSize) {
     const batch = turns.slice(i, i + batchSize);
-    const audio = await synthesize(buildSsml(batch, voices));
+    const audio = await synthesize(buildSsml(batch, voices, rate));
     const batchSeconds = audio.length / BYTES_PER_SECOND;
 
     // Exact offset for the batch; within it, apportion by text length. Good

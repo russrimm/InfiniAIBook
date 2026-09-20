@@ -325,6 +325,39 @@ request has its connection dropped by the service — and the resulting MP3s are
 concatenated. Because the output is constant-bitrate, batch durations are exact,
 which is what drives the synced transcript.
 
+### Voice and pace
+
+Two controls sit on the Audio overview card:
+
+| Preset | Hosts |
+|---|---|
+| Conversational | Andrew & Ava |
+| Warm | Davis & Emma |
+| Bright | Tyler & Nova |
+| Measured | Steffan & Serena |
+| Classic pair | the standard multilingual neural voices |
+
+Speed runs from 0.8× to 1.25×. It is applied as SSML `prosody rate`, which the
+multitalker voice takes as a multiplier and classic neural voices as a
+percentage offset. Measured effect: a 1.25× overview came back at 7.7 seconds
+per turn against 9.7 at normal speed.
+
+The API accepts individual speakers too, from the 25 en-US DragonHD names:
+
+```bash
+curl -X POST localhost:3000/api/podcast -H 'content-type: application/json' \
+  -d '{"notebookId":"...","voices":{"a":"Davis","b":"Nova"},"rate":1.1}'
+```
+
+Names are validated, because the service does **not** reject an unknown
+speaker — it quietly renders in a different voice, so a typo would otherwise be
+invisible.
+
+What is *not* available on these voices: `mstts:express-as` styles. The voice
+list declares none for the multitalker or for Ava, and only `empathetic` and
+`relieved` for Andrew's multilingual variant. Requests carrying a style are
+accepted and ignored rather than refused, so the app does not offer them.
+
 Setup:
 
 ```ini
