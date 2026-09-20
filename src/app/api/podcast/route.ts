@@ -24,7 +24,12 @@ export const maxDuration = 800;
 const MAX_CONTEXT_CHARS = Number(process.env.STUDIO_CONTEXT_CHARS || 30000);
 const MIN_CONTEXT_CHARS = 6000;
 
-type Script = { title?: unknown; description?: unknown; turns?: unknown };
+type Script = {
+  title?: unknown;
+  description?: unknown;
+  turns?: unknown;
+  segments?: unknown;
+};
 
 const str = (v: unknown, fallback = "") => (typeof v === "string" ? v : fallback);
 
@@ -33,6 +38,11 @@ function cleanSpoken(text: string): string {
   return (
     text
       .replace(/\[\d+\](?:\[\d+\])*/g, "")
+      // Stage directions. The prompt forbids them, but a model trained on
+      // recording scripts still reaches for [MUSIC] and (laughs) — and the
+      // voice reads them out, word for word, as part of the dialogue.
+      .replace(/\[(?:[A-Z][A-Z \-]{1,18}(?::[^\]]*)?)\]/g, "")
+      .replace(/\((?:laughs?|chuckles?|sighs?|pauses?|beat|music|sfx)[^)]*\)/gi, "")
       .replace(/[*_`#>]/g, "")
       .replace(/\((?:https?:\/\/|www\.)[^)]*\)/gi, "")
       .replace(/https?:\/\/\S+/gi, "")
@@ -46,16 +56,42 @@ function cleanSpoken(text: string): string {
   );
 }
 
-/** Keep speakers strictly alternating so the two voices never collide. */
-function normalizeTurns(raw: unknown): Turn[] {
-  if (!Array.isArray(raw)) return [];
+/**
+ * Flatten the script to turns, remembering where each segment starts.
+ *
+ * Segment titles become the chapters offered in the player, so the boundary
+ * has to survive flattening. Older scripts have a flat `turns` array and no
+ * segments; they still play, just without chapters.
+ */
+function readScript(script: Script): { turns: Turn[]; marks: { title: string; index: number }[] } {
+  const marks: { title: string; index: number }[] = [];
   const texts: string[] = [];
-  for (const item of raw) {
-    const o = item as { text?: unknown };
+
+  const push = (raw: unknown) => {
+    const o = raw as { text?: unknown };
     const text = cleanSpoken(str(o.text));
     if (text) texts.push(text);
+  };
+
+  if (Array.isArray(script.segments) && script.segments.length) {
+    for (const seg of script.segments) {
+      const s = seg as { title?: unknown; turns?: unknown };
+      const title = cleanSpoken(str(s.title)).slice(0, 60);
+      const before = texts.length;
+      for (const t of Array.isArray(s.turns) ? s.turns : []) push(t);
+      // A segment that produced nothing should not leave a chapter marker
+      // pointing at the next segment's first line.
+      if (title && texts.length > before) marks.push({ title, index: before });
+    }
   }
-  return texts.map((text, i) => ({ speaker: i % 2 === 0 ? "a" : "b", text }));
+  if (!texts.length && Array.isArray(script.turns)) {
+    for (const t of script.turns) push(t);
+  }
+
+  return {
+    turns: texts.map((text, i) => ({ speaker: i % 2 === 0 ? "a" : "b", text })),
+    marks,
+  };
 }
 
 const countWords = (turns: Turn[]) =>
@@ -65,25 +101,35 @@ const countWords = (turns: Turn[]) =>
  * Cut a script down to a word budget, keeping the opening and the last two
  * turns. Speakers are reassigned by position afterwards, so removing turns
  * from the middle cannot leave one voice talking to itself.
+ *
+ * Returns which original positions survived, so chapter markers can be moved
+ * with them rather than left pointing at whatever now sits at that index.
  */
-function trimToWords(turns: Turn[], target: number): Turn[] {
-  if (turns.length <= 4) return turns;
-  const tail = turns.slice(-2);
-  const tailWords = countWords(tail);
+function trimToWords(
+  turns: Turn[],
+  target: number
+): { turns: Turn[]; kept: number[] } {
+  if (turns.length <= 4) return { turns, kept: turns.map((_, i) => i) };
+  const tailFrom = turns.length - 2;
+  const tailWords = countWords(turns.slice(tailFrom));
 
-  const kept: Turn[] = [];
+  const kept: number[] = [];
   let used = tailWords;
-  for (const t of turns.slice(0, -2)) {
-    const w = t.text.match(/\S+/g)?.length ?? 0;
+  for (let i = 0; i < tailFrom; i++) {
+    const w = turns[i].text.match(/\S+/g)?.length ?? 0;
     if (used + w > target && kept.length >= 2) break;
-    kept.push(t);
+    kept.push(i);
     used += w;
   }
+  kept.push(tailFrom, tailFrom + 1);
 
-  return [...kept, ...tail].map((t, i) => ({
-    ...t,
-    speaker: i % 2 === 0 ? ("a" as const) : ("b" as const),
-  }));
+  return {
+    turns: kept.map((orig, i) => ({
+      ...turns[orig],
+      speaker: i % 2 === 0 ? ("a" as const) : ("b" as const),
+    })),
+    kept,
+  };
 }
 
 export async function POST(req: Request) {
@@ -157,7 +203,8 @@ export async function POST(req: Request) {
     }
     if (!script) throw lastError;
 
-    let turns = normalizeTurns(script.turns);
+    let parsed = readScript(script);
+    let turns = parsed.turns;
     if (turns.length < 2) {
       return NextResponse.json(
         { error: "The model did not return a usable dialogue. Try again." },
@@ -213,13 +260,15 @@ Count the words in your answer before returning it.`;
           ],
           0.7
         );
-        const next = normalizeTurns(retry.turns);
+        const nextParsed = readScript(retry);
+        const next = nextParsed.turns;
         // Only take the rewrite if it actually moved towards the target.
         if (
           next.length >= 2 &&
           Math.abs(countWords(next) - targetWords) < Math.abs(words - targetWords)
         ) {
           turns = next;
+          parsed = nextParsed;
           script = retry;
         }
       } catch {
@@ -232,8 +281,16 @@ Count the words in your answer before returning it.`;
     // asked for explicitly, so an over-long script is trimmed rather than
     // narrated. The opening and the close are kept — cutting the tail would
     // end the conversation mid-thought.
+    let marks = parsed.marks;
     if (countWords(turns) > targetWords * 1.35) {
-      turns = trimToWords(turns, targetWords);
+      const trimmed = trimToWords(turns, targetWords);
+      // Move each chapter to its trimmed position; a segment cut away entirely
+      // loses its marker rather than pointing somewhere arbitrary.
+      const moved = new Map(trimmed.kept.map((orig, now) => [orig, now]));
+      marks = marks
+        .map((m) => ({ ...m, index: moved.get(m.index) ?? -1 }))
+        .filter((m) => m.index >= 0);
+      turns = trimmed.turns;
     }
 
     const voices = resolveVoices(preset, customVoices);
@@ -265,6 +322,10 @@ Count the words in your answer before returning it.`;
       rate: speed,
       length: wanted,
       targetMinutes: AUDIO_LENGTHS[wanted].minutes,
+      chapters: marks.map((m) => ({
+        title: m.title,
+        at: Number((offsets[m.index] ?? 0).toFixed(2)),
+      })),
       citations: citationList(passages),
     };
 

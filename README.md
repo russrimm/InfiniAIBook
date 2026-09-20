@@ -498,12 +498,39 @@ source note as a tooltip, and the whole tree is keyboard reachable with proper
 The 🎧 button writes a two-host dialogue grounded in your sources, then narrates
 it with Azure Speech and stores an MP3 under `.data/audio/`.
 
+The script is written to a professional podcast brief: a cold open that leads
+with the most arresting thing in the material, three or more segments each
+taking one distinct aspect and handing off to the next, and a close that recaps
+what is worth remembering. What that brief normally also carries — music and
+sound cues, sponsor reads, ad breaks, guest bios, host notes, subscribe
+prompts — is deliberately left out, because none of it exists here and a
+synthesised voice reads `[MUSIC: upbeat intro]` aloud, word for word. Anything
+of that shape that slips through is stripped before synthesis rather than
+spoken.
+
 It uses `en-Multitalker:DragonHDLatestNeural`, Azure's multi-speaker voice, so a
 whole exchange renders in one request and the hosts actually sound like they are
 talking to each other. Turns are synthesised in small batches — a single large
 request has its connection dropped by the service — and the resulting MP3s are
 concatenated. Because the output is constant-bitrate, batch durations are exact,
 which is what drives the synced transcript.
+
+### Jumping to a topic
+
+The script is written in named segments, and those become **chapters** in the
+player: a dropdown and a row of chips above the transcript, plus taller marks on
+the scrubber. Selecting one seeks the audio to where that topic starts, and the
+dropdown follows along as it plays.
+
+Segment titles have to name the content ("What the cost actually covers"), not
+the position ("Segment 2"), because they are what a listener scans to find the
+bit they want.
+
+Chapters survive the length correction: if an over-long script is trimmed, each
+marker moves with its turn rather than staying at an index that now holds
+something else, and a segment cut away entirely loses its marker instead of
+pointing somewhere arbitrary. Overviews generated before this existed still play
+— they simply have no chapters.
 
 ### Voice and pace
 

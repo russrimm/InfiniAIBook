@@ -43,6 +43,16 @@ export default function PodcastPlayer({ content }: { content: PodcastContent }) 
     setTime(el.currentTime);
   };
 
+  const chapters = content.chapters ?? [];
+  const activeChapter = (() => {
+    let idx = -1;
+    for (let i = 0; i < chapters.length; i++) {
+      if (chapters[i].at <= time + 0.15) idx = i;
+      else break;
+    }
+    return idx;
+  })();
+
   const toggle = () => {
     const el = audioRef.current;
     if (!el) return;
@@ -93,6 +103,17 @@ export default function PodcastPlayer({ content }: { content: PodcastContent }) 
               style={{ left: `${duration ? (t.at / duration) * 100 : 0}%` }}
             />
           ))}
+          {/* Chapters sit above the turn ticks so a topic is findable on the
+              bar itself, not only in the list below. */}
+          {chapters.map((c, i) => (
+            <span
+              key={`c${i}`}
+              aria-hidden
+              title={c.title}
+              className="absolute top-1/2 h-3.5 w-[2px] -translate-y-1/2 rounded-full bg-[#8f9dff]"
+              style={{ left: `${duration ? (c.at / duration) * 100 : 0}%` }}
+            />
+          ))}
         </div>
 
         <div className="mt-3 flex items-center gap-2">
@@ -140,6 +161,48 @@ export default function PodcastPlayer({ content }: { content: PodcastContent }) 
         </div>
 
         {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
+
+        {chapters.length > 0 && (
+          <div className="mt-4 border-t border-[var(--border)] pt-3">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-[10px] font-semibold tracking-widest text-[var(--muted)] uppercase">
+                Topics
+              </span>
+              <select
+                className="ml-auto min-w-0 max-w-[60%] cursor-pointer rounded-md border border-[var(--border)] bg-[#12151a] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                value={activeChapter >= 0 ? activeChapter : ""}
+                onChange={(e) => {
+                  const i = Number(e.target.value);
+                  if (Number.isInteger(i) && chapters[i]) seek(chapters[i].at);
+                }}
+              >
+                {activeChapter < 0 && <option value="">Jump to a topic…</option>}
+                {chapters.map((c, i) => (
+                  <option key={i} value={i}>
+                    {clock(c.at)} · {c.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              {chapters.map((c, i) => (
+                <button
+                  key={i}
+                  onClick={() => seek(c.at)}
+                  className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
+                    i === activeChapter
+                      ? "border-[var(--accent)] bg-[#1b2030] text-[var(--fg)]"
+                      : "border-[var(--border)] text-[var(--muted)] hover:border-[#39424f] hover:text-[var(--fg)]"
+                  }`}
+                >
+                  <span className="font-mono tabular-nums opacity-70">{clock(c.at)}</span>{" "}
+                  {c.title}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-5 mb-2 flex items-center justify-between">

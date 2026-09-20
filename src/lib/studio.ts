@@ -262,24 +262,46 @@ unless the style guidance below asks for them.`,
     json: true,
     instruction: (topic, opts) => {
       const len = AUDIO_LENGTHS[audioLength(opts?.audioLength)];
-      return `Write a two-host audio overview of the sources${
-        topic ? `, focused on: ${topic}` : ""
-      }.
+      const segs = len.minutes >= 10 ? "5-7" : len.minutes >= 6 ? "4-6" : "3-4";
+      return `You are a professional podcast scriptwriter with ten years of experience in
+audio content creation. You write conversational scripts that sound natural
+spoken aloud, and you know how to place hooks, transitions and pacing so a
+listener stays with you. Everything you write is audio-first: the listener
+cannot see anything.
+
+Write a two-host audio overview of the sources${topic ? `, focused on: ${topic}` : ""}.
 ${jsonNote}
 Schema:
 {
   "title": string,        // episode title, <= 70 chars; do not use the words "podcast" or "episode"
   "description": string,  // one sentence on what a listener will learn
-  "turns": [{ "speaker": "a" | "b", "text": string }]
+  "segments": [{
+    "title": string,      // 2-5 words naming what this stretch is about
+    "turns": [{ "speaker": "a" | "b", "text": string }]
+  }]
 }
 Hosts: "a" drives the conversation and asks the questions. "b" is the analyst who
 explains and supplies detail.
 
+STRUCTURE
+Write ${segs} segments in this order:
+1. A COLD OPEN. Lead with the single most arresting thing in the sources — a
+   number, a reversal, a consequence — and say why it matters. No throat
+   clearing, no "welcome to the show", no naming the format.
+2. THREE OR MORE MAIN SEGMENTS, each taking one distinct aspect of the material.
+   Each must end on a line that hands off to the next, so the seam is invisible.
+3. A CLOSE that recaps the two or three things worth remembering and ends on the
+   most important one. No sign-off, no call to action, no next-episode tease.
+
+Segment titles are shown to the listener as chapters they can jump to, so name
+the content ("What the cost actually covers"), never the position ("Segment 2").
+
 LENGTH
 This is spoken at about 161 words per minute, and the target is ${len.minutes} minutes.
-Write roughly ${len.words} words in total across ${len.turns[0]}-${len.turns[1]} turns.
-The word count is the target that matters — it is what sets the running time.
-Count as you go and keep going until you reach it${
+Write roughly ${len.words} words in total across ${len.turns[0]}-${len.turns[1]} turns,
+distributed across the segments. The word count is the target that matters — it
+is what sets the running time. Count as you go and keep going until you reach
+it${
         len.minutes >= 10
           ? ". At this length, cover the material properly: take separate parts of it in turn, follow the implications, and let the hosts work through disagreements rather than summarising faster"
           : ""
@@ -288,15 +310,20 @@ Do not pad to reach the number. If the sources genuinely do not support this
 much, write what they do support rather than repeating yourself.
 
 Rules:
-- Strictly alternating turns, starting with "a".
-- This is spoken aloud: no markdown, bullets, headings, citation markers, URLs,
-  emoji or stage directions. Write only the words to be said.
+- Turns strictly alternate, starting with "a", and carry on alternating across
+  segment boundaries.
+- This is synthesised speech, not a recording session. Write ONLY the words to
+  be said: no markdown, headings, bullets, citation markers, URLs, emoji, or
+  bracketed cues of any kind. A stage direction such as [MUSIC], [PAUSE] or
+  (laughs) will be read aloud word for word.
+- There is no music, no sponsor, no advertisement, no guest and no audience to
+  address. Do not invent them.
 - Spell out anything a text-to-speech voice would mangle: "about 68 percent" not
   "~68%", "carbon dioxide" not "CO2", "three times" not "3x".
-- Open by naming the subject concretely — never "welcome to the show".
 - Ground every claim in the excerpts, attributing naturally in speech, e.g.
   "the paper puts it at about a third". If the sources disagree, say so.
-- Close on the single thing worth remembering, not a sign-off.
+- Give the listener something to hold onto every couple of minutes: a concrete
+  example, a number, a comparison, or a question that reframes what came before.
 
 WRITE IT AS SPEECH, NOT PROSE READ ALOUD
 The difference between an audio overview that sounds human and one that sounds

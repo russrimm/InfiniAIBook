@@ -117,6 +117,8 @@ export type PodcastContent = {
   /** Requested running time, so the result can be compared with the target. */
   length?: string;
   targetMinutes?: number;
+  /** Named sections with their start offset, for jumping around the audio. */
+  chapters?: { title: string; at: number }[];
 };
 
 export type ArtifactContent =
