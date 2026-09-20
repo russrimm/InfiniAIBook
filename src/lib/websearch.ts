@@ -1,3 +1,5 @@
+import { FETCH_HEADERS } from "./ingest";
+
 /**
  * Web search for source discovery.
  *
@@ -257,7 +259,9 @@ export async function checkReachable(
       try {
         const res = await fetch(hit.url, {
           method: "HEAD",
-          headers: { "user-agent": "Mozilla/5.0 (compatible; OpenNotebook/1.0)" },
+          // Same headers ingestion will use, so this predicts the real result
+          // rather than testing a different request.
+          headers: FETCH_HEADERS,
           signal: controller.signal,
           redirect: "follow",
         });

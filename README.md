@@ -270,9 +270,25 @@ Two things make the results usable rather than noisy:
   unavailable it falls back to searching your text literally.
 - **Reachability checks.** Many publishers refuse automated fetches, which is
   especially annoying for a link you did not hand-pick. Candidates are probed in
-  parallel before they are shown; blocked ones are badged **may block import**,
-  sorted last, and left out of the default selection. Pages already in the
-  notebook are marked and cannot be added twice.
+  parallel before they are shown, using the same headers ingestion will use, so
+  the prediction matches the real result. Blocked ones are badged **may block
+  import**, sorted last, and left out of the default selection. Pages already in
+  the notebook are marked and cannot be added twice.
+
+### When a page will not import
+
+Some failures are ours to fix and some are not, so the message distinguishes
+them: a `403` means the publisher refuses automated access, a DNS or TLS error
+names the cause, a timeout says how long was allowed, and a page whose text is
+rendered by JavaScript says so rather than claiming it is empty.
+
+Extraction deliberately avoids removing structural elements outright. Real pages
+nest `<main>` inside `<header>`, or wrap the entire document in a `<form>` —
+stripping either discards the article. Instead it prefers an explicit content
+container, falls back progressively, and never returns less text than reading
+the whole body would have given.
+
+For anything genuinely blocked, open the page and use **Paste**.
 
 No API key is needed — discovery uses DuckDuckGo by default. Set any of
 `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, or `GOOGLE_SEARCH_API_KEY` +

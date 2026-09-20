@@ -12,6 +12,20 @@ function clean(s: string): string {
     .trim();
 }
 
+/** Entities survive .text() when they were double-encoded in the source. */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&#0?39;|&apos;|&rsquo;/g, "'")
+    .replace(/&quot;|&ldquo;|&rdquo;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&ndash;/g, "–")
+    .replace(/&mdash;/g, "—")
+    .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(Number(d)));
+}
+
 export async function extractFromFile(file: File): Promise<Extracted> {
   const name = file.name || "Untitled";
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
@@ -37,26 +51,152 @@ export async function extractFromFile(file: File): Promise<Extracted> {
   return { title: name, text: clean(buf.toString("utf8")), kind: ext || "text" };
 }
 
+/** Containers that usually hold the real article, best first. */
+const CONTENT_SELECTORS = [
+  "article",
+  "main",
+  '[role="main"]',
+  ".entry-content",
+  ".post-content",
+  ".article-content",
+  ".article-body",
+  "#content",
+  ".content",
+];
+
+/**
+ * Elements that never contain article text.
+ *
+ * Deliberately excludes <form>: some sites wrap their whole page in one, so
+ * removing it discards everything. Form *controls* are stripped separately.
+ */
+const NOISE = "script, style, noscript, svg, iframe, template";
+
+/** Widgets that contribute label noise rather than prose. */
+const CONTROLS = "input, select, textarea, button, option";
+
+/** Boilerplate that usually wraps content — but sometimes contains it. */
+const CHROME = "nav, header, footer, aside";
+
+function textOf($: cheerio.CheerioAPI, sel: string): string {
+  return clean($(sel).text());
+}
+
+/**
+ * Pull readable text out of a page.
+ *
+ * Removing structural elements outright is unsafe: some sites nest <main>
+ * inside <header>, others wrap the page in a <form>, and stripping either
+ * discards the article. So prefer an explicit content container, fall back
+ * progressively, and never return less than simply reading the body — measured
+ * against a pristine copy, so an over-aggressive strip cannot lower the bar it
+ * is being checked against.
+ */
 function htmlToText(html: string): { title: string; text: string } {
+  const floor = cheerio.load(html);
+  floor("script, style, noscript").remove();
+  const whole = clean(floor("body").text());
+
   const $ = cheerio.load(html);
-  $("script, style, noscript, nav, footer, header, svg, iframe, form").remove();
-  const title = $("title").first().text().trim() || $("h1").first().text().trim();
-  const body = $("article").text().trim() || $("main").text().trim() || $("body").text();
-  return { title, text: clean(body) };
+  $(NOISE).remove();
+  $(CONTROLS).remove();
+
+  const title = decodeEntities(
+    $("title").first().text().trim() ||
+      $('meta[property="og:title"]').attr("content")?.trim() ||
+      $("h1").first().text().trim() ||
+      ""
+  );
+  let best = "";
+  for (const sel of CONTENT_SELECTORS) {
+    if (!$(sel).length) continue;
+    const candidate = textOf($, sel);
+    if (candidate.length > best.length) best = candidate;
+    // A container holding most of the page is the article; stop looking.
+    if (best.length > whole.length * 0.5) break;
+  }
+
+  // Otherwise drop the surrounding chrome, but only if content survives.
+  if (best.length < 200) {
+    const $$ = cheerio.load(html);
+    $$(NOISE).remove();
+    $$(CONTROLS).remove();
+    $$(CHROME).remove();
+    const stripped = clean($$("body").text());
+    if (stripped.length > best.length) best = stripped;
+  }
+
+  return {
+    title,
+    text: decodeEntities(best.length >= whole.length * 0.25 ? best : whole),
+  };
+}
+
+/** Browser-ish headers. Not a disguise — some servers simply 400 without them. */
+export const FETCH_HEADERS = {
+  "user-agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 OpenNotebook/1.0",
+  accept:
+    "text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf;q=0.8,text/plain;q=0.7,*/*;q=0.5",
+  "accept-language": "en-US,en;q=0.9",
+};
+
+const FETCH_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS || 20000);
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+/** Turn a transport failure into something the user can act on. */
+function describeFetchFailure(e: unknown, host: string): Error {
+  if ((e as { name?: string })?.name === "AbortError") {
+    return new Error(
+      `${host} did not respond within ${Math.round(FETCH_TIMEOUT_MS / 1000)}s. It may be slow or blocking automated requests.`
+    );
+  }
+  const code = (e as { cause?: { code?: string } })?.cause?.code;
+  switch (code) {
+    case "ENOTFOUND":
+    case "EAI_AGAIN":
+      return new Error(`${host} could not be resolved — the domain may no longer exist.`);
+    case "ECONNREFUSED":
+      return new Error(`${host} refused the connection.`);
+    case "ECONNRESET":
+      return new Error(`${host} closed the connection, which often means it blocks automated requests.`);
+    case "CERT_HAS_EXPIRED":
+    case "UNABLE_TO_VERIFY_LEAF_SIGNATURE":
+    case "DEPTH_ZERO_SELF_SIGNED_CERT":
+      return new Error(`${host} has an invalid HTTPS certificate (${code}).`);
+    default:
+      return new Error(
+        `Could not reach ${host}${code ? ` (${code})` : ""}. Open the page and use "Paste" to add its text.`
+      );
+  }
 }
 
 export async function extractFromUrl(url: string): Promise<Extracted> {
-  const res = await fetch(url, {
-    headers: { "user-agent": "Mozilla/5.0 (compatible; OpenNotebook/1.0)" },
-  });
+  const host = hostOf(url);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: FETCH_HEADERS,
+      redirect: "follow",
+      signal: controller.signal,
+    });
+  } catch (e) {
+    throw describeFetchFailure(e, host);
+  } finally {
+    clearTimeout(timer);
+  }
+
   if (!res.ok) {
-    const host = (() => {
-      try {
-        return new URL(url).hostname.replace(/^www\./, "");
-      } catch {
-        return url;
-      }
-    })();
     // 401/403 here is the publisher refusing automated access, not a bug on
     // our side, and the user can only act on it if we say so.
     if (res.status === 403 || res.status === 401) {
@@ -70,21 +210,39 @@ export async function extractFromUrl(url: string): Promise<Extracted> {
     }
     throw new Error(`${host} returned ${res.status}.`);
   }
-  const ctype = res.headers.get("content-type") ?? "";
 
-  if (ctype.includes("application/pdf")) {
+  const ctype = res.headers.get("content-type") ?? "";
+  const looksLikePdf =
+    ctype.includes("application/pdf") || /\.pdf($|[?#])/i.test(new URL(url).pathname);
+
+  // Some servers send PDFs as octet-stream, so sniff the magic bytes too.
+  const buf = Buffer.from(await res.arrayBuffer());
+  const isPdf = looksLikePdf || buf.subarray(0, 5).toString("latin1") === "%PDF-";
+
+  if (isPdf) {
     const { getDocumentProxy, extractText } = await import("unpdf");
-    const pdf = await getDocumentProxy(new Uint8Array(await res.arrayBuffer()));
+    const pdf = await getDocumentProxy(new Uint8Array(buf));
     const { text } = await extractText(pdf, { mergePages: true });
-    return { title: url, text: clean(String(text)), kind: "pdf" };
+    const cleaned = clean(String(text));
+    if (!cleaned) {
+      throw new Error(
+        `The PDF at ${host} has no extractable text — it is probably a scan. Only images, no text layer.`
+      );
+    }
+    return { title: decodeURIComponent(url.split("/").pop() || host), text: cleaned, kind: "pdf" };
   }
 
-  const raw = await res.text();
+  const raw = buf.toString("utf8");
   if (ctype.includes("text/html") || raw.trimStart().startsWith("<")) {
     const { title, text } = htmlToText(raw);
-    return { title: title || new URL(url).hostname, text, kind: "url" };
+    if (!text) {
+      throw new Error(
+        `${host} returned a page with no readable text. It likely renders its content with JavaScript, which this fetch cannot run.`
+      );
+    }
+    return { title: title || host, text, kind: "url" };
   }
-  return { title: new URL(url).hostname, text: clean(raw), kind: "url" };
+  return { title: host, text: clean(raw), kind: "url" };
 }
 
 /** Split text into overlapping chunks on paragraph/sentence boundaries. */
