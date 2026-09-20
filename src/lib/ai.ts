@@ -5,6 +5,7 @@ import {
   getBearerTokenProvider,
   type TokenCredential,
 } from "@azure/identity";
+import { getSetting, SETTING_CHAT_MODEL, SETTING_EMBED_MODEL } from "./settings";
 
 /**
  * Two providers are supported.
@@ -50,15 +51,45 @@ const apiVersionLooksWrong =
 
 /**
  * Model names. For Azure these are *deployment* names; for an OpenAI-compatible
- * endpoint they are model ids. AI_MODEL / AI_EMBEDDING_MODEL take precedence so
- * one provider's names never leak into the other's config.
+ * endpoint they are model ids.
+ *
+ * Resolved per call rather than captured at import, so a choice saved from the
+ * UI applies immediately. Order: saved setting, then environment, then a
+ * default. AI_MODEL / AI_EMBEDDING_MODEL are kept separate from the Azure
+ * deployment names so neither provider's config leaks into the other.
  */
-export const CHAT_DEPLOYMENT =
-  process.env.AI_MODEL?.trim() || process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o";
-export const EMBED_DEPLOYMENT =
-  process.env.AI_EMBEDDING_MODEL?.trim() ||
-  process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT ||
-  "text-embedding-3-small";
+export function chatModel(): string {
+  return (
+    getSetting(SETTING_CHAT_MODEL) ||
+    process.env.AI_MODEL?.trim() ||
+    process.env.AZURE_OPENAI_DEPLOYMENT ||
+    "gpt-4o"
+  );
+}
+
+export function embedModel(): string {
+  return (
+    getSetting(SETTING_EMBED_MODEL) ||
+    process.env.AI_EMBEDDING_MODEL?.trim() ||
+    process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT ||
+    "text-embedding-3-small"
+  );
+}
+
+/** The value configured in the environment, ignoring any saved override. */
+export function envChatModel(): string {
+  return (
+    process.env.AI_MODEL?.trim() || process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o"
+  );
+}
+
+export function envEmbedModel(): string {
+  return (
+    process.env.AI_EMBEDDING_MODEL?.trim() ||
+    process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT ||
+    "text-embedding-3-small"
+  );
+}
 
 export class MissingConfigError extends Error {}
 
@@ -80,6 +111,22 @@ function buildCredential(): TokenCredential {
 }
 
 let client: OpenAI | AzureOpenAI | null = null;
+let tokenProvider: (() => Promise<string>) | null = null;
+
+/**
+ * Auth headers for calling the provider directly, for the few endpoints the
+ * SDK does not wrap — notably Azure's deployment listing, which lives on an
+ * older api-version than inference.
+ */
+export async function authHeaders(): Promise<Record<string, string>> {
+  if (PROVIDER === "openai") {
+    const key = process.env.AI_API_KEY?.trim();
+    return key ? { Authorization: `Bearer ${key}` } : {};
+  }
+  if (apiKey) return { "api-key": apiKey };
+  if (!tokenProvider) tokenProvider = getBearerTokenProvider(buildCredential(), SCOPE);
+  return { Authorization: `Bearer ${await tokenProvider()}` };
+}
 
 export function getClient(): OpenAI | AzureOpenAI {
   if (client) return client;
@@ -129,7 +176,7 @@ export function describeAuthError(e: unknown): string | null {
       return `Could not reach the model server at ${baseURL}. Check it is running — for llama.cpp that is 'llama-server --port 8080 -m <model.gguf>', for Ollama 'ollama serve' — and that AI_BASE_URL points at its OpenAI-compatible path (usually ending in /v1).`;
     }
     if (status === 404) {
-      return `The model server at ${baseURL} returned 404. Check that AI_MODEL ("${CHAT_DEPLOYMENT}") and AI_EMBEDDING_MODEL ("${EMBED_DEPLOYMENT}") are loaded — with Ollama, 'ollama list' shows what is available.`;
+      return `The model server at ${baseURL} returned 404. Check that AI_MODEL ("${chatModel()}") and AI_EMBEDDING_MODEL ("${embedModel()}") are loaded — with Ollama, 'ollama list' shows what is available.`;
     }
     if (status === 501) {
       return `The model server does not support this operation. Embeddings in particular need a server started with embedding support (llama.cpp: '--embeddings'; Ollama: pull a dedicated model such as nomic-embed-text and set AI_EMBEDDING_MODEL).`;
@@ -145,13 +192,13 @@ export function describeAuthError(e: unknown): string | null {
   if (status === 404) {
     const hint = apiVersionLooksWrong
       ? `AZURE_OPENAI_API_VERSION is set to "${apiVersion}", which is not an Azure API version — model versions like "2025-08-07" are not valid here. Use "${DEFAULT_API_VERSION}".`
-      : `Check that the deployment names AZURE_OPENAI_DEPLOYMENT ("${CHAT_DEPLOYMENT}") and AZURE_OPENAI_EMBEDDING_DEPLOYMENT ("${EMBED_DEPLOYMENT}") exist on ${endpoint}.`;
+      : `Check that the deployment names AZURE_OPENAI_DEPLOYMENT ("${chatModel()}") and AZURE_OPENAI_EMBEDDING_DEPLOYMENT ("${embedModel()}") exist on ${endpoint}.`;
     return `Azure OpenAI returned 404. ${hint}`;
   }
 
   // Retries are already exhausted by the time this is reached.
   if (status === 429) {
-    return `Azure OpenAI rate limit exceeded for deployment "${CHAT_DEPLOYMENT}" and automatic retries did not clear it. The deployment's tokens-per-minute quota is likely too small for this much source material — raise its capacity in Azure AI Foundry, select fewer sources, or use a larger deployment.`;
+    return `Azure OpenAI rate limit exceeded for deployment "${chatModel()}" and automatic retries did not clear it. The deployment's tokens-per-minute quota is likely too small for this much source material — raise its capacity in Azure AI Foundry, select fewer sources, or use a larger deployment.`;
   }
 
   if (apiKey) return null;
@@ -252,7 +299,7 @@ async function createChat(params: ChatParams & { temperature?: number }) {
 }
 
 export async function chatText(messages: ChatMsg[], temperature = 0.3): Promise<string> {
-  const res = await createChat({ model: CHAT_DEPLOYMENT, temperature, messages });
+  const res = await createChat({ model: chatModel(), temperature, messages });
   return (
     (res as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content?.trim() ??
     ""
@@ -261,7 +308,7 @@ export async function chatText(messages: ChatMsg[], temperature = 0.3): Promise<
 
 export async function chatStream(messages: ChatMsg[], temperature = 0.3) {
   const res = await createChat({
-    model: CHAT_DEPLOYMENT,
+    model: chatModel(),
     temperature,
     stream: true,
     messages,
@@ -274,7 +321,7 @@ export async function chatStream(messages: ChatMsg[], temperature = 0.3) {
 /** Ask the model for a JSON object and parse it defensively. */
 export async function chatJSON<T>(messages: ChatMsg[], temperature = 0.4): Promise<T> {
   const res = await createChat({
-    model: CHAT_DEPLOYMENT,
+    model: chatModel(),
     temperature,
     response_format: { type: "json_object" },
     messages,
@@ -307,7 +354,7 @@ export async function embed(texts: string[]): Promise<number[][]> {
   const BATCH = 64;  for (let i = 0; i < texts.length; i += BATCH) {
     const slice = texts.slice(i, i + BATCH).map((t) => t.slice(0, 8000) || " ");
     const res = await withRetry(
-      () => getClient().embeddings.create({ model: EMBED_DEPLOYMENT, input: slice }),
+      () => getClient().embeddings.create({ model: embedModel(), input: slice }),
       "embeddings"
     );
     for (const d of res.data) out.push(d.embedding as number[]);

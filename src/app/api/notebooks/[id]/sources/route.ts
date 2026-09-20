@@ -3,7 +3,7 @@ import { db, floatsToBlob } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 import { chunkText, extractFromFile, extractFromUrl } from "@/lib/ingest";
 import { fetchYouTubeTranscript, isYouTubeUrl } from "@/lib/youtube";
-import { chatText, embed, describeAuthError, EMBED_DEPLOYMENT } from "@/lib/ai";
+import { chatText, embed, describeAuthError, embedModel } from "@/lib/ai";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -55,7 +55,7 @@ async function ingestOne(
       vec ? floatsToBlob(vec) : null,
       // Stamped so retrieval can tell whether a stored vector is comparable
       // with the current model's output.
-      vec ? EMBED_DEPLOYMENT : null,
+      vec ? embedModel() : null,
       vec ? vec.length : null
     );
   });

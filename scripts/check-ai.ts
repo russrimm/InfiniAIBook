@@ -18,8 +18,8 @@
  * before any in-file loader had run and silently fall back to defaults.
  */
 import {
-  CHAT_DEPLOYMENT,
-  EMBED_DEPLOYMENT,
+  chatModel,
+  embedModel,
   PROVIDER,
   chatJSON,
   chatStream,
@@ -84,8 +84,8 @@ async function main() {
         : (process.env.AZURE_OPENAI_ENDPOINT ?? "(unset)")
     }`
   );
-  console.log(`  chat       ${CHAT_DEPLOYMENT}`);
-  console.log(`  embedding  ${EMBED_DEPLOYMENT}\n`);
+  console.log(`  chat       ${chatModel()}`);
+  console.log(`  embedding  ${embedModel()}\n`);
 
   console.log(`${DIM}core${RESET}`);
 

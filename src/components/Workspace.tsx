@@ -8,6 +8,7 @@ import StudioPanel from "./StudioPanel";
 import ArtifactModal from "./ArtifactModal";
 import SourceModal from "./SourceModal";
 import DiscoverModal, { type DiscoverHit } from "./DiscoverModal";
+import ModelPicker from "./ModelPicker";
 import type { Artifact, Message, Notebook, Source } from "@/lib/types";
 
 type Data = {
@@ -26,6 +27,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [openArtifact, setOpenArtifact] = useState<Artifact | null>(null);
   const [openSourceId, setOpenSourceId] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
+  const [pickingModel, setPickingModel] = useState(false);
+  const [model, setModel] = useState("");
   const [tab, setTab] = useState<Tab>("chat");
 
   /** Source ids already reflected in `selected`, to detect genuinely new ones. */
@@ -66,6 +69,20 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Shown in the header so the active model is visible without opening a dialog.
+  const loadModel = useCallback(async () => {
+    try {
+      const res = await fetch("/api/models");
+      if (res.ok) setModel((await res.json()).current.chat);
+    } catch {
+      /* the picker reports failures; the header just stays empty */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadModel();
+  }, [loadModel]);
 
   const selectedIds = [...selected];
   const allSelected = data ? selected.size === data.sources.length : false;
@@ -118,6 +135,13 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         <span className="hidden shrink-0 text-xs text-[var(--muted)] sm:block">
           {selected.size}/{data.sources.length} sources in context
         </span>
+        <button
+          className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
+          onClick={() => setPickingModel(true)}
+          title="Choose which models to use"
+        >
+          🧠 <span className="hidden max-w-[10rem] truncate md:inline">{model}</span>
+        </button>
       </header>
 
       <nav className="flex shrink-0 gap-1 border-b border-[var(--border)] px-3 py-2 lg:hidden">
@@ -203,6 +227,14 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           notebookId={notebookId}
           onClose={() => setDiscovering(false)}
           onAdd={(hits) => addSources.current?.(hits)}
+        />
+      )}
+      {pickingModel && (
+        <ModelPicker
+          onClose={() => {
+            setPickingModel(false);
+            void loadModel();
+          }}
         />
       )}
     </div>

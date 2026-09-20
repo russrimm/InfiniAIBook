@@ -1,5 +1,5 @@
 import { db, blobToFloats } from "./db";
-import { embed, EMBED_DEPLOYMENT } from "./ai";
+import { embed, embedModel } from "./ai";
 
 export type Passage = {
   id: string;
@@ -136,14 +136,14 @@ export async function retrieve(
         staleChunks: staleCount,
         totalChunks: all.length,
         models: [...stale],
-        currentModel: EMBED_DEPLOYMENT,
+        currentModel: embedModel(),
       }
     : null;
 
   if (lastMismatch) {
     console.warn(
       `[retrieve] ${staleCount}/${all.length} chunks were embedded with ` +
-        `${[...stale].join(", ")} but the current model is ${EMBED_DEPLOYMENT}. ` +
+        `${[...stale].join(", ")} but the current model is ${embedModel()}. ` +
         `Those chunks are ranked by keyword only. Re-embed to restore semantic search.`
     );
   }

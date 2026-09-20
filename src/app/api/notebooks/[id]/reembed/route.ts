@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, floatsToBlob } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
-import { embed, EMBED_DEPLOYMENT } from "@/lib/ai";
+import { embed, embedModel } from "@/lib/ai";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,10 +37,10 @@ export async function POST(_req: Request, { params }: Ctx) {
             AND (embedding IS NULL OR embed_model IS NULL OR embed_model != ?)
           ORDER BY idx`
       )
-      .all(id, EMBED_DEPLOYMENT) as unknown as Row[];
+      .all(id, embedModel()) as unknown as Row[];
 
     if (!stale.length) {
-      return ok({ reembedded: 0, model: EMBED_DEPLOYMENT, upToDate: true });
+      return ok({ reembedded: 0, model: embedModel(), upToDate: true });
     }
 
     const update = db.prepare(
@@ -56,12 +56,12 @@ export async function POST(_req: Request, { params }: Ctx) {
       slice.forEach((row, j) => {
         const vec = vectors[j];
         if (!vec) return;
-        update.run(floatsToBlob(vec), EMBED_DEPLOYMENT, vec.length, row.id);
+        update.run(floatsToBlob(vec), embedModel(), vec.length, row.id);
         done++;
       });
     }
 
-    return ok({ reembedded: done, model: EMBED_DEPLOYMENT, upToDate: false });
+    return ok({ reembedded: done, model: embedModel(), upToDate: false });
   } catch (e) {
     return fail(e);
   }
@@ -81,7 +81,7 @@ export async function GET(_req: Request, { params }: Ctx) {
                     THEN 1 ELSE 0 END) AS stale
          FROM chunks WHERE notebook_id = ?`
       )
-      .get(EMBED_DEPLOYMENT, id) as unknown as {
+      .get(embedModel(), id) as unknown as {
       total: number;
       missing: number;
       stale: number;
@@ -97,7 +97,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     ).map((r) => ({ model: r.m ?? "unknown", dims: r.d ?? 0 }));
 
     return ok({
-      currentModel: EMBED_DEPLOYMENT,
+      currentModel: embedModel(),
       total: stats.total ?? 0,
       missing: stats.missing ?? 0,
       stale: stats.stale ?? 0,
