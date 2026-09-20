@@ -48,7 +48,28 @@ Open <http://localhost:3000>.
 
 ### Configuration
 
-`.env.local`:
+OpenNotebook talks to any **OpenAI-compatible** endpoint, or to Azure OpenAI.
+
+**Local or third-party** — set a base URL and it takes precedence over Azure:
+
+```ini
+AI_BASE_URL=http://localhost:8080/v1   # llama.cpp llama-server
+AI_MODEL=qwen3.5:latest
+AI_EMBEDDING_MODEL=nomic-embed-text
+# AI_API_KEY=                          # only if the endpoint needs one
+```
+
+Works with llama.cpp's `llama-server`, Ollama (`:11434/v1`), LM Studio
+(`:1234/v1`), vLLM, or OpenAI itself. Chat and embeddings are separate models:
+llama.cpp needs `--embeddings`, Ollama needs a dedicated embedding model
+(`ollama pull nomic-embed-text`).
+
+> **Expect it to be slow without a GPU.** Measured on a CPU-only VM via Ollama:
+> ingesting one short source took 8m34s, and a one-line chat answer 2m52s. The
+> same work on Azure takes seconds. On a GPU or Apple Silicon this is far
+> quicker, but "no API key needed" is not the same as "fast".
+
+**Azure OpenAI** — used when `AI_BASE_URL` is unset:
 
 ```ini
 AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE.openai.azure.com

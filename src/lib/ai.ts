@@ -1,4 +1,4 @@
-import { AzureOpenAI } from "openai";
+import OpenAI, { AzureOpenAI } from "openai";
 import {
   DefaultAzureCredential,
   ClientSecretCredential,
@@ -6,7 +6,23 @@ import {
   type TokenCredential,
 } from "@azure/identity";
 
+/**
+ * Two providers are supported.
+ *
+ * "openai"  — any OpenAI-compatible endpoint given a base URL: llama.cpp's
+ *             llama-server, Ollama, LM Studio, vLLM, or OpenAI itself. Most
+ *             local runtimes ignore the API key but the SDK requires one.
+ * "azure"   — Azure OpenAI, with Entra ID or a key.
+ *
+ * AI_BASE_URL wins when both are configured, so pointing at a local runtime is
+ * a one-line change that needs no Azure settings removed.
+ */
+const baseURL = process.env.AI_BASE_URL?.trim();
 const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
+
+export type Provider = "openai" | "azure";
+export const PROVIDER: Provider = baseURL ? "openai" : "azure";
+
 const apiKey = process.env.AZURE_OPENAI_API_KEY;
 const DEFAULT_API_VERSION = "2024-10-21";
 const apiVersion = process.env.AZURE_OPENAI_API_VERSION || DEFAULT_API_VERSION;
@@ -32,9 +48,17 @@ const KNOWN_API_VERSIONS = new Set([
 const apiVersionLooksWrong =
   !KNOWN_API_VERSIONS.has(apiVersion) && !/-preview$/.test(apiVersion);
 
-export const CHAT_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o";
+/**
+ * Model names. For Azure these are *deployment* names; for an OpenAI-compatible
+ * endpoint they are model ids. AI_MODEL / AI_EMBEDDING_MODEL take precedence so
+ * one provider's names never leak into the other's config.
+ */
+export const CHAT_DEPLOYMENT =
+  process.env.AI_MODEL?.trim() || process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o";
 export const EMBED_DEPLOYMENT =
-  process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT || "text-embedding-3-small";
+  process.env.AI_EMBEDDING_MODEL?.trim() ||
+  process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT ||
+  "text-embedding-3-small";
 
 export class MissingConfigError extends Error {}
 
@@ -55,15 +79,27 @@ function buildCredential(): TokenCredential {
   );
 }
 
-let client: AzureOpenAI | null = null;
+let client: OpenAI | AzureOpenAI | null = null;
 
-export function getClient(): AzureOpenAI {
+export function getClient(): OpenAI | AzureOpenAI {
+  if (client) return client;
+
+  if (PROVIDER === "openai") {
+    client = new OpenAI({
+      baseURL,
+      // Local runtimes ignore this, but the SDK refuses to construct without it.
+      apiKey: process.env.AI_API_KEY?.trim() || "not-needed",
+    });
+    return client;
+  }
+
   if (!endpoint) {
     throw new MissingConfigError(
-      "Azure OpenAI is not configured. Set AZURE_OPENAI_ENDPOINT in .env.local (see .env.example)."
+      "No model provider is configured. Set AI_BASE_URL for an OpenAI-compatible endpoint " +
+        "(llama.cpp, Ollama, LM Studio, vLLM, OpenAI), or AZURE_OPENAI_ENDPOINT for Azure. " +
+        "See .env.example."
     );
   }
-  if (client) return client;
 
   if (apiKey) {
     client = new AzureOpenAI({ endpoint, apiKey, apiVersion });
@@ -76,10 +112,33 @@ export function getClient(): AzureOpenAI {
   return client;
 }
 
-/** Surface Entra failures as actionable setup guidance rather than a raw 401. */
+/** Turn provider failures into actionable setup guidance rather than a raw code. */
 export function describeAuthError(e: unknown): string | null {
   const msg = e instanceof Error ? e.message : String(e);
   const status = (e as { status?: number })?.status;
+  const code = (e as { code?: string })?.code;
+
+  if (PROVIDER === "openai") {
+    // Nothing listening is by far the most common failure with a local runtime,
+    // and the SDK surfaces it as a bare connection error.
+    if (
+      code === "ECONNREFUSED" ||
+      code === "ENOTFOUND" ||
+      /connection error|fetch failed|ECONNREFUSED/i.test(msg)
+    ) {
+      return `Could not reach the model server at ${baseURL}. Check it is running — for llama.cpp that is 'llama-server --port 8080 -m <model.gguf>', for Ollama 'ollama serve' — and that AI_BASE_URL points at its OpenAI-compatible path (usually ending in /v1).`;
+    }
+    if (status === 404) {
+      return `The model server at ${baseURL} returned 404. Check that AI_MODEL ("${CHAT_DEPLOYMENT}") and AI_EMBEDDING_MODEL ("${EMBED_DEPLOYMENT}") are loaded — with Ollama, 'ollama list' shows what is available.`;
+    }
+    if (status === 501) {
+      return `The model server does not support this operation. Embeddings in particular need a server started with embedding support (llama.cpp: '--embeddings'; Ollama: pull a dedicated model such as nomic-embed-text and set AI_EMBEDDING_MODEL).`;
+    }
+    if (status === 401 || status === 403) {
+      return `The model server at ${baseURL} rejected the credential. Set AI_API_KEY if it requires one.`;
+    }
+    return null;
+  }
 
   // A 404 here almost always means a misconfigured api-version or a deployment
   // name that does not exist, not a missing resource.
