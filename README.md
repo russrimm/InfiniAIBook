@@ -35,6 +35,28 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 Every artifact can be copied or exported to Markdown; audio can be downloaded as
 MP3, and flashcards export as a two-column table that Anki and Quizlet accept.
 
+### Generation does not block the app
+
+An audio overview takes a few minutes and an AI-image infographic around a
+hundred seconds. Neither holds the notebook hostage: a format is disabled only
+while that same format is running, every other format stays available, the
+controls keep working, and everything already generated can still be opened,
+read and exported.
+
+Several formats can run at once, and the panel names what is in flight.
+
+Finishing does **not** take the screen. A job that lands while you are reading
+something else offers itself as a notice instead of replacing what you are
+looking at — and because that notice only ever appears when something is
+already open, it deliberately sits above the modal layer rather than behind the
+thing that triggered it.
+
+The check for "is something already on screen" reads a ref rather than state.
+A job started several renders earlier still holds the callback it was handed, so
+reading state there would report whatever was open when the button was pressed:
+two formats finishing together both concluded the screen was free, and one
+silently replaced the other.
+
 ---
 
 ## Keeping linked sources current

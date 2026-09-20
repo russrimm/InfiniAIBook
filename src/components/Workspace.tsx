@@ -10,7 +10,8 @@ import ArtifactModal from "./ArtifactModal";
 import SourceModal from "./SourceModal";
 import DiscoverModal, { type DiscoverHit } from "./DiscoverModal";
 import ModelPicker from "./ModelPicker";
-import type { Artifact, Message, Notebook, Source } from "@/lib/types";
+import { STUDIO } from "@/lib/studio";
+import type { Artifact, ArtifactType, Message, Notebook, Source } from "@/lib/types";
 
 type Data = {
   notebook: Notebook;
@@ -34,6 +35,10 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [pendingUpdates, setPendingUpdates] = useState<PendingUpdate[]>([]);
   const [showUpdates, setShowUpdates] = useState(false);
   const [checkingSources, setCheckingSources] = useState(false);
+  /** Finished while the user was busy elsewhere; offered rather than forced. */
+  const [readyArtifact, setReadyArtifact] = useState<Artifact | null>(null);
+  /** Mirrors "something is already on screen" for callbacks held by old renders. */
+  const occupied = useRef(false);
 
   /** Source ids already reflected in `selected`, to detect genuinely new ones. */
   const seenSources = useRef<Set<string>>(new Set());
@@ -104,6 +109,12 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     void checkSources();
   }, [checkSources]);
 
+  useEffect(() => {
+    occupied.current = Boolean(
+      openArtifact || openSourceId || discovering || pickingModel || showUpdates
+    );
+  }, [openArtifact, openSourceId, discovering, pickingModel, showUpdates]);
+
   // Shown in the header so the active model is visible without opening a dialog.
   const loadModel = useCallback(async () => {
     try {
@@ -121,6 +132,21 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const selectedIds = [...selected];
   const allSelected = data ? selected.size === data.sources.length : false;
 
+  /**
+   * Generation finishes on its own schedule, and stealing the screen for it
+   * would undo the point of running in the background. Anything that lands
+   * while the user is reading something else waits to be opened.
+   *
+   * The check reads a ref rather than state: a job started several renders ago
+   * still holds the callback it was given, so a captured `openArtifact` would
+   * be whatever was open when the user pressed the button — which is how two
+   * jobs finishing together both decided the screen was free and one silently
+   * replaced the other.
+   */
+  const openWhenFree = (a: Artifact) => {
+    if (occupied.current) setReadyArtifact(a);
+    else setOpenArtifact(a);
+  };
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -261,7 +287,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             hasSources={data.sources.length > 0}
             selectedIds={selectedIds}
             artifacts={data.artifacts}
-            onOpen={setOpenArtifact}
+            onOpen={openWhenFree}
             onChanged={load}
           />
         </div>
@@ -300,6 +326,41 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           }}
           onClose={() => setShowUpdates(false)}
         />
+      )}
+
+      {readyArtifact && (
+        // Above the modal layer on purpose: this only appears when something
+        // is already on screen, so at z-40 it would sit behind the very thing
+        // that caused it to be shown.
+        <div className="fade-up fixed bottom-4 left-1/2 z-[60] -translate-x-1/2">
+          <div className="flex items-center gap-3 rounded-full border border-[var(--border)] bg-[var(--panel)] py-2 pr-2 pl-4 shadow-xl">
+            <span className="text-base">
+              {STUDIO[readyArtifact.type as ArtifactType]?.icon ?? "📄"}
+            </span>
+            <span className="max-w-[16rem] truncate text-[12px]">
+              <span className="text-[var(--muted)]">
+                {STUDIO[readyArtifact.type as ArtifactType]?.label} ready ·{" "}
+              </span>
+              {readyArtifact.title}
+            </span>
+            <button
+              className="btn btn-primary !py-1 !text-[11px]"
+              onClick={() => {
+                setOpenArtifact(readyArtifact);
+                setReadyArtifact(null);
+              }}
+            >
+              Open
+            </button>
+            <button
+              aria-label="Dismiss"
+              className="rounded px-1.5 text-xs text-[var(--muted)] transition hover:text-[var(--fg)]"
+              onClick={() => setReadyArtifact(null)}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

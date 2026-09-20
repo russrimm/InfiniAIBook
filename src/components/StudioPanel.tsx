@@ -54,8 +54,8 @@ export default function StudioPanel({
   const [hostA, setHostA] = useState(VOICE_PRESETS.conversational.a);
   const [hostB, setHostB] = useState(VOICE_PRESETS.conversational.b);
   const [speed, setSpeed] = useState(1);
-  const [busy, setBusy] = useState<ArtifactType | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [running, setRunning] = useState<Set<ArtifactType>>(new Set());
+  const [errors, setErrors] = useState<Partial<Record<ArtifactType, string>>>({});
   const previewAudio = useRef<HTMLAudioElement | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState<string | null>(null);
@@ -94,13 +94,22 @@ export default function StudioPanel({
     }
   };
 
+  /**
+   * Generation runs in the background. A format is blocked only while that
+   * same format is running — everything else in the studio, and every artifact
+   * already made, stays usable while a long job finishes.
+   */
   const run = async (
     type: ArtifactType,
     url: string,
     body: Record<string, unknown>
   ) => {
-    setBusy(type);
-    setError(null);
+    setRunning((prev) => new Set(prev).add(type));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[type];
+      return next;
+    });
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -112,9 +121,16 @@ export default function StudioPanel({
       await onChanged();
       onOpen(json as Artifact);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Generation failed");
+      setErrors((prev) => ({
+        ...prev,
+        [type]: e instanceof Error ? e.message : "Generation failed",
+      }));
     } finally {
-      setBusy(null);
+      setRunning((prev) => {
+        const next = new Set(prev);
+        next.delete(type);
+        return next;
+      });
     }
   };
 
@@ -146,6 +162,7 @@ export default function StudioPanel({
   };
 
   const blocked = !hasSources || selectedIds.length === 0;
+  const audioBusy = running.has("podcast");
   const pinnedVoices = delivery === "pinned";
   /** Fixed voices exist for only some speakers, so warn before generating. */
   const unpinnable = pinnedVoices
@@ -171,11 +188,11 @@ export default function StudioPanel({
 
         <div
           className={`card relative mb-2 overflow-hidden transition ${
-            busy === "podcast" ? "shimmer border-[var(--accent)]" : ""
+            audioBusy ? "shimmer border-[var(--accent)]" : ""
           }`}
         >
           <button
-            disabled={blocked || !!busy}
+            disabled={blocked || audioBusy}
             onClick={() => void generateAudio()}
             className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
           >
@@ -183,7 +200,7 @@ export default function StudioPanel({
             <span className="min-w-0 flex-1">
               <span className="block text-[13px] font-medium">Audio overview</span>
               <span className="block text-[10px] leading-snug text-[var(--muted)]">
-                {busy === "podcast"
+                {audioBusy
                   ? `Writing and narrating about ${AUDIO_LENGTHS[audioLen].minutes} minutes — this takes a while`
                   : "Two hosts discuss your sources"}
               </span>
@@ -198,7 +215,7 @@ export default function StudioPanel({
               <SpeakerSelect
                 value={hostA}
                 exclude={hostB}
-                disabled={!!busy}
+                disabled={false}
                 onChange={setHostA}
                 onPreview={preview}
                 previewing={previewing}
@@ -207,7 +224,7 @@ export default function StudioPanel({
               <SpeakerSelect
                 value={hostB}
                 exclude={hostA}
-                disabled={!!busy}
+                disabled={false}
                 onChange={setHostB}
                 onPreview={preview}
                 previewing={previewing}
@@ -222,7 +239,7 @@ export default function StudioPanel({
               <select
                 className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
                 value={audioLen}
-                disabled={!!busy}
+                disabled={false}
                 onChange={(e) => setAudioLen(e.target.value as AudioLength)}
               >
                 {(Object.keys(AUDIO_LENGTHS) as AudioLength[]).map((k) => (
@@ -240,7 +257,7 @@ export default function StudioPanel({
               <select
                 className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
                 value={speed}
-                disabled={!!busy}
+                disabled={false}
                 onChange={(e) => setSpeed(Number(e.target.value))}
               >
                 {RATE_CHOICES.map((r) => (
@@ -252,7 +269,7 @@ export default function StudioPanel({
               <select
                 className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
                 value={delivery}
-                disabled={!!busy}
+                disabled={false}
                 onChange={(e) => setDelivery(e.target.value as Delivery)}
               >
                 <option value="natural">Natural dialogue</option>
@@ -287,7 +304,7 @@ export default function StudioPanel({
         <div className="grid grid-cols-2 gap-2">
           {STUDIO_ORDER.map((type) => {
             const s = STUDIO[type];
-            const isBusy = busy === type;
+            const isBusy = running.has(type);
 
             // Study aids carry their own level and length controls for the
             // same reason the infographic carries its style picker: settings
@@ -301,7 +318,7 @@ export default function StudioPanel({
                   }`}
                 >
                   <button
-                    disabled={blocked || !!busy}
+                    disabled={blocked || isBusy}
                     onClick={() => void generate(type)}
                     className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -321,7 +338,7 @@ export default function StudioPanel({
                     <select
                       className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
                       value={difficulty}
-                      disabled={!!busy}
+                      disabled={false}
                       onChange={(e) =>
                         setDifficulty(e.target.value as StudyDifficulty)
                       }
@@ -336,7 +353,7 @@ export default function StudioPanel({
                     <select
                       className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
                       value={length}
-                      disabled={!!busy}
+                      disabled={false}
                       onChange={(e) => setLength(e.target.value as StudyLength)}
                     >
                       <option value="short">Short</option>
@@ -360,7 +377,7 @@ export default function StudioPanel({
                   }`}
                 >
                   <button
-                    disabled={blocked || !!busy}
+                    disabled={blocked || isBusy}
                     onClick={() => void generate(type)}
                     className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -380,7 +397,7 @@ export default function StudioPanel({
                     <select
                       className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
                       value={style}
-                      disabled={!!busy}
+                      disabled={false}
                       onChange={(e) => setStyle(e.target.value as InfographicStyle)}
                     >
                       {STYLE_ORDER.map((key) => (
@@ -398,7 +415,7 @@ export default function StudioPanel({
             return (
               <button
                 key={type}
-                disabled={blocked || !!busy}
+                disabled={blocked || isBusy}
                 onClick={() => void generate(type)}
                 className={`card group relative overflow-hidden px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
                   isBusy ? "shimmer border-[var(--accent)]" : "hover:border-[#39424f]"
@@ -421,7 +438,25 @@ export default function StudioPanel({
               : "Add a source to unlock the studio."}
           </p>
         )}
-        {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
+        {Object.entries(errors).map(([type, message]) => (
+          <p key={type} className="mt-3 text-xs text-red-400">
+            <span className="font-medium">
+              {STUDIO[type as ArtifactType]?.label ?? type}:
+            </span>{" "}
+            {message}
+          </p>
+        ))}
+
+        {running.size > 0 && (
+          <p className="mt-3 flex items-center gap-1.5 text-[11px] text-[var(--muted)]">
+            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
+            Generating{" "}
+            {[...running]
+              .map((t) => STUDIO[t]?.label.toLowerCase() ?? t)
+              .join(", ")}{" "}
+            in the background — carry on using the rest of the notebook.
+          </p>
+        )}
 
         <div className="mt-6">
           <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
