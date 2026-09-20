@@ -5,7 +5,7 @@ import {
   getBearerTokenProvider,
   type TokenCredential,
 } from "@azure/identity";
-import { getSetting, SETTING_CHAT_MODEL, SETTING_EMBED_MODEL } from "./settings";
+import { getSetting, SETTING_CHAT_MODEL, SETTING_EMBED_MODEL, SETTING_IMAGE_MODEL } from "./settings";
 
 /**
  * Two providers are supported.
@@ -89,6 +89,92 @@ export function envEmbedModel(): string {
     process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT ||
     "text-embedding-3-small"
   );
+}
+
+export function imageModel(): string {
+  return (
+    getSetting(SETTING_IMAGE_MODEL) ||
+    process.env.AI_IMAGE_MODEL?.trim() ||
+    process.env.AZURE_OPENAI_IMAGE_DEPLOYMENT ||
+    "gpt-image-2.5-sunburst"
+  );
+}
+
+export function envImageModel(): string {
+  return (
+    process.env.AI_IMAGE_MODEL?.trim() ||
+    process.env.AZURE_OPENAI_IMAGE_DEPLOYMENT ||
+    "gpt-image-2.5-sunburst"
+  );
+}
+
+/**
+ * Image generation sits on a different Azure api-version than inference — the
+ * dated inference release (2024-10-21) predates the image endpoint and 404s.
+ */
+const IMAGE_API_VERSION =
+  process.env.AZURE_OPENAI_IMAGE_API_VERSION || "2025-04-01-preview";
+
+export type GeneratedImage = { png: Buffer; model: string; size: string };
+
+/**
+ * Renders a prompt to a PNG. Returns raw bytes rather than a URL because the
+ * gpt-image family replies with base64 and no hosted URL to fetch.
+ */
+export async function generateImage(
+  prompt: string,
+  opts: { size?: string; quality?: string } = {}
+): Promise<GeneratedImage> {
+  const model = imageModel();
+  const size = opts.size || "1536x1024";
+  const quality = opts.quality || "high";
+
+  const url =
+    PROVIDER === "azure"
+      ? `${endpoint?.replace(/\/$/, "")}/openai/deployments/${encodeURIComponent(
+          model
+        )}/images/generations?api-version=${IMAGE_API_VERSION}`
+      : `${baseURL?.replace(/\/$/, "")}/images/generations`;
+
+  return withRetry(async () => {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify(
+        PROVIDER === "azure"
+          ? { prompt, n: 1, size, quality }
+          : { model, prompt, n: 1, size, response_format: "b64_json" }
+      ),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      const err = Object.assign(
+        new Error(
+          `Image generation failed (${res.status}). ${body.slice(0, 400)}`
+        ),
+        { status: res.status }
+      );
+      throw err;
+    }
+
+    const json = (await res.json()) as {
+      data?: { b64_json?: string; url?: string }[];
+    };
+    const first = json.data?.[0];
+
+    // Some OpenAI-compatible servers ignore response_format and hand back a URL.
+    if (!first?.b64_json && first?.url) {
+      const img = await fetch(first.url);
+      if (!img.ok) throw new Error(`Could not download generated image (${img.status}).`);
+      return { png: Buffer.from(await img.arrayBuffer()), model, size };
+    }
+
+    if (!first?.b64_json) {
+      throw new Error("The image model returned no image data.");
+    }
+    return { png: Buffer.from(first.b64_json, "base64"), model, size };
+  }, "image");
 }
 
 export class MissingConfigError extends Error {}

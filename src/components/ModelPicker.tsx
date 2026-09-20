@@ -4,11 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 
 type ModelsResponse = {
   provider: "azure" | "openai";
-  current: { chat: string; embedding: string };
-  env: { chat: string; embedding: string };
-  overridden: { chat: boolean; embedding: boolean };
+  current: { chat: string; embedding: string; image: string };
+  env: { chat: string; embedding: string; image: string };
+  overridden: { chat: boolean; embedding: boolean; image: boolean };
   chat: string[];
   embedding: string[];
+  image: string[];
   embeddedChunks: number;
   staleChunks: number;
   discoveryError: string | null;
@@ -18,6 +19,7 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
   const [data, setData] = useState<ModelsResponse | null>(null);
   const [chat, setChat] = useState("");
   const [embedding, setEmbedding] = useState("");
+  const [image, setImage] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
@@ -30,6 +32,7 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
       setData(json);
       setChat(json.current.chat);
       setEmbedding(json.current.embedding);
+      setImage(json.current.image);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load models");
     }
@@ -59,7 +62,8 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
   }
 
   const embeddingChanged = embedding !== data.current.embedding;
-  const dirty = chat !== data.current.chat || embeddingChanged;
+  const dirty =
+    chat !== data.current.chat || embeddingChanged || image !== data.current.image;
 
   const save = async () => {
     setSaving(true);
@@ -68,7 +72,7 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
       const res = await fetch("/api/models", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chat, embedding }),
+        body: JSON.stringify({ chat, embedding, image }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Could not save");
@@ -91,7 +95,7 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
       await fetch("/api/models", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chat: null, embedding: null }),
+        body: JSON.stringify({ chat: null, embedding: null, image: null }),
       });
       setSavedNote("Reset to the configured defaults.");
       await load();
@@ -137,6 +141,21 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
         disabled={saving}
       />
 
+      <Field
+        label="Image model"
+        hint={
+          data.image.length
+            ? 'Used by the "AI image" infographic style.'
+            : 'Used by the "AI image" infographic style. No image model was found — deploy one to use it.'
+        }
+        value={image}
+        options={data.image}
+        overridden={data.overridden.image}
+        envValue={data.env.image}
+        onChange={setImage}
+        disabled={saving}
+      />
+
       {embeddingChanged && data.embeddedChunks > 0 && (
         <p className="mb-4 rounded-lg border border-amber-900/60 bg-amber-950/20 px-3 py-2.5 text-[12px] leading-snug text-amber-200/90">
           Embeddings from different models cannot be compared. Switching leaves all{" "}
@@ -153,7 +172,7 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
       )}
 
       <div className="flex items-center gap-2">
-        {(data.overridden.chat || data.overridden.embedding) && (
+        {(data.overridden.chat || data.overridden.embedding || data.overridden.image) && (
           <button
             className="text-[11px] text-[var(--muted)] transition hover:text-[var(--fg)]"
             onClick={() => void reset()}

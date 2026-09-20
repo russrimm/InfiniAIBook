@@ -50,3 +50,4 @@ export function setSetting(key: string, value: string | null) {
 
 export const SETTING_CHAT_MODEL = "chat_model";
 export const SETTING_EMBED_MODEL = "embed_model";
+export const SETTING_IMAGE_MODEL = "image_model";

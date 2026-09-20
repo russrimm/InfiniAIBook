@@ -8,6 +8,7 @@
  *   npm run check:ai               connectivity, chat, streaming, JSON, embeddings
  *   npm run check:ai -- --studio   also generate every Studio format
  *   npm run check:ai -- --styles   also generate every infographic style
+ *   npm run check:ai -- --image    also render a test image
  *
  * It imports the application's own modules, so it exercises the same config
  * resolution and request shapes the app uses, rather than a parallel copy that
@@ -26,6 +27,8 @@ import {
   chatText,
   describeAuthError,
   embed,
+  generateImage,
+  imageModel,
 } from "../src/lib/ai";
 import { GROUNDING_RULES, STUDIO, STUDIO_ORDER } from "../src/lib/studio";
 import { INFOGRAPHIC_STYLES, STYLE_ORDER } from "../src/lib/infographic";
@@ -34,6 +37,7 @@ import type { ArtifactType } from "../src/lib/types";
 const args = process.argv.slice(2);
 const runStudio = args.includes("--studio") || args.includes("--styles");
 const runStyles = args.includes("--styles");
+const runImage = args.includes("--image");
 
 const GREEN = "\x1b[32m";
 const RED = "\x1b[31m";
@@ -85,7 +89,8 @@ async function main() {
     }`
   );
   console.log(`  chat       ${chatModel()}`);
-  console.log(`  embedding  ${embedModel()}\n`);
+  console.log(`  embedding  ${embedModel()}`);
+  console.log(`  image      ${imageModel()}${runImage ? "" : `${DIM} (add --image to test)${RESET}`}\n`);
 
   console.log(`${DIM}core${RESET}`);
 
@@ -154,6 +159,26 @@ async function main() {
   }
 
   if (dims > 0) await checkStoredDimensions(dims);
+
+  // Image generation sits on its own deployment and api-version, so a working
+  // chat model says nothing about whether the image style will run.
+  if (runImage) {
+    t = Date.now();
+    try {
+      const { png, model } = await generateImage(
+        'A simple flat vector icon of a blue book on an off-white background. Letter the single word "SOURCES" beneath it.',
+        { size: "1024x1024", quality: "medium" }
+      );
+      const isPng = png.subarray(0, 8).toString("hex") === "89504e470d0a1a0a";
+      if (isPng && png.length > 1024) {
+        ok("image", `${ms(t)} — ${model}, ${(png.length / 1024).toFixed(0)} KB`);
+      } else {
+        fail("image", "response was not a usable PNG");
+      }
+    } catch (e) {
+      fail("image", reason(e));
+    }
+  }
 
   if (runStudio) await checkStudio();
   if (runStyles) await checkStyles();

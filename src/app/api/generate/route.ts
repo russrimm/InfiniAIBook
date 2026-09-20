@@ -1,10 +1,13 @@
+import fs from "node:fs";
+import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
-import { chatJSON, type ChatMsg } from "@/lib/ai";
+import { chatJSON, generateImage, type ChatMsg } from "@/lib/ai";
+import { imageDir } from "@/lib/paths";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES, STUDIO } from "@/lib/studio";
-import { DEFAULT_STYLE, styleDef } from "@/lib/infographic";
+import { DEFAULT_STYLE, buildImagePrompt, styleDef } from "@/lib/infographic";
 import type { ArtifactType } from "@/lib/types";
 import { NextResponse } from "next/server";
 
@@ -336,9 +339,35 @@ export async function POST(req: Request) {
 
     const id = nanoid(12);
     const title = str(content.title, spec.label);
+
+    // The image style renders the brief as a PNG. The brief itself is still
+    // stored, so the artifact keeps its citations — an image alone cannot
+    // carry them, and the text in it is not selectable.
+    let image: { imageUrl: string; imageModel: string; imageSize: string } | null = null;
+    if (activeStyle === "image") {
+      try {
+        const { png, model, size } = await generateImage(
+          buildImagePrompt(content as Parameters<typeof buildImagePrompt>[0])
+        );
+        fs.mkdirSync(imageDir(), { recursive: true });
+        fs.writeFileSync(path.join(imageDir(), `${id}.png`), png);
+        image = { imageUrl: `/api/image/${id}`, imageModel: model, imageSize: size };
+      } catch (e) {
+        // Falling back to the drawn style beats losing the generated brief.
+        const why = e instanceof Error ? e.message : "The image model failed.";
+        return NextResponse.json(
+          {
+            error: `The brief was generated but the image could not be rendered. ${why}`,
+          },
+          { status: 502 }
+        );
+      }
+    }
+
     const stored = {
       ...content,
       ...(activeStyle ? { style: activeStyle } : {}),
+      ...(image ?? {}),
       citations,
     };
     db.prepare(

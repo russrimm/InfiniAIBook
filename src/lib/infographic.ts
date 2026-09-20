@@ -15,6 +15,7 @@ import { METAPHOR_HINTS, METAPHOR_KEYS } from "./metaphors";
 
 export type InfographicStyle =
   | "illustrated"
+  | "image"
   | "classic"
   | "flat"
   | "data"
@@ -42,7 +43,8 @@ export type InfographicLayout =
   | "compare"
   | "checklist"
   | "data"
-  | "illustrated";
+  | "illustrated"
+  | "image";
 
 export type InfographicTheme = {
   bg: string;
@@ -118,6 +120,56 @@ oversized, so an invented or vague number is conspicuous. Leave it out otherwise
 Give "takeaway" the weight: it is read first and set in bold.
 Keep "sections" empty; "regions" replaces it for this style.
 "title" is one strong headline. "subtitle" is a single line of context.`,
+    theme: {
+      bg: "#f7faf9",
+      surface: "#ffffff",
+      border: "#d4e2e4",
+      borderStyle: "solid",
+      borderWidth: 1,
+      radius: 16,
+      text: "#2c3e4c",
+      muted: "#61798a",
+      heading: "#0f2233",
+      accent: "#0e7490",
+      accent2: "#15803d",
+      headerBg: "#f7faf9",
+      headerText: "#0b1b2b",
+      headerSubText: "#51677a",
+      statValue: "#0e7490",
+      font: SANS,
+      headingFont: SANS,
+      shadow: "0 10px 24px -18px rgba(15,34,51,0.45)",
+    },
+  },
+
+  /**
+   * Generated as a real image by an image model, from the same grounded brief
+   * the illustrated style produces. The brief is kept alongside the PNG so the
+   * citations remain, which a bare image cannot carry.
+   */
+  image: {
+    label: "AI image",
+    blurb: "Rendered by an image model",
+    icon: "✨",
+    layout: "image",
+    hint: `Analyse the material and identify the 6-9 most important ideas. Do not
+restate paragraphs — turn each idea into something that can be drawn.
+
+Populate "regions" with exactly 3 thematic groups, each { "heading": 1-3 words in
+upper case, "concepts": [...] }. Each concept is { "takeaway": a bold claim of
+3-7 words, "detail": ONE short sentence with a citation marker, "metaphor": one
+key from the list below, "value": an optional short figure taken literally from
+the sources, e.g. "68%", "$2.4B", "12 weeks" }.
+
+Choose "metaphor" by what the idea *is*, not by decoration:
+${METAPHOR_LIST}
+
+This brief is rendered as a drawn illustration, so text must be short enough to
+survive being lettered by hand: keep every takeaway under 45 characters and every
+detail under 110. Set "value" only where the sources state a real figure.
+Keep "sections" empty; "regions" replaces it for this style.
+"title" is one strong headline of at most 60 characters. "subtitle" is a single
+line of context.`,
     theme: {
       bg: "#f7faf9",
       surface: "#ffffff",
@@ -688,6 +740,7 @@ so the cards stay balanced.`,
 
 export const STYLE_ORDER: InfographicStyle[] = [
   "illustrated",
+  "image",
   "classic",
   "flat",
   "data",
@@ -721,4 +774,88 @@ export function styleDef(style?: string): StyleDef {
   if (!style) return INFOGRAPHIC_STYLES.classic;
   const key = ALIASES[style] ?? (style as InfographicStyle);
   return INFOGRAPHIC_STYLES[key] ?? INFOGRAPHIC_STYLES.classic;
+}
+
+type BriefConcept = {
+  takeaway?: string;
+  detail?: string;
+  metaphor?: string;
+  value?: string;
+};
+type BriefRegion = { heading?: string; concepts?: BriefConcept[] };
+
+/**
+ * Turns the grounded brief into an image prompt.
+ *
+ * Every line of text handed to the model is quoted from the brief, which is
+ * itself derived from the sources — the image model is told to letter it
+ * verbatim rather than invent copy, because it cannot be cited after the fact.
+ */
+export function buildImagePrompt(content: {
+  title?: string;
+  subtitle?: string;
+  regions?: BriefRegion[];
+}): string {
+  const strip = (s: string) =>
+    // Citation markers are for the HTML renderer; lettered into an image they
+    // read as stray digits.
+    s.replace(/\[\s*\d+(?:\s*,\s*\d+)*\s*\]/g, "").replace(/\s+/g, " ").trim();
+
+  const regions = (content.regions ?? []).slice(0, 3).map((r, i) => {
+    const concepts = (r.concepts ?? []).slice(0, 3).map((c) => {
+      const bits = [`      - Takeaway: "${strip(c.takeaway || "")}"`];
+      if (c.detail) bits.push(`        Supporting line: "${strip(c.detail)}"`);
+      if (c.value) bits.push(`        Oversized figure: "${strip(c.value)}"`);
+      if (c.metaphor)
+        bits.push(
+          `        Draw as: ${
+            METAPHOR_HINTS[c.metaphor as keyof typeof METAPHOR_HINTS] ?? c.metaphor
+          }`
+        );
+      return bits.join("\n");
+    });
+    return `  Region ${i + 1} — ${strip(r.heading || "").toUpperCase()}\n${concepts.join("\n")}`;
+  });
+
+  return `Create a NotebookLM-style illustrated infographic.
+
+Convert each concept below into an intuitive visual metaphor, diagram, process
+illustration, comparison, gauge, timeline or mini visualization. Do not simply
+place paragraphs into boxes.
+
+COMPOSITION: a wide landscape editorial infographic, roughly 2:1. One large
+centered headline at the top. Divide the information into the ${regions.length} thematic
+regions given below, each with a bold section heading. Build a visual journey
+through the information rather than a rigid grid of cards. Connect related
+concepts with subtle colored lines, arrows, paths or flows.
+
+HIERARCHY: each concept shows its bold takeaway, an illustration that
+communicates the idea, and at most one short supporting sentence. Figures marked
+as oversized must be rendered dramatically large.
+
+ILLUSTRATION STYLE: polished modern editorial vector illustration; friendly
+technical aesthetic; slightly dimensional objects; dark navy outlines; rounded
+geometry; subtle gradients; soft shadows; a blue, cyan, teal and green primary
+palette with orange and yellow used selectively for emphasis. Very light
+off-white background with subtle blue/green regional tinting. Generous
+whitespace.
+
+TYPOGRAPHY: large bold black sans-serif headline; bold section headings; strong
+black subheads; highly readable supporting text. Avoid excessive text.
+
+The result should resemble a premium illustrated technology infographic produced
+for an enterprise publication — not a PowerPoint slide, dashboard, poster or a
+collection of UI cards.
+
+TEXT IS EXACT. Letter every string below verbatim, spelled correctly. Do not
+invent, paraphrase, translate or add any other words, numbers, labels, captions,
+logos or watermarks. If a word would not fit, make the illustration smaller
+rather than shortening the word.
+
+HEADLINE: "${strip(content.title || "")}"${
+    content.subtitle ? `\nSUBHEAD: "${strip(content.subtitle)}"` : ""
+  }
+
+CONTENT:
+${regions.join("\n\n")}`;
 }

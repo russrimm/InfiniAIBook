@@ -75,10 +75,11 @@ AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE.openai.azure.com
 AZURE_OPENAI_API_VERSION=2024-10-21
 AZURE_OPENAI_DEPLOYMENT=gpt-5                             # chat deployment name
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-large  # embedding deployment name
+AZURE_OPENAI_IMAGE_DEPLOYMENT=gpt-image-2.5-sunburst      # optional, for image infographics
 # DATA_DIR=./.data                                        # optional
 ```
 
-Both deployment values are **deployment names** from Azure AI Foundry, not model names.
+These deployment values are **deployment names** from Azure AI Foundry, not model names.
 List what your resource actually has:
 
 ```bash
@@ -93,7 +94,8 @@ in use. `check:ai` exercises the real code paths against whatever is configured:
 ```bash
 npm run check:ai              # connectivity, chat, streaming, JSON, embeddings
 npm run check:ai -- --studio  # also generate all 8 Studio formats
-npm run check:ai -- --styles  # also generate all 17 infographic styles
+npm run check:ai -- --styles  # also generate all 18 drawn infographic styles
+npm run check:ai -- --image   # also render a test image
 ```
 
 It imports the application's own modules, so it cannot drift from what the app
@@ -202,7 +204,7 @@ az cognitiveservices account deployment list -n <resource> -g <rg> \
 
 ## Infographic styles
 
-Pick a style in the Studio panel before generating. Eighteen are available.
+Pick a style in the Studio panel before generating. Nineteen are available.
 
 **Illustrated** is the default: a wide editorial piece that turns each idea into
 a visual metaphor rather than a box of prose. It identifies the 6–10 most
@@ -217,6 +219,10 @@ roadmaps for processes, and ten more. They are drawn as inline SVG in one visual
 language (navy outlines, rounded geometry, blue/teal/green with selective
 orange), so they stay crisp at any size, tint to match their region, and never
 misspell a label.
+
+**AI image** renders the infographic as a real picture with an image model,
+using the same grounded brief the illustrated style produces. See
+[Image infographics](#image-infographics) below.
 
 **Structure-led** — these change what the infographic *is*:
 
@@ -254,10 +260,53 @@ own Studio format, where it gets a proper chronological layout. *Lead magnet* an
 call-to-action — a notebook grounded in your own sources has none of those, and
 inventing them would violate the one rule the whole app rests on.
 
-Infographics render as **real HTML, not generated images**: the text stays
-selectable and searchable, citations remain hoverable, the layout reflows on
-narrow screens, and nothing is misspelled by an image model. Citation pills pick
-up each theme's accent colour rather than the app's dark default.
+Infographics render as **real HTML, not generated images** — with one opt-in
+exception, below. HTML keeps the text selectable and searchable, citations
+hoverable, the layout reflowing on narrow screens, and nothing misspelled by an
+image model. Citation pills pick up each theme's accent colour rather than the
+app's dark default.
+
+### Image infographics
+
+The **AI image** style renders the infographic as a picture instead. It runs in
+two stages: the generation model first writes the same grounded brief the
+illustrated style uses — headline, three regions, a takeaway, one cited sentence
+and an optional real figure per concept — and that brief is then turned into the
+image prompt. Nothing reaches the image model that did not come from your
+sources, and the brief is stored alongside the PNG.
+
+That two-stage design exists because of what an image cannot do. Text inside a
+picture is not selectable, not searchable, and cannot carry a citation. So the
+artifact shows the image first and the brief underneath, with its citation pills
+intact — you get the illustration without losing the evidence trail.
+
+Configure a deployment and pick it under **Models → Image model**:
+
+```bash
+AZURE_OPENAI_IMAGE_DEPLOYMENT=gpt-image-2.5-sunburst
+```
+
+**Which model.** `gpt-image-2.5-sunburst` is the recommended default. It is
+tuned for detail and editing precision, which is exactly what a dense
+infographic needs: in testing it lettered every heading, stat and caption
+correctly and laid the regions out as a connected editorial spread.
+`gpt-image-2.5-flare` is roughly 2.5× faster (27s against 63s for the same
+prompt) and also spelled everything correctly, but arranges the content as three
+rigid columns — closer to a slide than to the editorial journey the style asks
+for. Use Flare for quick drafts, Sunburst for the finished artifact. The picker
+also accepts `gpt-image-1.x`, FLUX and other deployed image models.
+
+Generation takes around 100 seconds end to end, most of it in the image model.
+Check it independently with:
+
+```bash
+npm run check:ai -- --image
+```
+
+The prompt instructs the model to letter every string verbatim and invent no
+other text. Image models are far better at this than they were, but the
+instruction is not a guarantee — the app says so under each generated image, and
+the cited brief beneath it remains the authoritative copy.
 
 ---
 
@@ -507,7 +556,7 @@ src/
     ingest.ts    text extraction + chunking
     retrieve.ts  hybrid retrieval, corpus sampling, citation building
     studio.ts    per-format prompts and schemas
-    paths.ts     data/audio locations, traversal-safe id resolution
+    paths.ts     data/audio and data/images locations, traversal-safe id resolution
 ```
 
 **Storage note:** the database uses Node 22+'s built-in `node:sqlite`, so there is

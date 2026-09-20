@@ -22,3 +22,20 @@ export function removeAudio(id: string) {
     /* already gone */
   }
 }
+
+export function imageDir(): string {
+  return path.join(dataDir(), "images");
+}
+
+export function imagePath(id: string): string {
+  if (!/^[A-Za-z0-9_-]{1,32}$/.test(id)) throw new Error("Invalid image id");
+  return path.join(imageDir(), `${id}.png`);
+}
+
+export function removeImage(id: string) {
+  try {
+    fs.unlinkSync(imagePath(id));
+  } catch {
+    /* already gone */
+  }
+}

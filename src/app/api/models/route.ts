@@ -5,8 +5,10 @@ import {
   authHeaders,
   chatModel,
   embedModel,
+  imageModel,
   envChatModel,
   envEmbedModel,
+  envImageModel,
   getClient,
 } from "@/lib/ai";
 import {
@@ -14,19 +16,22 @@ import {
   setSetting,
   SETTING_CHAT_MODEL,
   SETTING_EMBED_MODEL,
+  SETTING_IMAGE_MODEL,
 } from "@/lib/settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type ModelInfo = { id: string; kind: "chat" | "embedding" };
+type ModelInfo = { id: string; kind: "chat" | "embedding" | "image" };
 
 const EMBED_HINT = /embed|embedding|bge|gte|e5[-_]|minilm|nomic/i;
-/** Not usable for chat or retrieval, so not worth offering. */
-const EXCLUDE_HINT = /whisper|tts|dall-?e|stable-?diffusion|moderation|sora|image/i;
+const IMAGE_HINT = /gpt-image|dall-?e|flux|stable-?diffusion|imagen|sdxl/i;
+/** Not usable for chat, retrieval or stills, so not worth offering. */
+const EXCLUDE_HINT = /whisper|tts|moderation|sora|speech|transcribe/i;
 
 function classify(id: string): ModelInfo | null {
   if (EXCLUDE_HINT.test(id)) return null;
+  if (IMAGE_HINT.test(id)) return { id, kind: "image" };
   return { id, kind: EMBED_HINT.test(id) ? "embedding" : "chat" };
 }
 
@@ -77,13 +82,18 @@ export async function GET() {
       discoveryError = e instanceof Error ? e.message : "Could not list models";
     }
 
-    const current = { chat: chatModel(), embedding: embedModel() };
+    const current = {
+      chat: chatModel(),
+      embedding: embedModel(),
+      image: imageModel(),
+    };
 
     // The configured models must always be selectable, even when discovery
     // fails or the provider omits them.
     for (const [id, kind] of [
       [current.chat, "chat"],
       [current.embedding, "embedding"],
+      [current.image, "image"],
     ] as const) {
       if (!models.some((m) => m.id === id)) models.push({ id, kind });
     }
@@ -105,13 +115,19 @@ export async function GET() {
     return ok({
       provider: PROVIDER,
       current,
-      env: { chat: envChatModel(), embedding: envEmbedModel() },
+      env: {
+        chat: envChatModel(),
+        embedding: envEmbedModel(),
+        image: envImageModel(),
+      },
       overridden: {
         chat: getSetting(SETTING_CHAT_MODEL) !== null,
         embedding: getSetting(SETTING_EMBED_MODEL) !== null,
+        image: getSetting(SETTING_IMAGE_MODEL) !== null,
       },
       chat: models.filter((m) => m.kind === "chat").map((m) => m.id).sort(),
       embedding: models.filter((m) => m.kind === "embedding").map((m) => m.id).sort(),
+      image: models.filter((m) => m.kind === "image").map((m) => m.id).sort(),
       embeddedChunks,
       staleChunks: staleIfSwitched,
       discoveryError,
@@ -126,6 +142,7 @@ export async function POST(req: Request) {
     const body = (await req.json()) as {
       chat?: string | null;
       embedding?: string | null;
+      image?: string | null;
     };
 
     if (body.chat !== undefined) {
@@ -135,8 +152,15 @@ export async function POST(req: Request) {
     if (body.embedding !== undefined) {
       setSetting(SETTING_EMBED_MODEL, body.embedding);
     }
+    if (body.image !== undefined) {
+      setSetting(SETTING_IMAGE_MODEL, body.image);
+    }
 
-    const current = { chat: chatModel(), embedding: embedModel() };
+    const current = {
+      chat: chatModel(),
+      embedding: embedModel(),
+      image: imageModel(),
+    };
 
     // Changing the embedding model leaves stored vectors incomparable; report
     // how much is affected rather than letting retrieval quietly degrade.

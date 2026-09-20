@@ -71,6 +71,10 @@ export type InfographicContent = {
       value?: string;
     }[];
   }[];
+  /** Set by the "image" style: the rendered PNG served from /api/image/:id. */
+  imageUrl?: string;
+  imageModel?: string;
+  imageSize?: string;
 };
 
 export type PodcastTurn = { speaker: "a" | "b"; text: string; at: number };
