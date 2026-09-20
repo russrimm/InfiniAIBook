@@ -28,6 +28,7 @@ export default function ChatPanel({
   const [draft, setDraft] = useState("");
   const [draftCites, setDraftCites] = useState<Citation[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -82,11 +83,14 @@ export default function ChatPanel({
             v?: string;
             citations?: Citation[];
             error?: string;
+            notice?: string;
             id?: string;
           };
           if (ev.type === "citations" && ev.citations) {
             cites = ev.citations;
             setDraftCites(cites);
+          } else if (ev.type === "notice" && ev.notice) {
+            setNotice(ev.notice);
           } else if (ev.type === "delta" && ev.v) {
             acc += ev.v;
             setDraft(acc);
@@ -181,6 +185,19 @@ export default function ChatPanel({
             {error && (
               <div className="rounded-xl border border-red-900/60 bg-red-950/30 px-4 py-3 text-sm text-red-300">
                 {error}
+              </div>
+            )}
+
+            {notice && (
+              <div className="flex items-start gap-3 rounded-xl border border-amber-900/60 bg-amber-950/20 px-4 py-3 text-[13px] leading-snug text-amber-200/90">
+                <span className="flex-1">{notice}</span>
+                <button
+                  className="shrink-0 rounded px-1 text-xs text-amber-200/70 transition hover:text-amber-100"
+                  onClick={() => setNotice(null)}
+                  aria-label="Dismiss"
+                >
+                  ✕
+                </button>
               </div>
             )}
           </div>

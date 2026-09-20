@@ -3,7 +3,7 @@ import { db, floatsToBlob } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 import { chunkText, extractFromFile, extractFromUrl } from "@/lib/ingest";
 import { fetchYouTubeTranscript, isYouTubeUrl } from "@/lib/youtube";
-import { chatText, embed, describeAuthError } from "@/lib/ai";
+import { chatText, embed, describeAuthError, EMBED_DEPLOYMENT } from "@/lib/ai";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -30,8 +30,8 @@ async function ingestOne(
 
   const chunks = chunkText(text);
   const insert = db.prepare(
-    `INSERT INTO chunks (id, source_id, notebook_id, idx, text, embedding)
-     VALUES (?, ?, ?, ?, ?, ?)`
+    `INSERT INTO chunks (id, source_id, notebook_id, idx, text, embedding, embed_model, embed_dims)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   );
 
   let vectors: number[][] | null = null;
@@ -45,13 +45,18 @@ async function ingestOne(
   }
 
   chunks.forEach((c, i) => {
+    const vec = vectors?.[i];
     insert.run(
       nanoid(12),
       sourceId,
       notebookId,
       i,
       c,
-      vectors ? floatsToBlob(vectors[i]) : null
+      vec ? floatsToBlob(vec) : null,
+      // Stamped so retrieval can tell whether a stored vector is comparable
+      // with the current model's output.
+      vec ? EMBED_DEPLOYMENT : null,
+      vec ? vec.length : null
     );
   });
 

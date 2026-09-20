@@ -320,6 +320,36 @@ Studio outputs are requested as JSON, then parsed defensively and normalised
 (clamped answer indices, depth-limited mind-map trees, validated stat blocks) so a
 malformed model response can never break the UI.
 
+### Changing the embedding model
+
+Embeddings from different models occupy unrelated vector spaces, so their
+similarity scores are meaningless against each other. Worse, comparing them
+returns a plausible-looking number rather than an error, which would quietly
+reduce retrieval to noise with nothing to indicate why.
+
+Every chunk therefore records the model and dimension it was embedded with.
+Retrieval compares only vectors that match the current model, counts any that
+do not, and reports the shortfall in chat:
+
+> 12 of 40 passages were embedded with nomic-embed-text, not the current
+> text-embedding-3-large, so they were ranked by keyword only. Re-embed this
+> notebook to restore semantic search.
+
+Those chunks still participate through keyword ranking, so answers degrade
+rather than disappear. To repair a notebook:
+
+```bash
+# how many chunks are stale
+curl localhost:3000/api/notebooks/<id>/reembed
+
+# re-embed them with the current model
+curl -X POST localhost:3000/api/notebooks/<id>/reembed
+```
+
+Databases created before this was added are migrated automatically: dimensions
+are recovered from the stored blob, and the model is inferred from the
+configured deployment, which is the only one that could have produced them.
+
 ---
 
 ## Architecture
@@ -332,6 +362,7 @@ src/
     api/
       notebooks/                   CRUD + detail (sources, artifacts, messages)
       notebooks/[id]/sources/      ingestion (files | url | youtube | text)
+      notebooks/[id]/reembed/      embedding-model status and repair
       discover/                    web search for candidate sources
       sources/[id]/                read full text, delete
       chat/                        NDJSON streaming, grounded answers

@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import { fail } from "@/lib/http";
 import { chatStream, describeAuthError, type ChatMsg } from "@/lib/ai";
-import { buildContext, citationList, retrieve } from "@/lib/retrieve";
+import { buildContext, citationList, lastEmbeddingMismatch, retrieve } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
 import { NextResponse } from "next/server";
 
@@ -69,6 +69,16 @@ export async function POST(req: Request) {
           controller.enqueue(encoder.encode(JSON.stringify(o) + "\n"));
         try {
           send({ type: "citations", citations });
+          const mismatch = lastEmbeddingMismatch();
+          if (mismatch) {
+            send({
+              type: "notice",
+              notice:
+                `${mismatch.staleChunks} of ${mismatch.totalChunks} passages were embedded with ` +
+                `${mismatch.models.join(", ")}, not the current ${mismatch.currentModel}, so they ` +
+                `were ranked by keyword only. Re-embed this notebook to restore semantic search.`,
+            });
+          }
           for await (const part of stream) {
             const delta = part.choices?.[0]?.delta?.content;
             if (delta) {

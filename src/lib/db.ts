@@ -39,7 +39,9 @@ function init(): DatabaseSync {
       notebook_id TEXT NOT NULL,
       idx INTEGER NOT NULL,
       text TEXT NOT NULL,
-      embedding BLOB
+      embedding BLOB,
+      embed_model TEXT,
+      embed_dims INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_chunks_nb ON chunks(notebook_id);
     CREATE INDEX IF NOT EXISTS idx_chunks_src ON chunks(source_id);
@@ -64,7 +66,50 @@ function init(): DatabaseSync {
     );
     CREATE INDEX IF NOT EXISTS idx_messages_nb ON messages(notebook_id);
   `);
+  migrate(db);
   return db;
+}
+
+/**
+ * Additive migrations for databases created before a column existed.
+ * `CREATE TABLE IF NOT EXISTS` leaves older tables untouched, so new columns
+ * have to be added explicitly.
+ */
+function migrate(db: DatabaseSync) {
+  const cols = (db.prepare("PRAGMA table_info(chunks)").all() as unknown as {
+    name: string;
+  }[]).map((c) => c.name);
+
+  if (!cols.includes("embed_model")) {
+    db.exec("ALTER TABLE chunks ADD COLUMN embed_model TEXT");
+  }
+  if (!cols.includes("embed_dims")) {
+    db.exec("ALTER TABLE chunks ADD COLUMN embed_dims INTEGER");
+  }
+
+  // Backfill rows embedded before the columns existed. Their dimension is
+  // recoverable from the blob (4 bytes per float32); the model is not, so it is
+  // inferred from the deployment configured at the time, which is the only
+  // model that could have produced them.
+  const legacy = db
+    .prepare(
+      "SELECT COUNT(*) AS c FROM chunks WHERE embedding IS NOT NULL AND embed_dims IS NULL"
+    )
+    .get() as unknown as { c: number };
+
+  if (legacy.c > 0) {
+    const assumed =
+      process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT || "text-embedding-3-small";
+    db.prepare(
+      `UPDATE chunks
+         SET embed_dims = LENGTH(embedding) / 4,
+             embed_model = COALESCE(embed_model, ?)
+       WHERE embedding IS NOT NULL AND embed_dims IS NULL`
+    ).run(assumed);
+    console.log(
+      `[db] tagged ${legacy.c} existing chunk(s) as "${assumed}" from blob size`
+    );
+  }
 }
 
 function getDb(): DatabaseSync {

@@ -245,8 +245,7 @@ export function parseJSON<T>(raw: string): T {
 
 export async function embed(texts: string[]): Promise<number[][]> {
   const out: number[][] = [];
-  const BATCH = 64;
-  for (let i = 0; i < texts.length; i += BATCH) {
+  const BATCH = 64;  for (let i = 0; i < texts.length; i += BATCH) {
     const slice = texts.slice(i, i + BATCH).map((t) => t.slice(0, 8000) || " ");
     const res = await withRetry(
       () => getClient().embeddings.create({ model: EMBED_DEPLOYMENT, input: slice }),

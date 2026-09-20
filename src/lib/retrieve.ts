@@ -1,5 +1,5 @@
 import { db, blobToFloats } from "./db";
-import { embed } from "./ai";
+import { embed, EMBED_DEPLOYMENT } from "./ai";
 
 export type Passage = {
   id: string;
@@ -16,11 +16,14 @@ type ChunkRow = {
   idx: number;
   text: string;
   embedding: Uint8Array | null;
+  embed_model: string | null;
+  embed_dims: number | null;
   title: string;
 };
 
 function rows(notebookId: string, sourceIds?: string[]): ChunkRow[] {
-  let sql = `SELECT c.id, c.source_id, c.idx, c.text, c.embedding, s.title
+  let sql = `SELECT c.id, c.source_id, c.idx, c.text, c.embedding,
+                    c.embed_model, c.embed_dims, s.title
              FROM chunks c JOIN sources s ON s.id = c.source_id
              WHERE c.notebook_id = ?`;
   const params: string[] = [notebookId];
@@ -32,8 +35,17 @@ function rows(notebookId: string, sourceIds?: string[]): ChunkRow[] {
   return db.prepare(sql).all(...params) as unknown as ChunkRow[];
 }
 
+/**
+ * Cosine similarity over two vectors of equal length.
+ *
+ * Callers must check dimensions first. Comparing vectors of different sizes is
+ * meaningless — embeddings from different models occupy unrelated spaces — but
+ * doing so silently returns a plausible number rather than an error, which
+ * degrades retrieval to noise with nothing to indicate why.
+ */
 function cosine(a: Float32Array, b: Float32Array): number {
-  const n = Math.min(a.length, b.length);
+  if (a.length !== b.length || a.length === 0) return 0;
+  const n = a.length;
   let dot = 0,
     na = 0,
     nb = 0;
@@ -57,6 +69,25 @@ function keywordScore(text: string, query: string): number {
   return hits / terms.length;
 }
 
+/**
+ * Chunks whose embedding cannot be compared with the current model's output,
+ * because they were produced by a different model. Reported rather than
+ * silently skipped so the cause of weaker results is visible.
+ */
+export type EmbeddingMismatch = {
+  staleChunks: number;
+  totalChunks: number;
+  models: string[];
+  currentModel: string;
+};
+
+let lastMismatch: EmbeddingMismatch | null = null;
+
+/** Mismatch seen during the most recent retrieve(), if any. */
+export function lastEmbeddingMismatch(): EmbeddingMismatch | null {
+  return lastMismatch;
+}
+
 export async function retrieve(
   notebookId: string,
   query: string,
@@ -73,9 +104,22 @@ export async function retrieve(
     qv = null; // fall back to keyword-only ranking
   }
 
+  const stale = new Set<string>();
+  let staleCount = 0;
+
   const scored = all.map((r) => {
     const ev = blobToFloats(r.embedding);
-    const sem = qv && ev.length ? cosine(qv, ev) : 0;
+    // cosine() returns 0 for unequal lengths; count those so the degradation
+    // can be surfaced instead of quietly halving result quality.
+    let sem = 0;
+    if (qv && ev.length) {
+      if (ev.length === qv.length) {
+        sem = cosine(qv, ev);
+      } else {
+        staleCount++;
+        stale.add(r.embed_model ?? `${ev.length}-dim`);
+      }
+    }
     const kw = keywordScore(r.text, query);
     return {
       id: r.id,
@@ -86,6 +130,23 @@ export async function retrieve(
       score: sem * 0.85 + kw * 0.15,
     } satisfies Passage;
   });
+
+  lastMismatch = staleCount
+    ? {
+        staleChunks: staleCount,
+        totalChunks: all.length,
+        models: [...stale],
+        currentModel: EMBED_DEPLOYMENT,
+      }
+    : null;
+
+  if (lastMismatch) {
+    console.warn(
+      `[retrieve] ${staleCount}/${all.length} chunks were embedded with ` +
+        `${[...stale].join(", ")} but the current model is ${EMBED_DEPLOYMENT}. ` +
+        `Those chunks are ranked by keyword only. Re-embed to restore semantic search.`
+    );
+  }
 
   scored.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   return scored.slice(0, k);
