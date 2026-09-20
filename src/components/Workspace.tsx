@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import SourcesPanel from "./SourcesPanel";
+import SourceUpdates, { type PendingUpdate } from "./SourceUpdates";
 import ChatPanel from "./ChatPanel";
 import StudioPanel from "./StudioPanel";
 import ArtifactModal from "./ArtifactModal";
@@ -30,6 +31,9 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [pickingModel, setPickingModel] = useState(false);
   const [model, setModel] = useState("");
   const [tab, setTab] = useState<Tab>("chat");
+  const [pendingUpdates, setPendingUpdates] = useState<PendingUpdate[]>([]);
+  const [showUpdates, setShowUpdates] = useState(false);
+  const [checkingSources, setCheckingSources] = useState(false);
 
   /** Source ids already reflected in `selected`, to detect genuinely new ones. */
   const seenSources = useRef<Set<string>>(new Set());
@@ -69,6 +73,36 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * Linked sources are re-checked when the notebook opens. The request is
+   * deliberately not awaited by anything on screen: a slow publisher must not
+   * delay the notebook, and a source that has not changed should be invisible.
+   */
+  const checkSources = useCallback(
+    async (force = false) => {
+      setCheckingSources(true);
+      try {
+        const res = await fetch(`/api/notebooks/${notebookId}/check-sources`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ force }),
+        });
+        if (!res.ok) return;
+        const j = (await res.json()) as { pending: PendingUpdate[] };
+        setPendingUpdates(j.pending ?? []);
+      } catch {
+        /* a failed check is not worth interrupting the notebook over */
+      } finally {
+        setCheckingSources(false);
+      }
+    },
+    [notebookId]
+  );
+
+  useEffect(() => {
+    void checkSources();
+  }, [checkSources]);
 
   // Shown in the header so the active model is visible without opening a dialog.
   const loadModel = useCallback(async () => {
@@ -133,7 +167,9 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           onChange={(e) => void rename(e.target.value)}
         />
         <span className="hidden shrink-0 text-xs text-[var(--muted)] sm:block">
-          {selected.size}/{data.sources.length} sources in context
+          {checkingSources
+            ? "Checking links…"
+            : `${selected.size}/${data.sources.length} sources in context`}
         </span>
         <button
           className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
@@ -143,6 +179,21 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           🧠 <span className="hidden max-w-[10rem] truncate md:inline">{model}</span>
         </button>
       </header>
+
+      {pendingUpdates.length > 0 && (
+        <button
+          onClick={() => setShowUpdates(true)}
+          className="fade-up flex shrink-0 items-center gap-2 border-b border-amber-900/50 bg-amber-950/25 px-4 py-2 text-left text-[12px] text-amber-100 transition hover:bg-amber-950/40"
+        >
+          <span>🔄</span>
+          <span className="flex-1">
+            {pendingUpdates.length} linked source
+            {pendingUpdates.length === 1 ? " has" : "s have"} changed since they were
+            indexed.
+          </span>
+          <span className="shrink-0 font-medium underline">Review</span>
+        </button>
+      )}
 
       <nav className="flex shrink-0 gap-1 border-b border-[var(--border)] px-3 py-2 lg:hidden">
         {(["sources", "chat", "studio"] as Tab[]).map((t) => (
@@ -235,6 +286,19 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             setPickingModel(false);
             void loadModel();
           }}
+        />
+      )}
+      {showUpdates && (
+        <SourceUpdates
+          updates={pendingUpdates}
+          onResolved={async () => {
+            await load();
+            const res = await fetch(`/api/notebooks/${notebookId}/check-sources`);
+            if (res.ok) {
+              setPendingUpdates(((await res.json()) as { pending: PendingUpdate[] }).pending ?? []);
+            }
+          }}
+          onClose={() => setShowUpdates(false)}
         />
       )}
     </div>

@@ -178,6 +178,59 @@ function describeFetchFailure(e: unknown, host: string): Error {
   }
 }
 
+/**
+ * RSS 2.0, RDF and Atom all describe a list of dated entries, so they are
+ * flattened to one readable block per entry rather than run through the HTML
+ * reader, which treats a feed as a single page of run-together tag soup.
+ */
+export function feedToText(xml: string): { title: string; text: string } | null {
+  const $ = cheerio.load(xml, { xml: true });
+  const items = $("item, entry");
+  if (items.length === 0) return null;
+
+  const feedTitle = clean(
+    decodeEntities($("channel > title, feed > title").first().text() || "")
+  );
+
+  const blocks: string[] = [];
+  items.each((_, el) => {
+    const n = $(el);
+    const title = clean(decodeEntities(n.children("title").first().text() || ""));
+    const date = clean(
+      n.children("pubDate, published, updated, dc\\:date").first().text() || ""
+    );
+    // Feeds put the body in any of these; content:encoded is the fullest when
+    // present, and the rest are progressively shorter summaries.
+    const bodyRaw =
+      n.children("content\\:encoded").first().text() ||
+      n.children("content").first().text() ||
+      n.children("description").first().text() ||
+      n.children("summary").first().text() ||
+      "";
+    // Entry bodies are usually escaped HTML, so they need the HTML reader.
+    const body = bodyRaw.includes("<")
+      ? htmlToText(`<body>${bodyRaw}</body>`).text
+      : clean(decodeEntities(bodyRaw));
+    const link = clean(
+      n.children("link").first().text() || n.children("link").first().attr("href") || ""
+    );
+
+    const head = [title, date && `(${date})`].filter(Boolean).join(" ");
+    const block = [head, body, link].filter(Boolean).join("\n");
+    if (block.trim()) blocks.push(block.trim());
+  });
+
+  if (!blocks.length) return null;
+  return { title: feedTitle, text: clean(blocks.join("\n\n")) };
+}
+
+/** Feeds arrive under half a dozen content types, and often the wrong one. */
+function looksLikeFeed(ctype: string, raw: string): boolean {
+  if (/(rss|atom)\+xml/i.test(ctype)) return true;
+  const head = raw.slice(0, 1500);
+  return /<(rss|feed)\b/i.test(head) || /<rdf:RDF\b/i.test(head);
+}
+
 export async function extractFromUrl(url: string): Promise<Extracted> {
   const host = hostOf(url);
   const controller = new AbortController();
@@ -233,6 +286,16 @@ export async function extractFromUrl(url: string): Promise<Extracted> {
   }
 
   const raw = buf.toString("utf8");
+
+  if (looksLikeFeed(ctype, raw)) {
+    const feed = feedToText(raw);
+    if (feed?.text) {
+      return { title: feed.title || host, text: feed.text, kind: "feed" };
+    }
+    // An empty feed is not an error worth failing on — fall through and let
+    // the HTML reader try, in case it was mislabelled.
+  }
+
   if (ctype.includes("text/html") || raw.trimStart().startsWith("<")) {
     const { title, text } = htmlToText(raw);
     if (!text) {

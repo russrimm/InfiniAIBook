@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Markdown, { InlineCited } from "./Markdown";
 import MindMap from "./MindMap";
 import Quiz from "./Quiz";
@@ -23,8 +23,11 @@ import type {
   TimelineContent,
 } from "@/lib/types";
 
-function mindToMd(n: MindNode, depth = 0): string {
-  const pad = "  ".repeat(depth);
+/** Citation markers are internal navigation; they are noise in an export. */
+const stripCitations = (s: string) =>
+  s.replace(/\[\s*\d+(?:\s*,\s*\d+)*\s*\]/g, "").replace(/\s+/g, " ").trim();
+
+function mindToMd(n: MindNode, depth = 0): string {  const pad = "  ".repeat(depth);
   const note = n.note ? ` — ${n.note}` : "";
   return [
     `${pad}- **${n.label}**${note}`,
@@ -149,6 +152,9 @@ export default function ArtifactModal({
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const citations = (artifact.content as { citations?: Citation[] }).citations ?? [];
   const spec = STUDIO[artifact.type as ArtifactType];
 
@@ -158,15 +164,76 @@ export default function ArtifactModal({
     return () => window.removeEventListener("keydown", h);
   }, [onClose]);
 
-  const download = () => {
-    const blob = new Blob([toMarkdown(artifact)], { type: "text/markdown" });
+  const safeName = (ext: string) =>
+    `${artifact.title.replace(/[^\w\s-]/g, "").trim().slice(0, 60) || "artifact"}.${ext}`;
+
+  const saveBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${artifact.title.replace(/[^\w\s-]/g, "").slice(0, 60) || "artifact"}.md`;
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
   };
+
+  const download = () => saveBlob(
+    new Blob([toMarkdown(artifact)], { type: "text/markdown" }),
+    safeName("md")
+  );
+
+  /** Flashcard decks are most useful where they can be imported. */
+  const downloadCsv = () => {
+    const d = artifact.content as unknown as FlashcardsContent;
+    const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+    const rows = [
+      "Front,Back",
+      ...d.cards.map((c) => `${esc(stripCitations(c.front))},${esc(stripCitations(c.back))}`),
+    ].join("\r\n");
+    // A BOM keeps Excel from mangling accented characters on open.
+    saveBlob(new Blob([`\ufeff${rows}`], { type: "text/csv;charset=utf-8" }), safeName("csv"));
+  };
+
+  /**
+   * Rasterise what is on screen. The generated-image style already has a PNG
+   * on the server, so that one is fetched rather than re-rendered — screen
+   * capture would resample it through the viewport width.
+   */
+  const downloadPng = async () => {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const direct = (artifact.content as { imageUrl?: string }).imageUrl;
+      if (direct) {
+        const res = await fetch(direct);
+        if (!res.ok) throw new Error("The generated image could not be fetched.");
+        saveBlob(await res.blob(), safeName("png"));
+        return;
+      }
+
+      const node = bodyRef.current?.firstElementChild as HTMLElement | null;
+      if (!node) throw new Error("Nothing to export.");
+
+      const { toPng } = await import("html-to-image");
+      const dataUrl = await toPng(node, {
+        pixelRatio: 2,
+        // Transparent areas pick up whatever sits behind them in a viewer, so
+        // the panel colour is painted in explicitly.
+        backgroundColor: getComputedStyle(node).backgroundColor || "#0e1116",
+        // Web fonts are already loaded in the document; re-inlining them costs
+        // seconds and occasionally fails on cross-origin CSS.
+        skipFonts: true,
+      });
+      const blob = await (await fetch(dataUrl)).blob();
+      saveBlob(blob, safeName("png"));
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : "Could not export an image.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const canExportPng =
+    artifact.type === "infographic" || artifact.type === "mindmap";
 
   const copy = async () => {
     await navigator.clipboard.writeText(toMarkdown(artifact));
@@ -198,8 +265,31 @@ export default function ArtifactModal({
           <button className="btn !px-2.5 !py-1.5 !text-xs" onClick={() => void copy()}>
             {copied ? "Copied" : "Copy"}
           </button>
+          {artifact.type === "podcast" && (
+            <a
+              className="btn !px-2.5 !py-1.5 !text-xs"
+              href={(artifact.content as { audioUrl?: string }).audioUrl}
+              download={safeName("mp3")}
+            >
+              MP3
+            </a>
+          )}
+          {artifact.type === "flashcards" && (
+            <button className="btn !px-2.5 !py-1.5 !text-xs" onClick={downloadCsv}>
+              CSV
+            </button>
+          )}
+          {canExportPng && (
+            <button
+              className="btn !px-2.5 !py-1.5 !text-xs"
+              onClick={() => void downloadPng()}
+              disabled={exporting}
+            >
+              {exporting ? "Rendering…" : "PNG"}
+            </button>
+          )}
           <button className="btn !px-2.5 !py-1.5 !text-xs" onClick={download}>
-            Export
+            {artifact.type === "flashcards" ? "MD" : "Export"}
           </button>
           <button
             aria-label="Close"
@@ -210,9 +300,15 @@ export default function ArtifactModal({
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8">
+        <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8">
           <Body artifact={artifact} citations={citations} />
         </div>
+
+        {exportError && (
+          <p className="shrink-0 border-t border-red-900/50 bg-red-950/20 px-5 py-2 text-[11px] text-red-200">
+            {exportError}
+          </p>
+        )}
 
         {citations.length > 0 && artifact.type !== "mindmap" && (
           <footer className="shrink-0 border-t border-[var(--border)] px-5 py-2.5 text-[11px] text-[var(--muted)]">

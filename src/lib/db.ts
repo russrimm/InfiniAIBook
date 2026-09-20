@@ -29,7 +29,14 @@ function init(): DatabaseSync {
       text TEXT NOT NULL,
       chars INTEGER NOT NULL,
       summary TEXT,
-      created_at INTEGER NOT NULL
+      created_at INTEGER NOT NULL,
+      content_hash TEXT,
+      checked_at INTEGER,
+      check_error TEXT,
+      pending_text TEXT,
+      pending_hash TEXT,
+      pending_title TEXT,
+      pending_at INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_sources_nb ON sources(notebook_id);
 
@@ -85,6 +92,25 @@ function migrate(db: DatabaseSync) {
   }
   if (!cols.includes("embed_dims")) {
     db.exec("ALTER TABLE chunks ADD COLUMN embed_dims INTEGER");
+  }
+
+  // Change tracking for sources that came from a URL.
+  const srcCols = (db.prepare("PRAGMA table_info(sources)").all() as unknown as {
+    name: string;
+  }[]).map((c) => c.name);
+
+  for (const [name, type] of [
+    ["content_hash", "TEXT"],
+    ["checked_at", "INTEGER"],
+    ["check_error", "TEXT"],
+    ["pending_text", "TEXT"],
+    ["pending_hash", "TEXT"],
+    ["pending_title", "TEXT"],
+    ["pending_at", "INTEGER"],
+  ] as const) {
+    if (!srcCols.includes(name)) {
+      db.exec(`ALTER TABLE sources ADD COLUMN ${name} ${type}`);
+    }
   }
 
   // Backfill rows embedded before the columns existed. Their dimension is

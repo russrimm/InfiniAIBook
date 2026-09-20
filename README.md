@@ -12,7 +12,7 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 
 | | |
 |---|---|
-| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON or HTML; paste raw text; add a URL — including **YouTube links**; or **discover sources** by describing a topic and picking from web results. Ingestion runs in the background, so you can keep adding while earlier items process. |
+| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON or HTML; paste raw text; add a URL — including **YouTube links** and **RSS/Atom feeds**; or **discover sources** by describing a topic and picking from web results. Ingestion runs in the background, so you can keep adding while earlier items process. |
 | **Grounded chat** | Streaming answers built only from the sources you have selected, with hoverable inline citations `[1]` that show the exact excerpt used. |
 | **Studio** | Ten generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
 | **Everything is local** | Sources, chunks, embeddings, chat history, artifacts, generated audio, voice samples and images live under `.data/`. |
@@ -34,6 +34,70 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 
 Every artifact can be copied or exported to Markdown; audio can be downloaded as
 MP3, and flashcards export as a two-column table that Anki and Quizlet accept.
+
+---
+
+## Keeping linked sources current
+
+A page you indexed last month is not necessarily the page that is there now.
+When a notebook opens, its linked sources are re-fetched in the background and
+compared with what was indexed. Nothing is applied automatically — re-indexing
+replaces what the notebook knows, which is exactly the kind of change that
+should need a decision.
+
+Changed sources surface as a banner. Opening it shows, per source, the size
+before and after and the first few added and removed lines, with **Re-index** or
+**Keep current** for each. Re-indexing re-chunks and re-embeds that source
+alone; keeping it records the new version as the baseline so the same change is
+not raised again.
+
+Checks are paced at **once every six hours per source**. A twenty-two source
+notebook re-fetched on every open would put hundreds of requests through
+publishers that will eventually rate-limit or block you. Fetches run four at a
+time, and a source already awaiting a decision is never re-fetched — that would
+move the goalposts under a question you have not answered.
+
+### Two things this had to get right
+
+**Reflow is not a change.** The first implementation compared lines and called
+eleven of fifteen live pages "changed" when none were. A journal name moving
+across a line break registers as several additions and removals while the prose
+is identical; so do breadcrumbs, ad slots and "no membership required" promos.
+Materiality is now judged on words — which survive reflow — and a change must be
+at least 40 words *and* 1.5% of the page before it is worth interrupting anyone.
+That took the same fifteen sources to zero false positives.
+
+**A bot check is not content.** Re-checking those sources found four publishers
+now serving an interstitial — `Checking your browser before accessing
+pmc.ncbi.nlm.nih.gov` — with a 200 status and a perfectly well-formed page.
+Approving one would have replaced 233,000 characters of indexed research with
+130 characters of nothing. Fetches that look like a gate, either by their
+wording or by collapsing below 40% of the indexed size, are reported as a
+problem and the indexed copy is kept. Improvement in the other direction — a
+page that was blocked and now is not — is still offered normally.
+
+RSS and Atom feeds are read as feeds rather than pages: entries are flattened to
+title, date, body and link, so a feed that gains an item registers as new
+content instead of unparsed XML.
+
+---
+
+## Exporting
+
+| Artifact | Formats |
+|---|---|
+| Audio overview | **MP3**, Markdown transcript |
+| Infographic | **PNG**, Markdown |
+| Mind map | **PNG**, Markdown outline |
+| Flashcards | **CSV** (Anki/Quizlet), Markdown table |
+| Everything else | Markdown |
+
+PNG export rasterises the artifact at 2× for a sharp image. The AI image style
+is downloaded from the server instead of being captured from the screen, since
+capturing it would resample the original through whatever width the window
+happens to be. CSV is written with a BOM so Excel does not mangle accented
+characters, and citation markers are stripped — they are internal navigation,
+not part of a flashcard.
 
 ---
 
@@ -631,6 +695,7 @@ src/
     retrieve.ts  hybrid retrieval, corpus sampling, citation building
     studio.ts    per-format prompts and schemas
     paths.ts     data/audio, data/images and data/voices paths, traversal-safe resolution
+    refresh.ts   re-fetch, word-level change detection, bot-wall guard, re-indexing
 ```
 
 **Storage note:** the database uses Node 22+'s built-in `node:sqlite`, so there is
