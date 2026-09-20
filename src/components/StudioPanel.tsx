@@ -159,7 +159,7 @@ export default function StudioPanel({
             const s = STUDIO[type];
             const isBusy = busy === type;
 
-            // The infographic has 17 styles, so its card carries its own
+            // The infographic has nineteen styles, so its card carries its own
             // chooser. A picker elsewhere in the panel reads as a global
             // setting and gets missed.
             if (type === "infographic") {
