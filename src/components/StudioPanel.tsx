@@ -9,7 +9,12 @@ import {
   type InfographicStyle,
 } from "@/lib/infographic";
 import { VOICE_PRESETS, RATE_CHOICES } from "@/lib/voices";
-import type { Artifact, ArtifactType } from "@/lib/types";
+import type {
+  Artifact,
+  ArtifactType,
+  StudyDifficulty,
+  StudyLength,
+} from "@/lib/types";
 
 export default function StudioPanel({
   notebookId,
@@ -28,6 +33,8 @@ export default function StudioPanel({
 }) {
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState<InfographicStyle>(DEFAULT_STYLE);
+  const [difficulty, setDifficulty] = useState<StudyDifficulty>("medium");
+  const [length, setLength] = useState<StudyLength>("standard");
   const [voicePreset, setVoicePreset] = useState("conversational");
   const [speed, setSpeed] = useState(1);
   const [busy, setBusy] = useState<ArtifactType | null>(null);
@@ -64,6 +71,7 @@ export default function StudioPanel({
       topic: topic.trim() || undefined,
       sourceIds: selectedIds,
       ...(type === "infographic" ? { style } : {}),
+      ...(STUDIO[type].study ? { difficulty, length } : {}),
     });
 
   const generateAudio = () =>
@@ -158,6 +166,65 @@ export default function StudioPanel({
           {STUDIO_ORDER.map((type) => {
             const s = STUDIO[type];
             const isBusy = busy === type;
+
+            // Study aids carry their own level and length controls for the
+            // same reason the infographic carries its style picker: settings
+            // parked elsewhere in the panel read as global and get missed.
+            if (s.study) {
+              return (
+                <div
+                  key={type}
+                  className={`card relative col-span-2 overflow-hidden transition ${
+                    isBusy ? "shimmer border-[var(--accent)]" : ""
+                  }`}
+                >
+                  <button
+                    disabled={blocked || !!busy}
+                    onClick={() => void generate(type)}
+                    className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <span className="text-lg">{s.icon}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px] font-medium">{s.label}</span>
+                      <span className="block text-[10px] leading-snug text-[var(--muted)]">
+                        {isBusy ? "Generating…" : s.blurb}
+                      </span>
+                    </span>
+                  </button>
+
+                  <div className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-2">
+                    <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Level
+                    </span>
+                    <select
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                      value={difficulty}
+                      disabled={!!busy}
+                      onChange={(e) =>
+                        setDifficulty(e.target.value as StudyDifficulty)
+                      }
+                    >
+                      <option value="easy">Easy — recall the facts</option>
+                      <option value="medium">Medium — test understanding</option>
+                      <option value="hard">Hard — exam preparation</option>
+                    </select>
+                    <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Length
+                    </span>
+                    <select
+                      className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                      value={length}
+                      disabled={!!busy}
+                      onChange={(e) => setLength(e.target.value as StudyLength)}
+                    >
+                      <option value="short">Short</option>
+                      <option value="standard">Standard</option>
+                      <option value="long">Long</option>
+                    </select>
+                  </div>
+                </div>
+              );
+            }
 
             // The infographic has nineteen styles, so its card carries its own
             // chooser. A picker elsewhere in the panel reads as a global

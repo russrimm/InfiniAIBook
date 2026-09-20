@@ -8,7 +8,7 @@ import { imageDir } from "@/lib/paths";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES, STUDIO } from "@/lib/studio";
 import { DEFAULT_STYLE, buildImagePrompt, styleDef } from "@/lib/infographic";
-import type { ArtifactType } from "@/lib/types";
+import type { ArtifactType, StudyDifficulty, StudyLength, StudyOptions } from "@/lib/types";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -40,15 +40,50 @@ function normalize(type: ArtifactType, raw: Loose): Loose {
           if (!str(o.question) || choices.length < 2) return null;
           let idx = Number(o.answerIndex);
           if (!Number.isInteger(idx) || idx < 0 || idx >= choices.length) idx = 0;
+
+          // Models cluster the correct answer in the first position however
+          // firmly the prompt asks otherwise — a generated six-question quiz
+          // had the answer at A every time, which is scorable without reading
+          // it. Shuffling here is deterministic where the instruction is not.
+          // Positions are shuffled rather than values so duplicate choices
+          // cannot mislocate the answer.
+          const order = choices.map((_, i) => i);
+          for (let i = order.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [order[i], order[j]] = [order[j], order[i]];
+          }
+
           return {
             question: str(o.question),
-            choices,
-            answerIndex: idx,
+            choices: order.map((i) => choices[i]),
+            answerIndex: order.indexOf(idx),
             explanation: str(o.explanation),
           };
         })
         .filter(Boolean);
       return { title: str(raw.title, "Quiz"), questions };
+    }
+    case "flashcards": {
+      const seen = new Set<string>();
+      const cards = arr(raw.cards)
+        .map((c) => {
+          const o = c as Loose;
+          const front = str(o.front).trim();
+          const back = str(o.back).trim();
+          if (!front || !back) return null;
+          // Models drift into near-duplicates on long decks; one cue should
+          // appear once or the deck quietly wastes the learner's time.
+          const key = front.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+          if (seen.has(key)) return null;
+          seen.add(key);
+          return { front, back, hint: str(o.hint).trim() || undefined };
+        })
+        .filter(Boolean);
+      return {
+        title: str(raw.title, "Flashcards"),
+        subtitle: str(raw.subtitle) || undefined,
+        cards,
+      };
     }
     case "mindmap": {
       const walk = (n: unknown, depth: number): Loose | null => {
@@ -231,6 +266,7 @@ function normalize(type: ArtifactType, raw: Loose): Loose {
 
 function isEmpty(type: ArtifactType, c: Loose): boolean {
   if (type === "quiz") return (c.questions as unknown[]).length === 0;
+  if (type === "flashcards") return (c.cards as unknown[]).length === 0;
   if (type === "faq") return (c.items as unknown[]).length === 0;
   if (type === "timeline") return (c.items as unknown[]).length === 0;
   if (type === "infographic") {
@@ -250,16 +286,36 @@ function isEmpty(type: ArtifactType, c: Loose): boolean {
 
 export async function POST(req: Request) {
   try {
-    const { notebookId, type, topic, sourceIds, style } = (await req.json()) as {
-      notebookId: string;
-      type: ArtifactType;
-      topic?: string;
-      sourceIds?: string[];
-      style?: string;
-    };
+    const { notebookId, type, topic, sourceIds, style, difficulty, length } =
+      (await req.json()) as {
+        notebookId: string;
+        type: ArtifactType;
+        topic?: string;
+        sourceIds?: string[];
+        style?: string;
+        difficulty?: StudyDifficulty;
+        length?: StudyLength;
+      };
 
     const spec = STUDIO[type];
     if (!spec) return NextResponse.json({ error: "Unknown artifact type" }, { status: 400 });
+
+    // Reject unknown values rather than passing them into the prompt, where
+    // they would silently become instructions.
+    const studyOpts: StudyOptions | undefined = spec.study
+      ? {
+          difficulty: (["easy", "medium", "hard"] as const).includes(
+            difficulty as StudyDifficulty
+          )
+            ? difficulty
+            : "medium",
+          length: (["short", "standard", "long"] as const).includes(
+            length as StudyLength
+          )
+            ? length
+            : "standard",
+        }
+      : undefined;
 
     // Infographic styles change the content shape, not just the palette.
     // Resolve once: the same key must drive both the prompt and what is
@@ -302,7 +358,7 @@ export async function POST(req: Request) {
       const messages: ChatMsg[] = [
         {
           role: "system",
-          content: `${GROUNDING_RULES}\n\n${spec.instruction(topic?.trim() ?? "")}${styleHint}`,
+          content: `${GROUNDING_RULES}\n\n${spec.instruction(topic?.trim() ?? "", studyOpts)}${styleHint}`,
         },
         {
           role: "user",
@@ -367,6 +423,7 @@ export async function POST(req: Request) {
     const stored = {
       ...content,
       ...(activeStyle ? { style: activeStyle } : {}),
+      ...(studyOpts ? { difficulty: studyOpts.difficulty } : {}),
       ...(image ?? {}),
       citations,
     };

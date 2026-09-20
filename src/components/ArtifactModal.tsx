@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Markdown, { InlineCited } from "./Markdown";
 import MindMap from "./MindMap";
 import Quiz from "./Quiz";
+import Flashcards from "./Flashcards";
 import Infographic from "./Infographic";
 import PodcastPlayer from "./PodcastPlayer";
 import { STUDIO } from "@/lib/studio";
@@ -13,6 +14,7 @@ import type {
   Citation,
   DocContent,
   FaqContent,
+  FlashcardsContent,
   InfographicContent,
   MindMapContent,
   MindNode,
@@ -55,6 +57,15 @@ function toMarkdown(a: Artifact): string {
     case "faq": {
       const f = c as unknown as FaqContent;
       return head + f.items.map((i) => `### ${i.q}\n\n${i.a}\n`).join("\n");
+    }
+    case "flashcards": {
+      const d = c as unknown as FlashcardsContent;
+      // Two columns so the export can be imported by Anki, Quizlet and the
+      // other tools that expect a delimited front/back pair.
+      const rows = d.cards
+        .map((x) => `| ${x.front.replace(/\|/g, "\\|")} | ${x.back.replace(/\|/g, "\\|")} |`)
+        .join("\n");
+      return `${head}${d.subtitle ? `${d.subtitle}\n\n` : ""}| Front | Back |\n|---|---|\n${rows}\n`;
     }
     case "timeline": {
       const t = c as unknown as TimelineContent;
@@ -223,7 +234,15 @@ function Body({ artifact, citations }: { artifact: Artifact; citations: Citation
   const c = artifact.content as unknown;
   switch (artifact.type) {
     case "quiz":
-      return <Quiz content={c as QuizContent} citations={citations} />;
+      return <Quiz artifactId={artifact.id} content={c as QuizContent} citations={citations} />;
+    case "flashcards":
+      return (
+        <Flashcards
+          artifactId={artifact.id}
+          content={c as FlashcardsContent}
+          citations={citations}
+        />
+      );
     case "mindmap": {
       const m = c as MindMapContent;
       return (

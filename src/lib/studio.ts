@@ -1,4 +1,4 @@
-import type { ArtifactType } from "./types";
+import type { ArtifactType, StudyDifficulty, StudyLength, StudyOptions } from "./types";
 
 export const GROUNDING_RULES = `
 You are OpenNotebook, a research assistant that answers ONLY from the provided source excerpts.
@@ -15,11 +15,50 @@ type Spec = {
   icon: string;
   json: boolean;
   /** Extra instruction appended after the shared grounding rules. */
-  instruction: (topic: string) => string;
+  instruction: (topic: string, opts?: StudyOptions) => string;
+  /** Formats that accept the difficulty and length controls. */
+  study?: boolean;
 };
 
 const jsonNote =
   "Respond with a single JSON object only. No markdown fences, no commentary.";
+
+/**
+ * Study-aid tuning. Counts are ranges rather than exact numbers because the
+ * useful amount depends on how much the sources actually support — forcing a
+ * precise count invites padding, which is the one thing a study aid must not do.
+ */
+const QUIZ_COUNT: Record<StudyLength, string> = {
+  short: "5-6",
+  standard: "10-12",
+  long: "18-20",
+};
+
+const CARD_COUNT: Record<StudyLength, string> = {
+  short: "10-12",
+  standard: "18-22",
+  long: "30-35",
+};
+
+const DIFFICULTY: Record<StudyDifficulty, string> = {
+  easy: `Pitch this at someone meeting the material for the first time. Test
+recall of clearly stated facts, definitions and headline figures. Keep the
+language plain and the distinctions obvious.`,
+  medium: `Pitch this at someone who has read the material once. Test
+understanding rather than recall: why something follows, what a figure implies,
+how two ideas relate. Distinctions should require thought but not inference
+beyond the sources.`,
+  hard: `Pitch this at someone preparing to be examined on the material. Test
+precise distinctions, edge cases, caveats, and the relationships between
+separate parts of the sources. Reward close reading — but every answer must
+still be fully determined by the excerpts, never by outside knowledge.`,
+};
+
+const studyTuning = (opts: StudyOptions | undefined, counts: Record<StudyLength, string>) => {
+  const length = opts?.length ?? "standard";
+  const difficulty = opts?.difficulty ?? "medium";
+  return { count: counts[length], guidance: DIFFICULTY[difficulty], difficulty };
+};
 
 export const STUDIO: Record<ArtifactType, Spec> = {
   report: {
@@ -83,9 +122,12 @@ Provide 8-12 items. Each answer is 2-5 sentences with citation markers. Order fr
     blurb: "Multiple-choice knowledge check",
     icon: "🧠",
     json: true,
-    instruction: (topic) => `Write a multiple-choice quiz that tests real comprehension of the sources${
-      topic ? `, focused on: ${topic}` : ""
-    }.
+    study: true,
+    instruction: (topic, opts) => {
+      const { count, guidance } = studyTuning(opts, QUIZ_COUNT);
+      return `Write a multiple-choice quiz that tests real comprehension of the sources${
+        topic ? `, focused on: ${topic}` : ""
+      }.
 ${jsonNote}
 Schema:
 {
@@ -97,9 +139,53 @@ Schema:
     "explanation": string    // why the answer is right, with a citation marker
   }]
 }
-Provide 10 questions. Every question must be answerable from the excerpts.
+Provide ${count} questions. Every question must be answerable from the excerpts.
 Distractors must be plausible and drawn from the same subject matter, never nonsense.
-Vary the position of the correct answer across questions.`,
+Vary the position of the correct answer across questions.
+
+DIFFICULTY
+${guidance}`;
+    },
+  },
+
+  flashcards: {
+    label: "Flashcards",
+    blurb: "Two-sided cards for recall",
+    icon: "🗂️",
+    json: true,
+    study: true,
+    instruction: (topic, opts) => {
+      const { count, guidance } = studyTuning(opts, CARD_COUNT);
+      return `Build a deck of two-sided flashcards from the sources${
+        topic ? `, focused on: ${topic}` : ""
+      }.
+${jsonNote}
+Schema:
+{
+  "title": string,
+  "subtitle": string,
+  "cards": [{
+    "front": string,   // the prompt: a term, question or cue
+    "back": string,    // the answer, with a citation marker
+    "hint": string     // optional short nudge, omit when the front is already clear
+  }]
+}
+Provide ${count} cards.
+
+A flashcard is not a quiz question and not a summary. The front must be a single
+cue that can be recalled in a few seconds — a term, a name, a date, a short
+question. Never put the answer in the front, and never write a front that only
+makes sense with the back already visible.
+
+The back must be the shortest complete answer: one or two sentences, under 200
+characters where possible, with a citation marker. Do not restate the front.
+
+One idea per card. If something needs three sentences to answer, it is two cards.
+Order the deck so foundational cards come before ones that build on them.
+
+DIFFICULTY
+${guidance}`;
+    },
   },
 
   mindmap: {
@@ -208,6 +294,7 @@ export const STUDIO_ORDER: ArtifactType[] = [
   "infographic",
   "mindmap",
   "quiz",
+  "flashcards",
   "study_guide",
   "faq",
   "timeline",

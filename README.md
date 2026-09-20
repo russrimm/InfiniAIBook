@@ -14,8 +14,8 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 |---|---|
 | **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON or HTML; paste raw text; add a URL — including **YouTube links**; or **discover sources** by describing a topic and picking from web results. Ingestion runs in the background, so you can keep adding while earlier items process. |
 | **Grounded chat** | Streaming answers built only from the sources you have selected, with hoverable inline citations `[1]` that show the exact excerpt used. |
-| **Studio** | Nine generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
-| **Everything is local** | Sources, chunks, embeddings, chat history, artifacts and generated audio live under `.data/`. |
+| **Studio** | Ten generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
+| **Everything is local** | Sources, chunks, embeddings, chat history, artifacts, generated audio and images live under `.data/`. |
 
 ### Studio formats
 
@@ -24,14 +24,16 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 | 🎧 Audio overview | Two hosts discuss your sources — real MP3 audio with a synced, clickable transcript |
 | 📄 Report | Executive summary, analytical sections, key takeaways, open questions |
 | 🧾 Briefing doc | Under 700 words: bottom line, evidence, risks, next steps |
-| 📊 Infographic | Headline stats, themed sections, key takeaway — **18 styles**, illustrated by default |
+| 📊 Infographic | Headline stats, themed sections, key takeaway — **19 styles**, illustrated by default |
 | 🕸️ Mind map | Interactive concept tree — starts collapsed, expand topic by topic |
-| 🧠 Quiz | 10 multiple-choice questions, interactive, scored, with explanations |
+| 🧠 Quiz | Multiple-choice, interactive, scored, with explanations and retry-the-misses |
+| 🗂️ Flashcards | Two-sided deck: flip, self-grade, shuffle, drill the ones you missed |
 | 🎓 Study guide | Core concepts, glossary table, short-answer questions + answer key |
 | ❓ FAQ | Collapsible Q&A the sources actually answer |
 | 🗓️ Timeline | Chronology extracted from the material |
 
-Every artifact can be copied or exported to Markdown; audio can be downloaded as MP3.
+Every artifact can be copied or exported to Markdown; audio can be downloaded as
+MP3, and flashcards export as a two-column table that Anki and Quizlet accept.
 
 ---
 
@@ -355,6 +357,59 @@ No API key is needed — discovery uses DuckDuckGo by default. Set any of
 `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, or `GOOGLE_SEARCH_API_KEY` +
 `GOOGLE_SEARCH_CX` to use a higher-quality provider instead; the first one
 configured wins.
+
+---
+
+## Study aids
+
+The quiz and flashcard generators share two controls, set on their cards in the
+Studio panel before generating.
+
+**Level** changes what is tested, not just the wording. *Easy* tests recall of
+stated facts and figures. *Medium* tests understanding — why something follows,
+what a figure implies. *Hard* tests precise distinctions, caveats and the
+relationships between separate parts of the sources. Every level is still bound
+by the same rule as the rest of the app: the answer must be determined by the
+excerpts, never by outside knowledge.
+
+**Length** is a range rather than an exact count — 5–6, 10–12 or 18–20 questions;
+10–12, 18–22 or 30–35 cards. Demanding an exact number invites padding, which is
+the one thing a study aid must not do.
+
+### Quiz
+
+Multiple choice, answered in place, scored on submission, with a cited
+explanation under every question. After scoring you can **retry just the ones
+you missed** — the rest of the record is kept, so the score you are improving on
+stays meaningful.
+
+Answer positions are **shuffled server-side**. This is not decoration: a
+generated six-question quiz put the correct answer at option A *every time*,
+despite the prompt asking explicitly for varied positions. That quiz is scorable
+without reading it. Shuffling on the server is deterministic where the
+instruction was not, and it shuffles positions rather than values so repeated
+choices cannot mislocate the answer.
+
+### Flashcards
+
+A two-sided deck built for recall rather than reading. The front is a single
+cue — a term, a name, a date, a short question. The back is the shortest
+complete answer, with its citation.
+
+- **Flip** by clicking the card or pressing <kbd>Space</kbd>
+- **Self-grade** with *Got it* / *Missed it* (<kbd>2</kbd> / <kbd>1</kbd>)
+- **Skip** or step back with <kbd>←</kbd> and <kbd>→</kbd>
+- **Shuffle** at any point, or **Browse all** to read the deck as a list
+- At the end, **review only the cards you missed**
+
+Progress is kept in `localStorage`, keyed by deck, so closing the artifact and
+reopening it resumes where you were. It is deliberately not stored in the
+database: study progress is personal and disposable, and re-drilling a deck
+should never rewrite the generated content. Clearing site data clears progress.
+
+The generator enforces the shape a flashcard needs — one idea per card, no
+answer leaking into the front, no restating the front on the back — and
+near-duplicate cues are dropped, because models drift into repeats on long decks.
 
 ---
 

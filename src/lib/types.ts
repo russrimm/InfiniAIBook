@@ -4,10 +4,16 @@ export type ArtifactType =
   | "study_guide"
   | "faq"
   | "quiz"
+  | "flashcards"
   | "mindmap"
   | "timeline"
   | "infographic"
   | "podcast";
+
+/** Study aids can be tuned for depth and rigour at generation time. */
+export type StudyDifficulty = "easy" | "medium" | "hard";
+export type StudyLength = "short" | "standard" | "long";
+export type StudyOptions = { difficulty?: StudyDifficulty; length?: StudyLength };
 
 export type Citation = {
   n: number;
@@ -25,7 +31,24 @@ export type QuizQuestion = {
   answerIndex: number;
   explanation: string;
 };
-export type QuizContent = { title: string; questions: QuizQuestion[] };
+export type QuizContent = {
+  title: string;
+  questions: QuizQuestion[];
+  difficulty?: StudyDifficulty;
+};
+
+export type Flashcard = {
+  front: string;
+  back: string;
+  /** Optional nudge shown before the card is flipped. */
+  hint?: string;
+};
+export type FlashcardsContent = {
+  title: string;
+  subtitle?: string;
+  cards: Flashcard[];
+  difficulty?: StudyDifficulty;
+};
 
 export type MindNode = { label: string; note?: string; children?: MindNode[] };
 export type MindMapContent = { title: string; root: MindNode };
@@ -92,6 +115,7 @@ export type ArtifactContent =
   | DocContent
   | FaqContent
   | QuizContent
+  | FlashcardsContent
   | MindMapContent
   | TimelineContent
   | InfographicContent

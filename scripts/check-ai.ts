@@ -237,6 +237,21 @@ const SHAPE: Record<string, (c: Record<string, unknown>) => string | null> = {
   study_guide: (c) =>
     typeof c.markdown === "string" && c.markdown.length > 200 ? null : "short or missing markdown",
   faq: (c) => (Array.isArray(c.items) && c.items.length >= 3 ? null : "fewer than 3 items"),
+  flashcards: (c) => {
+    const cards = c.cards;
+    if (!Array.isArray(cards) || cards.length < 3) return "fewer than 3 cards";
+    const bad = cards.filter((x) => {
+      const o = x as Record<string, unknown>;
+      return typeof o.front !== "string" || typeof o.back !== "string" || !o.front || !o.back;
+    });
+    if (bad.length) return `${bad.length} card(s) missing a side`;
+    // A front that already contains its answer defeats the format.
+    const leaky = cards.filter((x) => {
+      const o = x as Record<string, unknown>;
+      return String(o.front).length > 160;
+    });
+    return leaky.length ? `${leaky.length} card front(s) over 160 chars` : null;
+  },
   quiz: (c) => {
     const q = c.questions;
     if (!Array.isArray(q) || q.length < 3) return "fewer than 3 questions";
