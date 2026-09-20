@@ -8,7 +8,7 @@ import {
   STYLE_ORDER,
   type InfographicStyle,
 } from "@/lib/infographic";
-import { VOICE_PRESETS, RATE_CHOICES } from "@/lib/voices";
+import { VOICE_PRESETS, MULTITALKER_SPEAKERS, RATE_CHOICES } from "@/lib/voices";
 import type {
   Artifact,
   ArtifactType,
@@ -36,6 +36,8 @@ export default function StudioPanel({
   const [difficulty, setDifficulty] = useState<StudyDifficulty>("medium");
   const [length, setLength] = useState<StudyLength>("standard");
   const [voicePreset, setVoicePreset] = useState("conversational");
+  const [hostA, setHostA] = useState(VOICE_PRESETS.conversational.a);
+  const [hostB, setHostB] = useState(VOICE_PRESETS.conversational.b);
   const [speed, setSpeed] = useState(1);
   const [busy, setBusy] = useState<ArtifactType | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +82,9 @@ export default function StudioPanel({
       topic: topic.trim() || undefined,
       sourceIds: selectedIds,
       preset: voicePreset,
+      // The classic pair uses full Azure voice names rather than the
+      // multitalker speaker set, so per-host choices do not apply to it.
+      ...(voicePreset === "classic" ? {} : { voices: { a: hostA, b: hostB } }),
       rate: speed,
     });
 
@@ -89,6 +94,7 @@ export default function StudioPanel({
   };
 
   const blocked = !hasSources || selectedIds.length === 0;
+  const classicVoices = voicePreset === "classic";
 
   return (
     <aside className="flex h-full min-h-0 flex-col bg-[var(--panel)]">
@@ -128,37 +134,58 @@ export default function StudioPanel({
             </span>
           </button>
 
-          <div className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-2">
-            <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-              Voices
-            </span>
-            <select
-              className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
-              value={voicePreset}
-              disabled={!!busy}
-              onChange={(e) => setVoicePreset(e.target.value)}
-            >
-              {Object.entries(VOICE_PRESETS).map(([key, v]) => (
-                <option key={key} value={key}>
-                  {v.multitalker ? `${v.a} & ${v.b}` : "Classic pair"}
-                </option>
-              ))}
-            </select>
-            <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-              Speed
-            </span>
-            <select
-              className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
-              value={speed}
-              disabled={!!busy}
-              onChange={(e) => setSpeed(Number(e.target.value))}
-            >
-              {RATE_CHOICES.map((r) => (
-                <option key={r} value={r}>
-                  {r === 1 ? "Normal" : `${r}×`}
-                </option>
-              ))}
-            </select>
+          <div className="space-y-2 border-t border-[var(--border)] px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                Hosts
+              </span>
+              <SpeakerSelect
+                value={hostA}
+                exclude={hostB}
+                disabled={!!busy || classicVoices}
+                onChange={setHostA}
+              />
+              <SpeakerSelect
+                value={hostB}
+                exclude={hostA}
+                disabled={!!busy || classicVoices}
+                onChange={setHostB}
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                Speed
+              </span>
+              <select
+                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                value={speed}
+                disabled={!!busy}
+                onChange={(e) => setSpeed(Number(e.target.value))}
+              >
+                {RATE_CHOICES.map((r) => (
+                  <option key={r} value={r}>
+                    {r === 1 ? "Normal speed" : `${r}× speed`}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                value={voicePreset}
+                disabled={!!busy}
+                onChange={(e) => setVoicePreset(e.target.value)}
+              >
+                <option value="conversational">Natural dialogue</option>
+                <option value="classic">Classic voices</option>
+              </select>
+            </div>
+
+            {classicVoices && (
+              <p className="text-[10px] leading-snug text-[var(--muted)]">
+                Classic renders each turn as a separate voice, so it loses the
+                conversational hand-off. Fixed pair: Andrew and Ava.
+              </p>
+            )}
           </div>
         </div>
 
@@ -204,9 +231,9 @@ export default function StudioPanel({
                         setDifficulty(e.target.value as StudyDifficulty)
                       }
                     >
-                      <option value="easy">Easy — recall the facts</option>
-                      <option value="medium">Medium — test understanding</option>
-                      <option value="hard">Hard — exam preparation</option>
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
                     </select>
                     <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
                       Length
@@ -343,5 +370,50 @@ export default function StudioPanel({
         </div>
       </div>
     </aside>
+  );
+}
+
+/**
+ * One host's voice. The other host's pick is excluded rather than merely
+ * flagged: two identical speakers render a dialogue in a single voice, which
+ * reads as a bug rather than a choice.
+ */
+function SpeakerSelect({
+  value,
+  exclude,
+  disabled,
+  onChange,
+}: {
+  value: string;
+  exclude: string;
+  disabled: boolean;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <select
+      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a] disabled:cursor-not-allowed disabled:opacity-50"
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      <optgroup label="Female">
+        {MULTITALKER_SPEAKERS.female
+          .filter((n) => n !== exclude)
+          .map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+      </optgroup>
+      <optgroup label="Male">
+        {MULTITALKER_SPEAKERS.male
+          .filter((n) => n !== exclude)
+          .map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+      </optgroup>
+    </select>
   );
 }

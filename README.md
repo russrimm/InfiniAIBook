@@ -443,31 +443,38 @@ which is what drives the synced transcript.
 
 ### Voice and pace
 
-Two controls sit on the Audio overview card:
+Three controls sit on the Audio overview card:
 
-| Preset | Hosts |
-|---|---|
-| Conversational | Andrew & Ava |
-| Warm | Davis & Emma |
-| Bright | Tyler & Nova |
-| Measured | Steffan & Serena |
-| Classic pair | the standard multilingual neural voices |
+**Hosts** — pick each voice individually from the 25 en-US DragonHD speakers,
+grouped by female and male:
 
-Speed runs from 0.8× to 1.25×. It is applied as SSML `prosody rate`, which the
-multitalker voice takes as a multiplier and classic neural voices as a
-percentage offset. Measured effect: a 1.25× overview came back at 7.7 seconds
-per turn against 9.7 at normal speed.
+> Ava · Aria · Bree · Emma · Evelyn · Jane · Jenny · Mila · Nova · Paige ·
+> Phoebe · Serena · Tessa · Tiana · Adam · Alloy · Andrew · Brian · Colin ·
+> Davis · Jimmie · Juno · Steffan · Tyler · Vance
 
-The API accepts individual speakers too, from the 25 en-US DragonHD names:
+The two pickers exclude each other's current choice, because two identical
+speakers render the dialogue in a single voice — which reads as a bug rather
+than a decision. Names are validated server-side too, because the service does
+**not** reject an unknown speaker: it quietly renders in a different voice, so a
+typo would otherwise be invisible.
+
+**Speed** — 0.8× to 1.25×, applied as SSML `prosody rate`, which the multitalker
+voice takes as a multiplier and classic neural voices as a percentage offset.
+Measured effect: a 1.25× overview came back at 7.7 seconds per turn against 9.7
+at normal speed.
+
+**Engine** — *Natural dialogue* (the default) renders the whole exchange through
+the multitalker voice in one request, so the hosts hand off to each other.
+*Classic voices* falls back to two separate multilingual neural voices, one
+`<voice>` tag per turn; it loses that hand-off and is a fixed Andrew/Ava pair,
+so the host pickers are disabled under it.
+
+The same choices are available on the API:
 
 ```bash
 curl -X POST localhost:3000/api/podcast -H 'content-type: application/json' \
   -d '{"notebookId":"...","voices":{"a":"Davis","b":"Nova"},"rate":1.1}'
 ```
-
-Names are validated, because the service does **not** reject an unknown
-speaker — it quietly renders in a different voice, so a typo would otherwise be
-invisible.
 
 What is *not* available on these voices: `mstts:express-as` styles. The voice
 list declares none for the multitalker or for Ava, and only `empathetic` and
