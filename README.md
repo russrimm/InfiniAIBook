@@ -15,7 +15,7 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 | **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON or HTML; paste raw text; add a URL — including **YouTube links**; or **discover sources** by describing a topic and picking from web results. Ingestion runs in the background, so you can keep adding while earlier items process. |
 | **Grounded chat** | Streaming answers built only from the sources you have selected, with hoverable inline citations `[1]` that show the exact excerpt used. |
 | **Studio** | Ten generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
-| **Everything is local** | Sources, chunks, embeddings, chat history, artifacts, generated audio and images live under `.data/`. |
+| **Everything is local** | Sources, chunks, embeddings, chat history, artifacts, generated audio, voice samples and images live under `.data/`. |
 
 ### Studio formats
 
@@ -452,6 +452,15 @@ grouped by female and male:
 > Phoebe · Serena · Tessa · Tiana · Adam · Alloy · Andrew · Brian · Colin ·
 > Davis · Jimmie · Juno · Steffan · Tyler · Vance
 
+A name tells you nothing about how a voice sounds, so each picker has a **▶
+button that plays a sample**: *"Hello, I'm Nova. It's a pleasure to meet you!"*
+in that speaker's voice. Change the dropdown and press play again to audition
+the next one.
+
+Samples are rendered on first request and cached under `.data/voices/`, so the
+first play of a given voice takes a second or two and every later one is
+instant. The button shows `…` while rendering and `◼` while playing.
+
 The two pickers exclude each other's current choice, because two identical
 speakers render the dialogue in a single voice — which reads as a bug rather
 than a decision. Names are validated server-side too, because the service does
@@ -474,6 +483,9 @@ The same choices are available on the API:
 ```bash
 curl -X POST localhost:3000/api/podcast -H 'content-type: application/json' \
   -d '{"notebookId":"...","voices":{"a":"Davis","b":"Nova"},"rate":1.1}'
+
+# and a single speaker's sample
+curl localhost:3000/api/voice-preview/Nova --output nova.mp3
 ```
 
 What is *not* available on these voices: `mstts:express-as` styles. The voice
@@ -618,7 +630,7 @@ src/
     ingest.ts    text extraction + chunking
     retrieve.ts  hybrid retrieval, corpus sampling, citation building
     studio.ts    per-format prompts and schemas
-    paths.ts     data/audio and data/images locations, traversal-safe id resolution
+    paths.ts     data/audio, data/images and data/voices paths, traversal-safe resolution
 ```
 
 **Storage note:** the database uses Node 22+'s built-in `node:sqlite`, so there is

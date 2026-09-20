@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { STUDIO, STUDIO_ORDER } from "@/lib/studio";
 import {
   DEFAULT_STYLE,
@@ -41,6 +41,43 @@ export default function StudioPanel({
   const [speed, setSpeed] = useState(1);
   const [busy, setBusy] = useState<ArtifactType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const previewAudio = useRef<HTMLAudioElement | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  /** Play a speaker's sample, replacing whatever was playing. */
+  const preview = async (name: string) => {
+    previewAudio.current?.pause();
+    setPreviewError(null);
+    setPreviewing(null);
+    // The first sample for a voice is synthesised on demand and can take
+    // several seconds, so loading is shown distinctly from playing.
+    setPreviewLoading(name);
+    try {
+      const res = await fetch(`/api/voice-preview/${encodeURIComponent(name)}`);
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j.error || "Could not play that voice.");
+      }
+      const url = URL.createObjectURL(await res.blob());
+      const el = new Audio(url);
+      previewAudio.current = el;
+      const finish = () => {
+        setPreviewing((p) => (p === name ? null : p));
+        URL.revokeObjectURL(url);
+      };
+      el.onended = finish;
+      el.onerror = finish;
+      await el.play();
+      setPreviewLoading(null);
+      setPreviewing(name);
+    } catch (e) {
+      setPreviewError(e instanceof Error ? e.message : "Could not play that voice.");
+      setPreviewing(null);
+      setPreviewLoading(null);
+    }
+  };
 
   const run = async (
     type: ArtifactType,
@@ -144,12 +181,18 @@ export default function StudioPanel({
                 exclude={hostB}
                 disabled={!!busy || classicVoices}
                 onChange={setHostA}
+                onPreview={preview}
+                previewing={previewing}
+                loading={previewLoading}
               />
               <SpeakerSelect
                 value={hostB}
                 exclude={hostA}
                 disabled={!!busy || classicVoices}
                 onChange={setHostB}
+                onPreview={preview}
+                previewing={previewing}
+                loading={previewLoading}
               />
             </div>
 
@@ -185,6 +228,9 @@ export default function StudioPanel({
                 Classic renders each turn as a separate voice, so it loses the
                 conversational hand-off. Fixed pair: Andrew and Ava.
               </p>
+            )}
+            {previewError && (
+              <p className="text-[10px] leading-snug text-red-300">{previewError}</p>
             )}
           </div>
         </div>
@@ -383,37 +429,57 @@ function SpeakerSelect({
   exclude,
   disabled,
   onChange,
+  onPreview,
+  previewing,
+  loading,
 }: {
   value: string;
   exclude: string;
   disabled: boolean;
   onChange: (v: string) => void;
+  onPreview: (name: string) => void;
+  previewing: string | null;
+  loading: string | null;
 }) {
+  const playing = previewing === value;
+  const isLoading = loading === value;
   return (
-    <select
-      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a] disabled:cursor-not-allowed disabled:opacity-50"
-      value={value}
-      disabled={disabled}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      <optgroup label="Female">
-        {MULTITALKER_SPEAKERS.female
-          .filter((n) => n !== exclude)
-          .map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-      </optgroup>
-      <optgroup label="Male">
-        {MULTITALKER_SPEAKERS.male
-          .filter((n) => n !== exclude)
-          .map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-      </optgroup>
-    </select>
+    <div className="flex min-w-0 flex-1 items-center gap-1">
+      <select
+        className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a] disabled:cursor-not-allowed disabled:opacity-50"
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <optgroup label="Female">
+          {MULTITALKER_SPEAKERS.female
+            .filter((n) => n !== exclude)
+            .map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+        </optgroup>
+        <optgroup label="Male">
+          {MULTITALKER_SPEAKERS.male
+            .filter((n) => n !== exclude)
+            .map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+        </optgroup>
+      </select>
+      <button
+        type="button"
+        aria-label={`Hear ${value}`}
+        title={`Hear ${value}`}
+        disabled={disabled}
+        onClick={() => onPreview(value)}
+        className="shrink-0 rounded-md border border-[var(--border)] bg-[#0e1116] px-1.5 py-1 text-[11px] leading-none text-[var(--muted)] transition hover:border-[#39424f] hover:text-[var(--fg)] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {isLoading ? "…" : playing ? "◼" : "▶"}
+      </button>
+    </div>
   );
 }

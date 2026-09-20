@@ -39,3 +39,16 @@ export function removeImage(id: string) {
     /* already gone */
   }
 }
+
+export function voiceDir(): string {
+  return path.join(dataDir(), "voices");
+}
+
+/**
+ * Cached "hello" sample for one speaker. Names come from a fixed list, so
+ * anything outside a bare word is a caller bug rather than a new voice.
+ */
+export function voicePreviewPath(name: string): string {
+  if (!/^[A-Za-z]{1,32}$/.test(name)) throw new Error("Invalid speaker name");
+  return path.join(voiceDir(), `${name.toLowerCase()}.mp3`);
+}
