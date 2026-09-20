@@ -23,6 +23,7 @@ export type Turn = { speaker: "a" | "b"; text: string };
 
 export type { VoicePair } from "./voices";
 import { VOICE_PRESETS, type VoicePair } from "./voices";
+import { addBreaths, turnLeadIn } from "./prosody";
 
 function buildCredential(): TokenCredential {
   const tenantId = process.env.AZURE_TENANT_ID;
@@ -66,33 +67,45 @@ const escapeXml = (s: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 
-function buildSsml(turns: Turn[], voices: VoicePair, rate = 1): string {
+function buildSsml(
+  turns: Turn[],
+  voices: VoicePair,
+  rate = 1,
+  breath = 1
+): string {
   // The multitalker voice takes a unitless multiplier; classic neural voices
   // take a percentage offset. Omit entirely at normal speed so the default
   // delivery is untouched.
-  const wrap = (text: string) => {
-    const escaped = escapeXml(text);
-    if (rate === 1) return escaped;
+  const wrap = (text: string, isFirst: boolean) => {
+    // Escape before inserting breaks: the other order would encode the tags
+    // into literal angle brackets and the voice would read them aloud.
+    const escaped = addBreaths(escapeXml(text), breath);
+    // No lead-in on the opening line — a pause before anything has been said
+    // just sounds like a slow start.
+    const body = isFirst ? escaped : `${turnLeadIn(text, breath)}${escaped}`;
+    if (rate === 1) return body;
     const value = voices.multitalker
       ? rate.toFixed(2)
       : `${rate >= 1 ? "+" : ""}${Math.round((rate - 1) * 100)}%`;
-    return `<prosody rate='${value}'>${escaped}</prosody>`;
+    return `<prosody rate='${value}'>${body}</prosody>`;
   };
 
   const body = voices.multitalker
     ? `<voice name='${MULTITALKER_VOICE}'><mstts:dialog>${turns
         .map(
-          (t) =>
+          (t, i) =>
             `<mstts:turn speaker='${t.speaker === "a" ? voices.a : voices.b}'>${wrap(
-              t.text
+              t.text,
+              i === 0
             )}</mstts:turn>`
         )
         .join("")}</mstts:dialog></voice>`
     : turns
         .map(
-          (t) =>
+          (t, i) =>
             `<voice name='${t.speaker === "a" ? voices.a : voices.b}'>${wrap(
-              t.text
+              t.text,
+              i === 0
             )}</voice>`
         )
         .join("");
@@ -151,6 +164,20 @@ export type SynthesisResult = {
 };
 
 /**
+ * Render hand-written SSML. Exposed for probing what the voice actually
+ * supports: the service accepts and ignores markup it does not implement
+ * rather than refusing it, so the only way to know is to measure.
+ */
+export async function synthesizeRawSsml(ssml: string): Promise<Buffer> {
+  assertConfigured();
+  return synthesize(ssml);
+}
+
+export function wrapSsml(inner: string, voice = MULTITALKER_VOICE): string {
+  return `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='en-US'><voice name='${voice}'><mstts:dialog><mstts:turn speaker='Ava'>${inner}</mstts:turn></mstts:dialog></voice></speak>`;
+}
+
+/**
  * Render a dialogue to a single MP3.
  *
  * Turns are synthesised in small batches: one request per batch keeps the
@@ -161,7 +188,8 @@ export async function synthesizeDialogue(
   turns: Turn[],
   voices: VoicePair = VOICE_PRESETS.conversational,
   rate = 1,
-  batchSize = 6
+  batchSize = 6,
+  breath = 1
 ): Promise<SynthesisResult> {
   assertConfigured();
   if (!turns.length) throw new Error("Nothing to synthesise.");
@@ -172,7 +200,7 @@ export async function synthesizeDialogue(
 
   for (let i = 0; i < turns.length; i += batchSize) {
     const batch = turns.slice(i, i + batchSize);
-    const audio = await synthesize(buildSsml(batch, voices, rate));
+    const audio = await synthesize(buildSsml(batch, voices, rate, breath));
     const batchSeconds = audio.length / BYTES_PER_SECOND;
 
     // Exact offset for the batch; within it, apportion by text length. Good

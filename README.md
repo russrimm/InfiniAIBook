@@ -12,7 +12,7 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 
 | | |
 |---|---|
-| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON or HTML; paste raw text; add a URL — including **YouTube links** and **RSS/Atom feeds**; or **discover sources** by describing a topic and picking from web results. Ingestion runs in the background, so you can keep adding while earlier items process. |
+| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON, HTML or **images** (described by a vision model); paste raw text; add a URL — including **YouTube links** and **RSS/Atom feeds**; or **discover sources** by describing a topic and picking from web results. Ingestion runs in the background, so you can keep adding while earlier items process. |
 | **Grounded chat** | Streaming answers built only from the sources you have selected, with hoverable inline citations `[1]` that show the exact excerpt used. |
 | **Studio** | Ten generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
 | **Everything is local** | Sources, chunks, embeddings, chat history, artifacts, generated audio, voice samples and images live under `.data/`. |
@@ -507,7 +507,7 @@ which is what drives the synced transcript.
 
 ### Voice and pace
 
-Three controls sit on the Audio overview card:
+Four controls sit on the Audio overview card:
 
 **Hosts** — pick each voice individually from the 25 en-US DragonHD speakers,
 grouped by female and male:
@@ -538,9 +538,50 @@ at normal speed.
 
 **Engine** — *Natural dialogue* (the default) renders the whole exchange through
 the multitalker voice in one request, so the hosts hand off to each other.
-*Classic voices* falls back to two separate multilingual neural voices, one
-`<voice>` tag per turn; it loses that hand-off and is a fixed Andrew/Ava pair,
-so the host pickers are disabled under it.
+*Even delivery* is the same voice with pause shaping switched off. *Classic
+voices* falls back to two separate multilingual neural voices, one `<voice>` tag
+per turn; it loses that hand-off and is a fixed Andrew/Ava pair, so the host
+pickers are disabled under it.
+
+### Making it sound less read-aloud
+
+Two things carry this, and only one of them is SSML.
+
+**The script.** Most of the difference between speech and narrated prose is in
+the writing, so the dialogue prompt asks for it directly: hard variation in turn
+length, contractions throughout, sentences that qualify themselves mid-thought,
+openers people actually use ("Right, so", "OK but", "Here's the thing"), and
+questions that push back rather than invite more. It explicitly bans "um" and
+"uh" — on a synthetic voice those read as a glitch, not as thinking.
+
+**Pauses.** Em dashes, ellipses, opening interjections, pivots like "But" and
+"Still", and the gap before a reply are rendered as real `<break>` tags, with
+durations jittered per line from a seed derived from the text — so the same line
+always breathes the same way, but no two lines are metronomic.
+
+### What the voice actually supports
+
+Established by measurement, because the service accepts markup it does not
+implement and returns audio anyway:
+
+| Feature | Result |
+|---|---|
+| `<break time>` | **Works, and scales** — 2500ms added 2.78s over 200ms |
+| `<prosody rate>` | **Works** — 0.8 lengthens a sample by about a third |
+| `<prosody volume>` | **Rejected** — HTTP 400 on the multitalker voice |
+| `<mstts:express-as>` | **Accepted and ignored** — no styles declared for these voices |
+| `<mstts:silence>` | Accepted, no measurable effect |
+| `<prosody pitch>`, `<emphasis>`, `<prosody contour>` | Accepted; unverifiable |
+
+That last row is the honest one. Pitch and emphasis do not change duration, and
+synthesis is **not deterministic** — identical input varies about 13% run to
+run — so byte comparison cannot separate a tag's effect from noise. Nothing is
+built on them: markup that is silently dropped looks exactly like a working
+feature.
+
+Verified end to end: the same four turns rendered 14.69s with pauses off and
+17.10s with them on, which is the inserted break time and not the tags being
+read aloud.
 
 The same choices are available on the API:
 
@@ -556,6 +597,33 @@ What is *not* available on these voices: `mstts:express-as` styles. The voice
 list declares none for the multitalker or for Ava, and only `empathetic` and
 `relieved` for Andrew's multilingual variant. Requests carrying a style are
 accepted and ignored rather than refused, so the app does not offer them.
+
+---
+
+## Images as sources
+
+Drop in a PNG, JPEG, WebP, GIF or BMP — or a URL that points straight at one —
+and it is described by a vision model and indexed like any other source. The
+description covers the subject, every piece of readable text transcribed
+exactly, chart axes and series, diagram components, and layout. From then on the
+image is searchable, citable and usable by every Studio format.
+
+Pick the model under **Models → Image reading**. It defaults to the chat model,
+which is the right default only when that model has vision.
+
+**A model without vision does not refuse the request.** It ignores the image and
+answers from the prompt alone, fluently and completely wrongly. Measured on this
+deployment: handed a 2.3 MB infographic about Scout fundraising, one model
+billed 20 prompt tokens and described a Trump/Biden campaign poster instead —
+confidently, in detail, and with quoted text that does not exist.
+
+Indexing that would have put fabricated content into a notebook under a real
+filename, where it would then be cited as evidence. So the prompt-token count is
+checked: a request that billed too few tokens cannot have carried an image, and
+the description is rejected rather than stored. The floor is derived from the
+instruction length rather than hard-coded, so editing the prompt cannot quietly
+start refusing working models. Measured on the same image, a blind model billed
+175 tokens and a vision model billed 1214.
 
 Setup:
 
@@ -696,6 +764,8 @@ src/
     studio.ts    per-format prompts and schemas
     paths.ts     data/audio, data/images and data/voices paths, traversal-safe resolution
     refresh.ts   re-fetch, word-level change detection, bot-wall guard, re-indexing
+    prosody.ts   pause shaping; documents which SSML tags measurably work
+    vision.ts    image description, with a guard against blind models inventing one
 ```
 
 **Storage note:** the database uses Node 22+'s built-in `node:sqlite`, so there is

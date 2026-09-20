@@ -16,6 +16,9 @@ import type {
   StudyLength,
 } from "@/lib/types";
 
+/** How the dialogue is rendered: voice family plus pause shaping. */
+type Delivery = "natural" | "even" | "classic";
+
 export default function StudioPanel({
   notebookId,
   hasSources,
@@ -35,7 +38,7 @@ export default function StudioPanel({
   const [style, setStyle] = useState<InfographicStyle>(DEFAULT_STYLE);
   const [difficulty, setDifficulty] = useState<StudyDifficulty>("medium");
   const [length, setLength] = useState<StudyLength>("standard");
-  const [voicePreset, setVoicePreset] = useState("conversational");
+  const [delivery, setDelivery] = useState<Delivery>("natural");
   const [hostA, setHostA] = useState(VOICE_PRESETS.conversational.a);
   const [hostB, setHostB] = useState(VOICE_PRESETS.conversational.b);
   const [speed, setSpeed] = useState(1);
@@ -118,11 +121,12 @@ export default function StudioPanel({
       notebookId,
       topic: topic.trim() || undefined,
       sourceIds: selectedIds,
-      preset: voicePreset,
+      preset: delivery === "classic" ? "classic" : "conversational",
       // The classic pair uses full Azure voice names rather than the
       // multitalker speaker set, so per-host choices do not apply to it.
-      ...(voicePreset === "classic" ? {} : { voices: { a: hostA, b: hostB } }),
+      ...(delivery === "classic" ? {} : { voices: { a: hostA, b: hostB } }),
       rate: speed,
+      breath: delivery === "even" ? 0 : 1,
     });
 
   const remove = async (id: string) => {
@@ -131,7 +135,7 @@ export default function StudioPanel({
   };
 
   const blocked = !hasSources || selectedIds.length === 0;
-  const classicVoices = voicePreset === "classic";
+  const classicVoices = delivery === "classic";
 
   return (
     <aside className="flex h-full min-h-0 flex-col bg-[var(--panel)]">
@@ -214,11 +218,12 @@ export default function StudioPanel({
               </select>
               <select
                 className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
-                value={voicePreset}
+                value={delivery}
                 disabled={!!busy}
-                onChange={(e) => setVoicePreset(e.target.value)}
+                onChange={(e) => setDelivery(e.target.value as Delivery)}
               >
-                <option value="conversational">Natural dialogue</option>
+                <option value="natural">Natural dialogue</option>
+                <option value="even">Even delivery</option>
                 <option value="classic">Classic voices</option>
               </select>
             </div>

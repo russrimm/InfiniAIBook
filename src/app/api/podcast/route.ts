@@ -60,7 +60,7 @@ function normalizeTurns(raw: unknown): Turn[] {
 
 export async function POST(req: Request) {
   try {
-    const { notebookId, topic, sourceIds, preset, voices: customVoices, rate } =
+    const { notebookId, topic, sourceIds, preset, voices: customVoices, rate, breath } =
       (await req.json()) as {
         notebookId: string;
         topic?: string;
@@ -68,6 +68,7 @@ export async function POST(req: Request) {
         preset?: keyof typeof VOICE_PRESETS;
         voices?: { a?: string; b?: string };
         rate?: number;
+        breath?: number;
       };
 
     const focused = topic?.trim()
@@ -131,10 +132,17 @@ export async function POST(req: Request) {
 
     const voices = resolveVoices(preset, customVoices);
     const speed = clampRate(rate);
+    // Pause shaping is a multiplier so it can be turned off entirely without
+    // a separate code path.
+    const breathiness = Number.isFinite(breath)
+      ? Math.min(2, Math.max(0, breath as number))
+      : 1;
     const { audio, durationSec, offsets } = await synthesizeDialogue(
       turns,
       voices,
-      speed
+      speed,
+      6,
+      breathiness
     );
 
     const id = nanoid(12);

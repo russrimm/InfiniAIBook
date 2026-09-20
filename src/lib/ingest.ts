@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import mammoth from "mammoth";
+import { describeImage, imageMimeFor } from "./vision";
 
 export type Extracted = { title: string; text: string; kind: string };
 
@@ -30,6 +31,12 @@ export async function extractFromFile(file: File): Promise<Extracted> {
   const name = file.name || "Untitled";
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   const buf = Buffer.from(await file.arrayBuffer());
+
+  const imageMime = imageMimeFor(name, file.type);
+  if (imageMime) {
+    const described = await describeImage(buf, imageMime, name);
+    return { title: described.title, text: described.text, kind: "image" };
+  }
 
   if (ext === "pdf" || file.type === "application/pdf") {
     const { getDocumentProxy, extractText } = await import("unpdf");
@@ -271,6 +278,14 @@ export async function extractFromUrl(url: string): Promise<Extracted> {
   // Some servers send PDFs as octet-stream, so sniff the magic bytes too.
   const buf = Buffer.from(await res.arrayBuffer());
   const isPdf = looksLikePdf || buf.subarray(0, 5).toString("latin1") === "%PDF-";
+
+  // A URL that points straight at an image is described rather than parsed.
+  const imageMime = imageMimeFor(new URL(url).pathname, ctype.split(";")[0]?.trim());
+  if (imageMime && !isPdf) {
+    const filename = decodeURIComponent(new URL(url).pathname.split("/").pop() || host);
+    const described = await describeImage(buf, imageMime, filename);
+    return { title: described.title, text: described.text, kind: "image" };
+  }
 
   if (isPdf) {
     const { getDocumentProxy, extractText } = await import("unpdf");

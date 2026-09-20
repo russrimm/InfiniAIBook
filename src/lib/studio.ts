@@ -278,12 +278,34 @@ Rules:
   emoji or stage directions. Write only the words to be said.
 - Spell out anything a text-to-speech voice would mangle: "about 68 percent" not
   "~68%", "carbon dioxide" not "CO2", "three times" not "3x".
-- Each turn is 2-5 sentences of natural speech. Vary the rhythm and let the hosts
-  react briefly to each other.
 - Open by naming the subject concretely — never "welcome to the show".
 - Ground every claim in the excerpts, attributing naturally in speech, e.g.
   "the paper puts it at about a third". If the sources disagree, say so.
-- Close on the single thing worth remembering, not a sign-off.`,
+- Close on the single thing worth remembering, not a sign-off.
+
+WRITE IT AS SPEECH, NOT PROSE READ ALOUD
+The difference between an audio overview that sounds human and one that sounds
+like a document being narrated is almost entirely in the writing.
+
+- Vary turn length hard. A two-word reaction ("Really?", "That's the part I'd
+  push back on") next to a five-sentence explanation is what a conversation
+  sounds like. Uniform paragraphs are what a report sounds like.
+- Use contractions throughout. "It's", "they'd", "that isn't" — never the
+  expanded forms unless the word is being stressed.
+- Let the hosts interrupt the shape of their own sentences. Start a thought,
+  qualify it, then land it: "It's cheaper — well, cheaper per unit — but the
+  setup cost is brutal."
+- Open some turns the way people actually open them: "Right, so", "OK but",
+  "See, that's", "Here's the thing", "I mean". Not every turn. Roughly one in
+  three.
+- Let "a" react before asking the next thing, rather than moving straight on.
+- Use em dashes for the places a speaker would break stride, and an ellipsis
+  where they would trail off. These are rendered as real pauses, so they are
+  worth placing deliberately rather than as decoration.
+- Ask real questions, including ones that push back. A host who only says
+  "fascinating, tell me more" sounds like a prompt, not a person.
+- No filler that carries no meaning. "Um" and "uh" on a synthetic voice read as
+  a glitch rather than as thinking.`,
   },
 };
 

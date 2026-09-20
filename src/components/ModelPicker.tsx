@@ -4,9 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 
 type ModelsResponse = {
   provider: "azure" | "openai";
-  current: { chat: string; embedding: string; image: string };
-  env: { chat: string; embedding: string; image: string };
-  overridden: { chat: boolean; embedding: boolean; image: boolean };
+  current: { chat: string; embedding: string; image: string; vision: string };
+  env: { chat: string; embedding: string; image: string; vision: string };
+  overridden: { chat: boolean; embedding: boolean; image: boolean; vision: boolean };
   chat: string[];
   embedding: string[];
   image: string[];
@@ -20,6 +20,7 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
   const [chat, setChat] = useState("");
   const [embedding, setEmbedding] = useState("");
   const [image, setImage] = useState("");
+  const [vision, setVision] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
@@ -33,6 +34,7 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
       setChat(json.current.chat);
       setEmbedding(json.current.embedding);
       setImage(json.current.image);
+      setVision(json.current.vision);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load models");
     }
@@ -63,7 +65,10 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
 
   const embeddingChanged = embedding !== data.current.embedding;
   const dirty =
-    chat !== data.current.chat || embeddingChanged || image !== data.current.image;
+    chat !== data.current.chat ||
+    embeddingChanged ||
+    image !== data.current.image ||
+    vision !== data.current.vision;
 
   const save = async () => {
     setSaving(true);
@@ -72,7 +77,7 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
       const res = await fetch("/api/models", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chat, embedding, image }),
+        body: JSON.stringify({ chat, embedding, image, vision }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Could not save");
@@ -95,7 +100,7 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
       await fetch("/api/models", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chat: null, embedding: null, image: null }),
+        body: JSON.stringify({ chat: null, embedding: null, image: null, vision: null }),
       });
       setSavedNote("Reset to the configured defaults.");
       await load();
@@ -156,6 +161,17 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
         disabled={saving}
       />
 
+      <Field
+        label="Image reading"
+        hint="Describes uploaded images so they become searchable sources. Must be a vision model — one without vision invents a description instead of refusing."
+        value={vision}
+        options={data.chat}
+        overridden={data.overridden.vision}
+        envValue={data.env.vision}
+        onChange={setVision}
+        disabled={saving}
+      />
+
       {embeddingChanged && data.embeddedChunks > 0 && (
         <p className="mb-4 rounded-lg border border-amber-900/60 bg-amber-950/20 px-3 py-2.5 text-[12px] leading-snug text-amber-200/90">
           Embeddings from different models cannot be compared. Switching leaves all{" "}
@@ -172,7 +188,10 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
       )}
 
       <div className="flex items-center gap-2">
-        {(data.overridden.chat || data.overridden.embedding || data.overridden.image) && (
+        {(data.overridden.chat ||
+          data.overridden.embedding ||
+          data.overridden.image ||
+          data.overridden.vision) && (
           <button
             className="text-[11px] text-[var(--muted)] transition hover:text-[var(--fg)]"
             onClick={() => void reset()}

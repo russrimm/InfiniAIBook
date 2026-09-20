@@ -5,7 +5,7 @@ import {
   getBearerTokenProvider,
   type TokenCredential,
 } from "@azure/identity";
-import { getSetting, SETTING_CHAT_MODEL, SETTING_EMBED_MODEL, SETTING_IMAGE_MODEL } from "./settings";
+import { getSetting, SETTING_CHAT_MODEL, SETTING_EMBED_MODEL, SETTING_IMAGE_MODEL, SETTING_VISION_MODEL } from "./settings";
 
 /**
  * Two providers are supported.
@@ -97,6 +97,24 @@ export function imageModel(): string {
     process.env.AI_IMAGE_MODEL?.trim() ||
     process.env.AZURE_OPENAI_IMAGE_DEPLOYMENT ||
     "gpt-image-2.5-sunburst"
+  );
+}
+
+/** Reading images is a chat-model capability, so it falls back to that one. */
+export function visionModel(): string {
+  return (
+    getSetting(SETTING_VISION_MODEL) ||
+    process.env.AI_VISION_MODEL?.trim() ||
+    process.env.AZURE_OPENAI_VISION_DEPLOYMENT ||
+    chatModel()
+  );
+}
+
+export function envVisionModel(): string {
+  return (
+    process.env.AI_VISION_MODEL?.trim() ||
+    process.env.AZURE_OPENAI_VISION_DEPLOYMENT ||
+    envChatModel()
   );
 }
 

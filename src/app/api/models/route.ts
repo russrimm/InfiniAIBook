@@ -6,9 +6,11 @@ import {
   chatModel,
   embedModel,
   imageModel,
+  visionModel,
   envChatModel,
   envEmbedModel,
   envImageModel,
+  envVisionModel,
   getClient,
 } from "@/lib/ai";
 import {
@@ -17,6 +19,7 @@ import {
   SETTING_CHAT_MODEL,
   SETTING_EMBED_MODEL,
   SETTING_IMAGE_MODEL,
+  SETTING_VISION_MODEL,
 } from "@/lib/settings";
 
 export const runtime = "nodejs";
@@ -86,6 +89,7 @@ export async function GET() {
       chat: chatModel(),
       embedding: embedModel(),
       image: imageModel(),
+      vision: visionModel(),
     };
 
     // The configured models must always be selectable, even when discovery
@@ -94,6 +98,7 @@ export async function GET() {
       [current.chat, "chat"],
       [current.embedding, "embedding"],
       [current.image, "image"],
+      [current.vision, "chat"],
     ] as const) {
       if (!models.some((m) => m.id === id)) models.push({ id, kind });
     }
@@ -119,11 +124,13 @@ export async function GET() {
         chat: envChatModel(),
         embedding: envEmbedModel(),
         image: envImageModel(),
+        vision: envVisionModel(),
       },
       overridden: {
         chat: getSetting(SETTING_CHAT_MODEL) !== null,
         embedding: getSetting(SETTING_EMBED_MODEL) !== null,
         image: getSetting(SETTING_IMAGE_MODEL) !== null,
+        vision: getSetting(SETTING_VISION_MODEL) !== null,
       },
       chat: models.filter((m) => m.kind === "chat").map((m) => m.id).sort(),
       embedding: models.filter((m) => m.kind === "embedding").map((m) => m.id).sort(),
@@ -143,6 +150,7 @@ export async function POST(req: Request) {
       chat?: string | null;
       embedding?: string | null;
       image?: string | null;
+      vision?: string | null;
     };
 
     if (body.chat !== undefined) {
@@ -155,11 +163,15 @@ export async function POST(req: Request) {
     if (body.image !== undefined) {
       setSetting(SETTING_IMAGE_MODEL, body.image);
     }
+    if (body.vision !== undefined) {
+      setSetting(SETTING_VISION_MODEL, body.vision);
+    }
 
     const current = {
       chat: chatModel(),
       embedding: embedModel(),
       image: imageModel(),
+      vision: visionModel(),
     };
 
     // Changing the embedding model leaves stored vectors incomparable; report
