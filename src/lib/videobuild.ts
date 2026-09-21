@@ -31,17 +31,107 @@ const escapeXml = (s: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 
-/** Progress lives on the artifact row, so polling the notebook shows it. */
+/**
+ * Progress lives on the artifact row, so polling the notebook shows it.
+ *
+ * Every write stamps a heartbeat. A build runs in this process, so anything
+ * that kills the process — a restart, a crash — leaves the row frozen
+ * mid-stage with no way for the client to tell it apart from slow work. The
+ * heartbeat is what `reconcileStalledVideos` uses to tell the two apart.
+ */
 export function setProgress(id: string, patch: Partial<Record<string, unknown>>) {
   const row = db.prepare("SELECT content FROM artifacts WHERE id = ?").get(id) as
     | { content: string }
     | undefined;
   if (!row) return;
-  const content = { ...JSON.parse(row.content), ...patch };
+  const content = { ...JSON.parse(row.content), ...patch, heartbeatAt: Date.now() };
   db.prepare("UPDATE artifacts SET content = ? WHERE id = ?").run(
     JSON.stringify(content),
     id
   );
+}
+
+/** Refresh the heartbeat without disturbing the stage the build is reporting. */
+function touch(id: string) {
+  const row = db.prepare("SELECT content FROM artifacts WHERE id = ?").get(id) as
+    | { content: string }
+    | undefined;
+  if (!row) return;
+  const content = { ...JSON.parse(row.content), heartbeatAt: Date.now() };
+  db.prepare("UPDATE artifacts SET content = ? WHERE id = ?").run(
+    JSON.stringify(content),
+    id
+  );
+}
+
+/**
+ * A build is considered dead once this long passes with no heartbeat. The
+ * renderer is a single Python call that reports nothing for minutes, so the
+ * window has to clear that comfortably — `buildVideo` keeps the heartbeat
+ * ticking while it waits.
+ */
+const STALL_MS = 90_000;
+const HEARTBEAT_MS = 20_000;
+
+/**
+ * Mark builds that are no longer running as failed.
+ *
+ * Without this a killed build leaves the player polling "Drawing the scenes"
+ * forever, because a stage that never advances is indistinguishable from one
+ * that is simply slow.
+ */
+export function reconcileStalledVideos(notebookId?: string): number {
+  const rows = db
+    .prepare(
+      notebookId
+        ? "SELECT id, content, created_at FROM artifacts WHERE type = 'video' AND notebook_id = ?"
+        : "SELECT id, content, created_at FROM artifacts WHERE type = 'video'"
+    )
+    .all(...(notebookId ? [notebookId] : [])) as unknown as {
+    id: string;
+    content: string;
+    created_at: number;
+  }[];
+
+  let failed = 0;
+  for (const r of rows) {
+    let content: Record<string, unknown>;
+    try {
+      content = JSON.parse(r.content);
+    } catch {
+      continue;
+    }
+    const progress = content.progress as VideoProgress | undefined;
+    if (!progress || progress.stage === "done" || progress.stage === "failed") continue;
+
+    // Rows written before heartbeats existed fall back to their creation time,
+    // which is the only evidence available for them.
+    const last = Number(content.heartbeatAt ?? r.created_at);
+    if (Date.now() - last < STALL_MS) continue;
+
+    db.prepare("UPDATE artifacts SET content = ? WHERE id = ?").run(
+      JSON.stringify({
+        ...content,
+        progress: {
+          stage: "failed",
+          done: progress.done,
+          total: progress.total,
+          note:
+            "The build stopped before it finished — usually because the server " +
+            "restarted. Generate the video again to retry.",
+        } satisfies VideoProgress,
+      }),
+      r.id
+    );
+    // Scratch from the dead run is worthless and can be hundreds of megabytes.
+    try {
+      fs.rmSync(videoWorkDir(r.id), { recursive: true, force: true });
+    } catch {
+      /* nothing to clean */
+    }
+    failed++;
+  }
+  return failed;
 }
 
 /**
@@ -117,6 +207,23 @@ export async function buildVideo(
   const work = videoWorkDir(id);
   fs.mkdirSync(work, { recursive: true });
 
+  // The renderer reports nothing for minutes. Without this the row would look
+  // abandoned and get reconciled away mid-render.
+  const beat = setInterval(() => touch(id), HEARTBEAT_MS);
+
+  try {
+    await runBuild(id, plan, voice, work);
+  } finally {
+    clearInterval(beat);
+  }
+}
+
+async function runBuild(
+  id: string,
+  plan: ScenePlan,
+  voice: string,
+  work: string
+): Promise<void> {
   const scenes = plan.scenes;
   const images: string[] = new Array(scenes.length);
   const audios: string[] = new Array(scenes.length);
@@ -199,4 +306,12 @@ export async function buildVideo(
     videoUrl: `/api/video/${id}`,
     bytes: fs.statSync(out).size,
   });
+
+  // Scene artwork and narration clips are only inputs to the render. Keeping
+  // them costs several megabytes per video for no benefit once the MP4 exists.
+  try {
+    fs.rmSync(work, { recursive: true, force: true });
+  } catch {
+    /* leaving scratch behind is not worth failing a finished video */
+  }
 }

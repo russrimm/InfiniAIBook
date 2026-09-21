@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
-import { removeAudio } from "@/lib/paths";
+import { removeAudio, removeImage, removeVideo } from "@/lib/paths";
+import { reconcileStalledVideos } from "@/lib/videobuild";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -40,6 +41,11 @@ export async function GET(_req: Request, { params }: Ctx) {
       .prepare("SELECT id, title, emoji, created_at FROM notebooks WHERE id = ?")
       .get(id) as unknown as NbRow | undefined;
     if (!nb) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    // This is the endpoint the video player polls, so it is where a build that
+    // died with its process gets noticed and reported instead of appearing to
+    // run forever.
+    reconcileStalledVideos(id);
 
     const sourceRows = db
       .prepare(
@@ -117,11 +123,17 @@ export async function PATCH(req: Request, { params }: Ctx) {
 export async function DELETE(_req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
-    // The artifacts row cascades, but the audio files on disk do not.
-    const podcasts = db
-      .prepare("SELECT id FROM artifacts WHERE notebook_id = ? AND type = 'podcast'")
-      .all(id) as unknown as { id: string }[];
-    for (const p of podcasts) removeAudio(p.id);
+    // Artifact rows cascade, but the files they point at do not. Every type
+    // that writes to disk has to be cleaned here or it is orphaned for good.
+    const artifacts = db
+      .prepare("SELECT id, type FROM artifacts WHERE notebook_id = ?")
+      .all(id) as unknown as { id: string; type: string }[];
+
+    for (const a of artifacts) {
+      if (a.type === "podcast") removeAudio(a.id);
+      else if (a.type === "infographic") removeImage(a.id);
+      else if (a.type === "video") removeVideo(a.id);
+    }
 
     db.prepare("DELETE FROM notebooks WHERE id = ?").run(id);
     return ok({ ok: true });
