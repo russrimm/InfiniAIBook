@@ -21,7 +21,7 @@ import {
 /** Speakers that can be pinned, listed when a chosen one cannot be. */
 const PINNABLE = Object.keys(PINNED_VOICES);
 import type {
-  Artifact,
+  ArtifactSummary,
   ArtifactType,
   StudyDifficulty,
   StudyLength,
@@ -36,13 +36,16 @@ export default function StudioPanel({
   selectedIds,
   artifacts,
   onOpen,
+  openingId,
   onChanged,
 }: {
   notebookId: string;
   hasSources: boolean;
   selectedIds: string[];
-  artifacts: Artifact[];
-  onOpen: (a: Artifact) => void;
+  artifacts: ArtifactSummary[];
+  /** Freshly generated artifacts arrive whole; list entries are fetched first. */
+  onOpen: (a: ArtifactSummary) => void;
+  openingId: string | null;
   onChanged: () => Promise<void> | void;
 }) {
   const [topic, setTopic] = useState("");
@@ -120,7 +123,9 @@ export default function StudioPanel({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Generation failed");
       await onChanged();
-      onOpen(json as Artifact);
+      // Opened through the same path as a list entry so the modal always shows
+      // the stored row rather than whatever the POST happened to return.
+      onOpen(json as ArtifactSummary);
     } catch (e) {
       setErrors((prev) => ({
         ...prev,
@@ -527,13 +532,17 @@ export default function StudioPanel({
                     {STUDIO[a.type as ArtifactType]?.icon ?? "📄"}
                   </span>
                   <button
-                    className="min-w-0 flex-1 text-left"
+                    className="min-w-0 flex-1 text-left disabled:opacity-60"
                     onClick={() => onOpen(a)}
+                    disabled={openingId === a.id}
                   >
                     <div className="truncate text-[13px] font-medium">{a.title}</div>
                     <div className="text-[10px] text-[#6b7482]">
-                      {STUDIO[a.type as ArtifactType]?.label} ·{" "}
-                      {new Date(a.createdAt).toLocaleString()}
+                      {openingId === a.id
+                        ? "Opening…"
+                        : `${STUDIO[a.type as ArtifactType]?.label} · ${new Date(
+                            a.createdAt
+                          ).toLocaleString()}`}
                     </div>
                   </button>
                   <button

@@ -19,11 +19,15 @@ type SrcRow = {
   summary: string | null;
   created_at: number;
 };
+/**
+ * Listing shape: no body. Artifact bodies are the bulk of this response and
+ * grow with every artifact ever generated, while the list only renders a
+ * title and a date. Whatever opens one fetches it from /api/artifacts/[id].
+ */
 type ArtRow = {
   id: string;
   type: string;
   title: string;
-  content: string;
   created_at: number;
 };
 type MsgRow = {
@@ -56,7 +60,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 
     const artifactRows = db
       .prepare(
-        `SELECT id, type, title, content, created_at FROM artifacts
+        `SELECT id, type, title, created_at FROM artifacts
          WHERE notebook_id = ? ORDER BY created_at DESC`
       )
       .all(id) as unknown as ArtRow[];
@@ -88,7 +92,6 @@ export async function GET(_req: Request, { params }: Ctx) {
         id: a.id,
         type: a.type,
         title: a.title,
-        content: JSON.parse(a.content),
         createdAt: a.created_at,
       })),
       messages: messageRows.map((m) => ({

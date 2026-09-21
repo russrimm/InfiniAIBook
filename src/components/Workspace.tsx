@@ -12,12 +12,19 @@ import DiscoverModal, { type DiscoverHit } from "./DiscoverModal";
 import BrowserModal from "./BrowserModal";
 import ModelPicker from "./ModelPicker";
 import { STUDIO } from "@/lib/studio";
-import type { Artifact, ArtifactType, Message, Notebook, Source } from "@/lib/types";
+import type {
+  Artifact,
+  ArtifactSummary,
+  ArtifactType,
+  Message,
+  Notebook,
+  Source,
+} from "@/lib/types";
 
 type Data = {
   notebook: Notebook;
   sources: Source[];
-  artifacts: Artifact[];
+  artifacts: ArtifactSummary[];
   messages: Message[];
 };
 
@@ -39,6 +46,10 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [checkingSources, setCheckingSources] = useState(false);
   /** Finished while the user was busy elsewhere; offered rather than forced. */
   const [readyArtifact, setReadyArtifact] = useState<Artifact | null>(null);
+  /** Artifact whose body is being fetched, so the list can show it is working. */
+  const [openingId, setOpeningId] = useState<string | null>(null);
+  /** Reported inline; opening one artifact failing must not blank the notebook. */
+  const [openError, setOpenError] = useState<string | null>(null);
   /** Mirrors "something is already on screen" for callbacks held by old renders. */
   const occupied = useRef(false);
 
@@ -159,6 +170,24 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const openWhenFree = (a: Artifact) => {
     if (occupied.current) setReadyArtifact(a);
     else setOpenArtifact(a);
+  };
+
+  /**
+   * Open an artifact from the list, which carries no body. Failure is reported
+   * inline rather than thrown: a missing artifact is something the user can act
+   * on, and it must not take the notebook down.
+   */
+  const openFromList = async (summary: ArtifactSummary) => {
+    setOpeningId(summary.id);
+    try {
+      const res = await fetch(`/api/artifacts/${summary.id}`);
+      if (!res.ok) throw new Error(String(res.status));
+      openWhenFree((await res.json()) as Artifact);
+    } catch {
+      setOpenError("That artifact could not be opened. Try reloading the notebook.");
+    } finally {
+      setOpeningId(null);
+    }
   };
   if (error) {
     return (
@@ -301,7 +330,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             hasSources={data.sources.length > 0}
             selectedIds={selectedIds}
             artifacts={data.artifacts}
-            onOpen={openWhenFree}
+            onOpen={openFromList}
+            openingId={openingId}
             onChanged={() => void load()}
           />
         </div>
@@ -313,11 +343,12 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           onClose={() => setOpenArtifact(null)}
           onRefresh={async () => {
             try {
-              // load() already fetched the notebook; reusing what it returned
-              // avoids a second identical request on every poll.
-              const d = await load();
-              const next = d?.artifacts.find((a) => a.id === openArtifact.id);
-              if (next) setOpenArtifact(next);
+              // Fetch just this artifact. Polling the whole notebook pulled
+              // every source and message back every four seconds to read one
+              // row's progress.
+              const res = await fetch(`/api/artifacts/${openArtifact.id}`);
+              if (!res.ok) return;
+              setOpenArtifact((await res.json()) as Artifact);
             } catch {
               // Polled in the background; a dropped request is not an error
               // worth showing, and the next tick will pick it up.
@@ -364,6 +395,21 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         />
       )}
 
+      {openError && (
+        // Same layer as the ready toast: this can happen while a modal is open,
+        // and below it the message would be invisible.
+        <div className="fade-up fixed bottom-4 left-1/2 z-[60] -translate-x-1/2">
+          <div className="flex items-center gap-3 rounded-full border border-red-900/60 bg-red-950/40 py-2 pr-2 pl-4 shadow-xl">
+            <span className="max-w-[20rem] text-[12px] text-red-200">{openError}</span>
+            <button
+              className="btn !py-1 !text-[11px]"
+              onClick={() => setOpenError(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
       {readyArtifact && (
         // Above the modal layer on purpose: this only appears when something
         // is already on screen, so at z-40 it would sit behind the very thing

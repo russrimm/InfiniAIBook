@@ -73,6 +73,47 @@ function touch(id: string) {
 const STALL_MS = 90_000;
 const HEARTBEAT_MS = 20_000;
 
+type VideoRow = { id: string; content: string; created_at: number };
+
+/** Mark one row failed if its build is no longer reporting. Returns true if so. */
+function reconcileRow(r: VideoRow): boolean {
+  let content: Record<string, unknown>;
+  try {
+    content = JSON.parse(r.content);
+  } catch {
+    return false;
+  }
+  const progress = content.progress as VideoProgress | undefined;
+  if (!progress || progress.stage === "done" || progress.stage === "failed") return false;
+
+  // Rows written before heartbeats existed fall back to their creation time,
+  // which is the only evidence available for them.
+  const last = Number(content.heartbeatAt ?? r.created_at);
+  if (Date.now() - last < STALL_MS) return false;
+
+  db.prepare("UPDATE artifacts SET content = ? WHERE id = ?").run(
+    JSON.stringify({
+      ...content,
+      progress: {
+        stage: "failed",
+        done: progress.done,
+        total: progress.total,
+        note:
+          "The build stopped before it finished — usually because the server " +
+          "restarted. Generate the video again to retry.",
+      } satisfies VideoProgress,
+    }),
+    r.id
+  );
+  // Scratch from the dead run is worthless and can be hundreds of megabytes.
+  try {
+    fs.rmSync(videoWorkDir(r.id), { recursive: true, force: true });
+  } catch {
+    /* nothing to clean */
+  }
+  return true;
+}
+
 /**
  * Mark builds that are no longer running as failed.
  *
@@ -87,51 +128,21 @@ export function reconcileStalledVideos(notebookId?: string): number {
         ? "SELECT id, content, created_at FROM artifacts WHERE type = 'video' AND notebook_id = ?"
         : "SELECT id, content, created_at FROM artifacts WHERE type = 'video'"
     )
-    .all(...(notebookId ? [notebookId] : [])) as unknown as {
-    id: string;
-    content: string;
-    created_at: number;
-  }[];
+    .all(...(notebookId ? [notebookId] : [])) as unknown as VideoRow[];
 
   let failed = 0;
-  for (const r of rows) {
-    let content: Record<string, unknown>;
-    try {
-      content = JSON.parse(r.content);
-    } catch {
-      continue;
-    }
-    const progress = content.progress as VideoProgress | undefined;
-    if (!progress || progress.stage === "done" || progress.stage === "failed") continue;
-
-    // Rows written before heartbeats existed fall back to their creation time,
-    // which is the only evidence available for them.
-    const last = Number(content.heartbeatAt ?? r.created_at);
-    if (Date.now() - last < STALL_MS) continue;
-
-    db.prepare("UPDATE artifacts SET content = ? WHERE id = ?").run(
-      JSON.stringify({
-        ...content,
-        progress: {
-          stage: "failed",
-          done: progress.done,
-          total: progress.total,
-          note:
-            "The build stopped before it finished — usually because the server " +
-            "restarted. Generate the video again to retry.",
-        } satisfies VideoProgress,
-      }),
-      r.id
-    );
-    // Scratch from the dead run is worthless and can be hundreds of megabytes.
-    try {
-      fs.rmSync(videoWorkDir(r.id), { recursive: true, force: true });
-    } catch {
-      /* nothing to clean */
-    }
-    failed++;
-  }
+  for (const r of rows) if (reconcileRow(r)) failed++;
   return failed;
+}
+
+/** Same check for a single artifact, for the endpoint the player polls. */
+export function reconcileStalledVideo(id: string): boolean {
+  const row = db
+    .prepare(
+      "SELECT id, content, created_at FROM artifacts WHERE id = ? AND type = 'video'"
+    )
+    .get(id) as unknown as VideoRow | undefined;
+  return row ? reconcileRow(row) : false;
 }
 
 /**

@@ -157,6 +157,20 @@ export type Artifact = {
   createdAt: number;
 };
 
+/**
+ * What a listing needs to know about an artifact.
+ *
+ * Bodies are fetched when one is opened rather than shipped with the notebook:
+ * they are the bulk of that response and grow with every artifact ever made,
+ * while the list itself only ever shows an icon, a title and a date.
+ */
+export type ArtifactSummary = {
+  id: string;
+  type: ArtifactType;
+  title: string;
+  createdAt: number;
+};
+
 export type Source = {
   id: string;
   notebookId: string;
