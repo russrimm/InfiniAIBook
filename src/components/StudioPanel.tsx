@@ -51,6 +51,7 @@ export default function StudioPanel({
   const [length, setLength] = useState<StudyLength>("standard");
   const [delivery, setDelivery] = useState<Delivery>("natural");
   const [audioLen, setAudioLen] = useState<AudioLength>("medium");
+  const [narrator, setNarrator] = useState("Ava");
   const [hostA, setHostA] = useState(VOICE_PRESETS.conversational.a);
   const [hostB, setHostB] = useState(VOICE_PRESETS.conversational.b);
   const [speed, setSpeed] = useState(1);
@@ -156,6 +157,14 @@ export default function StudioPanel({
       length: audioLen,
     });
 
+  const generateVideo = () =>
+    run("video", "/api/video", {
+      notebookId,
+      topic: topic.trim() || undefined,
+      sourceIds: selectedIds,
+      voice: narrator,
+    });
+
   const remove = async (id: string) => {
     await fetch(`/api/artifacts/${id}`, { method: "DELETE" });
     await onChanged();
@@ -163,6 +172,7 @@ export default function StudioPanel({
 
   const blocked = !hasSources || selectedIds.length === 0;
   const audioBusy = running.has("podcast");
+  const videoBusy = running.has("video");
   const pinnedVoices = delivery === "pinned";
   /** Fixed voices exist for only some speakers, so warn before generating. */
   const unpinnable = pinnedVoices
@@ -298,6 +308,46 @@ export default function StudioPanel({
             {previewError && (
               <p className="text-[10px] leading-snug text-red-300">{previewError}</p>
             )}
+          </div>
+        </div>
+
+        <div
+          className={`card relative mb-2 overflow-hidden transition ${
+            videoBusy ? "shimmer border-[var(--accent)]" : ""
+          }`}
+        >
+          <button
+            disabled={blocked || videoBusy}
+            onClick={() => void generateVideo()}
+            className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span className="text-xl">🎬</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-medium">Whiteboard video</span>
+              <span className="block text-[10px] leading-snug text-[var(--muted)]">
+                {videoBusy
+                  ? "Planning the scenes — drawing takes a few minutes"
+                  : "A hand draws your sources, narrated"}
+              </span>
+            </span>
+          </button>
+
+          <div className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-2">
+            <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+              Voice
+            </span>
+            <SpeakerSelect
+              value={narrator}
+              exclude=""
+              disabled={false}
+              onChange={setNarrator}
+              onPreview={preview}
+              previewing={previewing}
+              loading={previewLoading}
+            />
+            <span className="shrink-0 text-[10px] leading-snug text-[var(--muted)]">
+              Uses the focus box above
+            </span>
           </div>
         </div>
 

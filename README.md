@@ -14,7 +14,7 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 |---|---|
 | **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON, HTML or **images** (described by a vision model); paste raw text; add a URL — including **YouTube links** and **RSS/Atom feeds**; or **discover sources** by describing a topic and picking from web results; or browse the web in-app and keep what is useful. Ingestion runs in the background, so you can keep adding while earlier items process. |
 | **Grounded chat** | Streaming answers built only from the sources you have selected, with hoverable inline citations `[1]` that show the exact excerpt used. |
-| **Studio** | Ten generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
+| **Studio** | Eleven generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
 | **Everything is local** | Sources, chunks, embeddings, chat history, artifacts, generated audio, voice samples and images live under `.data/`. |
 
 ### Studio formats
@@ -22,6 +22,7 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 | Format | Output |
 |---|---|
 | 🎧 Audio overview | Two hosts discuss your sources — real MP3 audio with a synced, clickable transcript, at roughly 3, 6 or 10 minutes |
+| 🎬 Whiteboard video | A hand draws your sources as marker doodles, narrated — six scenes, MP4 |
 | 📄 Report | Executive summary, analytical sections, key takeaways, open questions |
 | 🧾 Briefing doc | Under 700 words: bottom line, evidence, risks, next steps |
 | 📊 Infographic | Headline stats, themed sections, key takeaway — **19 styles**, illustrated by default |
@@ -790,6 +791,60 @@ The script prompt forbids markdown, citation markers and symbols that a voice
 would mangle, and the server strips any that slip through, so nothing reads
 "bracket two" aloud.
 
+## Whiteboard videos
+
+The 🎬 button plans six scenes from your sources, draws each one, narrates it and
+renders an MP4 — a hand moving across the board, drawing the lines as they
+appear, with a caption band underneath.
+
+The **focus box** at the top of the Studio panel steers it, so the same notebook
+can produce a video about whichever part of the material you want.
+
+Each scene is planned as a picture rather than a paragraph: a short hand-lettered
+title, one simple drawing described as objects rather than concepts, a caption,
+and a line or two of narration. Every claim is grounded in the excerpts, and
+scene prompts are barred from naming real brands, logos or people — the artwork
+is original doodles.
+
+### What it runs on
+
+The skill this is adapted from expects host image and speech tools. This app
+already has an image model and Speech voices configured, so those are used
+instead and the Python renderer is kept. It needs Python with `numpy`, `Pillow`
+and `imageio-ffmpeg`:
+
+```bash
+python -m pip install numpy pillow imageio-ffmpeg
+```
+
+Set `PYTHON_BIN` if `python` is not the interpreter you want.
+
+### Timings, measured
+
+A six-scene video took **6.5 minutes** end to end: about 3.5 minutes of artwork,
+half a minute of narration, and 2.5 minutes of rendering, for a 3.6 MB file at
+1280×720. Artwork dominates, and it is drawn **one scene at a time** — two
+concurrent calls collide on a small image deployment's per-minute limit and
+spend the retry budget racing each other rather than waiting.
+
+Nothing blocks on it. The scene plan is written first and the artifact is saved
+immediately; the build carries on in the background, writing its stage onto the
+row, and the player shows the progress. Close it, keep working, come back.
+
+### Two fixes the bundled renderer needed
+
+**The hand covered the captions.** It enters from the lower right and was
+composited over the whole frame, so it sat across the caption band and hid the
+words. It is now clipped at the band line.
+
+**The supplied hand cutout could not be used.** Its background was transparent
+rather than white, and the renderer converts to RGB — turning every transparent
+pixel black. It saw 99.8% "ink" and put the marker tip at pixel (0,0), so the
+hand would have drawn with its wrist. The replacement is generated once, cached,
+and checked: the tip must be the extreme upper-left point of the cutout.
+
+---
+
 ## YouTube sources
 
 Paste a YouTube URL into **Link**. `watch?v=`, `youtu.be`, `/shorts/` and
@@ -944,6 +999,7 @@ src/
     refresh.ts   re-fetch, word-level change detection, bot-wall guard, re-indexing
     prosody.ts   pause shaping; documents which SSML tags measurably work
     vision.ts    image description, with a guard against blind models inventing one
+    whiteboard.ts scene planning for videos; videobuild.ts runs the pipeline
     gemini.ts    YouTube transcripts via the supported video-input route
 ```
 

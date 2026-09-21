@@ -255,6 +255,16 @@ Omit "pullQuote", "nextSteps", "flow", "chart", "compare", "checklist" and "regi
 unless the style guidance below asks for them.`,
   },
 
+  video: {
+    label: "Whiteboard video",
+    blurb: "Narrated hand-drawn explainer",
+    icon: "🎬",
+    json: true,
+    // Planned by src/lib/whiteboard.ts and built by /api/video, not here. This
+    // entry exists so the artifact list has a label and an icon for it.
+    instruction: () => "",
+  },
+
   podcast: {
     label: "Audio overview",
     blurb: "Two-host conversation",

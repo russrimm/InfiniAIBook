@@ -297,7 +297,20 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       </div>
 
       {openArtifact && (
-        <ArtifactModal artifact={openArtifact} onClose={() => setOpenArtifact(null)} />
+        <ArtifactModal
+          artifact={openArtifact}
+          onClose={() => setOpenArtifact(null)}
+          onRefresh={async () => {
+            await load();
+            // The modal holds its own copy, so it needs the fresh row too.
+            const res = await fetch(`/api/notebooks/${notebookId}`);
+            if (res.ok) {
+              const d: Data = await res.json();
+              const next = d.artifacts.find((a) => a.id === openArtifact.id);
+              if (next) setOpenArtifact(next);
+            }
+          }}
+        />
       )}
       {openSourceId && (
         <SourceModal sourceId={openSourceId} onClose={() => setOpenSourceId(null)} />

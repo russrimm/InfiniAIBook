@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
-import { removeAudio, removeImage } from "@/lib/paths";
+import { removeAudio, removeImage, removeVideo } from "@/lib/paths";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +18,7 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     // Audio files and generated images are named after the artifact id.
     if (row?.type === "podcast") removeAudio(id);
     if (row?.type === "infographic") removeImage(id);
+    if (row?.type === "video") removeVideo(id);
 
     return ok({ ok: true });
   } catch (e) {

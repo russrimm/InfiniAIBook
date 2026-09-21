@@ -7,6 +7,7 @@ import Quiz from "./Quiz";
 import Flashcards from "./Flashcards";
 import Infographic from "./Infographic";
 import PodcastPlayer from "./PodcastPlayer";
+import VideoPlayer from "./VideoPlayer";
 import { STUDIO } from "@/lib/studio";
 import type {
   Artifact,
@@ -21,6 +22,7 @@ import type {
   PodcastContent,
   QuizContent,
   TimelineContent,
+  VideoContent,
 } from "@/lib/types";
 
 /** Citation markers are internal navigation; they are noise in an export. */
@@ -147,9 +149,12 @@ function toMarkdown(a: Artifact): string {
 export default function ArtifactModal({
   artifact,
   onClose,
+  onRefresh,
 }: {
   artifact: Artifact;
   onClose: () => void;
+  /** Re-reads the artifact so a background build can show its progress. */
+  onRefresh?: () => Promise<void> | void;
 }) {
   const [copied, setCopied] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -301,7 +306,7 @@ export default function ArtifactModal({
         </header>
 
         <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8">
-          <Body artifact={artifact} citations={citations} />
+          <Body artifact={artifact} citations={citations} onRefresh={onRefresh} />
         </div>
 
         {exportError && (
@@ -326,7 +331,15 @@ export default function ArtifactModal({
   );
 }
 
-function Body({ artifact, citations }: { artifact: Artifact; citations: Citation[] }) {
+function Body({
+  artifact,
+  citations,
+  onRefresh,
+}: {
+  artifact: Artifact;
+  citations: Citation[];
+  onRefresh?: () => Promise<void> | void;
+}) {
   const c = artifact.content as unknown;
   switch (artifact.type) {
     case "quiz":
@@ -351,6 +364,14 @@ function Body({ artifact, citations }: { artifact: Artifact; citations: Citation
       return <Infographic content={c as InfographicContent} citations={citations} />;
     case "podcast":
       return <PodcastPlayer content={c as PodcastContent} />;
+    case "video":
+      return (
+        <VideoPlayer
+          artifactId={artifact.id}
+          content={c as VideoContent}
+          onRefresh={onRefresh ?? (() => {})}
+        />
+      );
     case "faq": {
       const f = c as FaqContent;
       return (

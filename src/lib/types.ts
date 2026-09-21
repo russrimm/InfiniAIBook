@@ -8,6 +8,7 @@ export type ArtifactType =
   | "mindmap"
   | "timeline"
   | "infographic"
+  | "video"
   | "podcast";
 
 /** Study aids can be tuned for depth and rigour at generation time. */
@@ -121,6 +122,21 @@ export type PodcastContent = {
   chapters?: { title: string; at: number }[];
 };
 
+export type VideoContent = {
+  title: string;
+  description?: string;
+  scenes: {
+    title: string;
+    caption: string;
+    narration: string;
+    step?: number;
+  }[];
+  videoUrl?: string;
+  bytes?: number;
+  voice?: string;
+  progress?: { stage: string; done: number; total: number; note?: string };
+};
+
 export type ArtifactContent =
   | DocContent
   | FaqContent
@@ -129,6 +145,7 @@ export type ArtifactContent =
   | MindMapContent
   | TimelineContent
   | InfographicContent
+  | VideoContent
   | PodcastContent;
 
 export type Artifact = {

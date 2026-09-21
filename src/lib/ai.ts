@@ -171,7 +171,12 @@ export async function generateImage(
         new Error(
           `Image generation failed (${res.status}). ${body.slice(0, 400)}`
         ),
-        { status: res.status }
+        {
+          status: res.status,
+          // withRetry honours Retry-After when it is present. Without this the
+          // backoff guesses, and on a small image deployment it guesses short.
+          headers: Object.fromEntries(res.headers.entries()),
+        }
       );
       throw err;
     }

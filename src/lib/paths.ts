@@ -44,6 +44,34 @@ export function voiceDir(): string {
   return path.join(dataDir(), "voices");
 }
 
+export function videoDir(): string {
+  return path.join(dataDir(), "video");
+}
+
+export function videoPath(id: string): string {
+  if (!/^[A-Za-z0-9_-]{1,32}$/.test(id)) throw new Error("Invalid video id");
+  return path.join(videoDir(), `${id}.mp4`);
+}
+
+/** Per-video scratch space: artwork, narration clips and the render config. */
+export function videoWorkDir(id: string): string {
+  if (!/^[A-Za-z0-9_-]{1,32}$/.test(id)) throw new Error("Invalid video id");
+  return path.join(videoDir(), `${id}-work`);
+}
+
+export function removeVideo(id: string) {
+  try {
+    fs.unlinkSync(videoPath(id));
+  } catch {
+    /* already gone */
+  }
+  try {
+    fs.rmSync(videoWorkDir(id), { recursive: true, force: true });
+  } catch {
+    /* already gone */
+  }
+}
+
 /**
  * Cached "hello" sample for one speaker. Names come from a fixed list, so
  * anything outside a bare word is a caller bug rather than a new voice.
