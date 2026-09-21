@@ -81,21 +81,27 @@ export type EmbeddingMismatch = {
   currentModel: string;
 };
 
-let lastMismatch: EmbeddingMismatch | null = null;
+export type RetrievalResult = {
+  passages: Passage[];
+  mismatch: EmbeddingMismatch | null;
+};
 
-/** Mismatch seen during the most recent retrieve(), if any. */
-export function lastEmbeddingMismatch(): EmbeddingMismatch | null {
-  return lastMismatch;
-}
-
-export async function retrieve(
+/**
+ * Retrieve passages and report any embedding mismatch alongside them.
+ *
+ * The diagnostic is returned rather than held in module state: callers read it
+ * after awaiting the model, and a concurrent request for another notebook
+ * would otherwise overwrite it in between, attaching one notebook's warning to
+ * another's answer.
+ */
+export async function retrieveWithDiagnostics(
   notebookId: string,
   query: string,
   sourceIds: string[] | undefined,
   k = 12
-): Promise<Passage[]> {
+): Promise<RetrievalResult> {
   const all = rows(notebookId, sourceIds);
-  if (!all.length) return [];
+  if (!all.length) return { passages: [], mismatch: null };
 
   let qv: Float32Array | null = null;
   try {
@@ -131,7 +137,7 @@ export async function retrieve(
     } satisfies Passage;
   });
 
-  lastMismatch = staleCount
+  const mismatch: EmbeddingMismatch | null = staleCount
     ? {
         staleChunks: staleCount,
         totalChunks: all.length,
@@ -140,7 +146,7 @@ export async function retrieve(
       }
     : null;
 
-  if (lastMismatch) {
+  if (mismatch) {
     console.warn(
       `[retrieve] ${staleCount}/${all.length} chunks were embedded with ` +
         `${[...stale].join(", ")} but the current model is ${embedModel()}. ` +
@@ -149,7 +155,16 @@ export async function retrieve(
   }
 
   scored.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-  return scored.slice(0, k);
+  return { passages: scored.slice(0, k), mismatch };
+}
+
+export async function retrieve(
+  notebookId: string,
+  query: string,
+  sourceIds: string[] | undefined,
+  k = 12
+): Promise<Passage[]> {
+  return (await retrieveWithDiagnostics(notebookId, query, sourceIds, k)).passages;
 }
 
 /** Broad, evenly-spread sample of the corpus for whole-notebook generation. */

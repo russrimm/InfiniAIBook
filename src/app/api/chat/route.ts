@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import { fail } from "@/lib/http";
 import { chatStream, describeAuthError, type ChatMsg } from "@/lib/ai";
-import { buildContext, citationList, lastEmbeddingMismatch, retrieve } from "@/lib/retrieve";
+import { buildContext, citationList, retrieveWithDiagnostics } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
 import { NextResponse } from "next/server";
 
@@ -21,7 +21,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing notebookId or message" }, { status: 400 });
     }
 
-    const passages = await retrieve(notebookId, message, sourceIds, 12);
+    const { passages, mismatch } = await retrieveWithDiagnostics(
+      notebookId,
+      message,
+      sourceIds,
+      12
+    );
     if (!passages.length) {
       return NextResponse.json(
         { error: "This notebook has no sources yet. Add one to start asking questions." },
@@ -69,7 +74,6 @@ export async function POST(req: Request) {
           controller.enqueue(encoder.encode(JSON.stringify(o) + "\n"));
         try {
           send({ type: "citations", citations });
-          const mismatch = lastEmbeddingMismatch();
           if (mismatch) {
             send({
               type: "notice",
