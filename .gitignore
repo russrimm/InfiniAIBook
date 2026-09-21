@@ -44,3 +44,9 @@ next-env.d.ts
 # local data
 .data/
 
+# Not part of the app: agent tooling and skills that happen to live in the
+# working tree. Listed here rather than excluded by hand at commit time, which
+# is how skills/ reached the repo in the first place.
+.github/
+skills/
+
