@@ -49,18 +49,28 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   /** Set by SourcesPanel so Discover can queue URLs through the same pipeline. */
   const addSources = useRef<((hits: DiscoverHit[]) => void) | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<Data | null> => {
     const seq = ++loadSeq.current;
-    const res = await fetch(`/api/notebooks/${notebookId}`);
+    let res: Response;
+    try {
+      res = await fetch(`/api/notebooks/${notebookId}`);
+    } catch {
+      // A background poll runs for minutes. A dropped connection, a sleeping
+      // laptop or a restarted dev server must not take the notebook down with
+      // it — skip this round and try again on the next tick.
+      return null;
+    }
     if (!res.ok) {
-      setError("Notebook not found.");
-      return;
+      // A transient 5xx is not "notebook not found"; only say so when the
+      // server actually says so.
+      if (res.status === 404) setError("Notebook not found.");
+      return null;
     }
     const d: Data = await res.json();
     // Uploads finish independently, so several loads can be in flight at once.
     // Only the newest response may touch state, or an older one would drop
     // sources that have since arrived.
-    if (seq !== loadSeq.current) return;
+    if (seq !== loadSeq.current) return null;
 
     // Computed out here, not inside the state updater: updaters must stay pure
     // (React invokes them twice in development to enforce exactly that).
@@ -75,6 +85,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       for (const id of fresh) next.add(id);
       return next;
     });
+    return d;
   }, [notebookId]);
 
   useEffect(() => {
@@ -264,7 +275,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
               )
             }
             onOpen={setOpenSourceId}
-            onChanged={load}
+            onChanged={() => void load()}
             onDiscover={() => setDiscovering(true)}
             onBrowse={() => setBrowsing(true)}
             addRef={addSources}
@@ -291,7 +302,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             selectedIds={selectedIds}
             artifacts={data.artifacts}
             onOpen={openWhenFree}
-            onChanged={load}
+            onChanged={() => void load()}
           />
         </div>
       </div>
@@ -301,13 +312,15 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           artifact={openArtifact}
           onClose={() => setOpenArtifact(null)}
           onRefresh={async () => {
-            await load();
-            // The modal holds its own copy, so it needs the fresh row too.
-            const res = await fetch(`/api/notebooks/${notebookId}`);
-            if (res.ok) {
-              const d: Data = await res.json();
-              const next = d.artifacts.find((a) => a.id === openArtifact.id);
+            try {
+              // load() already fetched the notebook; reusing what it returned
+              // avoids a second identical request on every poll.
+              const d = await load();
+              const next = d?.artifacts.find((a) => a.id === openArtifact.id);
               if (next) setOpenArtifact(next);
+            } catch {
+              // Polled in the background; a dropped request is not an error
+              // worth showing, and the next tick will pick it up.
             }
           }}
         />
@@ -326,7 +339,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         <BrowserModal
           notebookId={notebookId}
           onClose={() => setBrowsing(false)}
-          onAdded={load}
+          onAdded={() => void load()}
         />
       )}
       {pickingModel && (

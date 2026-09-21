@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { VideoContent } from "@/lib/types";
 
 const STAGES: { key: string; label: string }[] = [
@@ -25,16 +25,27 @@ export default function VideoPlayer({
 
   const [elapsed, setElapsed] = useState(0);
 
-  // A build runs for minutes, so the row is polled rather than waited on.
+  // The caller passes a fresh closure on every render. Holding it in a ref
+  // keeps it out of the effect's dependencies — with it in there, each poll
+  // triggered a re-render, which produced a new callback, which restarted the
+  // effect, which polled again: a loop firing every few milliseconds rather
+  // than the intended four seconds.
+  const refresh = useRef(onRefresh);
+  refresh.current = onRefresh;
+
   useEffect(() => {
     if (!building) return;
     const tick = setInterval(() => setElapsed((s) => s + 1), 1000);
-    const poll = setInterval(() => void onRefresh(), 4000);
+    const poll = setInterval(() => {
+      // Never let a failed poll surface as a page error. The build outlives
+      // dev-server restarts, sleeping laptops and dropped connections.
+      void Promise.resolve(refresh.current()).catch(() => {});
+    }, 4000);
     return () => {
       clearInterval(tick);
       clearInterval(poll);
     };
-  }, [building, onRefresh]);
+  }, [building]);
 
   if (stage === "failed") {
     return (
