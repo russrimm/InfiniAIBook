@@ -12,6 +12,8 @@
  * 3. oEmbed — title and author only, but works almost anywhere.
  */
 
+import { GeminiError, hasGemini, transcribeYouTube } from "./gemini";
+
 const WEB_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
@@ -325,6 +327,9 @@ export async function fetchYouTubeTranscript(input: string): Promise<YouTubeResu
   const videoId = parseVideoId(input);
   if (!videoId) throw new Error("That does not look like a YouTube video URL.");
 
+  /** Why Gemini declined, when it was tried and did not work. */
+  let geminiNote: string | null = null;
+
   const apiMeta = await metaFromApi(videoId);
   if (apiKey() && !apiMeta) {
     throw new Error(
@@ -332,6 +337,31 @@ export async function fetchYouTubeTranscript(input: string): Promise<YouTubeResu
     );
   }
   const meta: Meta = apiMeta ?? (await metaFromOEmbed(videoId));
+
+  // Gemini first when configured: it fetches the video on Google's own
+  // infrastructure, so the proof-of-origin gate that blocks every server-side
+  // route below simply does not apply. It also covers videos that have no
+  // captions at all, by transcribing the audio.
+  if (hasGemini()) {
+    try {
+      const t = await transcribeYouTube(`https://www.youtube.com/watch?v=${videoId}`);
+      return {
+        videoId,
+        title: meta.title,
+        author: meta.author,
+        kind: "youtube",
+        text: header(meta, videoId) + t.text,
+      };
+    } catch (e) {
+      // Fall through to the original strategies rather than failing outright —
+      // a captioned video may still be reachable without Gemini.
+      console.warn(
+        `[youtube] Gemini transcript failed for ${videoId}:`,
+        e instanceof Error ? e.message : e
+      );
+      geminiNote = e instanceof GeminiError ? e.message : null;
+    }
+  }
 
   let tracks: CaptionTrack[] = [];
   try {
@@ -369,7 +399,9 @@ export async function fetchYouTubeTranscript(input: string): Promise<YouTubeResu
   // content — ingest it rather than failing outright, but never let the user
   // believe they received a transcript.
   const description = tidyDescription(meta.description ?? "");
-  const note = await blockedMessage(videoId, meta);
+  const note = geminiNote
+    ? `Gemini could not transcribe it: ${geminiNote}`
+    : await blockedMessage(videoId, meta);
 
   if (description.length >= 200) {
     return {

@@ -795,26 +795,51 @@ would mangle, and the server strips any that slip through, so nothing reads
 Paste a YouTube URL into **Link**. `watch?v=`, `youtu.be`, `/shorts/` and
 `/embed/` forms are all recognised.
 
-Setting a Data API v3 key improves this considerably:
+### Transcripts, the supported way
+
+YouTube's public transcript endpoint is gated behind a proof-of-origin token,
+and `captions.download` rejects API keys outright — it requires OAuth as the
+**video's owner**, so it is no help for third-party videos. Neither is reachable
+from a server.
+
+The Gemini API takes a YouTube URL as a video input and fetches it on Google's
+own infrastructure, which is why the gate does not apply: the request never
+leaves Google. Set a key and transcripts simply work:
+
+```ini
+GEMINI_API_KEY=...
+# GEMINI_MODEL=gemini-2.5-flash
+```
+
+**This is not a YouTube Data API key.** The two are different services and a
+Data API key is rejected by Gemini with `API key not valid` — get one from
+[Google AI Studio](https://aistudio.google.com/apikey), or enable the
+Generative Language API on the project your existing key belongs to.
+
+It also covers videos with **no captions at all**, because the model transcribes
+the audio rather than reading a caption file.
+
+**Frames are sampled at one per ten seconds, at low resolution.** Speech lives
+in the audio track, and the default sampling is expensive: on a 19-minute video
+the prompt came to 330,412 tokens, of which 294,560 were video frames. At
+`fps: 0.1` with `MEDIA_RESOLUTION_LOW` the same video costs 43,804 tokens and
+returns in 18 seconds instead of 52 — for a transcript that came back the same
+length. The frames were being paid for and discarded.
+
+A Data API key remains worth setting alongside it:
 
 ```ini
 YOUTUBE_API_KEY=...
 ```
 
-It supplies authoritative title, channel, duration and description, and a
-definitive list of caption tracks. What it cannot do is return caption *text* —
-`captions.download` rejects API keys outright (`401: API keys are not supported
-by this API`) and requires OAuth as the **video's owner**, so it is no help for
-third-party videos.
+It supplies authoritative title, channel, duration and description. The two work
+together — Gemini for the words, the Data API for everything around them.
 
 ### When the transcript is unavailable
 
-YouTube's public transcript endpoint is gated behind a proof-of-origin token.
-Without one it answers `200` with an **empty body** rather than an error, so on
-many networks — most corporate and datacenter ranges included — transcripts
-cannot be fetched at all.
-
-The app handles this honestly rather than reporting "no captions available":
+Without a Gemini key, or when Gemini declines a video, the app falls back
+through its original strategies and then reports honestly rather than claiming
+"no captions available":
 
 - It names the caption tracks the Data API confirms exist, so you know the
   captions are there and the refusal is YouTube's.
@@ -824,8 +849,11 @@ The app handles this honestly rather than reporting "no captions available":
   transcript. Descriptions under 200 characters are rejected instead.
 - `YOUTUBE_COOKIE` (the `Cookie` header from a signed-in session) is used when
   set, for networks where that is sufficient.
+- When Gemini was tried and failed, the reason it gave is passed through, since
+  "private, unlisted or age-restricted" is actionable and "blocked" is not.
 
-For a guaranteed full transcript, use **Paste** to add it as a text source.
+For a guaranteed full transcript with no external service, **Paste** still adds
+one as a text source.
 
 ---
 
@@ -916,6 +944,7 @@ src/
     refresh.ts   re-fetch, word-level change detection, bot-wall guard, re-indexing
     prosody.ts   pause shaping; documents which SSML tags measurably work
     vision.ts    image description, with a guard against blind models inventing one
+    gemini.ts    YouTube transcripts via the supported video-input route
 ```
 
 **Storage note:** the database uses Node 22+'s built-in `node:sqlite`, so there is
