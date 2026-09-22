@@ -2,6 +2,12 @@ import * as cheerio from "cheerio";
 import { NextResponse } from "next/server";
 import { ok, fail } from "@/lib/http";
 import { FETCH_HEADERS, extractFromUrl } from "@/lib/ingest";
+import {
+  BlockedHostError,
+  ResponseTooLargeError,
+  readCapped,
+  safeFetch,
+} from "@/lib/safefetch";
 import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -77,13 +83,18 @@ export async function GET(req: Request) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 20000);
     let res: Response;
+    let finalUrl: string;
     try {
-      res = await fetch(target, {
+      // Guarded: the address is typed by the user, and a page is free to
+      // redirect this request anywhere it likes.
+      ({ res, finalUrl } = await safeFetch(target, {
         headers: FETCH_HEADERS,
-        redirect: "follow",
         signal: controller.signal,
-      });
+      }));
     } catch (e) {
+      if (e instanceof BlockedHostError) {
+        return NextResponse.json({ error: e.message }, { status: 400 });
+      }
       const why =
         (e as Error).name === "AbortError"
           ? "the site did not respond within 20 seconds"
@@ -96,7 +107,6 @@ export async function GET(req: Request) {
       clearTimeout(timer);
     }
 
-    const finalUrl = res.url || target;
     const blocked = frameability(
       res.headers.get("x-frame-options"),
       res.headers.get("content-security-policy")
@@ -121,7 +131,9 @@ export async function GET(req: Request) {
 
     // Reader fallback. The same extractor indexing uses, so what is shown here
     // is what would actually be stored.
-    const body = await res.text().catch(() => "");
+    const body = await readCapped(res)
+      .then((b) => b.toString("utf8"))
+      .catch(() => "");
     let title = "";
     let text = "";
     let extractError: string | null = null;
@@ -130,7 +142,12 @@ export async function GET(req: Request) {
       title = ex.title;
       text = ex.text;
     } catch (e) {
-      extractError = e instanceof Error ? e.message : "The page could not be read.";
+      extractError =
+        e instanceof BlockedHostError || e instanceof ResponseTooLargeError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : "The page could not be read.";
     }
 
     return ok({

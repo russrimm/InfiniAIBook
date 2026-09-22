@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import mammoth from "mammoth";
 import { describeImage, imageMimeFor } from "./vision";
+import { BlockedHostError, readCapped, safeFetch } from "./safefetch";
 
 export type Extracted = { title: string; text: string; kind: string };
 
@@ -244,13 +245,16 @@ export async function extractFromUrl(url: string): Promise<Extracted> {
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
   let res: Response;
+  let finalUrl: string;
   try {
-    res = await fetch(url, {
+    // Guarded rather than a plain fetch: this URL came from whoever is adding
+    // the source, and the redirect chain is theirs to choose too.
+    ({ res, finalUrl } = await safeFetch(url, {
       headers: FETCH_HEADERS,
-      redirect: "follow",
       signal: controller.signal,
-    });
+    }));
   } catch (e) {
+    if (e instanceof BlockedHostError) throw e;
     throw describeFetchFailure(e, host);
   } finally {
     clearTimeout(timer);
@@ -271,18 +275,21 @@ export async function extractFromUrl(url: string): Promise<Extracted> {
     throw new Error(`${host} returned ${res.status}.`);
   }
 
+  // Paths are read from where the chain actually ended, not from what was
+  // typed: a redirect to a PDF should still be treated as a PDF.
+  const path = new URL(finalUrl).pathname;
   const ctype = res.headers.get("content-type") ?? "";
   const looksLikePdf =
-    ctype.includes("application/pdf") || /\.pdf($|[?#])/i.test(new URL(url).pathname);
+    ctype.includes("application/pdf") || /\.pdf($|[?#])/i.test(path);
 
   // Some servers send PDFs as octet-stream, so sniff the magic bytes too.
-  const buf = Buffer.from(await res.arrayBuffer());
+  const buf = await readCapped(res);
   const isPdf = looksLikePdf || buf.subarray(0, 5).toString("latin1") === "%PDF-";
 
   // A URL that points straight at an image is described rather than parsed.
-  const imageMime = imageMimeFor(new URL(url).pathname, ctype.split(";")[0]?.trim());
+  const imageMime = imageMimeFor(path, ctype.split(";")[0]?.trim());
   if (imageMime && !isPdf) {
-    const filename = decodeURIComponent(new URL(url).pathname.split("/").pop() || host);
+    const filename = decodeURIComponent(path.split("/").pop() || host);
     const described = await describeImage(buf, imageMime, filename);
     return { title: described.title, text: described.text, kind: "image" };
   }

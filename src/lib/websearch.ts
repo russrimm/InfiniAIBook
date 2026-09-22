@@ -1,4 +1,5 @@
 import { FETCH_HEADERS } from "./ingest";
+import { safeFetch } from "./safefetch";
 
 /**
  * Web search for source discovery.
@@ -257,13 +258,14 @@ export async function checkReachable(
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        const res = await fetch(hit.url, {
+        // Guarded like ingestion: these URLs come from a search provider, so
+        // they are no more trustworthy than a pasted link.
+        const { res } = await safeFetch(hit.url, {
           method: "HEAD",
           // Same headers ingestion will use, so this predicts the real result
           // rather than testing a different request.
           headers: FETCH_HEADERS,
           signal: controller.signal,
-          redirect: "follow",
         });
         // 405 means HEAD specifically is unsupported, not that we are blocked.
         const reachable = res.ok || res.status === 405;
