@@ -850,6 +850,16 @@ and checked: the tip must be the extreme upper-left point of the cutout.
 
 ## YouTube sources
 
+**YouTube integration is optional.** If you do not want to get an API key for
+YouTube ingestion, skip it: OpenNotebook works fine with your other sources.
+A **YouTube Data API key is not required for transcripts**, either; the supported
+Gemini route below uses a separate key, and **Paste** lets you add a transcript
+as text without either key.
+
+YouTube is a rich source of learning material. Bring transcripts from multiple
+videos into one notebook to build material for an audiobook or generate FAQs,
+learning guides and infographics grounded in those videos.
+
 Paste a YouTube URL into **Link**. `watch?v=`, `youtu.be`, `/shorts/` and
 `/embed/` forms are all recognised.
 
@@ -884,7 +894,7 @@ the prompt came to 330,412 tokens, of which 294,560 were video frames. At
 returns in 18 seconds instead of 52 — for a transcript that came back the same
 length. The frames were being paid for and discarded.
 
-A Data API key remains worth setting alongside it:
+A Data API key is optional, but worth setting alongside it for richer metadata:
 
 ```ini
 YOUTUBE_API_KEY=...
