@@ -6,6 +6,31 @@ study guides, FAQs and timelines** — every claim cited back to the document it
 
 Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 
+## Screenshots
+
+Captured from the app with a fictional community-garden sample notebook.
+Sources, chat responses and artifacts shown here are prepared demo content.
+
+### Research workspace
+
+Sources, cited answers and Studio tools in one view. Expand citations to inspect
+the source excerpts behind an answer.
+
+![OpenNotebook workspace with three selected sources, a cited chat answer and Studio generation tools](docs/screenshots/workspace.png)
+
+### Interactive mind map
+
+Explore topics branch by branch, expand the full tree, or export it as a PNG.
+
+![Expanded community-garden mind map showing pilot goals, growing spaces, shared care and planning](docs/screenshots/mind-map.png)
+
+### Illustrated infographic
+
+Turn source material into visual summaries with key figures, themed sections
+and citations back to the evidence.
+
+![Illustrated community-garden infographic with headline figures, visual concepts and source citations](docs/screenshots/infographic.png)
+
 ---
 
 ## What it does
@@ -35,28 +60,6 @@ Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
 
 Every artifact can be copied or exported to Markdown; audio can be downloaded as
 MP3, and flashcards export as a two-column table that Anki and Quizlet accept.
-
-### Generation does not block the app
-
-An audio overview takes a few minutes and an AI-image infographic around a
-hundred seconds. Neither holds the notebook hostage: a format is disabled only
-while that same format is running, every other format stays available, the
-controls keep working, and everything already generated can still be opened,
-read and exported.
-
-Several formats can run at once, and the panel names what is in flight.
-
-Finishing does **not** take the screen. A job that lands while you are reading
-something else offers itself as a notice instead of replacing what you are
-looking at — and because that notice only ever appears when something is
-already open, it deliberately sits above the modal layer rather than behind the
-thing that triggered it.
-
-The check for "is something already on screen" reads a ref rather than state.
-A job started several renders earlier still holds the callback it was handed, so
-reading state there would report whatever was open when the button was pressed:
-two formats finishing together both concluded the screen was free, and one
-silently replaced the other.
 
 ---
 
