@@ -1,7 +1,9 @@
 """Build a narrated whiteboard-animation video from clean scene artwork + a hand cutout + narration clips.
 
 Usage:
-    python build_whiteboard_video.py config.json
+    python scripts/whiteboard/render.py config.json
+
+Invoked by src/lib/videobuild.ts, which writes the config, artwork and narration.
 
 config.json:
 {
@@ -15,7 +17,7 @@ config.json:
   ]
 }
 "audio" is optional per scene (silent scenes get a fixed 6s draw + 2.5s hold).
-Requires: numpy, Pillow, imageio_ffmpeg (all preinstalled in Cowork).
+Requires: numpy, Pillow, imageio-ffmpeg  (python -m pip install numpy pillow imageio-ffmpeg)
 """
 import json, os, shutil, subprocess, sys, textwrap
 from collections import deque
