@@ -1,6 +1,6 @@
 # OpenNotebook
 
-A self-hosted NotebookLM-style research studio. Upload your own sources, chat with
+A self-hosted Agentic Powered Notebook research studio. Upload your own sources, chat with
 them, and turn them into **reports, briefings, infographics, mind maps, quizzes,
 study guides, FAQs and timelines** — every claim cited back to the document it came from.
 

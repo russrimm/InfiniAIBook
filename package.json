@@ -2,7 +2,7 @@
   "name": "opennotebook",
   "version": "0.1.0",
   "private": true,
-  "description": "Self-hosted NotebookLM-style research studio: chat with your sources, grounded in citations.",
+  "description": "Self-hosted Agentic Powered Notebook research studio: chat with your sources, grounded in citations.",
   "license": "MIT",
   "repository": {
     "type": "git",
