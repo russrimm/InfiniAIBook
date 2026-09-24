@@ -817,7 +817,7 @@ export function buildImagePrompt(content: {
     return `  Region ${i + 1} — ${strip(r.heading || "").toUpperCase()}\n${concepts.join("\n")}`;
   });
 
-  return `Create a NotebookLM-style illustrated infographic.
+  return `Create an Agentic Powered Notebook-style illustrated infographic.
 
 Convert each concept below into an intuitive visual metaphor, diagram, process
 illustration, comparison, gauge, timeline or mini visualization. Do not simply
