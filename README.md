@@ -4,7 +4,30 @@ A self-hosted NotebookLM-style research studio. Upload your own sources, chat wi
 them, and turn them into **reports, briefings, infographics, mind maps, quizzes,
 study guides, FAQs and timelines** — every claim cited back to the document it came from.
 
-Built with Next.js 15, TypeScript, SQLite and Azure OpenAI.
+Built with Next.js 15, TypeScript and SQLite. Runs against Azure OpenAI or any
+OpenAI-compatible endpoint, including local models via Ollama, llama.cpp or LM Studio.
+
+> **Single-user and unauthenticated.** Anyone who can reach the server can use
+> it, and your model quota with it. Run it on localhost or behind an
+> authenticating proxy — see [SECURITY.md](SECURITY.md).
+
+**Contents:** [Screenshots](#screenshots) ·
+[What it does](#what-it-does) ·
+[Quick start](#quick-start) ·
+[Configuration](#configuration) ·
+[Environment variables](#environment-variables) ·
+[Authentication](#authentication-microsoft-entra-id) ·
+[Infographic styles](#infographic-styles) ·
+[Adding sources](#adding-sources) ·
+[Study aids](#study-aids) ·
+[Audio overviews](#audio-overviews) ·
+[Images as sources](#images-as-sources) ·
+[Whiteboard videos](#whiteboard-videos) ·
+[YouTube sources](#youtube-sources) ·
+[How grounding works](#how-grounding-works) ·
+[Architecture](#architecture) ·
+[Contributing](#contributing) ·
+[Licence](#licence)
 
 ## Screenshots
 
@@ -129,6 +152,16 @@ not part of a flashcard.
 
 ## Quick start
 
+**Prerequisites**
+
+- **Node.js 22.13 or later** — the database uses the built-in `node:sqlite`.
+- **A model provider** — an Azure OpenAI resource with a chat and an embedding
+  deployment, or any OpenAI-compatible server (see [Configuration](#configuration)).
+- *Optional:* the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
+  for Entra sign-in; an Azure Speech resource for audio overviews and videos;
+  Python 3 for whiteboard videos; Gemini / YouTube / search API keys for the
+  features described below. Everything optional degrades cleanly when unset.
+
 ```bash
 npm install
 cp .env.example .env.local   # then set your endpoint + deployment names
@@ -136,7 +169,9 @@ az login                     # Entra sign-in; see Authentication below
 npm run dev
 ```
 
-Open <http://localhost:3000>.
+Open <http://localhost:3000>. For a production build, `npm run build` then
+`npm start`. Add `-- -H 127.0.0.1` to either command to keep the server off
+your network.
 
 ### Configuration
 
@@ -178,6 +213,31 @@ List what your resource actually has:
 az cognitiveservices account deployment list -n <resource> -g <rg> -o table
 ```
 
+### Environment variables
+
+Set these in `.env.local`; [`.env.example`](.env.example) has every one with
+commentary. Only a model provider is required.
+
+| Variable | Purpose |
+|---|---|
+| `AI_BASE_URL`, `AI_MODEL`, `AI_EMBEDDING_MODEL`, `AI_API_KEY` | OpenAI-compatible provider; `AI_BASE_URL` takes precedence over Azure |
+| `AI_IMAGE_MODEL`, `AI_VISION_MODEL` | Image-generation and image-reading models (override the Azure equivalents) |
+| `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_VERSION` | Azure OpenAI resource and data-plane API version |
+| `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | Chat and embedding deployment names |
+| `AZURE_OPENAI_IMAGE_DEPLOYMENT`, `AZURE_OPENAI_IMAGE_API_VERSION` | Optional image model for AI-image infographics and videos |
+| `AZURE_OPENAI_VISION_DEPLOYMENT` | Optional vision model for image sources; defaults to the chat deployment |
+| `AZURE_OPENAI_API_KEY` | Legacy key auth; takes precedence over Entra when set |
+| `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | Service principal or user-assigned identity for Entra auth |
+| `AZURE_SPEECH_REGION`, `AZURE_SPEECH_RESOURCE_ID`, `AZURE_SPEECH_KEY` | Azure Speech for audio overviews and video narration |
+| `STUDIO_CONTEXT_CHARS` | Starting source budget for Studio generation (default `30000`) |
+| `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX` | Optional discovery providers; DuckDuckGo is used without them |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | YouTube transcripts via Gemini |
+| `YOUTUBE_API_KEY`, `YOUTUBE_COOKIE`, `YOUTUBE_CAPTION_LANG` | YouTube metadata and transcript fallbacks |
+| `PYTHON_BIN` | Python interpreter for the whiteboard renderer (default `python`) |
+| `ALLOW_PRIVATE_NETWORK_FETCH` | Allow fetching private/loopback addresses (default off; see [SECURITY.md](SECURITY.md)) |
+| `MAX_FETCH_BYTES`, `FETCH_MAX_REDIRECTS`, `FETCH_TIMEOUT_MS` | Limits on fetched pages and files |
+| `DATA_DIR` | Where the database and generated media live (default `./.data`) |
+
 ### Checking a provider
 
 Model servers differ in what they actually support, and the gaps only show up
@@ -185,8 +245,8 @@ in use. `check:ai` exercises the real code paths against whatever is configured:
 
 ```bash
 npm run check:ai              # connectivity, chat, streaming, JSON, embeddings
-npm run check:ai -- --studio  # also generate all 8 Studio formats
-npm run check:ai -- --styles  # also generate all 18 drawn infographic styles
+npm run check:ai -- --studio  # also generate all 9 text Studio formats
+npm run check:ai -- --styles  # also generate an infographic in every style
 npm run check:ai -- --image   # also render a test image
 ```
 
@@ -545,6 +605,25 @@ source note as a tooltip, and the whole tree is keyboard reachable with proper
 The 🎧 button writes a two-host dialogue grounded in your sources, then narrates
 it with Azure Speech and stores an MP3 under `.data/audio/`.
 
+### Setup
+
+Point the app at an Azure AI Services (or Speech) resource:
+
+```ini
+AZURE_SPEECH_REGION=eastus2
+AZURE_SPEECH_RESOURCE_ID=/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<name>
+```
+
+The identity needs the **Cognitive Services Speech User** role. An
+`AZURE_SPEECH_KEY` works instead if you prefer key auth. Without either, the rest
+of the app is unaffected — only the audio button reports that it is unconfigured.
+
+The script prompt forbids markdown, citation markers and symbols that a voice
+would mangle, and the server strips any that slip through, so nothing reads
+"bracket two" aloud.
+
+### How the script is written
+
 The script is written to a professional podcast brief: a cold open that leads
 with the most arresting thing in the material, three or more segments each
 taking one distinct aspect and handing off to the next, and a close that recaps
@@ -768,8 +847,8 @@ which is the right default only when that model has vision.
 **A model without vision does not refuse the request.** It ignores the image and
 answers from the prompt alone, fluently and completely wrongly. Measured on this
 deployment: handed a 2.3 MB infographic about Scout fundraising, one model
-billed 20 prompt tokens and described a Trump/Biden campaign poster instead —
-confidently, in detail, and with quoted text that does not exist.
+billed 20 prompt tokens and described an unrelated political campaign poster
+instead — confidently, in detail, and with quoted text that does not exist.
 
 Indexing that would have put fabricated content into a notebook under a real
 filename, where it would then be cited as evidence. So the prompt-token count is
@@ -779,20 +858,7 @@ instruction length rather than hard-coded, so editing the prompt cannot quietly
 start refusing working models. Measured on the same image, a blind model billed
 175 tokens and a vision model billed 1214.
 
-Setup:
-
-```ini
-AZURE_SPEECH_REGION=eastus2
-AZURE_SPEECH_RESOURCE_ID=/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<name>
-```
-
-The identity needs the **Cognitive Services Speech User** role. An
-`AZURE_SPEECH_KEY` works instead if you prefer key auth. Without either, the rest
-of the app is unaffected — only the audio button reports that it is unconfigured.
-
-The script prompt forbids markdown, citation markers and symbols that a voice
-would mangle, and the server strips any that slip through, so nothing reads
-"bracket two" aloud.
+---
 
 ## Whiteboard videos
 
@@ -811,9 +877,10 @@ is original doodles.
 
 ### What it runs on
 
-The skill this is adapted from expects host image and speech tools. This app
-already has an image model and Speech voices configured, so those are used
-instead and the Python renderer is kept. It needs Python with `numpy`, `Pillow`
+Scene artwork comes from the configured image model (`AZURE_OPENAI_IMAGE_DEPLOYMENT`
+or `AI_IMAGE_MODEL`) and narration from Azure Speech, so both must be set up.
+Frames are composited and encoded by a Python renderer,
+`scripts/whiteboard/render.py`, which needs Python 3 with `numpy`, `Pillow`
 and `imageio-ffmpeg`:
 
 ```bash
@@ -834,17 +901,18 @@ Nothing blocks on it. The scene plan is written first and the artifact is saved
 immediately; the build carries on in the background, writing its stage onto the
 row, and the player shows the progress. Close it, keep working, come back.
 
-### Two fixes the bundled renderer needed
+### Two renderer details worth knowing
 
-**The hand covered the captions.** It enters from the lower right and was
-composited over the whole frame, so it sat across the caption band and hid the
-words. It is now clipped at the band line.
+**The hand never covers the captions.** It enters from the lower right, and
+composited over the whole frame it would sit across the caption band and hide
+the words, so it is clipped at the band line.
 
-**The supplied hand cutout could not be used.** Its background was transparent
-rather than white, and the renderer converts to RGB — turning every transparent
-pixel black. It saw 99.8% "ink" and put the marker tip at pixel (0,0), so the
-hand would have drawn with its wrist. The replacement is generated once, cached,
-and checked: the tip must be the extreme upper-left point of the cutout.
+**The hand cutout is generated, then checked.** A cutout with a transparent
+background breaks the renderer, which converts to RGB — turning every
+transparent pixel black, seeing 99.8% "ink" and putting the marker tip at pixel
+(0,0), so the hand would draw with its wrist. The cutout is instead generated once on a solid white background, cached under
+`.data/`, and prompted so the marker tip is the extreme upper-left point of the
+hand — which is exactly where the renderer looks for it.
 
 ---
 
@@ -984,50 +1052,72 @@ src/
     page.tsx                       notebook list
     notebook/[id]/page.tsx         workspace shell
     api/
-      notebooks/                   CRUD + detail (sources, artifacts, messages)
+      notebooks/                   CRUD + detail (sources, artifact summaries, messages)
       notebooks/[id]/sources/      ingestion (files | url | youtube | text)
       notebooks/[id]/reembed/      embedding-model status and repair
+      notebooks/[id]/check-sources/  re-fetch linked sources and report changes
       discover/                    web search for candidate sources
-      sources/[id]/                read full text, delete
+      browse/                      in-app browser: frameability check + reader view
+      sources/[id]/                read full text, re-index / keep, delete
       chat/                        NDJSON streaming, grounded answers
       generate/                    studio artifact generation
       podcast/                     dialogue script + speech synthesis
-      audio/[id]/                  MP3 streaming with byte-range support
-      artifacts/[id]/              delete
+      video/                       plan a whiteboard video and start its build
+      models/                      list deployments, read/set the active models
+      audio/[id]/  video/[id]/     MP3 / MP4 streaming with byte-range support
+      image/[id]/                  generated infographic PNGs
+      voice-preview/[name]/        cached voice samples
+      artifacts/[id]/              fetch body on open, delete
   components/
-    Workspace  SourcesPanel  ChatPanel  StudioPanel
-    ArtifactModal  SourceModal  DiscoverModal
-    MindMap  Quiz  Infographic  PodcastPlayer  Markdown
+    Workspace  SourcesPanel  ChatPanel  StudioPanel  ModelPicker
+    ArtifactModal  SourceModal  DiscoverModal  BrowserModal  SourceUpdates
+    MindMap  Quiz  Flashcards  Infographic  Metaphors
+    PodcastPlayer  VideoPlayer  Markdown
   lib/
     db.ts        SQLite schema (node:sqlite, no native build step)
-    ai.ts        Azure OpenAI client (Entra ID auth), chat / JSON / embeddings
+    ai.ts        model client (Azure OpenAI with Entra ID, or OpenAI-compatible): chat / JSON / embeddings / images
+    settings.ts  runtime settings (active models) that override the environment
     infographic.ts  style registry: themes + per-style content guidance
+    metaphors.ts vocabulary of visual metaphors for the illustrated style
     speech.ts    Azure Speech dialogue synthesis
+    voices.ts    voice list shared by the API and the UI
+    prosody.ts   pause shaping; documents which SSML tags measurably work
     websearch.ts pluggable search providers + reachability probing
+    safefetch.ts SSRF-safe fetch: private-address refusal per redirect hop, size caps
     youtube.ts   transcript retrieval and URL parsing
+    gemini.ts    YouTube transcripts via the supported video-input route
     ingest.ts    text extraction + chunking
     retrieve.ts  hybrid retrieval, corpus sampling, citation building
     studio.ts    per-format prompts and schemas
-    paths.ts     data/audio, data/images and data/voices paths, traversal-safe resolution
     refresh.ts   re-fetch, word-level change detection, bot-wall guard, re-indexing
-    prosody.ts   pause shaping; documents which SSML tags measurably work
     vision.ts    image description, with a guard against blind models inventing one
     whiteboard.ts scene planning for videos; videobuild.ts runs the pipeline
-    gemini.ts    YouTube transcripts via the supported video-input route
+    paths.ts     data/audio, images, voices and video paths, traversal-safe resolution
+    rangefile.ts byte-range file streaming for media routes
+    http.ts  types.ts   JSON response helpers and shared types
+scripts/
+  check-ai.ts         live checks against the configured model provider
+  check-ssrf.ts       offline tests for safefetch.ts
+  whiteboard/render.py  Python renderer that composites and encodes whiteboard videos
 ```
 
-**Storage note:** the database uses Node 22+'s built-in `node:sqlite`, so there is
-no native compilation step. The handle is opened lazily on first query.
+**Storage note:** the database uses Node's built-in `node:sqlite` (Node 22.13+),
+so there is no native compilation step. The handle is opened lazily on first query.
 
 ---
 
 ## Roadmap ideas
 
-- Voice and length controls for audio overviews
 - Per-source notes and multiple saved chat threads
 - Postgres + pgvector adapter for multi-user deployments
 - Auth and sharing
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and the checks to
+run before a pull request. Report security issues privately as described in
+[SECURITY.md](SECURITY.md).
+
 ## Licence
 
-MIT
+[MIT](LICENSE)
