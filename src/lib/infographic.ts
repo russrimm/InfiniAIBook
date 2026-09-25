@@ -14,6 +14,7 @@
 import { METAPHOR_HINTS, METAPHOR_KEYS } from "./metaphors";
 
 export type InfographicStyle =
+  | "guide"
   | "illustrated"
   | "image"
   | "classic"
@@ -93,10 +94,82 @@ const METAPHOR_LIST = METAPHOR_KEYS.map(
   (k) => `  ${k} — ${METAPHOR_HINTS[k]}`
 ).join("\n");
 
+/** Shared by the image-rendered styles, whose HTML is only a caption. */
+const IMAGE_THEME: InfographicTheme = {
+  bg: "#f7faf9",
+  surface: "#ffffff",
+  border: "#d4e2e4",
+  borderStyle: "solid",
+  borderWidth: 1,
+  radius: 16,
+  text: "#2c3e4c",
+  muted: "#61798a",
+  heading: "#0f2233",
+  accent: "#0e7490",
+  accent2: "#15803d",
+  headerBg: "#f7faf9",
+  headerText: "#0b1b2b",
+  headerSubText: "#51677a",
+  statValue: "#0e7490",
+  font: SANS,
+  headingFont: SANS,
+  shadow: "0 10px 24px -18px rgba(15,34,51,0.45)",
+};
+
 export const INFOGRAPHIC_STYLES: Record<InfographicStyle, StyleDef> = {
   /**
-   * The default. A wide editorial piece that turns each idea into a visual
-   * metaphor rather than a box of prose, grouped into a few thematic regions.
+   * The default. An image-model rendering of an enterprise explainer: one
+   * central hub everything flows into or out of, thematic regions around it,
+   * and an optional graded scale, comparison matrix and pro tip.
+   */
+  guide: {
+    label: "Visual guide",
+    blurb: "Central hub, flowing paths, tiers & matrix",
+    icon: "🗺️",
+    layout: "image",
+    hint: `Design this as a visual guide: one central idea that everything else
+connects to, surrounded by thematic regions, optionally with a graded scale and a
+comparison matrix. Do not restate paragraphs — turn each idea into something that
+can be drawn.
+
+"hub" is { "label": 2-4 words naming the central concept, currency, platform or
+mechanism the whole topic revolves around, "caption": ONE short sentence with a
+citation marker explaining its role }.
+
+Populate "regions" with exactly 3 thematic groups, each { "heading": 2-4 words in
+upper case, "concepts": [...] } holding 2-3 concepts. Each concept is
+{ "takeaway": a bold claim of 3-7 words, "detail": ONE short sentence with a
+citation marker, "metaphor": one key from the list below, "value": an optional
+short figure taken literally from the sources, e.g. "$30/user", "25,000", "20%" }.
+
+Choose "metaphor" by what the idea *is*, not by decoration:
+${METAPHOR_LIST}
+
+"scale" is optional: 3-4 tiers ordered from lightest to heaviest (or smallest to
+largest), each { "tier": 1-2 words, "example": at most 6 words, "figure": a short
+figure taken literally from the sources, e.g. "70-200 credits" }. Include it only
+when the sources describe graded levels of cost, size, effort or intensity.
+
+"matrix" is optional: when the sources compare 2-4 options across several
+features, give { "columns": [option names, 1-4 words each], "rows": [{ "feature":
+1-3 words, "values": [one phrase of at most 5 words per column, in column order] }] }
+with 3-6 rows. Only compare what the sources genuinely set against each other.
+
+"takeaway" is a single pro tip: the most useful practical recommendation, in one
+sentence of at most 20 words.
+
+This brief is rendered as a drawn illustration, so text must be short enough to
+survive being lettered by an image model: keep every takeaway under 45 characters
+and every detail under 110. Set "value" and "figure" only where the sources state
+a real figure. Keep "sections" empty; "regions" replaces it for this style.
+"title" is one strong headline of at most 60 characters. "subtitle" is a single
+line of context of at most 140 characters.`,
+    theme: IMAGE_THEME,
+  },
+
+  /**
+   * A wide editorial piece that turns each idea into a visual metaphor rather
+   * than a box of prose, grouped into a few thematic regions.
    */
   illustrated: {
     label: "Illustrated",
@@ -170,26 +243,7 @@ detail under 110. Set "value" only where the sources state a real figure.
 Keep "sections" empty; "regions" replaces it for this style.
 "title" is one strong headline of at most 60 characters. "subtitle" is a single
 line of context.`,
-    theme: {
-      bg: "#f7faf9",
-      surface: "#ffffff",
-      border: "#d4e2e4",
-      borderStyle: "solid",
-      borderWidth: 1,
-      radius: 16,
-      text: "#2c3e4c",
-      muted: "#61798a",
-      heading: "#0f2233",
-      accent: "#0e7490",
-      accent2: "#15803d",
-      headerBg: "#f7faf9",
-      headerText: "#0b1b2b",
-      headerSubText: "#51677a",
-      statValue: "#0e7490",
-      font: SANS,
-      headingFont: SANS,
-      shadow: "0 10px 24px -18px rgba(15,34,51,0.45)",
-    },
+    theme: IMAGE_THEME,
   },
 
   classic: {
@@ -739,6 +793,7 @@ so the cards stay balanced.`,
 };
 
 export const STYLE_ORDER: InfographicStyle[] = [
+  "guide",
   "illustrated",
   "image",
   "classic",
@@ -766,7 +821,12 @@ const ALIASES: Record<string, InfographicStyle> = {
 };
 
 /** What new infographics use unless the user picks otherwise. */
-export const DEFAULT_STYLE: InfographicStyle = "illustrated";
+export const DEFAULT_STYLE: InfographicStyle = "guide";
+
+/** Styles whose artifact is a PNG from the image model, not HTML. */
+export function isImageStyle(style?: string): boolean {
+  return !!style && styleDef(style).layout === "image";
+}
 
 export function styleDef(style?: string): StyleDef {
   // Artifacts created before styles existed have no key and no regions, so
@@ -783,25 +843,23 @@ type BriefConcept = {
   value?: string;
 };
 type BriefRegion = { heading?: string; concepts?: BriefConcept[] };
-
-/**
- * Turns the grounded brief into an image prompt.
- *
- * Every line of text handed to the model is quoted from the brief, which is
- * itself derived from the sources — the image model is told to letter it
- * verbatim rather than invent copy, because it cannot be cited after the fact.
- */
-export function buildImagePrompt(content: {
+type ImageBrief = {
   title?: string;
   subtitle?: string;
   regions?: BriefRegion[];
-}): string {
-  const strip = (s: string) =>
-    // Citation markers are for the HTML renderer; lettered into an image they
-    // read as stray digits.
-    s.replace(/\[\s*\d+(?:\s*,\s*\d+)*\s*\]/g, "").replace(/\s+/g, " ").trim();
+  hub?: { label?: string; caption?: string };
+  scale?: { tier?: string; example?: string; figure?: string }[];
+  matrix?: { columns?: string[]; rows?: { feature?: string; values?: string[] }[] };
+  takeaway?: string;
+};
 
-  const regions = (content.regions ?? []).slice(0, 3).map((r, i) => {
+// Citation markers are for the HTML renderer; lettered into an image they read
+// as stray digits.
+const strip = (s: string) =>
+  s.replace(/\[\s*\d+(?:\s*,\s*\d+)*\s*\]/g, "").replace(/\s+/g, " ").trim();
+
+function regionLines(regions: BriefRegion[] | undefined): string[] {
+  return (regions ?? []).slice(0, 3).map((r, i) => {
     const concepts = (r.concepts ?? []).slice(0, 3).map((c) => {
       const bits = [`      - Takeaway: "${strip(c.takeaway || "")}"`];
       if (c.detail) bits.push(`        Supporting line: "${strip(c.detail)}"`);
@@ -816,6 +874,32 @@ export function buildImagePrompt(content: {
     });
     return `  Region ${i + 1} — ${strip(r.heading || "").toUpperCase()}\n${concepts.join("\n")}`;
   });
+}
+
+const EXACT_TEXT = `TEXT IS EXACT. Letter every string below verbatim, spelled correctly. Do not
+invent, paraphrase, translate or add any other words, numbers, labels, captions,
+logos or watermarks. If a word would not fit, make the illustration smaller
+rather than shortening the word.`;
+
+function headline(content: ImageBrief): string {
+  return `HEADLINE: "${strip(content.title || "")}"${
+    content.subtitle ? `\nSUBHEAD: "${strip(content.subtitle)}"` : ""
+  }`;
+}
+
+/**
+ * Turns the grounded brief into an image prompt.
+ *
+ * Every line of text handed to the model is quoted from the brief, which is
+ * itself derived from the sources — the image model is told to letter it
+ * verbatim rather than invent copy, because it cannot be cited after the fact.
+ */
+export function buildImagePrompt(content: ImageBrief, style?: string): string {
+  return style === "guide" ? buildGuidePrompt(content) : buildIllustratedPrompt(content);
+}
+
+function buildIllustratedPrompt(content: ImageBrief): string {
+  const regions = regionLines(content.regions);
 
   return `Create an Agentic Powered Notebook-style illustrated infographic.
 
@@ -847,15 +931,120 @@ The result should resemble a premium illustrated technology infographic produced
 for an enterprise publication — not a PowerPoint slide, dashboard, poster or a
 collection of UI cards.
 
-TEXT IS EXACT. Letter every string below verbatim, spelled correctly. Do not
-invent, paraphrase, translate or add any other words, numbers, labels, captions,
-logos or watermarks. If a word would not fit, make the illustration smaller
-rather than shortening the word.
+${EXACT_TEXT}
 
-HEADLINE: "${strip(content.title || "")}"${
-    content.subtitle ? `\nSUBHEAD: "${strip(content.subtitle)}"` : ""
-  }
+${headline(content)}
 
 CONTENT:
 ${regions.join("\n\n")}`;
+}
+
+/**
+ * The visual-guide composition: a hero hub with gradient ribbons flowing out to
+ * the regions, plus optional tier scale, comparison matrix and pro tip — the
+ * shape of a polished enterprise licensing or architecture explainer.
+ */
+function buildGuidePrompt(content: ImageBrief): string {
+  const regions = regionLines(content.regions);
+  const hubLabel = strip(content.hub?.label || "");
+  const hubCaption = strip(content.hub?.caption || "");
+
+  const scale = (content.scale ?? [])
+    .slice(0, 4)
+    .filter((s) => s.tier)
+    .map((s) => {
+      const bits = [`  - Tier: "${strip(s.tier || "")}"`];
+      if (s.example) bits.push(`    Example: "${strip(s.example)}"`);
+      if (s.figure) bits.push(`    Figure: "${strip(s.figure)}"`);
+      return bits.join("\n");
+    });
+
+  const columns = (content.matrix?.columns ?? []).slice(0, 4).map((c) => strip(c));
+  const matrixRows =
+    columns.length >= 2
+      ? (content.matrix?.rows ?? [])
+          .slice(0, 6)
+          .filter((r) => r.feature)
+          .map(
+            (r) =>
+              `  - Feature: "${strip(r.feature || "")}" | ${columns
+                .map((col, i) => `${col}: "${strip(r.values?.[i] || "")}"`)
+                .join(" | ")}`
+          )
+      : [];
+
+  const tip = strip(content.takeaway || "");
+
+  const extras: string[] = [];
+  if (scale.length)
+    extras.push(`SCALE: along the bottom (or inside the most relevant region), draw an
+ascending ramp or wedge that grows from left to right, like a volume bar, with
+a small illustrative icon sitting on each step. Beneath each step letter the
+tier name in bold, its example in regular text and its figure in bold. Add a
+thin arrow beneath the ramp showing the direction of increase.`);
+  if (matrixRows.length)
+    extras.push(`MATRIX: a clean comparison table spanning the bottom of the layout. A solid
+deep-teal header row names each option in white bold text; the first column
+holds the bold feature names; every cell pairs its short phrase with a tiny
+matching line icon (a check, price tag, globe, calendar, shield and so on).
+Thin light row dividers, alternating very pale tint.`);
+  if (tip)
+    extras.push(`PRO TIP: a rounded callout card with a small pill-shaped "PRO TIP" label on
+its top edge, placed where it bridges two regions, holding the tip below.`);
+
+  return `Create a premium visual guide infographic in the style of a polished
+enterprise technology explainer.
+
+Convert each concept below into an intuitive visual metaphor, icon, diagram,
+flow or mini visualization. Do not simply place paragraphs into boxes.
+
+COMPOSITION: a wide landscape layout, roughly 16:9. A very large bold headline
+across the top with the subhead on one line beneath it. ${
+    hubLabel
+      ? `At the visual centre (or anchoring the left third) place the HUB as a hero
+illustration — a large glossy emblem, vessel, pool, engine or token that
+embodies it — with its label lettered prominently on or beneath it and its
+caption in smaller text nearby. From the hub, run thick, smooth, glossy gradient
+ribbons or pipes outward to every region, carrying small coins, tokens or icons
+along them to show value flowing into and out of the hub.`
+      : `Build a visual journey across the regions, joined by thick, smooth, glossy
+gradient ribbons or pipes carrying small coins, tokens or icons between them.`
+  } Arrange the ${regions.length} regions around it, each in a softly rounded
+panel with a pill-shaped heading tab in bold upper case. Keep clear separation
+between regions and generous whitespace.
+
+CONCEPT TREATMENT: every concept gets a circular icon medallion — a flat, colourful
+illustration inside a pale blue circle — with its bold takeaway beside it and
+its one supporting line in smaller regular text. Figures marked oversized sit on
+a price-tag, badge or ribbon shape and are set large and bold.
+
+${extras.length ? `${extras.join("\n\n")}\n\n` : ""}ILLUSTRATION STYLE: modern flat vector with subtle gradients, soft shadows and
+slightly dimensional objects; dark navy outlines; rounded geometry. Deep navy,
+blue, teal and cyan form the core palette; the ribbons use a vivid spectrum
+gradient (blue to teal to green to yellow to orange to magenta) for energy, and
+orange and gold highlight coins, prices and emphasis. Very light off-white
+background with pale blue panel tints.
+
+TYPOGRAPHY: clean geometric sans-serif. Very large bold black headline; bold
+upper-case region headings; bold dark-navy subheads; highly readable regular
+body text. Short lines, no paragraphs.
+
+The result should look like a premium, hand-crafted infographic from an
+enterprise technology publication — balanced, colourful and scannable at a
+glance — not a slide, dashboard, poster or grid of UI cards.
+
+${EXACT_TEXT}
+
+${headline(content)}
+${
+  hubLabel
+    ? `\nHUB:\n  Label: "${hubLabel}"${hubCaption ? `\n  Caption: "${hubCaption}"` : ""}\n`
+    : ""
+}
+REGIONS:
+${regions.join("\n\n")}${scale.length ? `\n\nSCALE (lightest to heaviest):\n${scale.join("\n")}` : ""}${
+    matrixRows.length
+      ? `\n\nMATRIX columns: ${columns.map((c) => `"${c}"`).join(", ")}\n${matrixRows.join("\n")}`
+      : ""
+  }${tip ? `\n\nPRO TIP: "${tip}"` : ""}`;
 }

@@ -76,7 +76,7 @@ The same notebook rendered in every other HTML style is in the
 | 🎬 Whiteboard video | A hand draws your sources as marker doodles, narrated — six scenes, MP4 |
 | 📄 Report | Executive summary, analytical sections, key takeaways, open questions |
 | 🧾 Briefing doc | Under 700 words: bottom line, evidence, risks, next steps |
-| 📊 Infographic | Headline stats, themed sections, key takeaway — **19 styles**, illustrated by default |
+| 📊 Infographic | Headline stats, themed sections, key takeaway — **20 styles**, visual guide by default |
 | 🕸️ Mind map | Interactive concept tree — starts collapsed, expand topic by topic |
 | 🧠 Quiz | Multiple-choice, interactive, scored, with explanations and retry-the-misses |
 | 🗂️ Flashcards | Two-sided deck: flip, self-grade, shuffle, drill the ones you missed |
@@ -359,9 +359,18 @@ az cognitiveservices account deployment list -n <resource> -g <rg> \
 
 ## Infographic styles
 
-Pick a style in the Studio panel before generating. Nineteen are available.
+Pick a style in the Studio panel before generating. Twenty are available.
 
-**Illustrated** is the default: a wide editorial piece that turns each idea into
+**Visual guide** is the default: an image-model rendering in the shape of a
+polished enterprise explainer. The brief names one central **hub** — the
+currency, platform or mechanism the topic revolves around — and three thematic
+regions around it, joined to the hub by glossy gradient ribbons. Where the
+sources support them it adds a **scale** of graded tiers (light to heavy, with
+cited figures), an N-way **comparison matrix** of 2–4 options, and a **pro tip**
+callout. Like the AI image style it needs an image deployment; see
+[Image infographics](#image-infographics). Pick **Illustrated** if you have none.
+
+**Illustrated** is the HTML alternative: a wide editorial piece that turns each idea into
 a visual metaphor rather than a box of prose. It identifies the 6–10 most
 important ideas, groups them into 2–3 thematic regions, and gives each a bold
 takeaway, a hand-drawn SVG metaphor, one or two cited sentences, and an
@@ -519,9 +528,9 @@ captures the whole arc as a pull quote.<br><br>
 </tr>
 </table>
 
-The **Illustrated** default is shown under [Screenshots](#illustrated-infographic).
-**AI image** is not pictured, since its output depends on which image model you
-deploy.
+**Illustrated** is shown under [Screenshots](#illustrated-infographic).
+**Visual guide** and **AI image** are not pictured, since their output depends on
+which image model you deploy.
 
 ### What was merged, and what was left out
 
@@ -548,10 +557,11 @@ app's dark default.
 
 ### Image infographics
 
-The **AI image** style renders the infographic as a picture instead. It runs in
-two stages: the generation model first writes the same grounded brief the
-illustrated style uses — headline, three regions, a takeaway, one cited sentence
-and an optional real figure per concept — and that brief is then turned into the
+The **Visual guide** and **AI image** styles render the infographic as a
+picture instead. They run in two stages: the generation model first writes a
+grounded brief — headline, three regions, a takeaway, one cited sentence and an
+optional real figure per concept, plus the hub, scale and matrix for the visual
+guide — and that brief is then turned into the
 image prompt. Nothing reaches the image model that did not come from your
 sources, and the brief is stored alongside the PNG.
 

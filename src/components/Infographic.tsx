@@ -549,6 +549,14 @@ export default function Infographic({ content, citations }: Props) {
         </p>
       );
     }
+    const captionHeading = (label: string) => (
+      <h3
+        className="text-[11px] font-bold tracking-[0.12em] uppercase"
+        style={{ ...headingStyle, color: t.accent }}
+      >
+        {label}
+      </h3>
+    );
     return (
       <div className="space-y-4">
         {/* eslint-disable-next-line @next/next/no-img-element -- generated PNG served from our own API, not a static asset */}
@@ -560,6 +568,16 @@ export default function Infographic({ content, citations }: Props) {
         />
         {/* Text inside the image is neither selectable nor citable, so the
             brief it was drawn from is repeated here with its citations. */}
+        {content.hub && (
+          <div style={card} className="p-4">
+            {captionHeading(plain(content.hub.label))}
+            {content.hub.caption && (
+              <p className="mt-2 text-sm" style={{ color: t.muted }}>
+                {cite(content.hub.caption)}
+              </p>
+            )}
+          </div>
+        )}
         {!!content.regions?.length && (
           <div className="space-y-3">
             {content.regions.map((r, i) => (
@@ -587,6 +605,55 @@ export default function Infographic({ content, citations }: Props) {
                 </ul>
               </div>
             ))}
+          </div>
+        )}
+        {!!content.scale?.length && (
+          <div style={card} className="p-4">
+            {captionHeading("Scale")}
+            <ul className="mt-2 space-y-1.5">
+              {content.scale.map((s, i) => (
+                <li key={i} className="text-sm">
+                  <span className="font-semibold" style={{ color: t.heading }}>
+                    {plain(s.tier)}
+                    {s.figure ? (
+                      <span style={{ color: t.statValue }}> · {plain(s.figure)}</span>
+                    ) : null}
+                  </span>
+                  {s.example && <span style={{ color: t.muted }}> — {cite(s.example)}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {!!content.matrix?.rows.length && (
+          <div style={card} className="overflow-x-auto p-4">
+            {captionHeading("Comparison")}
+            <table className="mt-2 w-full text-left text-sm">
+              <thead>
+                <tr>
+                  <th className="py-1.5 pr-3" />
+                  {content.matrix.columns.map((c, i) => (
+                    <th key={i} className="py-1.5 pr-3 font-semibold" style={{ color: t.heading }}>
+                      {plain(c)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {content.matrix.rows.map((r, i) => (
+                  <tr key={i} style={{ borderTop: `1px solid ${t.border}` }}>
+                    <td className="py-1.5 pr-3 font-semibold" style={{ color: t.heading }}>
+                      {plain(r.feature)}
+                    </td>
+                    {r.values.map((v, j) => (
+                      <td key={j} className="py-1.5 pr-3" style={{ color: t.muted }}>
+                        {cite(v)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
         <p className="text-[11px]" style={{ color: t.muted }}>
