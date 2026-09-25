@@ -1,7 +1,7 @@
 # Recreation prompt
 
 This is a beginner-level prompt for asking an LLM coding assistant to rebuild
-OpenNotebook from scratch. It's written the way an intelligent but new vibe
+InfiniAIBook from scratch. It's written the way an intelligent but new vibe
 coder might phrase it: it lists features, names a familiar stack, and asks the
 assistant to go one step at a time.
 
@@ -12,7 +12,7 @@ copy of this repository.
 ## The prompt
 
 ```text
-Hey! I want to build my own self-hosted AI research notebook app called "OpenNotebook".
+Hey! I want to build my own self-hosted AI research notebook app called "InfiniAIBook".
 I'm pretty new to coding so please explain what you're doing as you go and build it
 step by step (don't try to do everything at once).
 
@@ -78,7 +78,7 @@ features one at a time. After each step tell me how to run and test it before mo
 
 ## What the prompt leaves out
 
-A prompt at this level won't reproduce the parts of OpenNotebook that were
+A prompt at this level won't reproduce the parts of InfiniAIBook that were
 tuned by hand. To get closer to the current app, follow up with prompts that
 cover these details, all documented in the [README](../README.md):
 

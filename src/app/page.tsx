@@ -43,15 +43,20 @@ export default function Home() {
             <span className="inline-block h-2 w-2 rounded-full bg-[var(--accent)]" />
             Grounded research studio
           </div>
-          <h1 className="text-4xl font-semibold tracking-tight">OpenNotebook</h1>
+          <h1 className="text-4xl font-semibold tracking-tight">InfiniAIBook</h1>
           <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-[var(--muted)]">
             Upload your sources. Ask them anything. Turn them into reports, quizzes,
             mind maps and infographics — every claim cited back to your documents.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={create} disabled={creating}>
-          {creating ? "Creating…" : "+ New notebook"}
-        </button>
+        <div className="flex gap-2">
+          <button className="btn" onClick={() => router.push("/search")}>
+            🔎 Search all
+          </button>
+          <button className="btn btn-primary" onClick={create} disabled={creating}>
+            {creating ? "Creating…" : "+ New notebook"}
+          </button>
+        </div>
       </header>
 
       {notebooks === null ? (

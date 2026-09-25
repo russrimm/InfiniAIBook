@@ -1,19 +1,28 @@
-# OpenNotebook
+# InfiniAIBook
 
 A self-hosted Agentic Powered Notebook research studio. Upload your own sources, chat with
 them, and turn them into **reports, briefings, infographics, mind maps, quizzes,
 study guides, FAQs and timelines** — every claim cited back to the document it came from.
 
-Built with Next.js 15, TypeScript and SQLite. Runs against Azure OpenAI or any
-OpenAI-compatible endpoint, including local models via Ollama, llama.cpp or LM Studio.
+Built with Next.js 15, TypeScript and SQLite. Runs against Azure OpenAI, a dozen
+named providers (OpenAI, Anthropic, Gemini, Groq, Mistral, DeepSeek, OpenRouter,
+xAI, Perplexity, Together) or any OpenAI-compatible endpoint, including local
+models via Ollama, llama.cpp or LM Studio.
 
-> **Single-user and unauthenticated.** Anyone who can reach the server can use
-> it, and your model quota with it. Run it on localhost or behind an
-> authenticating proxy — see [SECURITY.md](SECURITY.md).
+Inspired by [open-notebook](https://github.com/lfnovo/open-notebook): notes,
+transformations, multiple chat sessions, cross-notebook search, audio/video
+transcription, multi-speaker podcasts, password protection and a Docker image
+are all here too.
+
+> **Single-user.** Without `INFINIAIBOOK_PASSWORD`, anyone who can reach the
+> server can use it, and your model quota with it. Run it on localhost, set a
+> password, or put it behind an authenticating proxy — see [SECURITY.md](SECURITY.md).
 
 **Contents:** [Screenshots](#screenshots) ·
 [What it does](#what-it-does) ·
+[Notes, sessions and search](#notes-sessions-and-search) ·
 [Quick start](#quick-start) ·
+[Docker](#docker) ·
 [Configuration](#configuration) ·
 [Environment variables](#environment-variables) ·
 [Authentication](#authentication-microsoft-entra-id) ·
@@ -39,7 +48,7 @@ Sources, chat responses and artifacts shown here are prepared demo content.
 Sources, cited answers and Studio tools in one view. Expand citations to inspect
 the source excerpts behind an answer.
 
-![OpenNotebook workspace with three selected sources, a cited chat answer and Studio generation tools](docs/screenshots/workspace.png)
+![InfiniAIBook workspace with three selected sources, a cited chat answer and Studio generation tools](docs/screenshots/workspace.png)
 
 ### Interactive mind map
 
@@ -63,8 +72,11 @@ The same notebook rendered in every other HTML style is in the
 
 | | |
 |---|---|
-| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON, HTML or **images** (described by a vision model); paste raw text; add a URL — including **YouTube links** and **RSS/Atom feeds**; or **discover sources** by describing a topic and picking from web results; or browse the web in-app and keep what is useful. Ingestion runs in the background, so you can keep adding while earlier items process. |
-| **Grounded chat** | Streaming answers built only from the sources you have selected, with hoverable inline citations `[1]` that show the exact excerpt used. |
+| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON, HTML, **images** (described by a vision model) or **audio/video** (transcribed); paste raw text; reuse a source from **another notebook**; add a URL — including **YouTube links** and **RSS/Atom feeds**; or **discover sources** by describing a topic and picking from web results; or browse the web in-app and keep what is useful. Ingestion runs in the background, so you can keep adding while earlier items process. |
+| **Grounded chat** | Streaming answers built only from the sources you have selected, with hoverable inline citations `[1]` that show the exact excerpt used. Keep any number of separate **chat sessions** per notebook. |
+| **Notes** | Write your own Markdown notes, save any chat answer as a note (citations kept), and turn a note into a source. |
+| **Transformations** | Reusable prompts — built-in (dense summary, key insights, analyze paper, glossary…) or your own — run on one source and saved as a note. |
+| **Search everything** | Keyword or semantic search across every notebook's sources and notes, plus a one-shot grounded **Ask** over the whole library. |
 | **Studio** | Eleven generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
 | **Everything is local** | Sources, chunks, embeddings, chat history, artifacts, generated audio, voice samples and images live under `.data/`. |
 
@@ -72,7 +84,7 @@ The same notebook rendered in every other HTML style is in the
 
 | Format | Output |
 |---|---|
-| 🎧 Audio overview | Two hosts discuss your sources — real MP3 audio with a synced, clickable transcript, at roughly 3, 6 or 10 minutes |
+| 🎧 Audio overview | One to four speakers discuss your sources — real MP3 audio with a synced, clickable transcript, at roughly 3, 6 or 10 minutes |
 | 🎬 Whiteboard video | A hand draws your sources as marker doodles, narrated — six scenes, MP4 |
 | 📄 Report | Executive summary, analytical sections, key takeaways, open questions |
 | 🧾 Briefing doc | Under 700 words: bottom line, evidence, risks, next steps |
@@ -86,6 +98,52 @@ The same notebook rendered in every other HTML style is in the
 
 Every artifact can be copied or exported to Markdown; audio can be downloaded as
 MP3, and flashcards export as a two-column table that Anki and Quizlet accept.
+
+---
+
+## Notes, sessions and search
+
+### Chat sessions
+
+The bar above the chat lists every conversation in the notebook. **＋ New**
+starts a fresh one (created on its first question and named after it), ✎
+renames and 🗑 deletes. Follow-up context only comes from the session you are
+in, so an unrelated question in a new session is not coloured by an old thread.
+Chat history from before sessions existed is kept as "Earlier conversation".
+
+### Notes
+
+The right-hand column switches between **Studio** and **Notes** (on phones,
+Notes has its own tab). A note is Markdown you write yourself, or model output
+you chose to keep:
+
+- **🗒️ Save to notes** under any chat answer keeps it, citations included.
+- **Apply → note** in a source's reader runs a transformation on that source.
+- **➕ Add as source** copies a note into the notebook's sources, so chat and
+  the Studio can draw on it. The copy does not change if you edit the note.
+
+### Transformations
+
+A transformation is a named prompt applied to one source at a time. Eight
+ship built in — Dense summary, Key insights, Analyze paper, Explain simply,
+Table of contents, Reflection questions, Glossary and Action items — and
+**⚙ Transformations** in the Notes panel lets you add, edit and delete your
+own. Results are grounded and cited like everything else.
+
+### Search and Ask
+
+**🔎 Search** (home page and notebook header) searches every notebook at once.
+*Keyword* ranking needs no model; *Semantic* blends embedding similarity the way
+chat retrieval does and falls back to keywords if embeddings are unavailable.
+Notes are matched too. **✨ Ask** returns one grounded answer drawn from the
+best passages across the whole library, citing the notebook each came from.
+From inside a notebook you can tick *Only this notebook* to narrow it.
+
+### Reusing sources across notebooks
+
+**📚 Library** in the Sources panel lists sources from your other notebooks.
+Picked ones are copied with their text, summary and embeddings, so nothing is
+fetched or embedded again and the copy is independent afterwards.
 
 ---
 
@@ -158,8 +216,9 @@ not part of a flashcard.
 **Prerequisites**
 
 - **Node.js 22.13 or later** — the database uses the built-in `node:sqlite`.
-- **A model provider** — an Azure OpenAI resource with a chat and an embedding
-  deployment, or any OpenAI-compatible server (see [Configuration](#configuration)).
+- **A model provider** — a key for one of the [named providers](#named-providers),
+  an Azure OpenAI resource with a chat and an embedding deployment, or any
+  OpenAI-compatible server (see [Configuration](#configuration)).
 - *Optional:* the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
   for Entra sign-in; an Azure Speech resource for audio overviews and videos;
   Python 3 for whiteboard videos; Gemini / YouTube / search API keys for the
@@ -176,9 +235,79 @@ Open <http://localhost:3000>. For a production build, `npm run build` then
 `npm start`. Add `-- -H 127.0.0.1` to either command to keep the server off
 your network.
 
+Upgrading from OpenNotebook? An existing `.data/opennotebook.db` is renamed to
+`.data/infiniaibook.db` on first start; nothing else needs to change.
+
+### Docker
+
+```bash
+cp .env.example .env.local     # set a provider; Entra `az login` is not available in the container
+docker compose up -d --build
+```
+
+The image is a standalone Next.js server on Node 22. Data lives in the
+`infiniaibook-data` volume (`/data`), and the port is published on
+`127.0.0.1:3000` only. Local model servers on the host are reachable at
+`http://host.docker.internal:<port>/v1`. Inside a container use API keys (or a
+service principal via `AZURE_CLIENT_ID`/`AZURE_TENANT_ID`/`AZURE_CLIENT_SECRET`)
+rather than `az login`. Whiteboard videos need Python; uncomment the marked
+lines in the [`Dockerfile`](Dockerfile) to include it.
+
+### Password protection
+
+Set `INFINIAIBOOK_PASSWORD` and every page and API route requires it. The
+browser signs in at `/login` (a 30-day, HTTP-only cookie); scripts send
+`Authorization: Bearer <password>`. It is a single shared password for a
+personal instance, not multi-user accounts — see [SECURITY.md](SECURITY.md).
+
 ### Configuration
 
-OpenNotebook talks to any **OpenAI-compatible** endpoint, or to Azure OpenAI.
+InfiniAIBook talks to any **OpenAI-compatible** endpoint, or to Azure OpenAI.
+
+#### Named providers
+
+The quickest route is a preset: set `AI_PROVIDER` and that provider's usual key
+variable, and the base URL and default models are filled in.
+
+```ini
+AI_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+# AI_MODEL=gpt-4o                       # optional: override the preset's model
+```
+
+| `AI_PROVIDER` | Key variable | Default chat model | Embeddings | Transcription |
+|---|---|---|---|---|
+| `openai` | `OPENAI_API_KEY` | gpt-4o-mini | text-embedding-3-small | whisper-1 |
+| `anthropic` | `ANTHROPIC_API_KEY` | claude-sonnet-4-5 | — | — |
+| `gemini` | `GEMINI_API_KEY` | gemini-2.5-flash | gemini-embedding-001 | — |
+| `groq` | `GROQ_API_KEY` | llama-3.3-70b-versatile | — | whisper-large-v3 |
+| `mistral` | `MISTRAL_API_KEY` | mistral-small-latest | mistral-embed | — |
+| `deepseek` | `DEEPSEEK_API_KEY` | deepseek-chat | — | — |
+| `openrouter` | `OPENROUTER_API_KEY` | openai/gpt-4o-mini | — | — |
+| `xai` | `XAI_API_KEY` | grok-3-mini | — | — |
+| `perplexity` | `PERPLEXITY_API_KEY` | sonar | — | — |
+| `together` | `TOGETHER_API_KEY` | Llama-3.3-70B-Instruct-Turbo | bge-large-en-v1.5 | — |
+| `ollama` | none (local) | qwen3.5:latest | nomic-embed-text | — |
+| `lmstudio` / `llamacpp` | none (local) | set `AI_MODEL` | set `AI_EMBEDDING_MODEL` | — |
+| `azure` | Entra ID or `AZURE_OPENAI_API_KEY` | see below | | |
+
+**Mixing providers.** Embeddings (for semantic retrieval) and transcription
+(for audio/video sources) can go to a different provider from chat, which is
+what a chat-only provider such as Anthropic needs:
+
+```ini
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=...
+AI_EMBEDDING_PROVIDER=openai          # or AI_EMBEDDING_BASE_URL / _API_KEY / _MODEL
+AI_TRANSCRIPTION_PROVIDER=groq        # or AI_TRANSCRIPTION_BASE_URL / _API_KEY / _MODEL
+OPENAI_API_KEY=...
+GROQ_API_KEY=...
+```
+
+Without an embedding endpoint the app still works; retrieval falls back to
+keyword ranking and says so.
+
+#### Custom endpoints
 
 **Local or third-party** — set a base URL and it takes precedence over Azure:
 
@@ -199,7 +328,8 @@ llama.cpp needs `--embeddings`, Ollama needs a dedicated embedding model
 > same work on Azure takes seconds. On a GPU or Apple Silicon this is far
 > quicker, but "no API key needed" is not the same as "fast".
 
-**Azure OpenAI** — used when `AI_BASE_URL` is unset:
+**Azure OpenAI** — used when neither `AI_PROVIDER` nor `AI_BASE_URL` is set
+(or with `AI_PROVIDER=azure`):
 ```ini
 AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE.openai.azure.com
 AZURE_OPENAI_API_VERSION=2024-10-21
@@ -223,12 +353,16 @@ commentary. Only a model provider is required.
 
 | Variable | Purpose |
 |---|---|
-| `AI_BASE_URL`, `AI_MODEL`, `AI_EMBEDDING_MODEL`, `AI_API_KEY` | OpenAI-compatible provider; `AI_BASE_URL` takes precedence over Azure |
+| `AI_PROVIDER` + the provider's key (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …) | Named provider preset; see [Named providers](#named-providers) |
+| `AI_BASE_URL`, `AI_MODEL`, `AI_EMBEDDING_MODEL`, `AI_API_KEY` | OpenAI-compatible provider, or overrides for a preset; takes precedence over Azure |
+| `AI_EMBEDDING_PROVIDER`, `AI_EMBEDDING_BASE_URL`, `AI_EMBEDDING_API_KEY` | Send embeddings to a different provider from chat |
+| `AI_TRANSCRIPTION_PROVIDER`, `AI_TRANSCRIPTION_BASE_URL`, `AI_TRANSCRIPTION_API_KEY`, `AI_TRANSCRIPTION_MODEL` | Speech-to-text for audio/video sources |
 | `AI_IMAGE_MODEL`, `AI_VISION_MODEL` | Image-generation and image-reading models (override the Azure equivalents) |
 | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_VERSION` | Azure OpenAI resource and data-plane API version |
 | `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | Chat and embedding deployment names |
 | `AZURE_OPENAI_IMAGE_DEPLOYMENT`, `AZURE_OPENAI_IMAGE_API_VERSION` | Optional image model for AI-image infographics and videos |
 | `AZURE_OPENAI_VISION_DEPLOYMENT` | Optional vision model for image sources; defaults to the chat deployment |
+| `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT` | Optional Whisper / gpt-4o-transcribe deployment for audio/video sources |
 | `AZURE_OPENAI_API_KEY` | Legacy key auth; takes precedence over Entra when set |
 | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | Service principal or user-assigned identity for Entra auth |
 | `AZURE_SPEECH_REGION`, `AZURE_SPEECH_RESOURCE_ID`, `AZURE_SPEECH_KEY` | Azure Speech for audio overviews and video narration |
@@ -240,6 +374,7 @@ commentary. Only a model provider is required.
 | `ALLOW_PRIVATE_NETWORK_FETCH` | Allow fetching private/loopback addresses (default off; see [SECURITY.md](SECURITY.md)) |
 | `MAX_FETCH_BYTES`, `FETCH_MAX_REDIRECTS`, `FETCH_TIMEOUT_MS` | Limits on fetched pages and files |
 | `DATA_DIR` | Where the database and generated media live (default `./.data`) |
+| `INFINIAIBOOK_PASSWORD` | Require a password for the UI and API (default off) |
 
 ### Checking a provider
 
@@ -602,6 +737,11 @@ the cited brief beneath it remains the authoritative copy.
 
 ## Adding sources
 
+**Audio and video files** (MP3, M4A, WAV, OGG, FLAC, WebM, MP4, up to 25 MB)
+and direct links to them are transcribed with the configured speech-to-text
+model (`whisper-1` on OpenAI, `whisper-large-v3` on Groq, or an Azure
+transcription deployment) and indexed like any other text.
+
 Ingestion is **non-blocking**. Each source is sent as its own request and shows
 a spinner in the Sources list while it is extracted, chunked, embedded and
 summarised. You can keep dropping files, pasting links or running a discovery
@@ -611,7 +751,7 @@ context automatically as they land.
 
 ### Discover (🔎 Find)
 
-Describe a topic and OpenNotebook searches the web, then lets you choose which
+Describe a topic and InfiniAIBook searches the web, then lets you choose which
 pages to add — checkboxes, snippets, and a link to preview each one first.
 
 Two things make the results usable rather than noisy:
@@ -740,8 +880,16 @@ source note as a tooltip, and the whole tree is keyboard reachable with proper
 
 ## Audio overviews
 
-The 🎧 button writes a two-host dialogue grounded in your sources, then narrates
-it with Azure Speech and stores an MP3 under `.data/audio/`.
+The 🎧 button writes a dialogue grounded in your sources, then narrates it with
+Azure Speech and stores an MP3 under `.data/audio/`.
+
+Audio overview supports solo explainers, two-host deep dives, three-speaker
+expert panels, and four-speaker debates. Each speaker can have a custom voice,
+display name, and role/personality, which guides the script so turns are written
+in character. Built-in episode profiles pre-fill common formats, but names and
+roles can be edited before generation. Saved podcasts include speaker profiles
+for transcript labels and exports, while older two-host artifacts continue to
+render normally.
 
 ### Setup
 
@@ -1057,7 +1205,7 @@ hand — which is exactly where the renderer looks for it.
 ## YouTube sources
 
 **YouTube integration is optional.** If you do not want to get an API key for
-YouTube ingestion, skip it: OpenNotebook works fine with your other sources.
+YouTube ingestion, skip it: InfiniAIBook works fine with your other sources.
 A **YouTube Data API key is not required for transcripts**, either; the supported
 Gemini route below uses a separate key, and **Paste** lets you add a transcript
 as text without either key.
@@ -1189,9 +1337,18 @@ src/
   app/
     page.tsx                       notebook list
     notebook/[id]/page.tsx         workspace shell
+    search/page.tsx                search + ask across all notebooks
+    login/page.tsx                 password sign-in (when INFINIAIBOOK_PASSWORD is set)
     api/
-      notebooks/                   CRUD + detail (sources, artifact summaries, messages)
-      notebooks/[id]/sources/      ingestion (files | url | youtube | text)
+      notebooks/                   CRUD + detail (sources, artifact summaries, sessions, notes)
+      notebooks/[id]/sources/      ingestion (files | url | youtube | text | media | copyFrom)
+      notebooks/[id]/sessions/     list / create chat sessions
+      notebooks/[id]/notes/        list / create notes
+      sessions/[id]/  notes/[id]/  read, rename / edit, delete
+      transformations/             list / create; [id] edit, delete; apply → note
+      search/  search/ask/         cross-notebook search and grounded ask
+      sources/                     library listing for cross-notebook reuse
+      auth/login/  auth/logout/    password session cookie
       notebooks/[id]/reembed/      embedding-model status and repair
       notebooks/[id]/check-sources/  re-fetch linked sources and report changes
       discover/                    web search for candidate sources
@@ -1207,13 +1364,17 @@ src/
       voice-preview/[name]/        cached voice samples
       artifacts/[id]/              fetch body on open, delete
   components/
-    Workspace  SourcesPanel  ChatPanel  StudioPanel  ModelPicker
+    Workspace  SourcesPanel  ChatPanel  StudioPanel  NotesPanel  ModelPicker
+    SearchView  LibraryModal  TransformationsModal
     ArtifactModal  SourceModal  DiscoverModal  BrowserModal  SourceUpdates
     MindMap  Quiz  Flashcards  Infographic  Metaphors
     PodcastPlayer  VideoPlayer  Markdown
   lib/
     db.ts        SQLite schema (node:sqlite, no native build step)
-    ai.ts        model client (Azure OpenAI with Entra ID, or OpenAI-compatible): chat / JSON / embeddings / images
+    ai.ts        model client (Azure OpenAI with Entra ID, or OpenAI-compatible): chat / JSON / embeddings / images / transcription
+    providers.ts named provider presets (base URL, key variable, default models)
+    sessions.ts  notes.ts  transformations.ts   chat sessions, notes, transformation prompts
+    auth.ts      optional password: HMAC session token (Edge + Node); see src/middleware.ts
     settings.ts  runtime settings (active models) that override the environment
     infographic.ts  style registry: themes + per-style content guidance
     metaphors.ts vocabulary of visual metaphors for the illustrated style
@@ -1246,11 +1407,14 @@ so there is no native compilation step. The handle is opened lazily on first que
 
 ## Roadmap ideas
 
-- Per-source notes and multiple saved chat threads
 - Postgres + pgvector adapter for multi-user deployments
-- Auth and sharing
+- Multi-user accounts and sharing (today: one optional shared password)
+- Interface translations
+- Per-source context modes (summary-only vs full text) in chat
 
 ## Contributing
+
+The REST API is documented in [docs/API.md](docs/API.md).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and the checks to
 run before a pull request. Report security issues privately as described in
@@ -1258,7 +1422,7 @@ run before a pull request. Report security issues privately as described in
 
 Want to build something like this yourself? See the
 [recreation prompt](docs/recreation-prompt.md), a beginner-level LLM prompt
-for rebuilding OpenNotebook.
+for rebuilding InfiniAIBook.
 
 ## Licence
 

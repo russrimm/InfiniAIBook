@@ -2,8 +2,49 @@ import * as cheerio from "cheerio";
 import mammoth from "mammoth";
 import { describeImage, imageMimeFor } from "./vision";
 import { BlockedHostError, readCapped, safeFetch } from "./safefetch";
+import { transcribe } from "./ai";
 
 export type Extracted = { title: string; text: string; kind: string };
+
+/** Containers the transcription API accepts, and the MIME type to send each as. */
+const MEDIA_TYPES: Record<string, { mime: string; kind: "audio" | "video" }> = {
+  mp3: { mime: "audio/mpeg", kind: "audio" },
+  mpga: { mime: "audio/mpeg", kind: "audio" },
+  mpeg: { mime: "audio/mpeg", kind: "audio" },
+  m4a: { mime: "audio/mp4", kind: "audio" },
+  wav: { mime: "audio/wav", kind: "audio" },
+  ogg: { mime: "audio/ogg", kind: "audio" },
+  oga: { mime: "audio/ogg", kind: "audio" },
+  flac: { mime: "audio/flac", kind: "audio" },
+  webm: { mime: "audio/webm", kind: "video" },
+  mp4: { mime: "video/mp4", kind: "video" },
+};
+
+export const MEDIA_EXTENSIONS = Object.keys(MEDIA_TYPES);
+
+export function mediaTypeFor(name: string, contentType?: string) {
+  const ext = name.split(/[?#]/)[0].split(".").pop()?.toLowerCase() ?? "";
+  if (MEDIA_TYPES[ext]) return { ext, ...MEDIA_TYPES[ext] };
+  const ct = contentType?.toLowerCase() ?? "";
+  if (/^(audio|video)\//.test(ct)) {
+    const match = Object.entries(MEDIA_TYPES).find(([, v]) => v.mime === ct);
+    const kind = ct.startsWith("video/") ? ("video" as const) : ("audio" as const);
+    return { ext: match?.[0] ?? (kind === "video" ? "mp4" : "mp3"), mime: ct, kind };
+  }
+  return null;
+}
+
+async function transcribeMedia(
+  buf: Buffer,
+  name: string,
+  media: { ext: string; mime: string; kind: "audio" | "video" }
+): Promise<Extracted> {
+  // The API infers the codec from the filename, so it must carry an extension.
+  const filename = /\.[a-z0-9]+$/i.test(name) ? name : `${name}.${media.ext}`;
+  const text = clean(await transcribe(buf, filename, media.mime));
+  if (!text) throw new Error(`No speech was recognised in "${name}".`);
+  return { title: name, text, kind: media.kind };
+}
 
 function clean(s: string): string {
   return s
@@ -38,6 +79,9 @@ export async function extractFromFile(file: File): Promise<Extracted> {
     const described = await describeImage(buf, imageMime, name);
     return { title: described.title, text: described.text, kind: "image" };
   }
+
+  const media = mediaTypeFor(name, file.type);
+  if (media) return transcribeMedia(buf, name, media);
 
   if (ext === "pdf" || file.type === "application/pdf") {
     const { getDocumentProxy, extractText } = await import("unpdf");
@@ -143,7 +187,7 @@ function htmlToText(html: string): { title: string; text: string } {
 /** Browser-ish headers. Not a disguise — some servers simply 400 without them. */
 export const FETCH_HEADERS = {
   "user-agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 OpenNotebook/1.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 InfiniAIBook/1.0",
   accept:
     "text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf;q=0.8,text/plain;q=0.7,*/*;q=0.5",
   "accept-language": "en-US,en;q=0.9",
@@ -292,6 +336,12 @@ export async function extractFromUrl(url: string): Promise<Extracted> {
     const filename = decodeURIComponent(path.split("/").pop() || host);
     const described = await describeImage(buf, imageMime, filename);
     return { title: described.title, text: described.text, kind: "image" };
+  }
+
+  // A direct link to an audio or video file is transcribed.
+  const media = isPdf ? null : mediaTypeFor(path, ctype.split(";")[0]?.trim());
+  if (media) {
+    return transcribeMedia(buf, decodeURIComponent(path.split("/").pop() || host), media);
   }
 
   if (isPdf) {

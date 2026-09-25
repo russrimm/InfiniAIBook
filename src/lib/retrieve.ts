@@ -209,6 +209,73 @@ export function sampleCorpus(
   }));
 }
 
+export type SearchHit = Passage & { notebookId: string; notebookTitle: string };
+
+/**
+ * Search passages across every notebook (or one, when given). `text` ranks by
+ * keyword overlap only, so it works with no embedding model configured;
+ * `vector` blends semantic similarity in the same way chat retrieval does.
+ */
+export async function searchPassages(
+  query: string,
+  opts: { mode?: "text" | "vector"; notebookId?: string; k?: number } = {}
+): Promise<{ hits: SearchHit[]; semantic: boolean }> {
+  const q = query.trim();
+  if (!q) return { hits: [], semantic: false };
+  let sql = `SELECT c.id, c.source_id, c.notebook_id, c.idx, c.text, c.embedding,
+                    s.title, n.title AS notebook_title
+             FROM chunks c
+             JOIN sources s ON s.id = c.source_id
+             JOIN notebooks n ON n.id = c.notebook_id`;
+  const params: string[] = [];
+  if (opts.notebookId) {
+    sql += " WHERE c.notebook_id = ?";
+    params.push(opts.notebookId);
+  }
+  const all = db.prepare(sql).all(...params) as unknown as (ChunkRow & {
+    notebook_id: string;
+    notebook_title: string;
+  })[];
+  if (!all.length) return { hits: [], semantic: false };
+
+  let qv: Float32Array | null = null;
+  if (opts.mode === "vector") {
+    try {
+      qv = new Float32Array((await embed([q]))[0]);
+    } catch {
+      qv = null;
+    }
+  }
+
+  // Keyword mode also matches the whole phrase, so short queries that the
+  // term filter drops (acronyms, names) still find something.
+  const phrase = q.toLowerCase();
+  const scored = all
+    .map((r) => {
+      let kw = keywordScore(r.text, q);
+      if (r.text.toLowerCase().includes(phrase)) kw = Math.max(kw, 1);
+      let sem = 0;
+      if (qv) {
+        const ev = blobToFloats(r.embedding);
+        if (ev.length === qv.length) sem = cosine(qv, ev);
+      }
+      const score = qv ? sem * 0.85 + kw * 0.15 : kw;
+      return {
+        id: r.id,
+        sourceId: r.source_id,
+        sourceTitle: r.title,
+        notebookId: r.notebook_id,
+        notebookTitle: r.notebook_title,
+        idx: r.idx,
+        text: r.text,
+        score,
+      } satisfies SearchHit;
+    })
+    .filter((h) => (h.score ?? 0) > (qv ? 0.2 : 0));
+  scored.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  return { hits: scored.slice(0, opts.k ?? 20), semantic: !!qv };
+}
+
 /** Render passages as a numbered context block the model can cite as [1], [2]... */
 export function buildContext(passages: Passage[]): string {
   return passages

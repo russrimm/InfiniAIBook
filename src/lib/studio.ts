@@ -1,8 +1,8 @@
 import type { ArtifactType, StudyDifficulty, StudyLength, StudyOptions } from "./types";
-import { AUDIO_LENGTHS, audioLength } from "./voices";
+import { AUDIO_LENGTHS, SPEAKER_IDS, audioLength, type SpeakerId } from "./voices";
 
 export const GROUNDING_RULES = `
-You are OpenNotebook, a research assistant that answers ONLY from the provided source excerpts.
+You are InfiniAIBook, a research assistant that answers ONLY from the provided source excerpts.
 Rules:
 - Use only facts present in the excerpts. Never invent details, numbers, names or dates.
 - Cite evidence with bracketed markers matching the excerpt numbers, e.g. [1] or [2][5].
@@ -23,6 +23,47 @@ type Spec = {
 
 const jsonNote =
   "Respond with a single JSON object only. No markdown fences, no commentary.";
+
+type PodcastSpeakerPrompt = {
+  id: SpeakerId;
+  name?: string;
+  role?: string;
+};
+
+const fallbackPodcastSpeakers = (): PodcastSpeakerPrompt[] => [
+  {
+    id: "a",
+    role: "drives the conversation and asks the questions",
+  },
+  {
+    id: "b",
+    role: "is the analyst who explains and supplies detail",
+  },
+];
+
+function podcastSpeakers(opts?: StudyOptions): PodcastSpeakerPrompt[] {
+  const raw = (opts as (StudyOptions & { podcastSpeakers?: PodcastSpeakerPrompt[] }) | undefined)
+    ?.podcastSpeakers;
+  if (!Array.isArray(raw) || !raw.length) return fallbackPodcastSpeakers();
+
+  const speakers: PodcastSpeakerPrompt[] = raw
+    .slice(0, 4)
+    .map((s, i) => ({
+      id: SPEAKER_IDS.includes(s.id) ? s.id : SPEAKER_IDS[i],
+      name: s.name?.trim(),
+      role: s.role?.trim(),
+    }));
+  return speakers.length ? speakers : fallbackPodcastSpeakers();
+}
+
+function podcastSpeakerGuide(speakers: PodcastSpeakerPrompt[]): string {
+  return speakers
+    .map((s) => {
+      const label = s.name ? `${s.id} (${s.name})` : s.id;
+      return `- "${label}": ${s.role || "a distinct speaker with a clear point of view"}`;
+    })
+    .join("\n");
+}
 
 /**
  * Study-aid tuning. Counts are ranges rather than exact numbers because the
@@ -271,19 +312,26 @@ Omit "pullQuote", "nextSteps", "flow", "chart", "compare", "checklist", "regions
 
   podcast: {
     label: "Audio overview",
-    blurb: "Two-host conversation",
+    blurb: "Custom speaker audio",
     icon: "🎧",
     json: true,
     instruction: (topic, opts) => {
       const len = AUDIO_LENGTHS[audioLength(opts?.audioLength)];
       const segs = len.minutes >= 10 ? "5-7" : len.minutes >= 6 ? "4-6" : "3-4";
+      const speakers = podcastSpeakers(opts);
+      const speakerIds = speakers.map((s) => `"${s.id}"`).join(" | ");
+      const isSolo = speakers.length === 1;
+      const lead = speakers[0];
+      const format = isSolo
+        ? "solo narrated monologue/explainer"
+        : `${speakers.length}-speaker audio overview`;
       return `You are a professional podcast scriptwriter with ten years of experience in
 audio content creation. You write conversational scripts that sound natural
 spoken aloud, and you know how to place hooks, transitions and pacing so a
 listener stays with you. Everything you write is audio-first: the listener
 cannot see anything.
 
-Write a two-host audio overview of the sources${topic ? `, focused on: ${topic}` : ""}.
+Write a ${format} of the sources${topic ? `, focused on: ${topic}` : ""}.
 ${jsonNote}
 Schema:
 {
@@ -291,11 +339,19 @@ Schema:
   "description": string,  // one sentence on what a listener will learn
   "segments": [{
     "title": string,      // 2-5 words naming what this stretch is about
-    "turns": [{ "speaker": "a" | "b", "text": string }]
+    "turns": [{ "speaker": ${speakerIds}, "text": string }]
   }]
 }
-Hosts: "a" drives the conversation and asks the questions. "b" is the analyst who
-explains and supplies detail.
+Every turn must be tagged with one of the configured speaker ids. Do not write
+speaker names into the spoken text unless a human would naturally say them.
+
+CONFIGURED SPEAKERS
+${podcastSpeakerGuide(speakers)}
+${isSolo
+  ? `This is a solo narration. Use only "${lead.id}" and make it feel like a clear,
+curious explainer rather than a host interviewing themselves.`
+  : `Keep each speaker in character. Let their role or personality affect the
+questions they ask, the examples they choose, and what they challenge.`}
 
 STRUCTURE
 Write ${segs} segments in this order:
@@ -317,21 +373,25 @@ distributed across the segments. The word count is the target that matters — i
 is what sets the running time. Count as you go and keep going until you reach
 it${
         len.minutes >= 10
-          ? ". At this length, cover the material properly: take separate parts of it in turn, follow the implications, and let the hosts work through disagreements rather than summarising faster"
+          ? ". At this length, cover the material properly: take separate parts of it in turn, follow the implications, and let the speakers work through disagreements rather than summarising faster"
           : ""
       }.
 Do not pad to reach the number. If the sources genuinely do not support this
 much, write what they do support rather than repeating yourself.
 
 Rules:
-- Turns strictly alternate, starting with "a", and carry on alternating across
-  segment boundaries.
+- Use only the configured speaker ids (${speakerIds}). ${
+        isSolo
+          ? `Every turn's "speaker" must be "${lead.id}". Break the narration into
+  natural chunks instead of one wall of text.`
+          : "Distribute turns naturally across the configured speakers; do not invent extra speakers."
+      }
 - This is synthesised speech, not a recording session. Write ONLY the words to
   be said: no markdown, headings, bullets, citation markers, URLs, emoji, or
   bracketed cues of any kind. A stage direction such as [MUSIC], [PAUSE] or
   (laughs) will be read aloud word for word.
-- There is no music, no sponsor, no advertisement, no guest and no audience to
-  address. Do not invent them.
+- There is no music, no sponsor, no advertisement and no audience to address.
+  Do not invent guests or speakers beyond the configured set.
 - Spell out anything a text-to-speech voice would mangle: "about 68 percent" not
   "~68%", "carbon dioxide" not "CO2", "three times" not "3x".
 - Ground every claim in the excerpts, attributing naturally in speech, e.g.
@@ -348,18 +408,26 @@ like a document being narrated is almost entirely in the writing.
   sounds like. Uniform paragraphs are what a report sounds like.
 - Use contractions throughout. "It's", "they'd", "that isn't" — never the
   expanded forms unless the word is being stressed.
-- Let the hosts interrupt the shape of their own sentences. Start a thought,
+- Let speakers interrupt the shape of their own sentences. Start a thought,
   qualify it, then land it: "It's cheaper — well, cheaper per unit — but the
   setup cost is brutal."
 - Open some turns the way people actually open them: "Right, so", "OK but",
   "See, that's", "Here's the thing", "I mean". Not every turn. Roughly one in
   three.
-- Let "a" react before asking the next thing, rather than moving straight on.
+- ${
+        isSolo
+          ? "Let the narrator occasionally reframe or challenge their own point before moving on."
+          : `Let "${lead.id}" react before asking the next thing, rather than moving straight on.`
+      }
 - Use em dashes for the places a speaker would break stride, and an ellipsis
   where they would trail off. These are rendered as real pauses, so they are
   worth placing deliberately rather than as decoration.
-- Ask real questions, including ones that push back. A host who only says
-  "fascinating, tell me more" sounds like a prompt, not a person.
+- ${
+        isSolo
+          ? "Use rhetorical questions sparingly and answer them from the sources."
+          : `Ask real questions, including ones that push back. A speaker who only says
+  "fascinating, tell me more" sounds like a prompt, not a person.`
+      }
 - No filler that carries no meaning. "Um" and "uh" on a synthetic voice read as
   a glitch rather than as thinking.
 - A reaction may be written out as a sound where a person would actually make

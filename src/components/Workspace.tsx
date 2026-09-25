@@ -11,12 +11,17 @@ import SourceModal from "./SourceModal";
 import DiscoverModal, { type DiscoverHit } from "./DiscoverModal";
 import BrowserModal from "./BrowserModal";
 import ModelPicker from "./ModelPicker";
+import NotesPanel from "./NotesPanel";
+import TransformationsModal from "./TransformationsModal";
+import LibraryModal from "./LibraryModal";
 import { STUDIO } from "@/lib/studio";
 import type {
   Artifact,
   ArtifactSummary,
   ArtifactType,
+  ChatSession,
   Message,
+  Note,
   Notebook,
   Source,
 } from "@/lib/types";
@@ -26,9 +31,11 @@ type Data = {
   sources: Source[];
   artifacts: ArtifactSummary[];
   messages: Message[];
+  sessions: ChatSession[];
+  notes: Note[];
 };
 
-type Tab = "sources" | "chat" | "studio";
+type Tab = "sources" | "chat" | "studio" | "notes";
 
 export default function Workspace({ notebookId }: { notebookId: string }) {
   const [data, setData] = useState<Data | null>(null);
@@ -41,6 +48,11 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [pickingModel, setPickingModel] = useState(false);
   const [model, setModel] = useState("");
   const [tab, setTab] = useState<Tab>("chat");
+  /** Which panel fills the right-hand column on wide screens. */
+  const [right, setRight] = useState<"studio" | "notes">("studio");
+  const [openNoteId, setOpenNoteId] = useState<string | null>(null);
+  const [managingTransformations, setManagingTransformations] = useState(false);
+  const [pickingLibrary, setPickingLibrary] = useState(false);
   const [pendingUpdates, setPendingUpdates] = useState<PendingUpdate[]>([]);
   const [showUpdates, setShowUpdates] = useState(false);
   const [checkingSources, setCheckingSources] = useState(false);
@@ -135,9 +147,27 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
 
   useEffect(() => {
     occupied.current = Boolean(
-      openArtifact || openSourceId || discovering || browsing || pickingModel || showUpdates
+      openArtifact ||
+        openSourceId ||
+        discovering ||
+        browsing ||
+        pickingModel ||
+        showUpdates ||
+        openNoteId ||
+        managingTransformations ||
+        pickingLibrary
     );
-  }, [openArtifact, openSourceId, discovering, browsing, pickingModel, showUpdates]);
+  }, [
+    openArtifact,
+    openSourceId,
+    discovering,
+    browsing,
+    pickingModel,
+    showUpdates,
+    openNoteId,
+    managingTransformations,
+    pickingLibrary,
+  ]);
 
   // Shown in the header so the active model is visible without opening a dialog.
   const loadModel = useCallback(async () => {
@@ -239,6 +269,13 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             ? "Checking links…"
             : `${selected.size}/${data.sources.length} sources in context`}
         </span>
+        <Link
+          href={`/search?notebookId=${notebookId}`}
+          className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
+          title="Search and ask across all notebooks"
+        >
+          🔎 <span className="hidden md:inline">Search</span>
+        </Link>
         <button
           className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
           onClick={() => setPickingModel(true)}
@@ -264,7 +301,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       )}
 
       <nav className="flex shrink-0 gap-1 border-b border-[var(--border)] px-3 py-2 lg:hidden">
-        {(["sources", "chat", "studio"] as Tab[]).map((t) => (
+        {(["sources", "chat", "studio", "notes"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -307,6 +344,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             onChanged={() => void load()}
             onDiscover={() => setDiscovering(true)}
             onBrowse={() => setBrowsing(true)}
+            onLibrary={() => setPickingLibrary(true)}
             addRef={addSources}
           />
         </div>
@@ -317,23 +355,62 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             sources={data.sources}
             selectedIds={selectedIds}
             initialMessages={data.messages}
+            sessions={data.sessions ?? []}
+            onNoteSaved={() => void load()}
           />
         </div>
 
         <div
-          className={`min-h-0 border-[var(--border)] lg:block lg:border-l ${
-            tab === "studio" ? "block" : "hidden"
+          className={`flex min-h-0 flex-col border-[var(--border)] lg:flex lg:border-l ${
+            tab === "studio" || tab === "notes" ? "flex" : "hidden"
           }`}
         >
-          <StudioPanel
-            notebookId={notebookId}
-            hasSources={data.sources.length > 0}
-            selectedIds={selectedIds}
-            artifacts={data.artifacts}
-            onOpen={openFromList}
-            openingId={openingId}
-            onChanged={() => void load()}
-          />
+          <div className="hidden shrink-0 gap-1 border-b border-[var(--border)] px-3 py-2 lg:flex">
+            {(["studio", "notes"] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setRight(r)}
+                className={`flex-1 rounded-lg px-3 py-1 text-[12px] capitalize transition ${
+                  right === r
+                    ? "bg-[#1e2430] text-[var(--fg)]"
+                    : "text-[var(--muted)] hover:text-[var(--fg)]"
+                }`}
+              >
+                {r}
+                {r === "notes" && data.notes?.length ? ` (${data.notes.length})` : ""}
+              </button>
+            ))}
+          </div>
+          {/* On narrow screens the tab bar decides; on wide ones the toggle above. */}
+          <div
+            className={`min-h-0 flex-1 ${tab === "studio" ? "block" : "hidden"} ${
+              right === "studio" ? "lg:block" : "lg:hidden"
+            }`}
+          >
+            <StudioPanel
+              notebookId={notebookId}
+              hasSources={data.sources.length > 0}
+              selectedIds={selectedIds}
+              artifacts={data.artifacts}
+              onOpen={openFromList}
+              openingId={openingId}
+              onChanged={() => void load()}
+            />
+          </div>
+          <div
+            className={`min-h-0 flex-1 ${tab === "notes" ? "block" : "hidden"} ${
+              right === "notes" ? "lg:block" : "lg:hidden"
+            }`}
+          >
+            <NotesPanel
+              notebookId={notebookId}
+              notes={data.notes ?? []}
+              onChanged={() => void load()}
+              openNoteId={openNoteId}
+              onOpenNote={setOpenNoteId}
+              onManageTransformations={() => setManagingTransformations(true)}
+            />
+          </div>
         </div>
       </div>
 
@@ -357,7 +434,17 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         />
       )}
       {openSourceId && (
-        <SourceModal sourceId={openSourceId} onClose={() => setOpenSourceId(null)} />
+        <SourceModal
+          sourceId={openSourceId}
+          onClose={() => setOpenSourceId(null)}
+          onNoteCreated={async (note) => {
+            await load();
+            setOpenSourceId(null);
+            setRight("notes");
+            setTab("notes");
+            setOpenNoteId(note.id);
+          }}
+        />
       )}
       {discovering && (
         <DiscoverModal
@@ -370,6 +457,16 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         <BrowserModal
           notebookId={notebookId}
           onClose={() => setBrowsing(false)}
+          onAdded={() => void load()}
+        />
+      )}
+      {managingTransformations && (
+        <TransformationsModal onClose={() => setManagingTransformations(false)} />
+      )}
+      {pickingLibrary && (
+        <LibraryModal
+          notebookId={notebookId}
+          onClose={() => setPickingLibrary(false)}
           onAdded={() => void load()}
         />
       )}

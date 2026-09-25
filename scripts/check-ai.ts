@@ -1,7 +1,7 @@
 /**
  * Provider readiness check.
  *
- * Answers "will OpenNotebook work against this model server?" on whatever
+ * Answers "will InfiniAIBook work against this model server?" on whatever
  * machine it runs on, which matters most when moving to local inference:
  * capabilities vary by runtime and by model in ways that only show up in use.
  *
@@ -79,7 +79,7 @@ Roughly 16,000 plant species use CAM photosynthesis.`;
 const context = `SOURCE EXCERPTS\n===============\n[1] (source: "Photosynthesis primer", part 1)\n${SAMPLE}`;
 
 async function main() {
-  console.log(`\n${DIM}OpenNotebook — provider check${RESET}\n`);
+  console.log(`\n${DIM}InfiniAIBook — provider check${RESET}\n`);
   console.log(`  provider   ${PROVIDER}`);
   console.log(
     `  endpoint   ${

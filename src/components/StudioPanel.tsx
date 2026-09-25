@@ -14,12 +14,11 @@ import {
   RATE_CHOICES,
   AUDIO_LENGTHS,
   PINNED_VOICES,
+  SPEAKER_IDS,
   canPin,
   type AudioLength,
+  type SpeakerId,
 } from "@/lib/voices";
-
-/** Speakers that can be pinned, listed when a chosen one cannot be. */
-const PINNABLE = Object.keys(PINNED_VOICES);
 import type {
   ArtifactSummary,
   ArtifactType,
@@ -27,8 +26,71 @@ import type {
   StudyLength,
 } from "@/lib/types";
 
+/** Speakers that can be pinned, listed when a chosen one cannot be. */
+const PINNABLE = Object.keys(PINNED_VOICES);
+
 /** How the dialogue is rendered: voice family plus pause shaping. */
 type Delivery = "natural" | "even" | "pinned";
+type SpeakerConfig = {
+  id: SpeakerId;
+  voice: string;
+  name: string;
+  role: string;
+};
+type EpisodeProfile = {
+  key: string;
+  label: string;
+  speakers: Omit<SpeakerConfig, "id" | "voice">[];
+};
+
+const EPISODE_PROFILES: EpisodeProfile[] = [
+  {
+    key: "deep-dive",
+    label: "Deep dive (2 hosts)",
+    speakers: [
+      { name: "", role: "curious host who drives the conversation and asks questions" },
+      { name: "", role: "analyst who explains the details and implications" },
+    ],
+  },
+  {
+    key: "solo",
+    label: "Solo explainer (1)",
+    speakers: [
+      { name: "Narrator", role: "clear, curious narrator who explains the material directly" },
+    ],
+  },
+  {
+    key: "expert-panel",
+    label: "Expert panel (3: host + two experts)",
+    speakers: [
+      { name: "Host", role: "moderator who frames the questions and keeps the pace" },
+      { name: "Technical expert", role: "technical expert who explains mechanisms and tradeoffs" },
+      { name: "Policy expert", role: "domain expert who explains consequences and caveats" },
+    ],
+  },
+  {
+    key: "debate",
+    label: "Debate (4: moderator + 2 sides + fact-checker)",
+    speakers: [
+      { name: "Moderator", role: "moderator who keeps the discussion grounded" },
+      { name: "Advocate", role: "optimistic advocate who argues for the strongest upside" },
+      { name: "Skeptic", role: "skeptical challenger who tests assumptions and risks" },
+      { name: "Fact-checker", role: "fact-checker who resolves claims against the sources" },
+    ],
+  },
+];
+
+const profileSpeakers = (key: string): SpeakerConfig[] => {
+  const profile = EPISODE_PROFILES.find((p) => p.key === key) ?? EPISODE_PROFILES[0]!;
+  return profile.speakers.map((s, i) => {
+    const id = SPEAKER_IDS[i] ?? "a";
+    return {
+      id,
+      voice: VOICE_PRESETS.conversational[id],
+      ...s,
+    };
+  });
+};
 
 export default function StudioPanel({
   notebookId,
@@ -55,8 +117,10 @@ export default function StudioPanel({
   const [delivery, setDelivery] = useState<Delivery>("natural");
   const [audioLen, setAudioLen] = useState<AudioLength>("medium");
   const [narrator, setNarrator] = useState("Ava");
-  const [hostA, setHostA] = useState(VOICE_PRESETS.conversational.a);
-  const [hostB, setHostB] = useState(VOICE_PRESETS.conversational.b);
+  const [episodeProfile, setEpisodeProfile] = useState("deep-dive");
+  const [speakers, setSpeakers] = useState<SpeakerConfig[]>(() =>
+    profileSpeakers("deep-dive")
+  );
   const [speed, setSpeed] = useState(1);
   const [running, setRunning] = useState<Set<ArtifactType>>(new Set());
   const [errors, setErrors] = useState<Partial<Record<ArtifactType, string>>>({});
@@ -156,7 +220,12 @@ export default function StudioPanel({
       topic: topic.trim() || undefined,
       sourceIds: selectedIds,
       preset: delivery === "pinned" ? "classic" : "conversational",
-      voices: { a: hostA, b: hostB },
+      voices: { a: speakers[0]?.voice, b: speakers[1]?.voice },
+      speakers: speakers.map(({ voice, name, role }) => ({
+        voice,
+        name: name.trim() || undefined,
+        role: role.trim() || undefined,
+      })),
       rate: speed,
       breath: delivery === "even" ? 0 : 1,
       length: audioLen,
@@ -175,14 +244,25 @@ export default function StudioPanel({
     await onChanged();
   };
 
+  const updateSpeaker = (i: number, patch: Partial<SpeakerConfig>) =>
+    setSpeakers((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+
+  const applyEpisodeProfile = (key: string) => {
+    setEpisodeProfile(key);
+    setSpeakers(profileSpeakers(key));
+  };
+
   const blocked = !hasSources || selectedIds.length === 0;
   const audioBusy = running.has("podcast");
   const videoBusy = running.has("video");
   const pinnedVoices = delivery === "pinned";
   /** Fixed voices exist for only some speakers, so warn before generating. */
   const unpinnable = pinnedVoices
-    ? [hostA, hostB].filter((n) => !canPin(n))
+    ? speakers.map((s) => s.voice).filter((n) => !canPin(n))
     : [];
+  const sharedVoices = speakers
+    .map((s) => s.voice)
+    .filter((voice, i, all) => all.indexOf(voice) !== i && all.lastIndexOf(voice) === i);
 
   return (
     <aside className="flex h-full min-h-0 flex-col bg-[var(--panel)]">
@@ -217,7 +297,9 @@ export default function StudioPanel({
               <span className="block text-[10px] leading-snug text-[var(--muted)]">
                 {audioBusy
                   ? `Writing and narrating about ${AUDIO_LENGTHS[audioLen].minutes} minutes — this takes a while`
-                  : "Two hosts discuss your sources"}
+                  : speakers.length === 1
+                    ? "A solo narration explains your sources"
+                    : `${speakers.length} speakers discuss your sources`}
               </span>
             </span>
           </button>
@@ -225,26 +307,61 @@ export default function StudioPanel({
           <div className="space-y-2 border-t border-[var(--border)] px-3 py-2">
             <div className="flex items-center gap-2">
               <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                Hosts
+                Profile
               </span>
-              <SpeakerSelect
-                value={hostA}
-                exclude={hostB}
+              <select
+                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                value={episodeProfile}
                 disabled={false}
-                onChange={setHostA}
-                onPreview={preview}
-                previewing={previewing}
-                loading={previewLoading}
-              />
-              <SpeakerSelect
-                value={hostB}
-                exclude={hostA}
-                disabled={false}
-                onChange={setHostB}
-                onPreview={preview}
-                previewing={previewing}
-                loading={previewLoading}
-              />
+                onChange={(e) => applyEpisodeProfile(e.target.value)}
+              >
+                {EPISODE_PROFILES.map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              {speakers.map((speaker, i) => (
+                <div
+                  key={speaker.id}
+                  className="rounded-lg border border-[var(--border)] bg-[#0b0e12]/50 p-2"
+                >
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <span className="w-5 shrink-0 text-[10px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                      {speaker.id}
+                    </span>
+                    <SpeakerSelect
+                      value={speaker.voice}
+                      disabled={false}
+                      onChange={(voice) => updateSpeaker(i, { voice })}
+                      onPreview={preview}
+                      previewing={previewing}
+                      loading={previewLoading}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    <input
+                      className="min-w-0 rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-[#53606f] focus:border-[#4d5a7a]"
+                      placeholder={`Optional name, e.g. ${
+                        i === 0 ? "Host" : "Expert"
+                      }`}
+                      value={speaker.name}
+                      disabled={false}
+                      onChange={(e) => updateSpeaker(i, { name: e.target.value })}
+                    />
+                    <input
+                      className="min-w-0 rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-[#53606f] focus:border-[#4d5a7a]"
+                      placeholder="Role/personality, e.g. skeptical economist"
+                      value={speaker.role}
+                      disabled={false}
+                      onChange={(e) => updateSpeaker(i, { role: e.target.value })}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="flex items-center gap-2">
@@ -304,10 +421,18 @@ export default function StudioPanel({
                 ) : (
                   <>
                     Each turn is rendered by a named voice rather than by the
-                    multi-speaker model, so the voice cannot drift. The hosts stop
+                    multi-speaker model, so the voice cannot drift. Speakers stop
                     handing off to each other, so it sounds a little more read-aloud.
                   </>
                 )}
+              </p>
+            )}
+            {sharedVoices.length > 0 && (
+              <p className="text-[10px] leading-snug text-amber-200/90">
+                {sharedVoices.join(" and ")}{" "}
+                {sharedVoices.length === 1 ? "is used" : "are used"} by more
+                than one speaker. Distinct voices make the transcript easier to
+                follow.
               </p>
             )}
             {previewError && (
@@ -343,7 +468,6 @@ export default function StudioPanel({
             </span>
             <SpeakerSelect
               value={narrator}
-              exclude=""
               disabled={false}
               onChange={setNarrator}
               onPreview={preview}
@@ -563,13 +687,10 @@ export default function StudioPanel({
 }
 
 /**
- * One host's voice. The other host's pick is excluded rather than merely
- * flagged: two identical speakers render a dialogue in a single voice, which
- * reads as a bug rather than a choice.
+ * One speaker's voice, shared by the audio and video controls.
  */
 function SpeakerSelect({
   value,
-  exclude,
   disabled,
   onChange,
   onPreview,
@@ -577,7 +698,6 @@ function SpeakerSelect({
   loading,
 }: {
   value: string;
-  exclude: string;
   disabled: boolean;
   onChange: (v: string) => void;
   onPreview: (name: string) => void;
@@ -595,22 +715,18 @@ function SpeakerSelect({
         onChange={(e) => onChange(e.target.value)}
       >
         <optgroup label="Female">
-          {MULTITALKER_SPEAKERS.female
-            .filter((n) => n !== exclude)
-            .map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
+          {MULTITALKER_SPEAKERS.female.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
         </optgroup>
         <optgroup label="Male">
-          {MULTITALKER_SPEAKERS.male
-            .filter((n) => n !== exclude)
-            .map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
+          {MULTITALKER_SPEAKERS.male.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
         </optgroup>
       </select>
       <button

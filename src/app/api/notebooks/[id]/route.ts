@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 import { removeAudio, removeImage, removeVideo } from "@/lib/paths";
 import { reconcileStalledVideos } from "@/lib/videobuild";
+import { listSessions, sessionMessages } from "@/lib/sessions";
+import { listNotes } from "@/lib/notes";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -28,13 +30,6 @@ type ArtRow = {
   id: string;
   type: string;
   title: string;
-  created_at: number;
-};
-type MsgRow = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  citations: string | null;
   created_at: number;
 };
 
@@ -65,12 +60,10 @@ export async function GET(_req: Request, { params }: Ctx) {
       )
       .all(id) as unknown as ArtRow[];
 
-    const messageRows = db
-      .prepare(
-        `SELECT id, role, content, citations, created_at FROM messages
-         WHERE notebook_id = ? ORDER BY created_at`
-      )
-      .all(id) as unknown as MsgRow[];
+    // Chat is split into sessions; `messages` is the most recent one, kept so
+    // older clients that only read it still show a conversation.
+    const sessions = listSessions(id);
+    const messages = sessions.length ? sessionMessages(sessions[0].id) : [];
 
     return ok({
       notebook: {
@@ -94,13 +87,9 @@ export async function GET(_req: Request, { params }: Ctx) {
         title: a.title,
         createdAt: a.created_at,
       })),
-      messages: messageRows.map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        citations: m.citations ? JSON.parse(m.citations) : undefined,
-        createdAt: m.created_at,
-      })),
+      messages,
+      sessions,
+      notes: listNotes(id),
     });
   } catch (e) {
     return fail(e);

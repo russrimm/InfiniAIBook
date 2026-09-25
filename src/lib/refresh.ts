@@ -132,6 +132,9 @@ export async function checkSource(
   row: SourceRow
 ): Promise<{ changed: boolean; error?: string }> {
   if (!row.url) return { changed: false };
+  // Linked recordings are transcribed, which is slow and billed per minute;
+  // a recording at a fixed URL does not change the way a page does.
+  if (row.kind === "audio" || row.kind === "video") return { changed: false };
 
   const noteProblem = (message: string) => {
     db.prepare("UPDATE sources SET checked_at = ?, check_error = ? WHERE id = ?").run(

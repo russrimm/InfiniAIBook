@@ -1,8 +1,8 @@
 {
-  "name": "opennotebook",
+  "name": "infiniaibook",
   "version": "0.1.0",
   "private": true,
-  "description": "Self-hosted Agentic Powered Notebook research studio: chat with your sources, grounded in citations.",
+  "description": "Self-hosted AI research notebook: chat with your sources, grounded in citations.",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -112,7 +112,14 @@ export type InfographicContent = {
   imageSize?: string;
 };
 
-export type PodcastTurn = { speaker: "a" | "b"; text: string; at: number };
+export type PodcastSpeakerId = "a" | "b" | "c" | "d";
+export type PodcastTurn = { speaker: PodcastSpeakerId; text: string; at: number };
+export type PodcastSpeaker = {
+  id: PodcastSpeakerId;
+  name?: string;
+  voice: string;
+  role?: string;
+};
 
 export type PodcastContent = {
   title: string;
@@ -120,7 +127,9 @@ export type PodcastContent = {
   turns: PodcastTurn[];
   audioUrl: string;
   durationSec: number;
-  voices: { a: string; b: string };
+  voices: { a: string; b: string } & Partial<Record<PodcastSpeakerId, string>>;
+  /** Speaker display names and roles used to write the episode. */
+  speakers?: PodcastSpeaker[];
   /** Requested running time, so the result can be compared with the target. */
   length?: string;
   targetMinutes?: number;
@@ -202,4 +211,40 @@ export type Message = {
   content: string;
   citations?: Citation[];
   createdAt: number;
+};
+
+/** One conversation thread; a notebook can hold any number of them. */
+export type ChatSession = {
+  id: string;
+  notebookId: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messageCount?: number;
+};
+
+/**
+ * A note is the user's own writing, or model output they chose to keep: a saved
+ * chat answer or the result of a transformation. `kind` records which, so the
+ * list can distinguish what was written from what was generated.
+ */
+export type Note = {
+  id: string;
+  notebookId: string;
+  title: string;
+  content: string;
+  kind: "human" | "ai";
+  sourceId: string | null;
+  citations?: Citation[];
+  createdAt: number;
+  updatedAt: number;
+};
+
+/** A reusable prompt applied to one source at a time. */
+export type Transformation = {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  builtin: boolean;
 };

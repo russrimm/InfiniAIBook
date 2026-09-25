@@ -5,7 +5,11 @@
  * SDK, which has no business in a client bundle.
  */
 
-export type VoicePair = { a: string; b: string; multitalker: boolean };
+export const SPEAKER_IDS = ["a", "b", "c", "d"] as const;
+export type SpeakerId = (typeof SPEAKER_IDS)[number];
+export type VoiceMap = Record<SpeakerId, string>;
+export type VoicePair = Pick<VoiceMap, "a" | "b"> & { multitalker: boolean };
+export type VoiceSelection = VoiceMap & { multitalker: boolean };
 
 /**
  * Speakers the multitalker voice accepts, from the en-US DragonHD set.
@@ -50,16 +54,18 @@ export const ALL_SPEAKERS: string[] = [
   ...MULTITALKER_SPEAKERS.male,
 ];
 
-export const VOICE_PRESETS: Record<string, VoicePair> = {
+export const VOICE_PRESETS: Record<string, VoiceSelection> = {
   // Azure's purpose-built multi-speaker voice: one request renders a whole
   // exchange, so turn-to-turn prosody actually sounds like a conversation.
-  conversational: { a: "Andrew", b: "Ava", multitalker: true },
-  warm: { a: "Davis", b: "Emma", multitalker: true },
-  bright: { a: "Tyler", b: "Nova", multitalker: true },
-  measured: { a: "Steffan", b: "Serena", multitalker: true },
+  conversational: { a: "Andrew", b: "Ava", c: "Brian", d: "Emma", multitalker: true },
+  warm: { a: "Davis", b: "Emma", c: "Andrew", d: "Serena", multitalker: true },
+  bright: { a: "Tyler", b: "Nova", c: "Brian", d: "Phoebe", multitalker: true },
+  measured: { a: "Steffan", b: "Serena", c: "Adam", d: "Jane", multitalker: true },
   classic: {
     a: "en-US-AndrewMultilingualNeural",
     b: "en-US-AvaMultilingualNeural",
+    c: "en-US-BrianMultilingualNeural",
+    d: "en-US-EmmaMultilingualNeural",
     multitalker: false,
   },
 };
@@ -100,12 +106,17 @@ export const MIN_RATE = 0.7;
 export const MAX_RATE = 1.3;
 export const RATE_CHOICES = [0.8, 0.9, 1, 1.1, 1.25];
 
-export function resolveVoices(preset?: string, custom?: Partial<VoicePair>): VoicePair {
+export function resolveVoices(
+  preset?: string,
+  custom?: Partial<Record<SpeakerId, string>>,
+  speakerCount = 2
+): VoiceSelection {
   const base = VOICE_PRESETS[preset ?? "conversational"] ?? VOICE_PRESETS.conversational;
+  const activeIds = SPEAKER_IDS.slice(0, Math.min(4, Math.max(1, speakerCount)));
 
   // Pinned mode: the chosen hosts are rendered as standalone voices rather
   // than as speaker names inside the multitalker, so identity cannot wander.
-  if (!base.multitalker && (custom?.a || custom?.b)) {
+  if (!base.multitalker && activeIds.some((id) => custom?.[id])) {
     const pin = (name: string | undefined, fallback: string) => {
       if (!name) return fallback;
       if (PINNED_VOICES[name]) return PINNED_VOICES[name];
@@ -117,10 +128,16 @@ export function resolveVoices(preset?: string, custom?: Partial<VoicePair>): Voi
         ).join(", ")}.`
       );
     };
-    return { multitalker: false, a: pin(custom.a, base.a), b: pin(custom.b, base.b) };
+    return {
+      multitalker: false,
+      a: pin(custom?.a, base.a),
+      b: pin(custom?.b, base.b),
+      c: pin(custom?.c, base.c),
+      d: pin(custom?.d, base.d),
+    };
   }
 
-  if (!custom?.a && !custom?.b) return base;
+  if (!activeIds.some((id) => custom?.[id])) return base;
 
   const pick = (name: string | undefined, fallback: string) => {
     if (!name) return fallback;
@@ -134,7 +151,13 @@ export function resolveVoices(preset?: string, custom?: Partial<VoicePair>): Voi
     return match;
   };
 
-  return { ...base, a: pick(custom.a, base.a), b: pick(custom.b, base.b) };
+  return {
+    ...base,
+    a: pick(custom?.a, base.a),
+    b: pick(custom?.b, base.b),
+    c: pick(custom?.c, base.c),
+    d: pick(custom?.d, base.d),
+  };
 }
 
 export function clampRate(rate?: number): number {

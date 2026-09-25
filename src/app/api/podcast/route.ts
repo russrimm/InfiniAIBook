@@ -14,7 +14,16 @@ import {
 } from "@/lib/retrieve";
 import { GROUNDING_RULES, PODCAST_INSTRUCTION } from "@/lib/studio";
 import { synthesizeDialogue, type Turn } from "@/lib/speech";
-import { clampRate, resolveVoices, VOICE_PRESETS, audioLength, AUDIO_LENGTHS, WORDS_PER_MINUTE } from "@/lib/voices";
+import {
+  SPEAKER_IDS,
+  clampRate,
+  resolveVoices,
+  VOICE_PRESETS,
+  audioLength,
+  AUDIO_LENGTHS,
+  WORDS_PER_MINUTE,
+  type SpeakerId,
+} from "@/lib/voices";
 import { audioDir } from "@/lib/paths";
 
 export const runtime = "nodejs";
@@ -31,7 +40,45 @@ type Script = {
   segments?: unknown;
 };
 
+type SpeakerInput = { voice?: string; name?: string; role?: string };
+type SpeakerProfile = {
+  id: SpeakerId;
+  voice?: string;
+  name?: string;
+  role?: string;
+};
+
 const str = (v: unknown, fallback = "") => (typeof v === "string" ? v : fallback);
+const isSpeakerId = (v: string): v is SpeakerId =>
+  (SPEAKER_IDS as readonly string[]).includes(v);
+const activeSpeakerIds = (count: number) =>
+  SPEAKER_IDS.slice(0, Math.min(4, Math.max(1, count)));
+
+function cleanLabel(v: unknown, max = 60): string | undefined {
+  const s = str(v).replace(/\s+/g, " ").trim().slice(0, max);
+  return s || undefined;
+}
+
+function readSpeakerProfiles(
+  raw: unknown,
+  customVoices?: Partial<Record<SpeakerId, string>>
+): SpeakerProfile[] {
+  const defaultInputs: SpeakerInput[] = [
+    { role: "drives the conversation and asks the questions" },
+    { role: "is the analyst who explains and supplies detail" },
+  ];
+  const inputs = Array.isArray(raw) && raw.length ? raw.slice(0, 4) : defaultInputs;
+  const count = inputs.length >= 1 && inputs.length <= 4 ? inputs.length : 2;
+  return activeSpeakerIds(count).map((id, i) => {
+    const input = (inputs[i] ?? {}) as SpeakerInput;
+    return {
+      id,
+      voice: cleanLabel(input.voice) ?? customVoices?.[id],
+      name: cleanLabel(input.name),
+      role: cleanLabel(input.role, 180),
+    };
+  });
+}
 
 /** Strip anything the model may have slipped in that a voice would read aloud. */
 function cleanSpoken(text: string): string {
@@ -63,35 +110,41 @@ function cleanSpoken(text: string): string {
  * has to survive flattening. Older scripts have a flat `turns` array and no
  * segments; they still play, just without chapters.
  */
-function readScript(script: Script): { turns: Turn[]; marks: { title: string; index: number }[] } {
+function readScript(
+  script: Script,
+  speakerCount: number
+): { turns: Turn[]; marks: { title: string; index: number }[] } {
   const marks: { title: string; index: number }[] = [];
-  const texts: string[] = [];
+  const turns: Turn[] = [];
+  const ids = activeSpeakerIds(speakerCount);
 
   const push = (raw: unknown) => {
-    const o = raw as { text?: unknown };
+    const o = raw as { speaker?: unknown; text?: unknown };
     const text = cleanSpoken(str(o.text));
-    if (text) texts.push(text);
+    if (!text) return;
+    const given = str(o.speaker).toLowerCase();
+    const speaker = isSpeakerId(given) && ids.includes(given)
+      ? given
+      : ids[turns.length % ids.length];
+    turns.push({ speaker, text });
   };
 
   if (Array.isArray(script.segments) && script.segments.length) {
     for (const seg of script.segments) {
       const s = seg as { title?: unknown; turns?: unknown };
       const title = cleanSpoken(str(s.title)).slice(0, 60);
-      const before = texts.length;
+      const before = turns.length;
       for (const t of Array.isArray(s.turns) ? s.turns : []) push(t);
       // A segment that produced nothing should not leave a chapter marker
       // pointing at the next segment's first line.
-      if (title && texts.length > before) marks.push({ title, index: before });
+      if (title && turns.length > before) marks.push({ title, index: before });
     }
   }
-  if (!texts.length && Array.isArray(script.turns)) {
+  if (!turns.length && Array.isArray(script.turns)) {
     for (const t of script.turns) push(t);
   }
 
-  return {
-    turns: texts.map((text, i) => ({ speaker: i % 2 === 0 ? "a" : "b", text })),
-    marks,
-  };
+  return { turns, marks };
 }
 
 const countWords = (turns: Turn[]) =>
@@ -99,8 +152,7 @@ const countWords = (turns: Turn[]) =>
 
 /**
  * Cut a script down to a word budget, keeping the opening and the last two
- * turns. Speakers are reassigned by position afterwards, so removing turns
- * from the middle cannot leave one voice talking to itself.
+ * turns.
  *
  * Returns which original positions survived, so chapter markers can be moved
  * with them rather than left pointing at whatever now sits at that index.
@@ -124,29 +176,42 @@ function trimToWords(
   kept.push(tailFrom, tailFrom + 1);
 
   return {
-    turns: kept.map((orig, i) => ({
-      ...turns[orig],
-      speaker: i % 2 === 0 ? ("a" as const) : ("b" as const),
-    })),
+    turns: kept.map((orig) => turns[orig]),
     kept,
   };
 }
 
 export async function POST(req: Request) {
   try {
-    const { notebookId, topic, sourceIds, preset, voices: customVoices, rate, breath, length } =
-      (await req.json()) as {
+    const {
+      notebookId,
+      topic,
+      sourceIds,
+      preset,
+      voices: customVoices,
+      speakers: speakerInput,
+      rate,
+      breath,
+      length,
+    } = (await req.json()) as {
         notebookId: string;
         topic?: string;
         sourceIds?: string[];
         preset?: keyof typeof VOICE_PRESETS;
-        voices?: { a?: string; b?: string };
+        voices?: Partial<Record<SpeakerId, string>>;
+        speakers?: SpeakerInput[];
         rate?: number;
         breath?: number;
         length?: string;
       };
 
     const wanted = audioLength(length);
+    const profiles = readSpeakerProfiles(speakerInput, customVoices);
+    const requestedVoices = Object.fromEntries(
+      profiles.map((s) => [s.id, s.voice])
+    ) as Partial<Record<SpeakerId, string>>;
+    const promptSpeakers = profiles.map(({ id, name, role }) => ({ id, name, role }));
+    const podcastOpts = { audioLength: wanted, podcastSpeakers: promptSpeakers };
 
     const focused = topic?.trim()
       ? await retrieve(notebookId, topic, sourceIds, 24)
@@ -179,9 +244,10 @@ export async function POST(req: Request) {
       const messages: ChatMsg[] = [
         {
           role: "system",
-          content: `${GROUNDING_RULES}\n\n${PODCAST_INSTRUCTION(topic?.trim() ?? "", {
-            audioLength: wanted,
-          })}${lengthNote}`,
+          content: `${GROUNDING_RULES}\n\n${PODCAST_INSTRUCTION(
+            topic?.trim() ?? "",
+            podcastOpts
+          )}${lengthNote}`,
         },
         {
           role: "user",
@@ -203,11 +269,12 @@ export async function POST(req: Request) {
     }
     if (!script) throw lastError;
 
-    let parsed = readScript(script);
+    let parsed = readScript(script, profiles.length);
     let turns = parsed.turns;
-    if (turns.length < 2) {
+    const minTurns = profiles.length === 1 ? 1 : 2;
+    if (turns.length < minTurns) {
       return NextResponse.json(
-        { error: "The model did not return a usable dialogue. Try again." },
+        { error: "The model did not return a usable audio overview. Try again." },
         { status: 502 }
       );
     }
@@ -239,7 +306,7 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"} — you were ${
 ${
   ratio > 1
     ? "Cover the same ground in fewer words: cut repetition, drop the least important thread entirely, and keep turns tighter. Do not simply delete the ending."
-    : "Go deeper rather than padding: take on more of the material, follow the implications further, and let the hosts disagree at more length."
+    : "Go deeper rather than padding: take on more of the material, follow the implications further, and let the speakers develop the ideas at more length."
 }
 Count the words in your answer before returning it.`;
 
@@ -250,7 +317,7 @@ Count the words in your answer before returning it.`;
               role: "system",
               content: `${GROUNDING_RULES}\n\n${PODCAST_INSTRUCTION(
                 topic?.trim() ?? "",
-                { audioLength: wanted }
+                podcastOpts
               )}${lengthNote}`,
             },
             {
@@ -260,11 +327,11 @@ Count the words in your answer before returning it.`;
           ],
           0.7
         );
-        const nextParsed = readScript(retry);
+        const nextParsed = readScript(retry, profiles.length);
         const next = nextParsed.turns;
         // Only take the rewrite if it actually moved towards the target.
         if (
-          next.length >= 2 &&
+          next.length >= minTurns &&
           Math.abs(countWords(next) - targetWords) < Math.abs(words - targetWords)
         ) {
           turns = next;
@@ -293,7 +360,11 @@ Count the words in your answer before returning it.`;
       turns = trimmed.turns;
     }
 
-    const voices = resolveVoices(preset, customVoices);
+    const voices = resolveVoices(preset, requestedVoices, profiles.length);
+    const resolvedSpeakers = profiles.map((s) => ({
+      ...s,
+      voice: voices[s.id],
+    }));
     const speed = clampRate(rate);
     // Pause shaping is a multiplier so it can be turned off entirely without
     // a separate code path.
@@ -311,6 +382,11 @@ Count the words in your answer before returning it.`;
     const id = nanoid(12);
     fs.mkdirSync(audioDir(), { recursive: true });
     fs.writeFileSync(path.join(audioDir(), `${id}.mp3`), audio);
+    const voiceMap = {
+      a: voices.a,
+      b: voices.b,
+      ...Object.fromEntries(resolvedSpeakers.map((s) => [s.id, s.voice])),
+    } as Record<SpeakerId, string>;
 
     const content = {
       title: cleanSpoken(str(script.title, "Audio overview")).slice(0, 120),
@@ -318,7 +394,13 @@ Count the words in your answer before returning it.`;
       turns: turns.map((t, i) => ({ ...t, at: Number(offsets[i].toFixed(2)) })),
       audioUrl: `/api/audio/${id}`,
       durationSec: Number(durationSec.toFixed(2)),
-      voices: { a: voices.a, b: voices.b },
+      voices: voiceMap,
+      speakers: resolvedSpeakers.map(({ id, name, voice, role }) => ({
+        id,
+        name,
+        voice,
+        role,
+      })),
       rate: speed,
       length: wanted,
       targetMinutes: AUDIO_LENGTHS[wanted].minutes,
