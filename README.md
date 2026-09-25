@@ -693,23 +693,6 @@ captures the whole arc as a pull quote.<br><br>
 **Visual guide** and **AI image** are not pictured, since their output depends on
 which image model you deploy.
 
-### What was merged, and what was left out
-
-*Process flow* is a deliberate merge. An "isometric connected system" and a
-"numbered process" are the same format wearing different clothes — both are an
-ordered sequence with arrows — so keeping both would have been a palette swap
-pretending to be a structure. The merged style keeps the isometric sense of
-connection and the process emphasis on direction, and fixes the flaw both
-originals shared: stage names now carry their own detail instead of sitting in a
-disconnected row above unrelated cards. The prompt also asks the model to make
-each hand-off explicit, so the stages read as a chain rather than a list.
-
-Three templates were deliberately not adopted. *Timeline* already exists as its
-own Studio format, where it gets a proper chronological layout. *Lead magnet* and
-*product benefits* are marketing briefs built around a product, brand and
-call-to-action — a notebook grounded in your own sources has none of those, and
-inventing them would violate the one rule the whole app rests on.
-
 Infographics render as **real HTML, not generated images** — with one opt-in
 exception, below. HTML keeps the text selectable and searchable, citations
 hoverable, the layout reflowing on narrow screens, and nothing misspelled by an
@@ -939,12 +922,8 @@ would mangle, and the server strips any that slip through, so nothing reads
 The script is written to a professional podcast brief: a cold open that leads
 with the most arresting thing in the material, three or more segments each
 taking one distinct aspect and handing off to the next, and a close that recaps
-what is worth remembering. What that brief normally also carries — music and
-sound cues, sponsor reads, ad breaks, guest bios, host notes, subscribe
-prompts — is deliberately left out, because none of it exists here and a
-synthesised voice reads `[MUSIC: upbeat intro]` aloud, word for word. Anything
-of that shape that slips through is stripped before synthesis rather than
-spoken.
+what is worth remembering. Stage directions such as `[MUSIC: upbeat intro]` are
+stripped before synthesis, so the voice never reads them aloud.
 
 It uses `en-Multitalker:DragonHDLatestNeural`, Azure's multi-speaker voice, so a
 whole exchange renders in one request and the hosts actually sound like they are
