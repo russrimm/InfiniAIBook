@@ -11,7 +11,7 @@ endpoint. Python is only needed for whiteboard videos.
 
 ```bash
 npm install
-cp .env.example .env.local   # configure a provider; see README → Configuration
+cp .env.example .env.local   # configure a provider; see docs/configuration.md
 npm run dev
 ```
 
@@ -37,8 +37,8 @@ with these checks and the guidelines below as a checklist.
 
 - Keep the grounding rule intact: generated content must come from the selected
   sources, with citations, never from the model's own knowledge.
-- Keep changes focused, and update `README.md` and `.env.example` when you add a
-  feature, setting or environment variable.
+- Keep changes focused, and update `README.md`, the relevant page in `docs/` and
+  `.env.example` when you add a feature, setting or environment variable.
 - Never commit `.env*` files (other than `.env.example`), `.data/`, API keys,
   cookies or real user documents. Screenshots should use fictional sample data.
 - By contributing you agree that your contributions are licensed under the

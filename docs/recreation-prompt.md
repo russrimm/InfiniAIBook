@@ -80,7 +80,7 @@ features one at a time. After each step tell me how to run and test it before mo
 
 A prompt at this level won't reproduce the parts of InfiniAIBook that were
 tuned by hand. To get closer to the current app, follow up with prompts that
-cover these details, all documented in the [README](../README.md):
+cover these details, all covered in the [documentation](README.md):
 
 - **Retrieval**: about 1,400-character chunks with 200 characters of overlap,
   and ranking that blends cosine similarity with lexical overlap at 85/15.
