@@ -21,8 +21,10 @@ are all here too.
 **Contents:** [Screenshots](#screenshots) ·
 [What it does](#what-it-does) ·
 [Notes, sessions and search](#notes-sessions-and-search) ·
+[Exporting](#exporting) ·
 [Quick start](#quick-start) ·
 [Docker](#docker) ·
+[Password protection](#password-protection) ·
 [Configuration](#configuration) ·
 [Environment variables](#environment-variables) ·
 [Authentication](#authentication-microsoft-entra-id) ·
@@ -41,14 +43,38 @@ are all here too.
 ## Screenshots
 
 Captured from the app with a fictional community-garden sample notebook.
-Sources, chat responses and artifacts shown here are prepared demo content.
+Sources, chat responses, notes and artifacts shown here are prepared demo content.
 
 ### Research workspace
 
 Sources, cited answers and Studio tools in one view. Expand citations to inspect
-the source excerpts behind an answer.
+the source excerpts behind an answer, switch between chat sessions from the bar
+above the conversation, and cast one to four speakers for an audio overview.
 
-![InfiniAIBook workspace with three selected sources, a cited chat answer and Studio generation tools](docs/screenshots/workspace.png)
+![InfiniAIBook workspace with four selected sources, a chat session picker, a cited chat answer and Studio generation tools including a multi-speaker audio overview](docs/screenshots/workspace.png)
+
+### Notes and chat sessions
+
+The right-hand column flips between Studio and Notes. Keep your own Markdown
+notes alongside saved chat answers and transformation results, each one
+openable, editable and convertible into a source. See
+[Notes, sessions and search](#notes-sessions-and-search).
+
+![Notes panel listing a saved chat answer, an AI-generated action list and a handwritten note, next to a second chat session about the watering rota](docs/screenshots/notes.png)
+
+### Transformations
+
+Eight built-in prompts, plus any you write, that run on one source and save the
+result as a note.
+
+![Transformations dialog listing the eight built-in prompts, from Dense summary to Action items, with a button to add a new one](docs/screenshots/transformations.png)
+
+### Search and Ask across notebooks
+
+Search every notebook's sources and notes at once, or ask one question and get
+a single grounded answer that cites the notebook each passage came from.
+
+![Search your library page with a grounded answer about the watering rota citing sources from three different notebooks](docs/screenshots/search.png)
 
 ### Interactive mind map
 
