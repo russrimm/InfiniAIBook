@@ -244,15 +244,19 @@ Schema:
   "checklist": [{ "title": string, "detail": string }],
   "regions": [{ "heading": string,
                 "concepts": [{ "takeaway": string, "detail": string,
-                               "metaphor": string, "value": string }] }]
+                               "metaphor": string, "value": string }] }],
+  "hub": { "label": string, "caption": string },
+  "scale": [{ "tier": string, "example": string, "figure": string }],
+  "matrix": { "columns": [string],
+              "rows": [{ "feature": string, "values": [string] }] }
 }
 Rules: 3-4 stats whose "value" is a short figure taken literally from the sources
 (e.g. "68%", "$2.4B", "3x", "12 weeks"); never fabricate a number — if the sources have
 few numbers, use counts of things the sources enumerate. 3-4 sections, each with 2-4 short
 bullets (<= 14 words each) and a single emoji as "icon". "takeaway" is one memorable sentence.
 Include citation markers inside bullets and stat captions.
-Omit "pullQuote", "nextSteps", "flow", "chart", "compare", "checklist" and "regions"
-unless the style guidance below asks for them.`,
+Omit "pullQuote", "nextSteps", "flow", "chart", "compare", "checklist", "regions",
+"hub", "scale" and "matrix" unless the style guidance below asks for them.`,
   },
 
   video: {

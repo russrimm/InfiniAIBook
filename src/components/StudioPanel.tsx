@@ -420,7 +420,7 @@ export default function StudioPanel({
               );
             }
 
-            // The infographic has nineteen styles, so its card carries its own
+            // The infographic has twenty styles, so its card carries its own
             // chooser. A picker elsewhere in the panel reads as a global
             // setting and gets missed.
             if (type === "infographic") {

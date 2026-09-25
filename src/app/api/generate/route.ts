@@ -7,7 +7,7 @@ import { chatJSON, generateImage, type ChatMsg } from "@/lib/ai";
 import { imageDir } from "@/lib/paths";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES, STUDIO } from "@/lib/studio";
-import { DEFAULT_STYLE, buildImagePrompt, styleDef } from "@/lib/infographic";
+import { DEFAULT_STYLE, buildImagePrompt, isImageStyle, styleDef } from "@/lib/infographic";
 import type { ArtifactType, StudyDifficulty, StudyLength, StudyOptions } from "@/lib/types";
 import { NextResponse } from "next/server";
 
@@ -238,6 +238,40 @@ function normalize(type: ArtifactType, raw: Loose): Loose {
       const stripMarkers = (s: string) =>
         s.replace(/\s*\[\d+\](?:\[\d+\])*/g, "").trim();
 
+      // Visual-guide fields: the central hub, a graded scale, and an N-way matrix.
+      const rawHub = (raw.hub ?? {}) as Loose;
+      const hub = str(rawHub.label)
+        ? { label: stripMarkers(str(rawHub.label)), caption: str(rawHub.caption) }
+        : undefined;
+
+      const scale = arr(raw.scale)
+        .map((s) => {
+          const o = s as Loose;
+          return str(o.tier)
+            ? { tier: str(o.tier), example: str(o.example), figure: str(o.figure) }
+            : null;
+        })
+        .filter(Boolean)
+        .slice(0, 4) as { tier: string; example: string; figure: string }[];
+
+      const rawMatrix = (raw.matrix ?? {}) as Loose;
+      const columns = list(rawMatrix.columns, 4);
+      const matrixRows = arr(rawMatrix.rows)
+        .map((r) => {
+          const o = r as Loose;
+          const values = arr(o.values).map((v) => str(v));
+          return str(o.feature)
+            ? {
+                feature: str(o.feature),
+                values: columns.map((_, i) => values[i] ?? ""),
+              }
+            : null;
+        })
+        .filter(Boolean)
+        .slice(0, 6) as { feature: string; values: string[] }[];
+      const matrix =
+        columns.length >= 2 && matrixRows.length ? { columns, rows: matrixRows } : undefined;
+
       return {
         title: stripMarkers(str(raw.title, "Infographic")),
         subtitle: stripMarkers(str(raw.subtitle)),
@@ -252,6 +286,9 @@ function normalize(type: ArtifactType, raw: Loose): Loose {
         compare,
         checklist: checklist.length ? checklist : undefined,
         regions: regions.length ? regions : undefined,
+        hub,
+        scale: scale.length >= 2 ? scale : undefined,
+        matrix,
       };
     }
     default: {
@@ -396,14 +433,14 @@ export async function POST(req: Request) {
     const id = nanoid(12);
     const title = str(content.title, spec.label);
 
-    // The image style renders the brief as a PNG. The brief itself is still
+    // Image styles render the brief as a PNG. The brief itself is still
     // stored, so the artifact keeps its citations — an image alone cannot
     // carry them, and the text in it is not selectable.
     let image: { imageUrl: string; imageModel: string; imageSize: string } | null = null;
-    if (activeStyle === "image") {
+    if (isImageStyle(activeStyle)) {
       try {
         const { png, model, size } = await generateImage(
-          buildImagePrompt(content as Parameters<typeof buildImagePrompt>[0])
+          buildImagePrompt(content as Parameters<typeof buildImagePrompt>[0], activeStyle)
         );
         fs.mkdirSync(imageDir(), { recursive: true });
         fs.writeFileSync(path.join(imageDir(), `${id}.png`), png);

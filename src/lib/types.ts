@@ -100,7 +100,13 @@ export type InfographicContent = {
       value?: string;
     }[];
   }[];
-  /** Set by the "image" style: the rendered PNG served from /api/image/:id. */
+  /** Visual guide: the central concept everything else connects to. */
+  hub?: { label: string; caption?: string };
+  /** Visual guide: graded tiers, lightest to heaviest. */
+  scale?: { tier: string; example?: string; figure?: string }[];
+  /** Visual guide: 2-4 options compared across features. */
+  matrix?: { columns: string[]; rows: { feature: string; values: string[] }[] };
+  /** Set by the image styles: the rendered PNG served from /api/image/:id. */
   imageUrl?: string;
   imageModel?: string;
   imageSize?: string;
