@@ -86,6 +86,77 @@ async function ingestOne(
   return { id: sourceId, title, kind, chars: text.length, chunks: chunks.length };
 }
 
+/**
+ * Reuse a source from another notebook. Its text, summary and embeddings are
+ * copied as they are, so nothing is re-fetched, re-embedded or re-summarised;
+ * the copy is independent afterwards, and deleting either leaves the other.
+ */
+function copySource(sourceId: string, notebookId: string) {
+  const src = db
+    .prepare(
+      `SELECT id, notebook_id, title, kind, url, text, chars, summary, content_hash
+         FROM sources WHERE id = ?`
+    )
+    .get(sourceId) as unknown as
+    | {
+        id: string;
+        notebook_id: string;
+        title: string;
+        kind: string;
+        url: string | null;
+        text: string;
+        chars: number;
+        summary: string | null;
+        content_hash: string | null;
+      }
+    | undefined;
+  if (!src) throw new Error("That source no longer exists.");
+  if (src.notebook_id === notebookId) throw new Error(`"${src.title}" is already in this notebook.`);
+
+  const newId = nanoid(12);
+  db.exec("BEGIN");
+  try {
+    db.prepare(
+      `INSERT INTO sources (id, notebook_id, title, kind, url, text, chars, summary, content_hash, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      newId,
+      notebookId,
+      src.title,
+      src.kind,
+      src.url,
+      src.text,
+      src.chars,
+      src.summary,
+      src.content_hash,
+      Date.now()
+    );
+    const chunks = db
+      .prepare(
+        "SELECT idx, text, embedding, embed_model, embed_dims FROM chunks WHERE source_id = ? ORDER BY idx"
+      )
+      .all(sourceId) as unknown as {
+      idx: number;
+      text: string;
+      embedding: Uint8Array | null;
+      embed_model: string | null;
+      embed_dims: number | null;
+    }[];
+    const insert = db.prepare(
+      `INSERT INTO chunks (id, source_id, notebook_id, idx, text, embedding, embed_model, embed_dims)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    for (const c of chunks) {
+      insert.run(nanoid(12), newId, notebookId, c.idx, c.text, c.embedding, c.embed_model, c.embed_dims);
+    }
+    db.exec("COMMIT");
+    return { id: newId, title: src.title, kind: src.kind, chars: src.chars, chunks: chunks.length };
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
+}
+
 export async function POST(req: Request, { params }: Ctx) {
   try {
     const { id: notebookId } = await params;
@@ -117,6 +188,10 @@ export async function POST(req: Request, { params }: Ctx) {
         url?: string;
         text?: string;
         title?: string;
+        /** Id of a source in another notebook to reuse here. */
+        copyFrom?: string;
+        /** Marks pasted text that came from one of the notebook's notes. */
+        kind?: "note";
       };
       if (body.url) {
         try {
@@ -139,7 +214,7 @@ export async function POST(req: Request, { params }: Ctx) {
               await ingestOne(
                 notebookId,
                 body.title || ex.title,
-                "url",
+                ex.kind === "audio" || ex.kind === "video" ? ex.kind : "url",
                 body.url,
                 ex.text,
                 warnings
@@ -151,13 +226,19 @@ export async function POST(req: Request, { params }: Ctx) {
           // client already shows which one failed.
           errors.push(e instanceof Error ? e.message : "Could not fetch that URL.");
         }
+      } else if (body.copyFrom) {
+        try {
+          added.push(copySource(body.copyFrom, notebookId));
+        } catch (e) {
+          errors.push(e instanceof Error ? e.message : "Could not copy that source.");
+        }
       } else if (body.text) {
         try {
           added.push(
             await ingestOne(
               notebookId,
               body.title || "Pasted text",
-              "text",
+              body.kind === "note" ? "note" : "text",
               null,
               body.text,
               warnings

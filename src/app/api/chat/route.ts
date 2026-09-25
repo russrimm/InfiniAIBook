@@ -4,6 +4,7 @@ import { fail } from "@/lib/http";
 import { chatStream, describeAuthError, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, retrieveWithDiagnostics } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
+import { createSession, getSession, touchSession } from "@/lib/sessions";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -12,10 +13,12 @@ export const maxDuration = 300;
 
 export async function POST(req: Request) {
   try {
-    const { notebookId, message, sourceIds } = (await req.json()) as {
+    const { notebookId, message, sourceIds, sessionId } = (await req.json()) as {
       notebookId: string;
       message: string;
       sourceIds?: string[];
+      /** Conversation thread to continue; a new one is started when omitted. */
+      sessionId?: string;
     };
     if (!notebookId || !message?.trim()) {
       return NextResponse.json({ error: "Missing notebookId or message" }, { status: 400 });
@@ -36,13 +39,19 @@ export async function POST(req: Request) {
 
     const citations = citationList(passages);
 
+    const existing = sessionId ? getSession(sessionId) : null;
+    if (sessionId && (!existing || existing.notebookId !== notebookId)) {
+      return NextResponse.json({ error: "That chat no longer exists." }, { status: 404 });
+    }
+    const session = existing ?? createSession(notebookId);
+
     const history = (
       db
         .prepare(
-          `SELECT role, content FROM messages WHERE notebook_id = ?
+          `SELECT role, content FROM messages WHERE session_id = ?
            ORDER BY created_at DESC LIMIT 8`
         )
-        .all(notebookId) as unknown as { role: "user" | "assistant"; content: string }[]
+        .all(session.id) as unknown as { role: "user" | "assistant"; content: string }[]
     ).reverse();
 
     const userMsgId = nanoid(12);
@@ -62,8 +71,9 @@ export async function POST(req: Request) {
 
     // Only record the turn once the upstream call has actually started.
     db.prepare(
-      "INSERT INTO messages (id, notebook_id, role, content, citations, created_at) VALUES (?,?,?,?,?,?)"
-    ).run(userMsgId, notebookId, "user", message, null, Date.now());
+      "INSERT INTO messages (id, notebook_id, session_id, role, content, citations, created_at) VALUES (?,?,?,?,?,?,?)"
+    ).run(userMsgId, notebookId, session.id, "user", message, null, Date.now());
+    touchSession(session.id, message);
 
     const encoder = new TextEncoder();
     let full = "";
@@ -73,6 +83,7 @@ export async function POST(req: Request) {
         const send = (o: unknown) =>
           controller.enqueue(encoder.encode(JSON.stringify(o) + "\n"));
         try {
+          send({ type: "session", session: getSession(session.id) });
           send({ type: "citations", citations });
           if (mismatch) {
             send({
@@ -96,15 +107,17 @@ export async function POST(req: Request) {
           const kept = citations.filter((c) => used.has(c.n));
           const id = nanoid(12);
           db.prepare(
-            "INSERT INTO messages (id, notebook_id, role, content, citations, created_at) VALUES (?,?,?,?,?,?)"
+            "INSERT INTO messages (id, notebook_id, session_id, role, content, citations, created_at) VALUES (?,?,?,?,?,?,?)"
           ).run(
             id,
             notebookId,
+            session.id,
             "assistant",
             full,
             JSON.stringify(kept.length ? kept : citations.slice(0, 4)),
             Date.now()
           );
+          touchSession(session.id);
           send({ type: "done", id, citations: kept.length ? kept : citations.slice(0, 4) });
         } catch (e) {
           const msg = describeAuthError(e) ?? (e instanceof Error ? e.message : "stream failed");

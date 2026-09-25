@@ -16,7 +16,23 @@ const ICONS: Record<string, string> = {
   txt: "📄",
   csv: "📊",
   json: "🔧",
+  note: "🗒️",
+  audio: "🎧",
+  video: "🎬",
+  mp3: "🎧",
+  mpga: "🎧",
+  mpeg: "🎧",
+  m4a: "🎧",
+  wav: "🎧",
+  ogg: "🎧",
+  oga: "🎧",
+  flac: "🎧",
+  webm: "🎬",
+  mp4: "🎬",
 };
+
+/** Mirrors the media types the server transcribes (src/lib/ingest.ts). */
+const MEDIA_ACCEPT = ".mp3,.mpga,.mpeg,.m4a,.wav,.ogg,.oga,.flac,.webm,.mp4";
 
 function bytes(n: number) {
   if (n < 1000) return `${n} chars`;
@@ -50,6 +66,7 @@ export default function SourcesPanel({
   onChanged,
   onDiscover,
   onBrowse,
+  onLibrary,
   addRef,
 }: {
   notebookId: string;
@@ -62,6 +79,8 @@ export default function SourcesPanel({
   onChanged: () => Promise<void> | void;
   onDiscover: () => void;
   onBrowse: () => void;
+  /** Reuse a source that already lives in another notebook. */
+  onLibrary: () => void;
   addRef: React.MutableRefObject<((hits: DiscoverHit[]) => void) | null>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -191,7 +210,7 @@ export default function SourcesPanel({
           <div className="mb-1 text-lg">📎</div>
           <p className="text-xs font-medium">Drop files or click to upload</p>
           <p className="mt-1 text-[11px] text-[var(--muted)]">
-            PDF · DOCX · TXT · MD · CSV · HTML
+            PDF · DOCX · TXT · MD · CSV · HTML · audio/video (transcribed)
           </p>
         </div>
         <input
@@ -199,7 +218,7 @@ export default function SourcesPanel({
           type="file"
           multiple
           hidden
-          accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.htm"
+          accept={`.pdf,.docx,.txt,.md,.csv,.json,.html,.htm,${MEDIA_ACCEPT}`}
           onChange={(e) => {
             if (e.target.files) uploadFiles(e.target.files);
             e.target.value = "";
@@ -224,6 +243,13 @@ export default function SourcesPanel({
           </button>
           <button className="btn !px-2 !py-1.5 !text-xs" onClick={onBrowse}>
             🌐 Browse
+          </button>
+          <button
+            className="btn !px-2 !py-1.5 !text-xs"
+            onClick={onLibrary}
+            title="Reuse a source from another notebook"
+          >
+            📚 Library
           </button>
         </div>
 

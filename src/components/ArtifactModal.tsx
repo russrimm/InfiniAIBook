@@ -20,6 +20,7 @@ import type {
   MindMapContent,
   MindNode,
   PodcastContent,
+  PodcastSpeakerId,
   QuizContent,
   TimelineContent,
   VideoContent,
@@ -35,6 +36,11 @@ function mindToMd(n: MindNode, depth = 0): string {  const pad = "  ".repeat(dep
     `${pad}- **${n.label}**${note}`,
     ...(n.children ?? []).map((c) => mindToMd(c, depth + 1)),
   ].join("\n");
+}
+
+function podcastSpeakerLabel(p: PodcastContent, id: PodcastSpeakerId): string {
+  const profile = p.speakers?.find((s) => s.id === id);
+  return profile?.name?.trim() || p.voices[id] || id.toUpperCase();
 }
 
 function toMarkdown(a: Artifact): string {
@@ -137,7 +143,7 @@ function toMarkdown(a: Artifact): string {
     case "podcast": {
       const p = c as unknown as PodcastContent;
       const body = p.turns
-        .map((t) => `**${t.speaker === "a" ? p.voices.a : p.voices.b}:** ${t.text}`)
+        .map((t) => `**${podcastSpeakerLabel(p, t.speaker)}:** ${t.text}`)
         .join("\n\n");
       return `${head}${p.description ?? ""}\n\n${body}\n`;
     }

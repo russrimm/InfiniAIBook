@@ -1,0 +1,23 @@
+services:
+  infiniaibook:
+    build: .
+    image: infiniaibook:latest
+    container_name: infiniaibook
+    restart: unless-stopped
+    # Bound to this machine only. Set INFINIAIBOOK_PASSWORD before exposing it
+    # any further; see SECURITY.md.
+    ports:
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - .env.local
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - infiniaibook-data:/data
+    # Local model servers (Ollama, LM Studio, llama.cpp) on the host are
+    # reachable as http://host.docker.internal:<port>/v1.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  infiniaibook-data:

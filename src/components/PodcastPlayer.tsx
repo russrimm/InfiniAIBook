@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { PodcastContent } from "@/lib/types";
+import type { PodcastContent, PodcastSpeakerId } from "@/lib/types";
 
 function clock(sec: number): string {
   if (!Number.isFinite(sec) || sec < 0) sec = 0;
@@ -11,6 +11,17 @@ function clock(sec: number): string {
 }
 
 const SPEEDS = [1, 1.25, 1.5, 2];
+const SPEAKER_COLORS: Record<PodcastSpeakerId, string> = {
+  a: "text-[#8f9dff]",
+  b: "text-[#6ee7b7]",
+  c: "text-[#fbbf24]",
+  d: "text-[#f0abfc]",
+};
+
+function speakerLabel(content: PodcastContent, id: PodcastSpeakerId): string {
+  const profile = content.speakers?.find((s) => s.id === id);
+  return profile?.name?.trim() || content.voices[id] || id.toUpperCase();
+}
 
 export default function PodcastPlayer({ content }: { content: PodcastContent }) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -234,11 +245,11 @@ export default function PodcastPlayer({ content }: { content: PodcastContent }) 
             >
               <span
                 className={`mt-0.5 shrink-0 text-[10px] font-semibold tracking-wide uppercase ${
-                  t.speaker === "a" ? "text-[#8f9dff]" : "text-[#6ee7b7]"
+                  SPEAKER_COLORS[t.speaker]
                 }`}
                 style={{ minWidth: "3.2rem" }}
               >
-                {t.speaker === "a" ? content.voices.a : content.voices.b}
+                {speakerLabel(content, t.speaker)}
               </span>
               <p
                 className={`flex-1 text-[14px] leading-relaxed ${

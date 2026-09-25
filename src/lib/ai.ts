@@ -1,4 +1,4 @@
-import OpenAI, { AzureOpenAI } from "openai";
+import OpenAI, { AzureOpenAI, toFile } from "openai";
 import {
   DefaultAzureCredential,
   ClientSecretCredential,
@@ -6,23 +6,38 @@ import {
   type TokenCredential,
 } from "@azure/identity";
 import { getSetting, SETTING_CHAT_MODEL, SETTING_EMBED_MODEL, SETTING_IMAGE_MODEL, SETTING_VISION_MODEL } from "./settings";
+import { resolveEndpoint, type ResolvedEndpoint } from "./providers";
 
 /**
- * Two providers are supported.
+ * Two client families are supported.
  *
- * "openai"  — any OpenAI-compatible endpoint given a base URL: llama.cpp's
- *             llama-server, Ollama, LM Studio, vLLM, or OpenAI itself. Most
- *             local runtimes ignore the API key but the SDK requires one.
+ * "openai"  — any OpenAI-compatible endpoint: a named preset (AI_PROVIDER=
+ *             openai, anthropic, gemini, groq, mistral, deepseek, openrouter,
+ *             xai, perplexity, together, ollama, lmstudio, llamacpp) or a bare
+ *             AI_BASE_URL for llama.cpp, vLLM and anything else that speaks the
+ *             protocol. Most local runtimes ignore the API key but the SDK
+ *             requires one.
  * "azure"   — Azure OpenAI, with Entra ID or a key.
  *
- * AI_BASE_URL wins when both are configured, so pointing at a local runtime is
- * a one-line change that needs no Azure settings removed.
+ * An OpenAI-compatible provider wins when both are configured, so pointing at
+ * a local runtime is a one-line change that needs no Azure settings removed.
+ * AI_PROVIDER=azure forces Azure even if a base URL is also set.
  */
-const baseURL = process.env.AI_BASE_URL?.trim();
+const forceAzure = process.env.AI_PROVIDER?.trim().toLowerCase() === "azure";
+const main: ResolvedEndpoint = forceAzure
+  ? { name: "azure", label: "Azure OpenAI", baseURL: null, apiKey: undefined, preset: null }
+  : resolveEndpoint("AI");
+const baseURL = main.baseURL ?? undefined;
 const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
 
 export type Provider = "openai" | "azure";
 export const PROVIDER: Provider = baseURL ? "openai" : "azure";
+/** Human-readable provider name, for the UI and diagnostics. */
+export const PROVIDER_LABEL = PROVIDER === "azure" ? "Azure OpenAI" : main.label;
+
+/** Separate endpoints for embeddings and transcription, when configured. */
+const embedEndpoint = resolveEndpoint("AI_EMBEDDING");
+const transcribeEndpoint = resolveEndpoint("AI_TRANSCRIPTION");
 
 const apiKey = process.env.AZURE_OPENAI_API_KEY;
 const DEFAULT_API_VERSION = "2024-10-21";
@@ -58,10 +73,20 @@ const apiVersionLooksWrong =
  * default. AI_MODEL / AI_EMBEDDING_MODEL are kept separate from the Azure
  * deployment names so neither provider's config leaks into the other.
  */
+/** Defaults a named provider preset supplies, used only for that provider. */
+const presetChat = () => (PROVIDER === "openai" ? main.preset?.chatModel : undefined);
+const presetEmbed = () =>
+  embedEndpoint.baseURL
+    ? embedEndpoint.preset?.embedModel
+    : PROVIDER === "openai"
+      ? main.preset?.embedModel
+      : undefined;
+
 export function chatModel(): string {
   return (
     getSetting(SETTING_CHAT_MODEL) ||
     process.env.AI_MODEL?.trim() ||
+    presetChat() ||
     process.env.AZURE_OPENAI_DEPLOYMENT ||
     "gpt-4o"
   );
@@ -71,6 +96,7 @@ export function embedModel(): string {
   return (
     getSetting(SETTING_EMBED_MODEL) ||
     process.env.AI_EMBEDDING_MODEL?.trim() ||
+    presetEmbed() ||
     process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT ||
     "text-embedding-3-small"
   );
@@ -79,15 +105,46 @@ export function embedModel(): string {
 /** The value configured in the environment, ignoring any saved override. */
 export function envChatModel(): string {
   return (
-    process.env.AI_MODEL?.trim() || process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o"
+    process.env.AI_MODEL?.trim() ||
+    presetChat() ||
+    process.env.AZURE_OPENAI_DEPLOYMENT ||
+    "gpt-4o"
   );
 }
 
 export function envEmbedModel(): string {
   return (
     process.env.AI_EMBEDDING_MODEL?.trim() ||
+    presetEmbed() ||
     process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT ||
     "text-embedding-3-small"
+  );
+}
+
+/**
+ * Chat-only providers (Anthropic, Groq, DeepSeek, xAI, Perplexity...) have no
+ * embeddings endpoint. Calling one anyway fails with an opaque 404, so say
+ * what to configure instead. Retrieval still works by keyword meanwhile.
+ */
+function embeddingUnavailableReason(): string | null {
+  if (PROVIDER !== "openai" || embedEndpoint.baseURL) return null;
+  if (!main.preset || main.preset.local || main.preset.embedModel) return null;
+  if (process.env.AI_EMBEDDING_MODEL?.trim() || getSetting(SETTING_EMBED_MODEL)) return null;
+  return `${main.label} does not offer embeddings. Set AI_EMBEDDING_PROVIDER (e.g. openai, gemini, mistral or ollama) with its key, or AI_EMBEDDING_BASE_URL, to enable semantic search.`;
+}
+
+/**
+ * Speech-to-text model for audio and video sources. For Azure this is a
+ * deployment name (e.g. a whisper or gpt-4o-transcribe deployment).
+ */
+export function transcriptionModel(): string | null {
+  return (
+    process.env.AI_TRANSCRIPTION_MODEL?.trim() ||
+    (transcribeEndpoint.baseURL ? transcribeEndpoint.preset?.transcriptionModel : undefined) ||
+    (PROVIDER === "azure"
+      ? process.env.AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT?.trim()
+      : main.preset?.transcriptionModel) ||
+    null
   );
 }
 
@@ -229,7 +286,7 @@ let tokenProvider: (() => Promise<string>) | null = null;
  */
 export async function authHeaders(): Promise<Record<string, string>> {
   if (PROVIDER === "openai") {
-    const key = process.env.AI_API_KEY?.trim();
+    const key = main.apiKey;
     return key ? { Authorization: `Bearer ${key}` } : {};
   }
   if (apiKey) return { "api-key": apiKey };
@@ -244,16 +301,16 @@ export function getClient(): OpenAI | AzureOpenAI {
     client = new OpenAI({
       baseURL,
       // Local runtimes ignore this, but the SDK refuses to construct without it.
-      apiKey: process.env.AI_API_KEY?.trim() || "not-needed",
+      apiKey: main.apiKey || "not-needed",
     });
     return client;
   }
 
   if (!endpoint) {
     throw new MissingConfigError(
-      "No model provider is configured. Set AI_BASE_URL for an OpenAI-compatible endpoint " +
-        "(llama.cpp, Ollama, LM Studio, vLLM, OpenAI), or AZURE_OPENAI_ENDPOINT for Azure. " +
-        "See .env.example."
+      "No model provider is configured. Set AI_PROVIDER (openai, anthropic, gemini, groq, " +
+        "mistral, ollama, …) with its API key, AI_BASE_URL for any OpenAI-compatible endpoint, " +
+        "or AZURE_OPENAI_ENDPOINT for Azure. See .env.example."
     );
   }
 
@@ -291,7 +348,9 @@ export function describeAuthError(e: unknown): string | null {
       return `The model server does not support this operation. Embeddings in particular need a server started with embedding support (llama.cpp: '--embeddings'; Ollama: pull a dedicated model such as nomic-embed-text and set AI_EMBEDDING_MODEL).`;
     }
     if (status === 401 || status === 403) {
-      return `The model server at ${baseURL} rejected the credential. Set AI_API_KEY if it requires one.`;
+      return `The model server at ${baseURL} rejected the credential. Set ${
+        main.preset?.keyEnv ? `${main.preset.keyEnv} (or AI_API_KEY)` : "AI_API_KEY"
+      } if it requires one.`;
     }
     return null;
   }
@@ -458,15 +517,68 @@ export function parseJSON<T>(raw: string): T {
   }
 }
 
+/** Clients for jobs routed to a different provider than chat, built on first use. */
+const sideClients = new Map<string, OpenAI>();
+
+function sideClient(ep: ResolvedEndpoint): OpenAI | null {
+  if (!ep.baseURL) return null;
+  let c = sideClients.get(ep.baseURL);
+  if (!c) {
+    c = new OpenAI({ baseURL: ep.baseURL, apiKey: ep.apiKey || "not-needed" });
+    sideClients.set(ep.baseURL, c);
+  }
+  return c;
+}
+
 export async function embed(texts: string[]): Promise<number[][]> {
+  const unavailable = embeddingUnavailableReason();
+  if (unavailable) throw new Error(unavailable);
+  const c = sideClient(embedEndpoint) ?? getClient();
+
   const out: number[][] = [];
-  const BATCH = 64;  for (let i = 0; i < texts.length; i += BATCH) {
+  const BATCH = 64;
+  for (let i = 0; i < texts.length; i += BATCH) {
     const slice = texts.slice(i, i + BATCH).map((t) => t.slice(0, 8000) || " ");
     const res = await withRetry(
-      () => getClient().embeddings.create({ model: embedModel(), input: slice }),
+      () => c.embeddings.create({ model: embedModel(), input: slice }),
       "embeddings"
     );
     for (const d of res.data) out.push(d.embedding as number[]);
   }
   return out;
+}
+
+/** Whisper-family endpoints refuse uploads above this size. */
+export const MAX_TRANSCRIPTION_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Speech-to-text for audio and video sources, via the OpenAI transcription
+ * API — which OpenAI, Azure OpenAI (whisper / gpt-4o-transcribe deployments),
+ * Groq and most local whisper servers implement.
+ */
+export async function transcribe(
+  audio: Buffer,
+  filename: string,
+  mime: string
+): Promise<string> {
+  const model = transcriptionModel();
+  if (!model) {
+    throw new MissingConfigError(
+      PROVIDER === "azure"
+        ? "Audio and video sources need a transcription deployment. Set AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT to a whisper or gpt-4o-transcribe deployment, or AI_TRANSCRIPTION_PROVIDER to another provider (e.g. openai or groq)."
+        : "Audio and video sources need a speech-to-text model. Set AI_TRANSCRIPTION_MODEL (e.g. whisper-1), or AI_TRANSCRIPTION_PROVIDER to a provider that offers one (openai, groq)."
+    );
+  }
+  if (audio.length > MAX_TRANSCRIPTION_BYTES) {
+    throw new Error(
+      `"${filename}" is ${(audio.length / 1024 / 1024).toFixed(1)} MB; transcription accepts up to 25 MB. Compress it (e.g. a mono 64 kbit/s MP3) or split it into parts.`
+    );
+  }
+  const c = sideClient(transcribeEndpoint) ?? getClient();
+  const file = await toFile(audio, filename, { type: mime });
+  const res = await withRetry(
+    () => c.audio.transcriptions.create({ file, model }),
+    "transcription"
+  );
+  return (res as { text?: string }).text?.trim() ?? "";
 }

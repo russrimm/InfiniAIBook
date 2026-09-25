@@ -7,8 +7,28 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const globalForDb = globalThis as unknown as { __db?: DatabaseSync };
 
+const DB_FILE = "infiniaibook.db";
+/** Name used before the project was renamed to InfiniAIBook. */
+const LEGACY_DB_FILE = "opennotebook.db";
+
+/**
+ * Carry an existing database across the rename rather than silently starting
+ * empty. The WAL and shared-memory sidecars move with it, or committed writes
+ * still sitting in the WAL would be lost.
+ */
+function adoptLegacyDatabase() {
+  const next = path.join(DATA_DIR, DB_FILE);
+  const old = path.join(DATA_DIR, LEGACY_DB_FILE);
+  if (fs.existsSync(next) || !fs.existsSync(old)) return;
+  for (const suffix of ["", "-wal", "-shm"]) {
+    if (fs.existsSync(old + suffix)) fs.renameSync(old + suffix, next + suffix);
+  }
+  console.log(`[db] moved ${LEGACY_DB_FILE} to ${DB_FILE}`);
+}
+
 function init(): DatabaseSync {
-  const db = new DatabaseSync(path.join(DATA_DIR, "opennotebook.db"));
+  adoptLegacyDatabase();
+  const db = new DatabaseSync(path.join(DATA_DIR, DB_FILE));
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA busy_timeout = 8000");
   db.exec("PRAGMA foreign_keys = ON");
@@ -72,6 +92,37 @@ function init(): DatabaseSync {
       created_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_messages_nb ON messages(notebook_id);
+
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+      id TEXT PRIMARY KEY,
+      notebook_id TEXT NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_sessions_nb ON chat_sessions(notebook_id);
+
+    CREATE TABLE IF NOT EXISTS notes (
+      id TEXT PRIMARY KEY,
+      notebook_id TEXT NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'human',
+      source_id TEXT,
+      citations TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_notes_nb ON notes(notebook_id);
+
+    CREATE TABLE IF NOT EXISTS transformations (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      prompt TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
   migrate(db);
   return db;
@@ -111,6 +162,34 @@ function migrate(db: DatabaseSync) {
     if (!srcCols.includes(name)) {
       db.exec(`ALTER TABLE sources ADD COLUMN ${name} ${type}`);
     }
+  }
+
+  // Chat sessions. Messages written before sessions existed belong to one
+  // implicit conversation per notebook, so each such notebook gets a session
+  // that adopts them — nothing already said disappears from view.
+  const msgCols = (db.prepare("PRAGMA table_info(messages)").all() as unknown as {
+    name: string;
+  }[]).map((c) => c.name);
+  if (!msgCols.includes("session_id")) {
+    db.exec("ALTER TABLE messages ADD COLUMN session_id TEXT");
+  }
+  db.exec("CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id)");
+
+  const orphaned = db
+    .prepare(
+      `SELECT notebook_id, MIN(created_at) AS first, MAX(created_at) AS last
+         FROM messages WHERE session_id IS NULL GROUP BY notebook_id`
+    )
+    .all() as unknown as { notebook_id: string; first: number; last: number }[];
+  for (const o of orphaned) {
+    const sid = `s_${o.notebook_id}_${o.first}`;
+    db.prepare(
+      `INSERT OR IGNORE INTO chat_sessions (id, notebook_id, title, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?)`
+    ).run(sid, o.notebook_id, "Earlier conversation", o.first, o.last);
+    db.prepare(
+      "UPDATE messages SET session_id = ? WHERE notebook_id = ? AND session_id IS NULL"
+    ).run(sid, o.notebook_id);
   }
 
   // Backfill rows embedded before the columns existed. Their dimension is

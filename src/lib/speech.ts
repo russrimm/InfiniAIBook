@@ -4,6 +4,9 @@ import {
   getBearerTokenProvider,
   type TokenCredential,
 } from "@azure/identity";
+import { addBreaths, turnLeadIn } from "./prosody";
+import { VOICE_PRESETS, type SpeakerId, type VoiceSelection } from "./voices";
+export type { SpeakerId, VoicePair } from "./voices";
 
 const SCOPE = "https://cognitiveservices.azure.com/.default";
 
@@ -19,11 +22,7 @@ export const MULTITALKER_VOICE = "en-Multitalker:DragonHDLatestNeural";
 
 export class SpeechNotConfiguredError extends Error {}
 
-export type Turn = { speaker: "a" | "b"; text: string };
-
-export type { VoicePair } from "./voices";
-import { VOICE_PRESETS, type VoicePair } from "./voices";
-import { addBreaths, turnLeadIn } from "./prosody";
+export type Turn = { speaker: SpeakerId; text: string };
 
 function buildCredential(): TokenCredential {
   const tenantId = process.env.AZURE_TENANT_ID;
@@ -69,7 +68,7 @@ const escapeXml = (s: string) =>
 
 function buildSsml(
   turns: Turn[],
-  voices: VoicePair,
+  voices: VoiceSelection,
   rate = 1,
   breath = 1
 ): string {
@@ -94,7 +93,7 @@ function buildSsml(
     ? `<voice name='${MULTITALKER_VOICE}'><mstts:dialog>${turns
         .map(
           (t, i) =>
-            `<mstts:turn speaker='${t.speaker === "a" ? voices.a : voices.b}'>${wrap(
+            `<mstts:turn speaker='${voices[t.speaker] ?? voices.a}'>${wrap(
               t.text,
               i === 0
             )}</mstts:turn>`
@@ -103,7 +102,7 @@ function buildSsml(
     : turns
         .map(
           (t, i) =>
-            `<voice name='${t.speaker === "a" ? voices.a : voices.b}'>${wrap(
+            `<voice name='${voices[t.speaker] ?? voices.a}'>${wrap(
               t.text,
               i === 0
             )}</voice>`
@@ -120,7 +119,7 @@ async function synthesize(ssml: string, format?: string): Promise<Buffer> {
   const headers: Record<string, string> = {
     "Content-Type": "application/ssml+xml",
     "X-Microsoft-OutputFormat": format || OUTPUT_FORMAT,
-    "User-Agent": "OpenNotebook",
+    "User-Agent": "InfiniAIBook",
   };
   if (speechKey) headers["Ocp-Apim-Subscription-Key"] = speechKey;
   else headers["Authorization"] = await authHeader();
@@ -192,7 +191,7 @@ export function wrapSsml(inner: string, voice = MULTITALKER_VOICE): string {
  */
 export async function synthesizeDialogue(
   turns: Turn[],
-  voices: VoicePair = VOICE_PRESETS.conversational,
+  voices: VoiceSelection = VOICE_PRESETS.conversational,
   rate = 1,
   batchSize = 6,
   breath = 1

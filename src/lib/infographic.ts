@@ -901,7 +901,7 @@ export function buildImagePrompt(content: ImageBrief, style?: string): string {
 function buildIllustratedPrompt(content: ImageBrief): string {
   const regions = regionLines(content.regions);
 
-  return `Create an Agentic Powered Notebook-style illustrated infographic.
+  return `Create a polished, editorial-style illustrated infographic.
 
 Convert each concept below into an intuitive visual metaphor, diagram, process
 illustration, comparison, gauge, timeline or mini visualization. Do not simply
