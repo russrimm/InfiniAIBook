@@ -1246,6 +1246,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and the checks to
 run before a pull request. Report security issues privately as described in
 [SECURITY.md](SECURITY.md).
 
+Want to build something like this yourself? See the
+[recreation prompt](docs/recreation-prompt.md), a beginner-level LLM prompt
+for rebuilding OpenNotebook.
+
 ## Licence
 
 [MIT](LICENSE)
