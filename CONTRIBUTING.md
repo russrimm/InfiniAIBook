@@ -30,6 +30,9 @@ npm run check:ai        # live provider checks; add --studio, --styles or --imag
 `check:ai` calls the configured model provider and costs tokens; run it when you
 change prompts, schemas or `src/lib/ai.ts`.
 
+New pull requests start from a [template](.github/pull_request_template.md)
+with these checks and the guidelines below as a checklist.
+
 ## Guidelines
 
 - Keep the grounding rule intact: generated content must come from the selected
