@@ -16,6 +16,7 @@
 |---|---|
 | 🎧 Audio overview | One to four speakers discuss your sources — real MP3 audio with a synced, clickable transcript, at roughly 3, 6 or 10 minutes |
 | 🎬 Whiteboard video | A hand draws your sources as marker doodles, narrated — six scenes, MP4 |
+| 🧑‍🏫 Training video | A trainer's script from your sources and notes, edited then rendered by a lip-synced Azure avatar, MP4 |
 | 📄 Report | Executive summary, analytical sections, key takeaways, open questions |
 | 🧾 Briefing doc | Under 700 words: bottom line, evidence, risks, next steps |
 | 📊 Infographic | Headline stats, themed sections, key takeaway — **20 styles**, visual guide by default |

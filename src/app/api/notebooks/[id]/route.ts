@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 import { removeAudio, removeImage, removeVideo } from "@/lib/paths";
 import { reconcileStalledVideos } from "@/lib/videobuild";
+import { forgetTraining, resumeStalledTrainings } from "@/lib/trainingbuild";
 import { listSessions, sessionMessages } from "@/lib/sessions";
 import { listNotes } from "@/lib/notes";
 import { NextResponse } from "next/server";
@@ -45,6 +46,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     // died with its process gets noticed and reported instead of appearing to
     // run forever.
     reconcileStalledVideos(id);
+    resumeStalledTrainings(id);
 
     const sourceRows = db
       .prepare(
@@ -118,13 +120,17 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     // Artifact rows cascade, but the files they point at do not. Every type
     // that writes to disk has to be cleaned here or it is orphaned for good.
     const artifacts = db
-      .prepare("SELECT id, type FROM artifacts WHERE notebook_id = ?")
-      .all(id) as unknown as { id: string; type: string }[];
+      .prepare("SELECT id, type, content FROM artifacts WHERE notebook_id = ?")
+      .all(id) as unknown as { id: string; type: string; content: string }[];
 
     for (const a of artifacts) {
       if (a.type === "podcast") removeAudio(a.id);
       else if (a.type === "infographic") removeImage(a.id);
       else if (a.type === "video") removeVideo(a.id);
+      else if (a.type === "training") {
+        removeVideo(a.id);
+        forgetTraining(a.content);
+      }
     }
 
     db.prepare("DELETE FROM notebooks WHERE id = ?").run(id);

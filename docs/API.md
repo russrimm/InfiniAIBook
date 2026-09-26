@@ -117,6 +117,9 @@ and cannot be edited or deleted.
 | POST | `/api/generate` | `{ notebookId, type, topic?, sourceIds?, style?, difficulty?, length? }` |
 | POST | `/api/podcast` | `{ notebookId, topic?, sourceIds?, preset?, speakers?: [{ voice?, name?, role? }] (1–4), rate?, breath?, length? }` |
 | POST | `/api/video` | Whiteboard video; poll `GET /api/video/{id}` |
+| POST | `/api/training` | `{ notebookId, topic?, sourceIds?, presenter?, voice?, background?, length? }` → training transcript artifact |
+| PATCH | `/api/training/{id}` | Edit `title`, `description`, `objectives`, `sections`, `presenter`, `voice`, `background`; 409 while rendering |
+| POST | `/api/training/{id}/render` | Start the avatar render; poll `GET /api/artifacts/{id}` for `progress.stage` |
 | GET/DELETE | `/api/artifacts/{id}` | A saved artifact |
 | GET | `/api/audio/{id}`, `/api/image/{id}`, `/api/voice-preview/{name}` | Binary media |
 

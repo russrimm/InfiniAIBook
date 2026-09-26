@@ -9,6 +9,7 @@ export type ArtifactType =
   | "timeline"
   | "infographic"
   | "video"
+  | "training"
   | "podcast";
 
 /** Study aids can be tuned for depth and rigour at generation time. */
@@ -152,8 +153,52 @@ export type VideoContent = {
   progress?: { stage: string; done: number; total: number; note?: string };
 };
 
+export type TrainingStage =
+  /** Transcript written and waiting for review; nothing has been billed yet. */
+  | "transcript"
+  | "submitting"
+  | "submitted"
+  | "rendering"
+  | "downloading"
+  | "done"
+  | "failed";
+
+export type TrainingSection = { title: string; text: string };
+
+export type TrainingContent = {
+  title: string;
+  description?: string;
+  objectives: string[];
+  sections: TrainingSection[];
+  /** Key into AVATAR_PRESETS (src/lib/avatars.ts). */
+  presenter: string;
+  /** Speaker name from PINNED_VOICES. */
+  voice: string;
+  /** #RRGGBB background behind the presenter. */
+  background: string;
+  length?: string;
+  targetMinutes?: number;
+  /** Optional USD per minute of avatar output, for the on-screen estimate. */
+  pricePerMinute?: number;
+  progress: {
+    stage: TrainingStage;
+    note?: string;
+    synthesisId?: string;
+    submittedAt?: number;
+  };
+  videoUrl?: string;
+  durationSec?: number;
+  bytes?: number;
+  /** Avatar seconds Azure reported billing for the last render. */
+  billedSeconds?: number;
+  renderedAt?: number;
+  /** Set when the transcript changed after the last render. */
+  editedSinceRender?: boolean;
+};
+
 export type ArtifactContent =
   | DocContent
+  | TrainingContent
   | FaqContent
   | QuizContent
   | FlashcardsContent

@@ -103,7 +103,9 @@ commentary. Only a model provider is required.
 | `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT` | Optional Whisper / gpt-4o-transcribe deployment for audio/video sources |
 | `AZURE_OPENAI_API_KEY` | Legacy key auth; takes precedence over Entra when set |
 | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | Service principal or user-assigned identity for Entra auth |
-| `AZURE_SPEECH_REGION`, `AZURE_SPEECH_RESOURCE_ID`, `AZURE_SPEECH_KEY` | Azure Speech for audio overviews and video narration |
+| `AZURE_SPEECH_REGION`, `AZURE_SPEECH_RESOURCE_ID`, `AZURE_SPEECH_KEY` | Azure Speech for audio overviews, video narration and training-video avatars |
+| `AZURE_SPEECH_ENDPOINT` | Custom-domain Speech endpoint for the avatar service; derived from `AZURE_SPEECH_RESOURCE_ID` when unset |
+| `AZURE_AVATAR_BACKGROUND_URL`, `AZURE_AVATAR_PRICE_PER_MINUTE` | Optional training-video background image and cost estimate ([Training videos](training-videos.md)) |
 | `STUDIO_CONTEXT_CHARS` | Starting source budget for Studio generation (default `30000`) |
 | `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX` | Optional discovery providers; DuckDuckGo is used without them |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | YouTube transcripts via Gemini |
