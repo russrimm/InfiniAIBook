@@ -25,6 +25,13 @@ import type {
   StudyDifficulty,
   StudyLength,
 } from "@/lib/types";
+import {
+  AVATAR_PRESETS,
+  BACKGROUNDS,
+  DEFAULT_BACKGROUND,
+  DEFAULT_PRESENTER,
+  PRESENTER_VOICES,
+} from "@/lib/avatars";
 
 /** Speakers that can be pinned, listed when a chosen one cannot be. */
 const PINNABLE = Object.keys(PINNED_VOICES);
@@ -122,6 +129,10 @@ export default function StudioPanel({
     profileSpeakers("deep-dive")
   );
   const [speed, setSpeed] = useState(1);
+  const [trainer, setTrainer] = useState(DEFAULT_PRESENTER);
+  const [trainerVoice, setTrainerVoice] = useState(AVATAR_PRESETS[DEFAULT_PRESENTER].voice);
+  const [trainingLen, setTrainingLen] = useState<AudioLength>("short");
+  const [trainingBg, setTrainingBg] = useState(DEFAULT_BACKGROUND);
   const [running, setRunning] = useState<Set<ArtifactType>>(new Set());
   const [errors, setErrors] = useState<Partial<Record<ArtifactType, string>>>({});
   const previewAudio = useRef<HTMLAudioElement | null>(null);
@@ -239,6 +250,17 @@ export default function StudioPanel({
       voice: narrator,
     });
 
+  const generateTraining = () =>
+    run("training", "/api/training", {
+      notebookId,
+      topic: topic.trim() || undefined,
+      sourceIds: selectedIds,
+      presenter: trainer,
+      voice: trainerVoice,
+      background: trainingBg,
+      length: trainingLen,
+    });
+
   const remove = async (id: string) => {
     await fetch(`/api/artifacts/${id}`, { method: "DELETE" });
     await onChanged();
@@ -255,6 +277,7 @@ export default function StudioPanel({
   const blocked = !hasSources || selectedIds.length === 0;
   const audioBusy = running.has("podcast");
   const videoBusy = running.has("video");
+  const trainingBusy = running.has("training");
   const pinnedVoices = delivery === "pinned";
   /** Fixed voices exist for only some speakers, so warn before generating. */
   const unpinnable = pinnedVoices
@@ -477,6 +500,94 @@ export default function StudioPanel({
             <span className="shrink-0 text-[10px] leading-snug text-[var(--muted)]">
               Uses the focus box above
             </span>
+          </div>
+        </div>
+
+        <div
+          className={`card relative mb-2 overflow-hidden transition ${
+            trainingBusy ? "shimmer border-[var(--accent)]" : ""
+          }`}
+        >
+          <button
+            disabled={blocked || trainingBusy}
+            onClick={() => void generateTraining()}
+            className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span className="text-xl">{STUDIO.training.icon}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-medium">Training video</span>
+              <span className="block text-[10px] leading-snug text-[var(--muted)]">
+                {trainingBusy
+                  ? "Writing the transcript from your sources and notes…"
+                  : "A presenter teaches your research — review the script, then render"}
+              </span>
+            </span>
+          </button>
+
+          <div className="space-y-2 border-t border-[var(--border)] px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                Trainer
+              </span>
+              <select
+                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                value={trainer}
+                onChange={(e) => {
+                  setTrainer(e.target.value);
+                  setTrainerVoice(AVATAR_PRESETS[e.target.value]?.voice ?? trainerVoice);
+                }}
+              >
+                {Object.entries(AVATAR_PRESETS).map(([key, p]) => (
+                  <option key={key} value={key}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Presenter voice"
+                className="w-24 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                value={trainerVoice}
+                onChange={(e) => setTrainerVoice(e.target.value)}
+              >
+                {PRESENTER_VOICES.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                Length
+              </span>
+              <select
+                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                value={trainingLen}
+                onChange={(e) => setTrainingLen(e.target.value as AudioLength)}
+              >
+                {(Object.keys(AUDIO_LENGTHS) as AudioLength[]).map((k) => (
+                  <option key={k} value={k}>
+                    {AUDIO_LENGTHS[k].label} — about {AUDIO_LENGTHS[k].minutes} min
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Background"
+                className="w-28 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                value={trainingBg}
+                onChange={(e) => setTrainingBg(e.target.value)}
+              >
+                {BACKGROUNDS.map((b) => (
+                  <option key={b.value} value={b.value}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="text-[10px] leading-snug text-[var(--muted)]">
+              Uses the focus box, selected sources and all notes. Nothing is
+              billed for video until you press Render.
+            </p>
           </div>
         </div>
 

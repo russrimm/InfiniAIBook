@@ -310,6 +310,16 @@ Omit "pullQuote", "nextSteps", "flow", "chart", "compare", "checklist", "regions
     instruction: () => "",
   },
 
+  training: {
+    label: "Training video",
+    blurb: "Presenter-led training session",
+    icon: "🧑‍🏫",
+    json: true,
+    // Written by src/lib/training.ts via /api/training and rendered by the
+    // Azure Speech avatar, not here. Present so listings have a label and icon.
+    instruction: () => "",
+  },
+
   podcast: {
     label: "Audio overview",
     blurb: "Custom speaker audio",

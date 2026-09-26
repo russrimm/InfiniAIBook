@@ -1,8 +1,8 @@
 # Study aids, mind maps and exporting
 
-Infographics, audio overviews and whiteboard videos have their own pages:
-[Infographic styles](infographics.md), [Audio overviews](audio-overviews.md)
-and [Whiteboard videos](whiteboard-videos.md).
+Infographics, audio overviews, whiteboard videos and training videos have their
+own pages: [Infographic styles](infographics.md), [Audio overviews](audio-overviews.md),
+[Whiteboard videos](whiteboard-videos.md) and [Training videos](training-videos.md).
 
 ## Study aids
 

@@ -18,6 +18,7 @@
 - [Infographic styles](infographics.md) — all 20 styles, with a gallery
 - [Audio overviews](audio-overviews.md) — multi-speaker podcasts, voices and pacing
 - [Whiteboard videos](whiteboard-videos.md) — narrated, hand-drawn explainer videos
+- [Training videos](training-videos.md) — avatar-presented training sessions from your research
 - [Study aids, mind maps and exporting](studio.md) — quizzes, flashcards, mind
   maps and export formats
 

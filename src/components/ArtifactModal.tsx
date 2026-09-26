@@ -8,6 +8,7 @@ import Flashcards from "./Flashcards";
 import Infographic from "./Infographic";
 import PodcastPlayer from "./PodcastPlayer";
 import VideoPlayer from "./VideoPlayer";
+import TrainingVideo from "./TrainingVideo";
 import { STUDIO } from "@/lib/studio";
 import type {
   Artifact,
@@ -23,6 +24,7 @@ import type {
   PodcastSpeakerId,
   QuizContent,
   TimelineContent,
+  TrainingContent,
   VideoContent,
 } from "@/lib/types";
 
@@ -146,6 +148,16 @@ function toMarkdown(a: Artifact): string {
         .map((t) => `**${podcastSpeakerLabel(p, t.speaker)}:** ${t.text}`)
         .join("\n\n");
       return `${head}${p.description ?? ""}\n\n${body}\n`;
+    }
+    case "training": {
+      const t = c as unknown as TrainingContent;
+      const objectives = (t.objectives ?? []).length
+        ? `## Learning objectives\n\n${t.objectives!.map((o) => `- ${o}`).join("\n")}\n\n`
+        : "";
+      const body = t.sections
+        .map((s) => `## ${s.title || "Untitled section"}\n\n${s.text}`)
+        .join("\n\n");
+      return `${head}${t.description ? `${t.description}\n\n` : ""}${objectives}${body}\n`;
     }
     default:
       return head + ((c as unknown as DocContent).markdown ?? "");
@@ -285,6 +297,16 @@ export default function ArtifactModal({
               MP3
             </a>
           )}
+          {artifact.type === "training" &&
+            (artifact.content as { videoUrl?: string }).videoUrl && (
+              <a
+                className="btn !px-2.5 !py-1.5 !text-xs"
+                href={(artifact.content as { videoUrl?: string }).videoUrl}
+                download={safeName("mp4")}
+              >
+                MP4
+              </a>
+            )}
           {artifact.type === "flashcards" && (
             <button className="btn !px-2.5 !py-1.5 !text-xs" onClick={downloadCsv}>
               CSV
@@ -329,6 +351,8 @@ export default function ArtifactModal({
             {citations.length} excerpts
             {artifact.type === "podcast"
               ? " · spoken audio omits inline citation markers"
+              : artifact.type === "training"
+              ? " · the transcript is written from these excerpts and your notes"
               : " · hover a citation to see the evidence"}
           </footer>
         )}
@@ -375,6 +399,14 @@ function Body({
         <VideoPlayer
           artifactId={artifact.id}
           content={c as VideoContent}
+          onRefresh={onRefresh ?? (() => {})}
+        />
+      );
+    case "training":
+      return (
+        <TrainingVideo
+          artifactId={artifact.id}
+          content={c as TrainingContent}
           onRefresh={onRefresh ?? (() => {})}
         />
       );

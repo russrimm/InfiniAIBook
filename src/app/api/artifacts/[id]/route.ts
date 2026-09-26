@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 import { removeAudio, removeImage, removeVideo } from "@/lib/paths";
 import { reconcileStalledVideo } from "@/lib/videobuild";
+import { forgetTraining, resumeStalledTraining } from "@/lib/trainingbuild";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -24,6 +25,9 @@ export async function GET(_req: Request, { params }: Ctx) {
     // with its process has to be noticed — otherwise it would keep reporting
     // progress until someone reloaded the whole notebook.
     reconcileStalledVideo(id);
+    // A training render runs in Azure, so one whose watcher died with the
+    // process is picked up again here rather than failed.
+    resumeStalledTraining(id);
 
     const row = db
       .prepare(
@@ -59,14 +63,18 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
     const row = db
-      .prepare("SELECT type FROM artifacts WHERE id = ?")
-      .get(id) as unknown as { type?: string } | undefined;
+      .prepare("SELECT type, content FROM artifacts WHERE id = ?")
+      .get(id) as unknown as { type?: string; content?: string } | undefined;
 
     db.prepare("DELETE FROM artifacts WHERE id = ?").run(id);
     // Audio files and generated images are named after the artifact id.
     if (row?.type === "podcast") removeAudio(id);
     if (row?.type === "infographic") removeImage(id);
     if (row?.type === "video") removeVideo(id);
+    if (row?.type === "training") {
+      removeVideo(id);
+      if (row.content) forgetTraining(row.content);
+    }
 
     return ok({ ok: true });
   } catch (e) {
