@@ -37,6 +37,7 @@ type Data = {
   messages: Message[];
   sessions: ChatSession[];
   notes: Note[];
+  maxUploadBytes?: number;
 };
 
 type Tab = "sources" | "chat" | "studio" | "notes";
@@ -416,6 +417,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           <SourcesPanel
             notebookId={notebookId}
             sources={sources}
+            maxUploadBytes={data.maxUploadBytes}
             selected={selected}
             allSelected={allSelected}
             onToggle={(id) =>

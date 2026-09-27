@@ -30,6 +30,9 @@ function init(): DatabaseSync {
   adoptLegacyDatabase();
   const db = new DatabaseSync(path.join(DATA_DIR, DB_FILE));
   db.exec("PRAGMA journal_mode = WAL");
+  // Safe under WAL: a power cut can lose the last commits but never corrupts
+  // the file, and it skips an fsync per commit.
+  db.exec("PRAGMA synchronous = NORMAL");
   db.exec("PRAGMA busy_timeout = 8000");
   db.exec("PRAGMA foreign_keys = ON");
   db.exec(`
@@ -237,6 +240,24 @@ export const db: DatabaseSync = new Proxy({} as DatabaseSync, {
 
 export function floatsToBlob(v: number[]): Uint8Array {
   return new Uint8Array(new Float32Array(v).buffer);
+}
+
+/**
+ * Run `fn` in one transaction: all of its writes land together or none do.
+ *
+ * `fn` must be synchronous. Every request shares this one connection, so an
+ * `await` inside would let another request's writes join the transaction.
+ */
+export function transaction<T>(fn: () => T): T {
+  db.exec("BEGIN");
+  try {
+    const out = fn();
+    db.exec("COMMIT");
+    return out;
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
 }
 
 export function blobToFloats(b: Uint8Array | null): Float32Array {

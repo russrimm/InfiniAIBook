@@ -8,11 +8,18 @@ model (`whisper-1` on OpenAI, `whisper-large-v3` on Groq, or an Azure
 transcription deployment) and indexed like any other text.
 
 Ingestion is **non-blocking**. Each source is sent as its own request and shows
-a spinner in the Sources list while it is extracted, chunked, embedded and
-summarised. You can keep dropping files, pasting links or running a discovery
-search while earlier items are still processing; a failure affects only its own
-row, which explains what happened and can be dismissed. Sources join the chat
-context automatically as they land.
+a spinner in the Sources list while it is extracted, chunked and embedded.
+Three run at a time; the rest show as "Queued" so a large drop does not flood
+the model provider with embedding calls. The two-sentence summary is written
+just after the source lands and appears a few seconds later. You can keep
+dropping files, pasting links or running a discovery search while earlier items
+are still processing; a failure affects only its own row, which explains what
+happened and can be dismissed. Sources join the chat context automatically as
+they land.
+
+Files over 50 MB (`MAX_UPLOAD_BYTES`) are refused before they are sent. A
+source and all of its chunks are written in one transaction, so an interrupted
+upload never leaves a half-indexed source behind.
 
 ### Discover (🔎 Find)
 

@@ -45,19 +45,32 @@ function iconFor(name: string, fallback = "📄") {
   return ICONS[ext] ?? fallback;
 }
 
-/** An upload still being processed on the server. */
+/** An upload waiting for, or being processed on, the server. */
 type Job = {
   id: string;
   label: string;
   icon: string;
+  queued?: boolean;
   error?: string;
 };
 
 let jobSeq = 0;
 
+/**
+ * Uploads run a few at a time. Dropping twenty files used to start twenty
+ * ingests at once — twenty PDFs parsed together and twenty bursts of
+ * embedding calls, which is how a provider's rate limit got tripped.
+ */
+const CONCURRENT_UPLOADS = 3;
+
+function formatMb(n: number) {
+  return `${Math.round((n / 1024 / 1024) * 10) / 10} MB`;
+}
+
 export default function SourcesPanel({
   notebookId,
   sources,
+  maxUploadBytes,
   selected,
   allSelected,
   onToggle,
@@ -72,6 +85,8 @@ export default function SourcesPanel({
 }: {
   notebookId: string;
   sources: Source[];
+  /** Server's upload limit, so oversized files are refused before sending. */
+  maxUploadBytes?: number;
   selected: Set<string>;
   allSelected: boolean;
   onToggle: (id: string) => void;
@@ -96,14 +111,43 @@ export default function SourcesPanel({
 
   /**
    * Each source is ingested by its own request, so slow items (a large PDF, a
-   * page fetch, embedding a long transcript) never block the next upload. The
-   * panel stays interactive and shows one spinner per item in flight.
+   * page fetch, embedding a long transcript) never block the others. Requests
+   * run CONCURRENT_UPLOADS at a time; the rest show as queued.
    */
+  const queue = useRef<(() => Promise<void>)[]>([]);
+  const running = useRef(0);
+  const summaryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (summaryTimer.current) clearTimeout(summaryTimer.current);
+    },
+    []
+  );
+
+  const pump = () => {
+    while (running.current < CONCURRENT_UPLOADS && queue.current.length) {
+      const next = queue.current.shift()!;
+      running.current++;
+      void next().finally(() => {
+        running.current--;
+        pump();
+      });
+    }
+  };
+
+  /** Summaries are written just after a source is added; show them when ready. */
+  const refreshForSummaries = () => {
+    if (summaryTimer.current) clearTimeout(summaryTimer.current);
+    summaryTimer.current = setTimeout(() => void onChanged(), 8000);
+  };
+
   const startJob = (label: string, icon: string, init: RequestInit) => {
     const id = `job-${++jobSeq}`;
-    setJobs((prev) => [...prev, { id, label, icon }]);
+    setJobs((prev) => [...prev, { id, label, icon, queued: true }]);
 
-    void (async () => {
+    queue.current.push(async () => {
+      setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, queued: false } : j)));
       try {
         const res = await fetch(`/api/notebooks/${notebookId}/sources`, {
           method: "POST",
@@ -117,6 +161,7 @@ export default function SourcesPanel({
         if (failure) throw new Error(failure);
 
         await onChanged();
+        refreshForSummaries();
         setJobs((prev) => prev.filter((j) => j.id !== id));
         if (warning) {
           // Not fatal, but the user should know the source is degraded.
@@ -131,11 +176,24 @@ export default function SourcesPanel({
           prev.map((j) => (j.id === id ? { ...j, error: message } : j))
         );
       }
-    })();
+    });
+    pump();
   };
 
   const uploadFiles = (files: FileList | File[]) => {
     for (const file of Array.from(files)) {
+      if (maxUploadBytes && file.size > maxUploadBytes) {
+        setJobs((prev) => [
+          ...prev,
+          {
+            id: `job-${++jobSeq}`,
+            label: file.name,
+            icon: iconFor(file.name),
+            error: `${formatMb(file.size)} is over the ${formatMb(maxUploadBytes)} upload limit.`,
+          },
+        ]);
+        continue;
+      }
       const fd = new FormData();
       fd.append("files", file);
       startJob(file.name, iconFor(file.name), { body: fd });
@@ -340,7 +398,7 @@ export default function SourcesPanel({
                       job.error ? "text-amber-300/90" : "text-[var(--accent)]"
                     }`}
                   >
-                    {job.error ?? "Processing…"}
+                    {job.error ?? (job.queued ? "Queued…" : "Processing…")}
                   </p>
                 </div>
                 {job.error && (

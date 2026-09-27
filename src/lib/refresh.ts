@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { nanoid } from "nanoid";
-import { db, floatsToBlob } from "@/lib/db";
+import { db, floatsToBlob, transaction } from "@/lib/db";
 import { chunkText, extractFromUrl } from "@/lib/ingest";
 import { fetchYouTubeTranscript, isYouTubeUrl } from "@/lib/youtube";
 import { chatText, embed, embedModel } from "@/lib/ai";
@@ -245,33 +245,36 @@ export async function reindexSource(
   }
 
   // Embed before destroying the old index: if the call fails hard, the source
-  // is still searchable on what it had.
-  db.prepare("DELETE FROM chunks WHERE source_id = ?").run(sourceId);
+  // is still searchable on what it had. The swap itself is one transaction, so
+  // a crash midway cannot leave the source with half its chunks.
   const insert = db.prepare(
     `INSERT INTO chunks (id, source_id, notebook_id, idx, text, embedding, embed_model, embed_dims)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   );
-  chunks.forEach((c, i) => {
-    const vec = vectors?.[i];
-    insert.run(
-      nanoid(12),
-      sourceId,
-      row.notebook_id,
-      i,
-      c,
-      vec ? floatsToBlob(vec) : null,
-      vec ? embedModel() : null,
-      vec ? vec.length : null
-    );
-  });
+  transaction(() => {
+    db.prepare("DELETE FROM chunks WHERE source_id = ?").run(sourceId);
+    chunks.forEach((c, i) => {
+      const vec = vectors?.[i];
+      insert.run(
+        nanoid(12),
+        sourceId,
+        row.notebook_id,
+        i,
+        c,
+        vec ? floatsToBlob(vec) : null,
+        vec ? embedModel() : null,
+        vec ? vec.length : null
+      );
+    });
 
-  db.prepare(
-    `UPDATE sources
-        SET text = ?, title = ?, chars = ?, content_hash = ?,
-            pending_text = NULL, pending_hash = NULL,
-            pending_title = NULL, pending_at = NULL, checked_at = ?
-      WHERE id = ?`
-  ).run(text, title, text.length, contentHash(text), Date.now(), sourceId);
+    db.prepare(
+      `UPDATE sources
+          SET text = ?, title = ?, chars = ?, content_hash = ?,
+              pending_text = NULL, pending_hash = NULL,
+              pending_title = NULL, pending_at = NULL, checked_at = ?
+        WHERE id = ?`
+    ).run(text, title, text.length, contentHash(text), Date.now(), sourceId);
+  });
 
   try {
     const summary = await chatText(

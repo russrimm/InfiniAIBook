@@ -57,7 +57,11 @@ Two checks apply whether or not a password is set:
 - `{ copyFrom: "<sourceId>" }` — copy a source from another notebook, with its
   chunks and embeddings.
 
-It returns `{ added: [...], errors: [...], warnings: [...] }`.
+It returns `{ added: [...], errors: [...], warnings: [...] }`. A request body
+larger than `MAX_UPLOAD_BYTES` (default 50 MB) gets
+`413 {"code": "too_large"}` before it is read, and a larger file inside a
+multipart upload is reported in `errors`. Each source's summary is generated
+just after the response, so it appears on the next `GET /api/notebooks/{id}`.
 
 | Method | Path | Notes |
 |---|---|---|
