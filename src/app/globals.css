@@ -81,6 +81,25 @@ body {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/*
+ * Secondary row actions (delete) that appear on hover. Hidden controls must
+ * still appear for keyboard focus, and on touch screens — where there is no
+ * hover — they are always shown, since an invisible button is still tappable.
+ */
+.reveal {
+  opacity: 0;
+}
+.group:hover .reveal,
+.group:focus-within .reveal,
+.reveal:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .reveal {
+    opacity: 1;
+  }
+}
 .btn-primary {
   background: linear-gradient(180deg, #6f7dff, #5a68ee);
   border-color: #6f7dff;
@@ -165,6 +184,25 @@ body {
   color: #8f9dff;
   text-decoration: underline;
 }
+.prose-nb .md-host {
+  color: var(--muted);
+  font-size: 0.8em;
+  text-decoration: none;
+}
+.prose-nb .md-blocked-img {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+.prose-nb img {
+  max-width: 100%;
+  border-radius: 8px;
+}
 .prose-nb blockquote {
   border-left: 3px solid #3a4250;
   padding-left: 1rem;
@@ -233,6 +271,24 @@ body {
   font-weight: 600;
   vertical-align: 0.1em;
   cursor: help;
+}
+button.cite {
+  cursor: pointer;
+  line-height: 1;
+  font-family: inherit;
+}
+button.cite:hover {
+  background: var(--cite-border, rgba(124, 140, 255, 0.32));
+}
+button.cite:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+mark.cited-passage {
+  background: rgba(124, 140, 255, 0.22);
+  color: inherit;
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(124, 140, 255, 0.22);
 }
 
 @keyframes fadeUp {

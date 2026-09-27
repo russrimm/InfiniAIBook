@@ -12,6 +12,7 @@ export default function NotesPanel({
   notebookId,
   notes,
   onChanged,
+  onRemove,
   openNoteId,
   onOpenNote,
   onManageTransformations,
@@ -19,6 +20,8 @@ export default function NotesPanel({
   notebookId: string;
   notes: Note[];
   onChanged: () => void;
+  /** Delete with an undo window. */
+  onRemove: (n: Note) => void;
   /** Controlled so a transformation or saved answer can open its new note. */
   openNoteId: string | null;
   onOpenNote: (id: string | null) => void;
@@ -83,6 +86,7 @@ export default function NotesPanel({
             onOpenNote(null);
           }}
           onChanged={onChanged}
+          onRemove={onRemove}
         />
       )}
     </aside>
@@ -94,11 +98,13 @@ function NoteEditor({
   note,
   onClose,
   onChanged,
+  onRemove,
 }: {
   notebookId: string;
   note: Note | null;
   onClose: () => void;
   onChanged: () => void;
+  onRemove: (n: Note) => void;
 }) {
   const [title, setTitle] = useState(note?.title ?? "");
   const [content, setContent] = useState(note?.content ?? "");
@@ -136,11 +142,9 @@ function NoteEditor({
     }
   };
 
-  const remove = async () => {
-    if (!note || !window.confirm(`Delete "${note.title}"?`)) return;
-    setBusy("delete");
-    await fetch(`/api/notes/${note.id}`, { method: "DELETE" });
-    onChanged();
+  const remove = () => {
+    if (!note) return;
+    onRemove(note);
     onClose();
   };
 
@@ -201,14 +205,21 @@ function NoteEditor({
               onChange={(e) => setContent(e.target.value)}
             />
           ) : (
-            <Markdown citations={note?.citations}>{content || "_Nothing here yet._"}</Markdown>
+            <Markdown
+              citations={note?.citations}
+              // Only a note the user wrote may load images; saved AI answers
+              // and transformation output are model text like any other.
+              allowImages={!note || note.kind === "human"}
+            >
+              {content || "_Nothing here yet._"}
+            </Markdown>
           )}
         </div>
 
         <footer className="flex shrink-0 flex-wrap items-center gap-2 border-t border-[var(--border)] px-5 py-3">
           {note && (
             <>
-              <button className="btn !text-[12px]" disabled={!!busy} onClick={() => void remove()}>
+              <button className="btn !text-[12px]" disabled={!!busy} onClick={remove}>
                 Delete
               </button>
               <button

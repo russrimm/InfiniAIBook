@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(_req: Request, { params }: Ctx) {
+export async function GET(req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
     const row = db
@@ -24,6 +24,16 @@ export async function GET(_req: Request, { params }: Ctx) {
         }
       | undefined;
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    // ?part=n (1-based, as citations number them) also returns that passage,
+    // so a citation can be located and highlighted in the full text.
+    const part = Number(new URL(req.url).searchParams.get("part"));
+    if (Number.isInteger(part) && part >= 1) {
+      const chunk = db
+        .prepare("SELECT text FROM chunks WHERE source_id = ? AND idx = ?")
+        .get(id, part - 1) as unknown as { text: string } | undefined;
+      return ok({ ...row, passage: chunk?.text ?? null });
+    }
     return ok(row);
   } catch (e) {
     return fail(e);

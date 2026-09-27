@@ -3,7 +3,7 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, noSourcesSelected } from "@/lib/http";
 import { chatJSON, type ChatMsg } from "@/lib/ai";
 import {
   buildContext,
@@ -206,6 +206,8 @@ export async function POST(req: Request) {
       };
 
     const wanted = audioLength(length);
+    const none = noSourcesSelected(sourceIds);
+    if (none) return none;
     const profiles = readSpeakerProfiles(speakerInput, customVoices);
     const requestedVoices = Object.fromEntries(
       profiles.map((s) => [s.id, s.voice])

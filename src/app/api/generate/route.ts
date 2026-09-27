@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, noSourcesSelected } from "@/lib/http";
 import { chatJSON, generateImage, type ChatMsg } from "@/lib/ai";
 import { imageDir } from "@/lib/paths";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
@@ -336,6 +336,8 @@ export async function POST(req: Request) {
 
     const spec = STUDIO[type];
     if (!spec) return NextResponse.json({ error: "Unknown artifact type" }, { status: 400 });
+    const none = noSourcesSelected(sourceIds);
+    if (none) return none;
 
     // Reject unknown values rather than passing them into the prompt, where
     // they would silently become instructions.

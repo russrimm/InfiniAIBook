@@ -22,6 +22,9 @@ type ChunkRow = {
 };
 
 function rows(notebookId: string, sourceIds?: string[]): ChunkRow[] {
+  // An explicit empty selection means "none", never "all": the UI shows
+  // "0 of N sources", and answering from every source would contradict it.
+  if (Array.isArray(sourceIds) && sourceIds.length === 0) return [];
   let sql = `SELECT c.id, c.source_id, c.idx, c.text, c.embedding,
                     c.embed_model, c.embed_dims, s.title
              FROM chunks c JOIN sources s ON s.id = c.source_id
@@ -57,16 +60,56 @@ function cosine(a: Float32Array, b: Float32Array): number {
   return na && nb ? dot / (Math.sqrt(na) * Math.sqrt(nb)) : 0;
 }
 
-function keywordScore(text: string, query: string): number {
-  const terms = query
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((t) => t.length > 3);
-  if (!terms.length) return 0;
-  const lower = text.toLowerCase();
-  let hits = 0;
-  for (const t of terms) if (lower.includes(t)) hits++;
-  return hits / terms.length;
+/** Words too common to say anything about relevance. */
+const STOPWORDS = new Set(
+  (
+    "the and for are but not you all any can had her was one our out has have " +
+    "what when where which who whom why how that this these those with from into " +
+    "about than then them they their there here also just only very does did " +
+    "will would should could been being were your yours its it's"
+  ).split(" ")
+);
+
+/**
+ * Query terms worth matching: Unicode letters and digits (so accented and
+ * non-Latin words count), three or more characters, plus short all-caps
+ * acronyms such as "AI" or "EU" that would otherwise be dropped. Acronyms of
+ * three letters or more (API, SQL, GDP) already pass the length rule.
+ */
+export function queryTerms(query: string): string[] {
+  const out = new Set<string>();
+  for (const raw of query.match(/[\p{L}\p{N}]+/gu) ?? []) {
+    const lower = raw.toLowerCase();
+    const acronym = raw.length === 2 && raw === raw.toUpperCase() && /\p{Lu}/u.test(raw);
+    if ((raw.length >= 3 && !STOPWORDS.has(lower)) || acronym) out.add(lower);
+  }
+  return [...out];
+}
+
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Scorer for one query: the share of its terms that appear in a text, each
+ * matched at the start of a word so "AI" does not match "said" and "art" does
+ * not match "start". Build it once per query and apply it to every chunk.
+ */
+export function keywordScorer(query: string): (text: string) => number {
+  const patterns = queryTerms(query).map(
+    (t) => new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegex(t)}`, "u")
+  );
+  if (!patterns.length) return () => 0;
+  return (text) => {
+    const lower = text.toLowerCase();
+    let hits = 0;
+    for (const p of patterns) if (p.test(lower)) hits++;
+    return hits / patterns.length;
+  };
+}
+
+export function keywordScore(text: string, query: string): number {
+  return keywordScorer(query)(text);
 }
 
 /**
@@ -112,6 +155,7 @@ export async function retrieveWithDiagnostics(
 
   const stale = new Set<string>();
   let staleCount = 0;
+  const kwScore = keywordScorer(query);
 
   const scored = all.map((r) => {
     const ev = blobToFloats(r.embedding);
@@ -126,7 +170,7 @@ export async function retrieveWithDiagnostics(
         stale.add(r.embed_model ?? `${ev.length}-dim`);
       }
     }
-    const kw = keywordScore(r.text, query);
+    const kw = kwScore(r.text);
     return {
       id: r.id,
       sourceId: r.source_id,
@@ -182,24 +226,13 @@ export function sampleCorpus(
     bySource.get(r.source_id)!.push(r);
   }
 
-  const budgetPer = Math.floor(maxChars / bySource.size);
-  const picked: ChunkRow[] = [];
-  for (const list of bySource.values()) {
-    let used = 0;
-    const total = list.reduce((s, r) => s + r.text.length, 0);
-    if (total <= budgetPer) {
-      picked.push(...list);
-      continue;
-    }
-    const step = Math.max(1, Math.ceil(total / budgetPer));
-    for (let i = 0; i < list.length; i += step) {
-      if (used + list[i].text.length > budgetPer) break;
-      picked.push(list[i]);
-      used += list[i].text.length;
-    }
-    if (!picked.length) picked.push(list[0]);
+  const { picked, truncated } = pickSample([...bySource.values()], maxChars);
+  if (truncated) {
+    console.warn(
+      `[retrieve] ${bySource.size} sources share a ${maxChars}-character budget, so ` +
+        `${truncated} are represented by a shortened opening passage only.`
+    );
   }
-
   return picked.map((r) => ({
     id: r.id,
     sourceId: r.source_id,
@@ -207,6 +240,109 @@ export function sampleCorpus(
     idx: r.idx,
     text: r.text,
   }));
+}
+
+/**
+ * Chunk positions ordered so that any prefix is spread across the document:
+ * the opening, then the middle, then the quarters, and so on.
+ */
+export function spreadOrder(n: number): number[] {
+  if (n <= 0) return [];
+  const order = [0];
+  const seen = new Set([0]);
+  let parts = 1;
+  while (order.length < n) {
+    parts *= 2;
+    for (let k = 1; k < parts; k += 2) {
+      const i = Math.floor((k * n) / parts);
+      if (!seen.has(i)) {
+        seen.add(i);
+        order.push(i);
+      }
+    }
+    if (parts > n * 2) {
+      for (let i = 0; i < n; i++) if (!seen.has(i)) order.push(i);
+      break;
+    }
+  }
+  return order;
+}
+
+type Sampleable = { text: string; idx: number };
+
+/**
+ * Choose chunks from each source within a character budget.
+ *
+ * Every source is guaranteed its opening passage — shortened if the budget
+ * cannot hold a whole chunk per source — before any source gets a second one.
+ * The rest of the budget is then shared round-robin, each source contributing
+ * chunks spread across its length. Without that floor a notebook with more
+ * sources than whole chunks fit in the budget silently dropped most of them,
+ * while the output still presented itself as drawn from all of them.
+ *
+ * Returned in source order, then document order, so the context reads
+ * coherently.
+ */
+export function pickSample<T extends Sampleable>(
+  sources: T[][],
+  maxChars: number
+): { picked: T[]; truncated: number } {
+  const lists = sources.filter((l) => l.length > 0);
+  if (!lists.length) return { picked: [], truncated: 0 };
+
+  const floor = Math.max(1, Math.floor(maxChars / lists.length));
+  const chosen: Set<number>[] = lists.map(() => new Set<number>());
+  const out: Map<string, T> = new Map();
+  const key = (s: number, i: number) => `${s}:${i}`;
+  let used = 0;
+  let truncated = 0;
+
+  lists.forEach((list, s) => {
+    const first = list[0];
+    let item = first;
+    if (first.text.length > floor) {
+      item = { ...first, text: shorten(first.text, floor) };
+      truncated++;
+    }
+    out.set(key(s, 0), item);
+    chosen[s].add(0);
+    used += item.text.length;
+  });
+
+  const orders = lists.map((l) => spreadOrder(l.length).filter((i) => i !== 0));
+  const cursor = lists.map(() => 0);
+  const open = lists.map((_, s) => orders[s].length > 0);
+
+  while (open.some(Boolean)) {
+    for (let s = 0; s < lists.length; s++) {
+      if (!open[s]) continue;
+      const i = orders[s][cursor[s]++];
+      if (cursor[s] >= orders[s].length) open[s] = false;
+      const c = lists[s][i];
+      if (used + c.text.length > maxChars) {
+        open[s] = false;
+        continue;
+      }
+      out.set(key(s, i), c);
+      chosen[s].add(i);
+      used += c.text.length;
+    }
+  }
+
+  const picked: T[] = [];
+  lists.forEach((list, s) => {
+    for (const i of [...chosen[s]].sort((a, b) => a - b)) picked.push(out.get(key(s, i))!);
+  });
+  return { picked, truncated };
+}
+
+/** Cut at a word boundary where one is close, and mark the cut. */
+function shorten(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const room = Math.max(1, max - 1);
+  const cut = text.slice(0, room);
+  const space = cut.lastIndexOf(" ");
+  return (space > room * 0.6 ? cut.slice(0, space) : cut) + "…";
 }
 
 export type SearchHit = Passage & { notebookId: string; notebookTitle: string };
@@ -250,9 +386,10 @@ export async function searchPassages(
   // Keyword mode also matches the whole phrase, so short queries that the
   // term filter drops (acronyms, names) still find something.
   const phrase = q.toLowerCase();
+  const kwScore = keywordScorer(q);
   const scored = all
     .map((r) => {
-      let kw = keywordScore(r.text, q);
+      let kw = kwScore(r.text);
       if (r.text.toLowerCase().includes(phrase)) kw = Math.max(kw, 1);
       let sem = 0;
       if (qv) {

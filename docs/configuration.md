@@ -113,8 +113,13 @@ commentary. Only a model provider is required.
 | `PYTHON_BIN` | Python interpreter for the whiteboard renderer (default `python`) |
 | `ALLOW_PRIVATE_NETWORK_FETCH` | Allow fetching private/loopback addresses (default off; see [SECURITY.md](../SECURITY.md)) |
 | `MAX_FETCH_BYTES`, `FETCH_MAX_REDIRECTS`, `FETCH_TIMEOUT_MS` | Limits on fetched pages and files |
+| `MAX_UPLOAD_BYTES` | Largest uploaded file or request body when adding sources (default 50 MB; larger requests get a 413) |
 | `DATA_DIR` | Where the database and generated media live (default `./.data`) |
 | `INFINIAIBOOK_PASSWORD` | Require a password for the UI and API (default off) |
+| `INFINIAIBOOK_API_TOKEN` | Bearer token for scripts calling the API. Once set, the password is no longer accepted as a bearer token |
+| `INFINIAIBOOK_SESSION_SECRET` | Optional extra key for signing session cookies; change it to sign every browser out |
+| `ALLOWED_HOSTS` | Extra hostnames the server answers to, comma-separated (`*` for any). Loopback names are always allowed. Without a password, other hosts get a 403 |
+| `TRUST_PROXY` | `true` behind a reverse proxy: honour `X-Forwarded-Host` / `X-Forwarded-Proto` |
 
 ## Checking a provider
 

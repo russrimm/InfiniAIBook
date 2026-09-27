@@ -12,10 +12,13 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1",
+    "dev:lan": "next dev -H 0.0.0.0",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 127.0.0.1",
+    "start:lan": "next start -H 0.0.0.0",
     "lint": "eslint",
+    "test": "vitest run",
     "check:ai": "tsx --env-file-if-exists=.env.local scripts/check-ai.ts",
     "check:ssrf": "tsx scripts/check-ssrf.ts"
   },
@@ -44,7 +47,8 @@
     "eslint-config-next": "15.5.25",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   },
   "allowScripts": {
     "esbuild@0.28.2": true

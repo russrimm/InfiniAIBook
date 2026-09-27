@@ -443,7 +443,10 @@ function isTemperatureRejection(e: unknown): boolean {
 }
 
 /** Run a chat call, retrying without `temperature` if the model refuses it. */
-async function createChat(params: ChatParams & { temperature?: number }) {
+async function createChat(
+  params: ChatParams & { temperature?: number },
+  options: { signal?: AbortSignal } = {}
+) {
   const client = getClient();
   const withoutTemp = () => {
     const { temperature: _omit, ...rest } = params;
@@ -452,16 +455,16 @@ async function createChat(params: ChatParams & { temperature?: number }) {
 
   return withRetry(async () => {
     if (supportsTemperature === false) {
-      return client.chat.completions.create(withoutTemp());
+      return client.chat.completions.create(withoutTemp(), options);
     }
     try {
-      const res = await client.chat.completions.create(params as ChatParams);
+      const res = await client.chat.completions.create(params as ChatParams, options);
       if (supportsTemperature === null) supportsTemperature = true;
       return res;
     } catch (e) {
       if (!isTemperatureRejection(e)) throw e;
       supportsTemperature = false;
-      return client.chat.completions.create(withoutTemp());
+      return client.chat.completions.create(withoutTemp(), options);
     }
   }, "chat");
 }
@@ -474,13 +477,21 @@ export async function chatText(messages: ChatMsg[], temperature = 0.3): Promise<
   );
 }
 
-export async function chatStream(messages: ChatMsg[], temperature = 0.3) {
-  const res = await createChat({
-    model: chatModel(),
-    temperature,
-    stream: true,
-    messages,
-  });
+/** `signal` aborts the upstream request, so a stopped answer stops costing tokens. */
+export async function chatStream(
+  messages: ChatMsg[],
+  temperature = 0.3,
+  options: { signal?: AbortSignal } = {}
+) {
+  const res = await createChat(
+    {
+      model: chatModel(),
+      temperature,
+      stream: true,
+      messages,
+    },
+    options
+  );
   return res as AsyncIterable<{
     choices?: { delta?: { content?: string | null } }[];
   }>;

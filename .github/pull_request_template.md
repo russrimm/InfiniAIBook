@@ -8,6 +8,7 @@
 
 - [ ] `npx tsc --noEmit` passes
 - [ ] `npm run lint` passes
+- [ ] `npm test` passes
 - [ ] `npm run build` passes
 - [ ] `npm run check:ssrf` passes (if URL fetching changed)
 - [ ] `npm run check:ai` passes (if prompts, schemas or `src/lib/ai.ts` changed)

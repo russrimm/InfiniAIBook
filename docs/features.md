@@ -2,13 +2,14 @@
 
 | | |
 |---|---|
-| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON, HTML, **images** (described by a vision model) or **audio/video** (transcribed); paste raw text; reuse a source from **another notebook**; add a URL — including **YouTube links** and **RSS/Atom feeds**; or **discover sources** by describing a topic and picking from web results; or browse the web in-app and keep what is useful. Ingestion runs in the background, so you can keep adding while earlier items process. |
-| **Grounded chat** | Streaming answers built only from the sources you have selected, with hoverable inline citations `[1]` that show the exact excerpt used. Keep any number of separate **chat sessions** per notebook. |
+| **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON, HTML, **images** (described by a vision model) or **audio/video** (transcribed); paste raw text; reuse a source from **another notebook**; add a URL — including **YouTube links** and **RSS/Atom feeds**; or **discover sources** by describing a topic and picking from web results; or browse the web in-app and keep what is useful. Ingestion runs in the background, three items at a time (the rest wait as "Queued"), so you can keep adding while earlier items process. Uploads are limited to 50 MB each (`MAX_UPLOAD_BYTES`). |
+| **Grounded chat** | Streaming answers built only from the sources you have selected, with inline citations `[1]`. Click (or tab to) a citation to open its source with the cited passage highlighted. **Stop** ends an answer early and keeps what was written. Keep any number of separate **chat sessions** per notebook. |
 | **Notes** | Write your own Markdown notes, save any chat answer as a note (citations kept), and turn a note into a source. |
 | **Transformations** | Reusable prompts — built-in (dense summary, key insights, analyze paper, glossary…) or your own — run on one source and saved as a note. |
 | **Search everything** | Keyword or semantic search across every notebook's sources and notes, plus a one-shot grounded **Ask** over the whole library. |
 | **Studio** | Eleven generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
 | **Everything is local** | Sources, chunks, embeddings, chat history, artifacts, generated audio, voice samples and images live under `.data/`. |
+| **Undo deletes** | Deleting a source, artifact, note, chat or notebook hides it right away and offers **Undo** for 8 seconds before anything is removed. |
 
 ## Studio formats
 

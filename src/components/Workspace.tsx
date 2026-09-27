@@ -14,12 +14,16 @@ import ModelPicker from "./ModelPicker";
 import NotesPanel from "./NotesPanel";
 import TransformationsModal from "./TransformationsModal";
 import LibraryModal from "./LibraryModal";
+import { CitationContext } from "./CitationContext";
+import { useDeferredDelete } from "./UndoToast";
+import type { SourceHighlight } from "./SourceModal";
 import { STUDIO } from "@/lib/studio";
 import type {
   Artifact,
   ArtifactSummary,
   ArtifactType,
   ChatSession,
+  Citation,
   Message,
   Note,
   Notebook,
@@ -33,6 +37,7 @@ type Data = {
   messages: Message[];
   sessions: ChatSession[];
   notes: Note[];
+  maxUploadBytes?: number;
 };
 
 type Tab = "sources" | "chat" | "studio" | "notes";
@@ -43,6 +48,14 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openArtifact, setOpenArtifact] = useState<Artifact | null>(null);
   const [openSourceId, setOpenSourceId] = useState<string | null>(null);
+  /** Set when the source was opened from a citation, to show the passage. */
+  const [sourceHighlight, setSourceHighlight] = useState<SourceHighlight | null>(null);
+  /** The title as typed; saved on a pause or on leaving the field. */
+  const [titleDraft, setTitleDraft] = useState<string | null>(null);
+  const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Items deleted but still within their undo window: hidden, not yet gone. */
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const deferDelete = useDeferredDelete();
   const [discovering, setDiscovering] = useState(false);
   const [browsing, setBrowsing] = useState(false);
   const [pickingModel, setPickingModel] = useState(false);
@@ -115,6 +128,28 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     void load();
   }, [load]);
 
+  const openSource = useCallback((id: string, highlight: SourceHighlight | null = null) => {
+    setSourceHighlight(highlight);
+    setOpenSourceId(id);
+  }, []);
+
+  /** Every citation in chat, artifacts and notes opens here, at its passage. */
+  const openCitation = useCallback(
+    (c: Citation) => openSource(c.sourceId, { part: c.part, snippet: c.snippet }),
+    [openSource]
+  );
+
+  // Links from search carry ?source=<id>&part=<n>; open that passage once, then
+  // tidy the address so a reload does not reopen it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const source = params.get("source");
+    if (!source) return;
+    const part = Number(params.get("part"));
+    openSource(source, Number.isInteger(part) && part > 0 ? { part } : null);
+    window.history.replaceState(null, "", window.location.pathname);
+  }, [openSource]);
+
   /**
    * Linked sources are re-checked when the notebook opens. The request is
    * deliberately not awaited by anything on screen: a slow publisher must not
@@ -183,8 +218,35 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     void loadModel();
   }, [loadModel]);
 
-  const selectedIds = [...selected];
-  const allSelected = data ? selected.size === data.sources.length : false;
+  const selectedIds = [...selected].filter((id) => !hidden.has(id));
+  const visibleSourceCount = data ? data.sources.filter((s) => !hidden.has(s.id)).length : 0;
+  const allSelected = data ? selectedIds.length === visibleSourceCount : false;
+
+  const unhide = useCallback((id: string) => {
+    setHidden((h) => {
+      const next = new Set(h);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
+  /**
+   * Hide an item now and delete it after the undo window. It stays hidden
+   * until the notebook has reloaded without it, so it does not flash back; a
+   * failed delete reappears on that reload.
+   */
+  const deferRemove = (id: string, label: string, url: string) => {
+    setHidden((h) => new Set(h).add(id));
+    deferDelete({
+      label,
+      url,
+      onUndo: () => unhide(id),
+      onCommitted: async () => {
+        await load();
+        unhide(id);
+      },
+    });
+  };
 
   /**
    * Generation finishes on its own schedule, and stealing the screen for it
@@ -240,16 +302,36 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     );
   }
 
-  const rename = async (title: string) => {
-    setData({ ...data, notebook: { ...data.notebook, title } });
-    await fetch(`/api/notebooks/${notebookId}`, {
+  const sources = data.sources.filter((s) => !hidden.has(s.id));
+  const artifacts = data.artifacts.filter((a) => !hidden.has(a.id));
+  const notes = (data.notes ?? []).filter((n) => !hidden.has(n.id));
+
+  const saveTitle = (value: string) => {
+    if (titleTimer.current) clearTimeout(titleTimer.current);
+    titleTimer.current = null;
+    const title = value.trim();
+    // An emptied field reverts rather than saving a blank name.
+    if (!title || title === data.notebook.title) {
+      setTitleDraft(null);
+      return;
+    }
+    setData((d) => (d ? { ...d, notebook: { ...d.notebook, title } } : d));
+    setTitleDraft(null);
+    void fetch(`/api/notebooks/${notebookId}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ title }),
     });
   };
 
+  const editTitle = (value: string) => {
+    setTitleDraft(value);
+    if (titleTimer.current) clearTimeout(titleTimer.current);
+    titleTimer.current = setTimeout(() => saveTitle(value), 600);
+  };
+
   return (
+    <CitationContext.Provider value={openCitation}>
     <div className="flex h-screen flex-col">
       <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-4 py-3">
         <Link
@@ -261,13 +343,23 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         <span className="text-xl">{data.notebook.emoji}</span>
         <input
           className="min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-medium outline-none transition hover:border-[var(--border)] focus:border-[var(--border)] focus:bg-[#0e1116]"
-          value={data.notebook.title}
-          onChange={(e) => void rename(e.target.value)}
+          value={titleDraft ?? data.notebook.title}
+          aria-label="Notebook title"
+          onChange={(e) => editTitle(e.target.value)}
+          onBlur={(e) => saveTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              if (titleTimer.current) clearTimeout(titleTimer.current);
+              setTitleDraft(null);
+              e.currentTarget.blur();
+            }
+          }}
         />
         <span className="hidden shrink-0 text-xs text-[var(--muted)] sm:block">
           {checkingSources
             ? "Checking links…"
-            : `${selected.size}/${data.sources.length} sources in context`}
+            : `${selectedIds.length}/${sources.length} sources in context`}
         </span>
         <Link
           href={`/search?notebookId=${notebookId}`}
@@ -324,7 +416,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         >
           <SourcesPanel
             notebookId={notebookId}
-            sources={data.sources}
+            sources={sources}
+            maxUploadBytes={data.maxUploadBytes}
             selected={selected}
             allSelected={allSelected}
             onToggle={(id) =>
@@ -337,10 +430,11 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             }
             onToggleAll={() =>
               setSelected(
-                allSelected ? new Set() : new Set(data.sources.map((s) => s.id))
+                allSelected ? new Set() : new Set(sources.map((s) => s.id))
               )
             }
-            onOpen={setOpenSourceId}
+            onOpen={(id) => openSource(id)}
+            onRemove={(s) => deferRemove(s.id, `Source “${s.title}”`, `/api/sources/${s.id}`)}
             onChanged={() => void load()}
             onDiscover={() => setDiscovering(true)}
             onBrowse={() => setBrowsing(true)}
@@ -352,7 +446,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         <div className={`min-h-0 lg:block ${tab === "chat" ? "block" : "hidden"}`}>
           <ChatPanel
             notebookId={notebookId}
-            sources={data.sources}
+            sources={sources}
             selectedIds={selectedIds}
             initialMessages={data.messages}
             sessions={data.sessions ?? []}
@@ -377,7 +471,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
                 }`}
               >
                 {r}
-                {r === "notes" && data.notes?.length ? ` (${data.notes.length})` : ""}
+                {r === "notes" && notes.length ? ` (${notes.length})` : ""}
               </button>
             ))}
           </div>
@@ -389,11 +483,14 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           >
             <StudioPanel
               notebookId={notebookId}
-              hasSources={data.sources.length > 0}
+              hasSources={sources.length > 0}
               selectedIds={selectedIds}
-              artifacts={data.artifacts}
+              artifacts={artifacts}
               onOpen={openFromList}
               openingId={openingId}
+              onRemove={(a) =>
+                deferRemove(a.id, `“${a.title}”`, `/api/artifacts/${a.id}`)
+              }
               onChanged={() => void load()}
             />
           </div>
@@ -404,8 +501,9 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           >
             <NotesPanel
               notebookId={notebookId}
-              notes={data.notes ?? []}
+              notes={notes}
               onChanged={() => void load()}
+              onRemove={(n) => deferRemove(n.id, `Note “${n.title}”`, `/api/notes/${n.id}`)}
               openNoteId={openNoteId}
               onOpenNote={setOpenNoteId}
               onManageTransformations={() => setManagingTransformations(true)}
@@ -436,6 +534,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       {openSourceId && (
         <SourceModal
           sourceId={openSourceId}
+          highlight={sourceHighlight}
           onClose={() => setOpenSourceId(null)}
           onNoteCreated={async (note) => {
             await load();
@@ -542,5 +641,6 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         </div>
       )}
     </div>
+    </CitationContext.Provider>
   );
 }

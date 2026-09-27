@@ -22,13 +22,16 @@ Run the checks that cover your change:
 ```bash
 npx tsc --noEmit        # type check
 npm run lint            # ESLint
+npm test                # unit tests (vitest; no network or credentials needed)
 npm run build           # production build
 npm run check:ssrf      # URL-fetch safety tests (no network or credentials needed)
 npm run check:ai        # live provider checks; add --studio, --styles or --image as relevant
 ```
 
 `check:ai` calls the configured model provider and costs tokens; run it when you
-change prompts, schemas or `src/lib/ai.ts`.
+change prompts, schemas or `src/lib/ai.ts`. Everything else except `check:ai`
+also runs in CI (`.github/workflows/ci.yml`) on every pull request. Unit tests
+live in `tests/` and use a temporary `DATA_DIR`, never your real `.data/`.
 
 New pull requests start from a [template](.github/pull_request_template.md)
 with these checks and the guidelines below as a checklist.

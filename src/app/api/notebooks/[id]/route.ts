@@ -5,6 +5,7 @@ import { reconcileStalledVideos } from "@/lib/videobuild";
 import { forgetTraining, resumeStalledTrainings } from "@/lib/trainingbuild";
 import { listSessions, sessionMessages } from "@/lib/sessions";
 import { listNotes } from "@/lib/notes";
+import { MAX_UPLOAD_BYTES } from "@/lib/limits";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -92,6 +93,8 @@ export async function GET(_req: Request, { params }: Ctx) {
       messages,
       sessions,
       notes: listNotes(id),
+      /** So the client can refuse an oversized file before uploading it. */
+      maxUploadBytes: MAX_UPLOAD_BYTES,
     });
   } catch (e) {
     return fail(e);

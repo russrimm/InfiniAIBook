@@ -33,3 +33,17 @@ export function fail(e: unknown) {
 export function nowMs() {
   return Date.now();
 }
+
+/**
+ * 400 for an explicit empty source selection. Omitting `sourceIds` still means
+ * every source, for API callers; an empty list is a UI with nothing ticked.
+ */
+export function noSourcesSelected(sourceIds: unknown): NextResponse | null {
+  if (Array.isArray(sourceIds) && sourceIds.length === 0) {
+    return NextResponse.json(
+      { error: "Select at least one source.", code: "no_sources" },
+      { status: 400 }
+    );
+  }
+  return null;
+}
