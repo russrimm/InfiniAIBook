@@ -106,6 +106,7 @@ export default function StudioPanel({
   artifacts,
   onOpen,
   openingId,
+  onRemove,
   onChanged,
 }: {
   notebookId: string;
@@ -115,6 +116,8 @@ export default function StudioPanel({
   /** Freshly generated artifacts arrive whole; list entries are fetched first. */
   onOpen: (a: ArtifactSummary) => void;
   openingId: string | null;
+  /** Delete with an undo window; the panel only asks. */
+  onRemove: (a: ArtifactSummary) => void;
   onChanged: () => Promise<void> | void;
 }) {
   const [topic, setTopic] = useState("");
@@ -260,11 +263,6 @@ export default function StudioPanel({
       background: trainingBg,
       length: trainingLen,
     });
-
-  const remove = async (id: string) => {
-    await fetch(`/api/artifacts/${id}`, { method: "DELETE" });
-    await onChanged();
-  };
 
   const updateSpeaker = (i: number, patch: Partial<SpeakerConfig>) =>
     setSpeakers((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
@@ -781,9 +779,9 @@ export default function StudioPanel({
                     </div>
                   </button>
                   <button
-                    aria-label="Delete"
-                    className="shrink-0 rounded px-1 text-xs text-[var(--muted)] opacity-0 transition group-hover:opacity-100 hover:text-red-400"
-                    onClick={() => void remove(a.id)}
+                    aria-label={`Delete ${a.title}`}
+                    className="reveal shrink-0 rounded px-1 text-xs text-[var(--muted)] transition hover:text-red-400"
+                    onClick={() => onRemove(a)}
                   >
                     ✕
                   </button>

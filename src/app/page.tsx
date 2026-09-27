@@ -3,12 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Notebook } from "@/lib/types";
+import { useDeferredDelete } from "@/components/UndoToast";
 
 export default function Home() {
   const router = useRouter();
   const [notebooks, setNotebooks] = useState<Notebook[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [authOn, setAuthOn] = useState(false);
+  const deferDelete = useDeferredDelete();
+  /** Notebooks deleted but still within their undo window. */
+  const [hiddenNb, setHiddenNb] = useState<Set<string>>(new Set());
 
   const load = async () => {
     const res = await fetch("/api/notebooks");
@@ -39,11 +43,26 @@ export default function Home() {
     router.push(`/notebook/${id}`);
   };
 
-  const remove = async (id: string, title: string) => {
-    if (!confirm(`Delete "${title}" and all of its sources?`)) return;
-    await fetch(`/api/notebooks/${id}`, { method: "DELETE" });
-    void load();
+  const remove = (id: string, title: string) => {
+    setHiddenNb((h) => new Set(h).add(id));
+    const unhide = () =>
+      setHiddenNb((h) => {
+        const next = new Set(h);
+        next.delete(id);
+        return next;
+      });
+    deferDelete({
+      label: `Notebook “${title}”`,
+      url: `/api/notebooks/${id}`,
+      onUndo: unhide,
+      onCommitted: async () => {
+        await load();
+        unhide();
+      },
+    });
   };
+
+  const visible = notebooks?.filter((n) => !hiddenNb.has(n.id)) ?? null;
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl px-6 py-14">
@@ -74,13 +93,13 @@ export default function Home() {
         </div>
       </header>
 
-      {notebooks === null ? (
+      {visible === null ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2].map((i) => (
             <div key={i} className="card shimmer h-36" />
           ))}
         </div>
-      ) : notebooks.length === 0 ? (
+      ) : visible.length === 0 ? (
         <div className="card flex flex-col items-center gap-4 px-6 py-20 text-center">
           <div className="text-5xl">📚</div>
           <h2 className="text-lg font-medium">No notebooks yet</h2>
@@ -94,7 +113,7 @@ export default function Home() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {notebooks.map((n) => (
+          {visible.map((n) => (
             <div
               key={n.id}
               className="card fade-up group relative cursor-pointer p-5 transition hover:border-[#39424f]"
@@ -107,11 +126,11 @@ export default function Home() {
                 {new Date(n.createdAt).toLocaleDateString()}
               </p>
               <button
-                aria-label="Delete notebook"
-                className="absolute top-3 right-3 rounded-lg px-2 py-1 text-xs text-[var(--muted)] opacity-0 transition group-hover:opacity-100 hover:bg-[#1e2430] hover:text-red-400"
+                aria-label={`Delete notebook ${n.title}`}
+                className="reveal absolute top-3 right-3 rounded-lg px-2 py-1 text-xs text-[var(--muted)] transition hover:bg-[#1e2430] hover:text-red-400"
                 onClick={(e) => {
                   e.stopPropagation();
-                  void remove(n.id, n.title);
+                  remove(n.id, n.title);
                 }}
               >
                 Delete

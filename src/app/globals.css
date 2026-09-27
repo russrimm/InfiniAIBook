@@ -81,6 +81,25 @@ body {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/*
+ * Secondary row actions (delete) that appear on hover. Hidden controls must
+ * still appear for keyboard focus, and on touch screens — where there is no
+ * hover — they are always shown, since an invisible button is still tappable.
+ */
+.reveal {
+  opacity: 0;
+}
+.group:hover .reveal,
+.group:focus-within .reveal,
+.reveal:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .reveal {
+    opacity: 1;
+  }
+}
 .btn-primary {
   background: linear-gradient(180deg, #6f7dff, #5a68ee);
   border-color: #6f7dff;

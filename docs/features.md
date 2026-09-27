@@ -9,6 +9,7 @@
 | **Search everything** | Keyword or semantic search across every notebook's sources and notes, plus a one-shot grounded **Ask** over the whole library. |
 | **Studio** | Eleven generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
 | **Everything is local** | Sources, chunks, embeddings, chat history, artifacts, generated audio, voice samples and images live under `.data/`. |
+| **Undo deletes** | Deleting a source, artifact, note, chat or notebook hides it right away and offers **Undo** for 8 seconds before anything is removed. |
 
 ## Studio formats
 

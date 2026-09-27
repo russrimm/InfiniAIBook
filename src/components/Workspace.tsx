@@ -15,6 +15,7 @@ import NotesPanel from "./NotesPanel";
 import TransformationsModal from "./TransformationsModal";
 import LibraryModal from "./LibraryModal";
 import { CitationContext } from "./CitationContext";
+import { useDeferredDelete } from "./UndoToast";
 import type { SourceHighlight } from "./SourceModal";
 import { STUDIO } from "@/lib/studio";
 import type {
@@ -51,6 +52,9 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   /** The title as typed; saved on a pause or on leaving the field. */
   const [titleDraft, setTitleDraft] = useState<string | null>(null);
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Items deleted but still within their undo window: hidden, not yet gone. */
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const deferDelete = useDeferredDelete();
   const [discovering, setDiscovering] = useState(false);
   const [browsing, setBrowsing] = useState(false);
   const [pickingModel, setPickingModel] = useState(false);
@@ -213,8 +217,35 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     void loadModel();
   }, [loadModel]);
 
-  const selectedIds = [...selected];
-  const allSelected = data ? selected.size === data.sources.length : false;
+  const selectedIds = [...selected].filter((id) => !hidden.has(id));
+  const visibleSourceCount = data ? data.sources.filter((s) => !hidden.has(s.id)).length : 0;
+  const allSelected = data ? selectedIds.length === visibleSourceCount : false;
+
+  const unhide = useCallback((id: string) => {
+    setHidden((h) => {
+      const next = new Set(h);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
+  /**
+   * Hide an item now and delete it after the undo window. It stays hidden
+   * until the notebook has reloaded without it, so it does not flash back; a
+   * failed delete reappears on that reload.
+   */
+  const deferRemove = (id: string, label: string, url: string) => {
+    setHidden((h) => new Set(h).add(id));
+    deferDelete({
+      label,
+      url,
+      onUndo: () => unhide(id),
+      onCommitted: async () => {
+        await load();
+        unhide(id);
+      },
+    });
+  };
 
   /**
    * Generation finishes on its own schedule, and stealing the screen for it
@@ -270,6 +301,10 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     );
   }
 
+  const sources = data.sources.filter((s) => !hidden.has(s.id));
+  const artifacts = data.artifacts.filter((a) => !hidden.has(a.id));
+  const notes = (data.notes ?? []).filter((n) => !hidden.has(n.id));
+
   const saveTitle = (value: string) => {
     if (titleTimer.current) clearTimeout(titleTimer.current);
     titleTimer.current = null;
@@ -323,7 +358,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         <span className="hidden shrink-0 text-xs text-[var(--muted)] sm:block">
           {checkingSources
             ? "Checking links…"
-            : `${selected.size}/${data.sources.length} sources in context`}
+            : `${selectedIds.length}/${sources.length} sources in context`}
         </span>
         <Link
           href={`/search?notebookId=${notebookId}`}
@@ -380,7 +415,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         >
           <SourcesPanel
             notebookId={notebookId}
-            sources={data.sources}
+            sources={sources}
             selected={selected}
             allSelected={allSelected}
             onToggle={(id) =>
@@ -393,10 +428,11 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             }
             onToggleAll={() =>
               setSelected(
-                allSelected ? new Set() : new Set(data.sources.map((s) => s.id))
+                allSelected ? new Set() : new Set(sources.map((s) => s.id))
               )
             }
             onOpen={(id) => openSource(id)}
+            onRemove={(s) => deferRemove(s.id, `Source “${s.title}”`, `/api/sources/${s.id}`)}
             onChanged={() => void load()}
             onDiscover={() => setDiscovering(true)}
             onBrowse={() => setBrowsing(true)}
@@ -408,7 +444,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         <div className={`min-h-0 lg:block ${tab === "chat" ? "block" : "hidden"}`}>
           <ChatPanel
             notebookId={notebookId}
-            sources={data.sources}
+            sources={sources}
             selectedIds={selectedIds}
             initialMessages={data.messages}
             sessions={data.sessions ?? []}
@@ -433,7 +469,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
                 }`}
               >
                 {r}
-                {r === "notes" && data.notes?.length ? ` (${data.notes.length})` : ""}
+                {r === "notes" && notes.length ? ` (${notes.length})` : ""}
               </button>
             ))}
           </div>
@@ -445,11 +481,14 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           >
             <StudioPanel
               notebookId={notebookId}
-              hasSources={data.sources.length > 0}
+              hasSources={sources.length > 0}
               selectedIds={selectedIds}
-              artifacts={data.artifacts}
+              artifacts={artifacts}
               onOpen={openFromList}
               openingId={openingId}
+              onRemove={(a) =>
+                deferRemove(a.id, `“${a.title}”`, `/api/artifacts/${a.id}`)
+              }
               onChanged={() => void load()}
             />
           </div>
@@ -460,8 +499,9 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           >
             <NotesPanel
               notebookId={notebookId}
-              notes={data.notes ?? []}
+              notes={notes}
               onChanged={() => void load()}
+              onRemove={(n) => deferRemove(n.id, `Note “${n.title}”`, `/api/notes/${n.id}`)}
               openNoteId={openNoteId}
               onOpenNote={setOpenNoteId}
               onManageTransformations={() => setManagingTransformations(true)}

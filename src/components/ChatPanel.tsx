@@ -3,6 +3,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "./Markdown";
 import { useCitationHandler } from "./CitationContext";
+import { useDeferredDelete } from "./UndoToast";
 import type { ChatSession, Citation, Message, Source } from "@/lib/types";
 
 /** Mirrors MAX_MESSAGE_CHARS in src/app/api/chat/route.ts. */
@@ -36,6 +37,9 @@ export default function ChatPanel({
   /** null is a new, unsaved chat; the server creates it on the first question. */
   const [sessionId, setSessionId] = useState<string | null>(sessions[0]?.id ?? null);
   const [sessionList, setSessionList] = useState<ChatSession[]>(sessions);
+  /** Chats deleted but still within their undo window. */
+  const [hiddenSessions, setHiddenSessions] = useState<Set<string>>(new Set());
+  const deferDelete = useDeferredDelete();
   const [loadingSession, setLoadingSession] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [input, setInput] = useState("");
@@ -91,13 +95,26 @@ export default function ChatPanel({
     });
   };
 
-  const deleteCurrentSession = async () => {
+  const deleteCurrentSession = () => {
     const current = sessionList.find((s) => s.id === sessionId);
-    if (!current || !window.confirm(`Delete "${current.title}" and its messages?`)) return;
-    await fetch(`/api/sessions/${current.id}`, { method: "DELETE" });
-    const rest = sessionList.filter((s) => s.id !== current.id);
-    setSessionList(rest);
+    if (!current) return;
+    setHiddenSessions((h) => new Set(h).add(current.id));
+    const rest = sessionList.filter((s) => s.id !== current.id && !hiddenSessions.has(s.id));
     void openSession(rest[0]?.id ?? null);
+    deferDelete({
+      label: `Chat “${current.title}”`,
+      url: `/api/sessions/${current.id}`,
+      onUndo: () => {
+        setHiddenSessions((h) => {
+          const next = new Set(h);
+          next.delete(current.id);
+          return next;
+        });
+        void openSession(current.id);
+      },
+      onCommitted: () =>
+        setSessionList((l) => l.filter((s) => s.id !== current.id)),
+    });
   };
 
   // Read through refs so the callback below is stable and memoised rows do not
@@ -311,11 +328,13 @@ export default function ChatPanel({
           onChange={(e) => void openSession(e.target.value || null)}
         >
           {!sessionId && <option value="">New chat</option>}
-          {sessionList.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.title}
-            </option>
-          ))}
+          {sessionList
+            .filter((s) => !hiddenSessions.has(s.id))
+            .map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.title}
+              </option>
+            ))}
         </select>
         <button
           className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
@@ -339,7 +358,7 @@ export default function ChatPanel({
             <button
               className="btn shrink-0 !px-2 !py-1 !text-[11px]"
               disabled={streaming}
-              onClick={() => void deleteCurrentSession()}
+              onClick={deleteCurrentSession}
               title="Delete this chat"
               aria-label="Delete this chat"
             >

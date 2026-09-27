@@ -63,6 +63,7 @@ export default function SourcesPanel({
   onToggle,
   onToggleAll,
   onOpen,
+  onRemove,
   onChanged,
   onDiscover,
   onBrowse,
@@ -76,6 +77,8 @@ export default function SourcesPanel({
   onToggle: (id: string) => void;
   onToggleAll: () => void;
   onOpen: (id: string) => void;
+  /** Delete with an undo window; the panel only asks. */
+  onRemove: (s: Source) => void;
   onChanged: () => Promise<void> | void;
   onDiscover: () => void;
   onBrowse: () => void;
@@ -164,11 +167,6 @@ export default function SourcesPanel({
       addRef.current = null;
     };
   });
-
-  const remove = async (id: string) => {
-    await fetch(`/api/sources/${id}`, { method: "DELETE" });
-    await onChanged();
-  };
 
   const dismissJob = (id: string) => setJobs((prev) => prev.filter((j) => j.id !== id));
 
@@ -387,9 +385,9 @@ export default function SourcesPanel({
                   <p className="mt-1 text-[10px] text-[#6b7482]">{bytes(s.chars)}</p>
                 </button>
                 <button
-                  aria-label="Remove source"
-                  className="h-fit shrink-0 rounded px-1 text-xs text-[var(--muted)] opacity-0 transition group-hover:opacity-100 hover:text-red-400"
-                  onClick={() => void remove(s.id)}
+                  aria-label={`Remove source ${s.title}`}
+                  className="reveal h-fit shrink-0 rounded px-1 text-xs text-[var(--muted)] transition hover:text-red-400"
+                  onClick={() => onRemove(s)}
                 >
                   ✕
                 </button>
