@@ -2,7 +2,7 @@
 
 A self-hosted Agentic Powered Notebook research studio. Upload your own sources, chat with
 them, and turn them into **reports, briefings, infographics, mind maps, quizzes,
-study guides, FAQs and timelines** — every claim cited back to the document it came from.
+study guides, FAQs, timelines, audio overviews and avatar training videos**. Every claim is cited back to the document it came from.
 
 Built with Next.js 15, TypeScript and SQLite. Runs against Azure OpenAI, a dozen
 named providers (OpenAI, Anthropic, Gemini, Groq, Mistral, DeepSeek, OpenRouter,
@@ -18,6 +18,23 @@ Inspired by [open-notebook](https://github.com/lfnovo/open-notebook).
 ![InfiniAIBook workspace with four selected sources, a chat session picker, a cited chat answer and Studio generation tools including a multi-speaker audio overview](docs/screenshots/workspace.png)
 
 More in the [screenshot tour](docs/screenshots.md).
+
+### Sample: an avatar training video
+
+The 🧑‍🏫 **Training video** generator turns a notebook's sources and notes into an
+editable trainer's script, then renders it with an Azure AI Foundry
+text-to-speech avatar: a lip-synced presenter with burned-in subtitles, signed
+in with Microsoft Entra ID. This 3:37 sample came from a notebook of two public
+"What's new in Copilot Studio" pages. It rendered in about four and a half
+minutes.
+
+https://github.com/user-attachments/assets/7651fdca-42dd-45e4-8e56-f56f07c3b6d9
+
+| Pick a presenter, voice, length and background | Review the script, render, and play or download the MP4 |
+|---|---|
+| ![Training video card in the Studio panel with trainer, voice, length and background choices](docs/screenshots/training-card.png) | ![Finished training video playing above the editable transcript, with presenter settings and a Render again button](docs/screenshots/training-editor.png) |
+
+How it works, setup and costs: [Training videos](docs/training-videos.md).
 
 ## Features
 
@@ -43,7 +60,7 @@ More in the [screenshot tour](docs/screenshots.md).
   | 🧠 [Quiz](docs/studio.md#quiz) · 🗂️ [Flashcards](docs/studio.md#flashcards) | Scored quizzes and self-graded decks |
   | 📄 Report · 🧾 Briefing · 🎓 Study guide · ❓ FAQ · 🗓️ Timeline | Structured written summaries |
 
-- **Exports** — Markdown, MP3, PNG and Anki/Quizlet CSV. [More](docs/studio.md#exporting)
+- **Exports**: Markdown, MP3, MP4, PNG and Anki/Quizlet CSV. [More](docs/studio.md#exporting)
 - **Everything is local** — sources, embeddings, chat history, artifacts and
   media live under `.data/`. Password protection and a Docker image included.
 

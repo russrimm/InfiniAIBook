@@ -1,7 +1,8 @@
 # Screenshots
 
-Captured from the app with a fictional community-garden sample notebook.
-Sources, chat responses, notes and artifacts shown here are prepared demo content.
+Captured from the app with a fictional community-garden sample notebook, except
+the avatar training video at the end. Sources, chat responses, notes and
+artifacts shown here are prepared demo content.
 
 ## Research workspace
 
@@ -49,3 +50,17 @@ and citations back to the evidence.
 
 The same notebook rendered in every other HTML style is in the
 [infographic style gallery](infographics.md#style-gallery).
+
+## Avatar training video
+
+The one exception to the sample notebook. It was generated from two public
+"What's new in Copilot Studio" pages. Pick a presenter, voice, length and
+background on the Studio card, then review the script before anything is billed.
+
+![Training video card in the Studio panel with trainer, voice, length and background choices](screenshots/training-card.png)
+
+Edit the transcript, render it with an Azure text-to-speech avatar, then play or
+download the MP4. Watch the [3:37 sample](https://github.com/user-attachments/assets/7651fdca-42dd-45e4-8e56-f56f07c3b6d9),
+or read [Training videos](training-videos.md).
+
+![Finished training video playing above the editable transcript, with presenter settings and a Render again button](screenshots/training-editor.png)
