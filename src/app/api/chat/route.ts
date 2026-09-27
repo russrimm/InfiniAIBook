@@ -11,6 +11,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
+/** Longest question accepted. Sources carry the bulk text; a question need not. */
+const MAX_MESSAGE_CHARS = 20_000;
+
+/** Appended to an answer the user stopped, so the saved turn says so. */
+const STOPPED_MARK = "\n\n_(Stopped before the answer was finished.)_";
+
 export async function POST(req: Request) {
   try {
     const { notebookId, message, sourceIds, sessionId } = (await req.json()) as {
@@ -25,6 +31,15 @@ export async function POST(req: Request) {
     }
     const none = noSourcesSelected(sourceIds);
     if (none) return none;
+    if (message.length > MAX_MESSAGE_CHARS) {
+      return NextResponse.json(
+        {
+          error: `That message is ${message.length.toLocaleString()} characters; the limit is ${MAX_MESSAGE_CHARS.toLocaleString()}. Add long text as a source instead.`,
+          code: "too_long",
+        },
+        { status: 400 }
+      );
+    }
 
     const { passages, mismatch } = await retrieveWithDiagnostics(
       notebookId,
@@ -69,7 +84,13 @@ export async function POST(req: Request) {
       { role: "user", content: message },
     ];
 
-    const stream = await chatStream(messages, 0.25);
+    // Aborted when the reader goes away — the Stop button, a closed tab — so
+    // the provider stops generating (and billing) an answer nobody will read.
+    const upstream = new AbortController();
+    const abort = () => upstream.abort();
+    req.signal?.addEventListener("abort", abort);
+
+    const stream = await chatStream(messages, 0.25, { signal: upstream.signal });
 
     // Only record the turn once the upstream call has actually started.
     db.prepare(
@@ -80,10 +101,39 @@ export async function POST(req: Request) {
     const encoder = new TextEncoder();
     let full = "";
 
+    /** Save what was said. A stopped answer keeps its text, marked as cut short. */
+    const saveAnswer = (stopped: boolean) => {
+      const used = new Set([...full.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
+      const kept = citations.filter((c) => used.has(c.n));
+      const cites = kept.length ? kept : citations.slice(0, 4);
+      const id = nanoid(12);
+      db.prepare(
+        "INSERT INTO messages (id, notebook_id, session_id, role, content, citations, created_at) VALUES (?,?,?,?,?,?,?)"
+      ).run(
+        id,
+        notebookId,
+        session.id,
+        "assistant",
+        stopped ? full + STOPPED_MARK : full,
+        JSON.stringify(cites),
+        Date.now()
+      );
+      touchSession(session.id);
+      return { id, cites };
+    };
+
     const body = new ReadableStream<Uint8Array>({
       async start(controller) {
-        const send = (o: unknown) =>
-          controller.enqueue(encoder.encode(JSON.stringify(o) + "\n"));
+        let open = true;
+        const send = (o: unknown) => {
+          if (!open) return;
+          try {
+            controller.enqueue(encoder.encode(JSON.stringify(o) + "\n"));
+          } catch {
+            open = false; // the reader cancelled; keep going only to save
+          }
+        };
+        let saved = false;
         try {
           send({ type: "session", session: getSession(session.id) });
           send({ type: "citations", citations });
@@ -102,31 +152,34 @@ export async function POST(req: Request) {
               full += delta;
               send({ type: "delta", v: delta });
             }
+            if (upstream.signal.aborted) break;
           }
-          const used = new Set(
-            [...full.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1]))
-          );
-          const kept = citations.filter((c) => used.has(c.n));
-          const id = nanoid(12);
-          db.prepare(
-            "INSERT INTO messages (id, notebook_id, session_id, role, content, citations, created_at) VALUES (?,?,?,?,?,?,?)"
-          ).run(
-            id,
-            notebookId,
-            session.id,
-            "assistant",
-            full,
-            JSON.stringify(kept.length ? kept : citations.slice(0, 4)),
-            Date.now()
-          );
-          touchSession(session.id);
-          send({ type: "done", id, citations: kept.length ? kept : citations.slice(0, 4) });
+          const stopped = upstream.signal.aborted;
+          if (full || !stopped) {
+            const { id, cites } = saveAnswer(stopped);
+            saved = true;
+            send({ type: "done", id, citations: cites, stopped });
+          }
         } catch (e) {
-          const msg = describeAuthError(e) ?? (e instanceof Error ? e.message : "stream failed");
-          send({ type: "error", error: msg });
+          if (upstream.signal.aborted) {
+            if (full && !saved) saveAnswer(true);
+          } else {
+            const msg = describeAuthError(e) ?? (e instanceof Error ? e.message : "stream failed");
+            send({ type: "error", error: msg });
+          }
         } finally {
-          controller.close();
+          req.signal?.removeEventListener("abort", abort);
+          if (open) {
+            try {
+              controller.close();
+            } catch {
+              /* already cancelled */
+            }
+          }
         }
+      },
+      cancel() {
+        upstream.abort();
       },
     });
 

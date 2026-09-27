@@ -14,12 +14,15 @@ import ModelPicker from "./ModelPicker";
 import NotesPanel from "./NotesPanel";
 import TransformationsModal from "./TransformationsModal";
 import LibraryModal from "./LibraryModal";
+import { CitationContext } from "./CitationContext";
+import type { SourceHighlight } from "./SourceModal";
 import { STUDIO } from "@/lib/studio";
 import type {
   Artifact,
   ArtifactSummary,
   ArtifactType,
   ChatSession,
+  Citation,
   Message,
   Note,
   Notebook,
@@ -43,6 +46,11 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openArtifact, setOpenArtifact] = useState<Artifact | null>(null);
   const [openSourceId, setOpenSourceId] = useState<string | null>(null);
+  /** Set when the source was opened from a citation, to show the passage. */
+  const [sourceHighlight, setSourceHighlight] = useState<SourceHighlight | null>(null);
+  /** The title as typed; saved on a pause or on leaving the field. */
+  const [titleDraft, setTitleDraft] = useState<string | null>(null);
+  const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [browsing, setBrowsing] = useState(false);
   const [pickingModel, setPickingModel] = useState(false);
@@ -114,6 +122,28 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const openSource = useCallback((id: string, highlight: SourceHighlight | null = null) => {
+    setSourceHighlight(highlight);
+    setOpenSourceId(id);
+  }, []);
+
+  /** Every citation in chat, artifacts and notes opens here, at its passage. */
+  const openCitation = useCallback(
+    (c: Citation) => openSource(c.sourceId, { part: c.part, snippet: c.snippet }),
+    [openSource]
+  );
+
+  // Links from search carry ?source=<id>&part=<n>; open that passage once, then
+  // tidy the address so a reload does not reopen it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const source = params.get("source");
+    if (!source) return;
+    const part = Number(params.get("part"));
+    openSource(source, Number.isInteger(part) && part > 0 ? { part } : null);
+    window.history.replaceState(null, "", window.location.pathname);
+  }, [openSource]);
 
   /**
    * Linked sources are re-checked when the notebook opens. The request is
@@ -240,16 +270,32 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     );
   }
 
-  const rename = async (title: string) => {
-    setData({ ...data, notebook: { ...data.notebook, title } });
-    await fetch(`/api/notebooks/${notebookId}`, {
+  const saveTitle = (value: string) => {
+    if (titleTimer.current) clearTimeout(titleTimer.current);
+    titleTimer.current = null;
+    const title = value.trim();
+    // An emptied field reverts rather than saving a blank name.
+    if (!title || title === data.notebook.title) {
+      setTitleDraft(null);
+      return;
+    }
+    setData((d) => (d ? { ...d, notebook: { ...d.notebook, title } } : d));
+    setTitleDraft(null);
+    void fetch(`/api/notebooks/${notebookId}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ title }),
     });
   };
 
+  const editTitle = (value: string) => {
+    setTitleDraft(value);
+    if (titleTimer.current) clearTimeout(titleTimer.current);
+    titleTimer.current = setTimeout(() => saveTitle(value), 600);
+  };
+
   return (
+    <CitationContext.Provider value={openCitation}>
     <div className="flex h-screen flex-col">
       <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-4 py-3">
         <Link
@@ -261,8 +307,18 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         <span className="text-xl">{data.notebook.emoji}</span>
         <input
           className="min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-medium outline-none transition hover:border-[var(--border)] focus:border-[var(--border)] focus:bg-[#0e1116]"
-          value={data.notebook.title}
-          onChange={(e) => void rename(e.target.value)}
+          value={titleDraft ?? data.notebook.title}
+          aria-label="Notebook title"
+          onChange={(e) => editTitle(e.target.value)}
+          onBlur={(e) => saveTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              if (titleTimer.current) clearTimeout(titleTimer.current);
+              setTitleDraft(null);
+              e.currentTarget.blur();
+            }
+          }}
         />
         <span className="hidden shrink-0 text-xs text-[var(--muted)] sm:block">
           {checkingSources
@@ -340,7 +396,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
                 allSelected ? new Set() : new Set(data.sources.map((s) => s.id))
               )
             }
-            onOpen={setOpenSourceId}
+            onOpen={(id) => openSource(id)}
             onChanged={() => void load()}
             onDiscover={() => setDiscovering(true)}
             onBrowse={() => setBrowsing(true)}
@@ -436,6 +492,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       {openSourceId && (
         <SourceModal
           sourceId={openSourceId}
+          highlight={sourceHighlight}
           onClose={() => setOpenSourceId(null)}
           onNoteCreated={async (note) => {
             await load();
@@ -542,5 +599,6 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         </div>
       )}
     </div>
+    </CitationContext.Provider>
   );
 }

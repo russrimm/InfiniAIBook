@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Note, Transformation } from "@/lib/types";
+import { findPassage } from "@/lib/highlight";
 
 type Full = {
   id: string;
@@ -11,19 +12,27 @@ type Full = {
   text: string;
   chars: number;
   summary: string | null;
+  passage?: string | null;
 };
+
+/** A citation to show in place: which part, and the excerpt it quoted. */
+export type SourceHighlight = { part: number; snippet?: string };
 
 export default function SourceModal({
   sourceId,
+  highlight,
   onClose,
   onNoteCreated,
 }: {
   sourceId: string;
+  highlight?: SourceHighlight | null;
   onClose: () => void;
   /** Called with the note a transformation produced. */
   onNoteCreated?: (note: Note) => void;
 }) {
   const [src, setSrc] = useState<Full | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const markRef = useRef<HTMLElement | null>(null);
   const [transformations, setTransformations] = useState<Transformation[]>([]);
   const [chosen, setChosen] = useState("");
   const [applying, setApplying] = useState(false);
@@ -60,13 +69,49 @@ export default function SourceModal({
   };
 
   useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", h);
-    void fetch(`/api/sources/${sourceId}`)
-      .then((r) => r.json())
-      .then(setSrc);
-    return () => window.removeEventListener("keydown", h);
-  }, [sourceId, onClose]);
+    // Captured and stopped: this can open above another modal (a citation
+    // clicked inside an artifact), and Escape should close only this one.
+    const h = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      onClose();
+    };
+    window.addEventListener("keydown", h, true);
+    return () => window.removeEventListener("keydown", h, true);
+  }, [onClose]);
+
+  const part = highlight?.part;
+  useEffect(() => {
+    let live = true;
+    setSrc(null);
+    setLoadError(null);
+    const qs = part ? `?part=${part}` : "";
+    void fetch(`/api/sources/${sourceId}${qs}`)
+      .then(async (r) => {
+        if (!live) return;
+        if (r.status === 404) {
+          setLoadError("This source has been removed from the notebook.");
+          return;
+        }
+        if (!r.ok) throw new Error();
+        setSrc((await r.json()) as Full);
+      })
+      .catch(() => live && setLoadError("This source could not be loaded."));
+    return () => {
+      live = false;
+    };
+  }, [sourceId, part]);
+
+  // Prefer the stored chunk; the citation's snippet is only its first 320
+  // characters, but locates the passage just as well when the chunk is gone.
+  const range =
+    src && highlight ? findPassage(src.text, src.passage || highlight.snippet || "") : null;
+  const cited = highlight && src && !range ? src.passage || highlight.snippet : null;
+
+  const rangeStart = range?.[0];
+  useEffect(() => {
+    markRef.current?.scrollIntoView({ block: "center" });
+  }, [rangeStart, src]);
 
   return (
     <div
@@ -80,7 +125,7 @@ export default function SourceModal({
         <header className="flex shrink-0 items-start gap-3 border-b border-[var(--border)] px-5 py-3">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-[15px] font-semibold">
-              {src?.title ?? "Loading…"}
+              {src?.title ?? (loadError ? "Source unavailable" : "Loading…")}
             </h2>
             {src && (
               <p className="text-[11px] text-[var(--muted)]">
@@ -146,8 +191,36 @@ export default function SourceModal({
         )}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          {loadError && (
+            <p className="text-[13px] text-[var(--muted)]">{loadError}</p>
+          )}
+          {cited && (
+            <div className="mb-4 rounded-xl border border-[#2f3846] bg-[#141922] px-4 py-3">
+              <p className="mb-1 text-[11px] font-medium text-[var(--muted)]">
+                Cited passage · part {highlight?.part} (its exact place in the current text
+                could not be found)
+              </p>
+              <p className="text-[13px] leading-relaxed whitespace-pre-wrap text-[#c9d2dd]">
+                {cited}
+              </p>
+            </div>
+          )}
           <pre className="font-sans text-[13px] leading-relaxed whitespace-pre-wrap text-[#c9d2dd]">
-            {src?.text ?? ""}
+            {src && range ? (
+              <>
+                {src.text.slice(0, range[0])}
+                <mark
+                  ref={markRef}
+                  className="cited-passage"
+                  aria-label={`Cited passage, part ${highlight?.part}`}
+                >
+                  {src.text.slice(range[0], range[1])}
+                </mark>
+                {src.text.slice(range[1])}
+              </>
+            ) : (
+              (src?.text ?? "")
+            )}
           </pre>
         </div>
       </div>

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Sources** | Upload PDF, DOCX, TXT, MD, CSV, JSON, HTML, **images** (described by a vision model) or **audio/video** (transcribed); paste raw text; reuse a source from **another notebook**; add a URL — including **YouTube links** and **RSS/Atom feeds**; or **discover sources** by describing a topic and picking from web results; or browse the web in-app and keep what is useful. Ingestion runs in the background, so you can keep adding while earlier items process. |
-| **Grounded chat** | Streaming answers built only from the sources you have selected, with hoverable inline citations `[1]` that show the exact excerpt used. Keep any number of separate **chat sessions** per notebook. |
+| **Grounded chat** | Streaming answers built only from the sources you have selected, with inline citations `[1]`. Click (or tab to) a citation to open its source with the cited passage highlighted. **Stop** ends an answer early and keeps what was written. Keep any number of separate **chat sessions** per notebook. |
 | **Notes** | Write your own Markdown notes, save any chat answer as a note (citations kept), and turn a note into a source. |
 | **Transformations** | Reusable prompts — built-in (dense summary, key insights, analyze paper, glossary…) or your own — run on one source and saved as a note. |
 | **Search everything** | Keyword or semantic search across every notebook's sources and notes, plus a one-shot grounded **Ask** over the whole library. |

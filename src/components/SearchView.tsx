@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Markdown from "./Markdown";
+import { CitationContext } from "./CitationContext";
+
+/** Opens the notebook with that source shown at the cited passage. */
+const passageHref = (notebookId: string, sourceId: string, part: number) =>
+  `/notebook/${notebookId}?source=${encodeURIComponent(sourceId)}&part=${part}`;
 
 type Hit = {
   id: string;
@@ -41,6 +47,7 @@ export default function SearchView({
   notebookId?: string;
 }) {
   const [q, setQ] = useState(initialQuery);
+  const router = useRouter();
   const [mode, setMode] = useState<"text" | "vector">("text");
   const [scoped, setScoped] = useState(Boolean(notebookId));
   const [busy, setBusy] = useState<"search" | "ask" | null>(null);
@@ -171,6 +178,12 @@ export default function SearchView({
 
       {answer && (
         <section className="card fade-up mt-6 px-5 py-4">
+          <CitationContext.Provider
+            value={(c) => {
+              const hit = answer.citations.find((x) => x.n === c.n);
+              if (hit) router.push(passageHref(hit.notebookId, hit.sourceId, hit.part));
+            }}
+          >
           <Markdown
             citations={answer.citations.map((c) => ({
               n: c.n,
@@ -182,12 +195,16 @@ export default function SearchView({
           >
             {answer.answer}
           </Markdown>
+          </CitationContext.Provider>
           {answer.citations.length > 0 && (
             <ul className="mt-4 space-y-1 border-t border-[var(--border)] pt-3">
               {answer.citations.map((c) => (
                 <li key={c.n} className="flex items-center gap-2 text-[12px]">
                   <span className="cite">{c.n}</span>
-                  <Link className="truncate hover:underline" href={`/notebook/${c.notebookId}`}>
+                  <Link
+                    className="truncate hover:underline"
+                    href={passageHref(c.notebookId, c.sourceId, c.part)}
+                  >
                     {c.sourceTitle}
                   </Link>
                   <span className="shrink-0 text-[11px] text-[#6b7482]">
@@ -240,7 +257,10 @@ export default function SearchView({
                 {results.hits.map((h) => (
                   <li key={h.id} className="card px-4 py-3">
                     <div className="flex flex-wrap items-center gap-2 text-[13px]">
-                      <Link className="font-medium hover:underline" href={`/notebook/${h.notebookId}`}>
+                      <Link
+                        className="font-medium hover:underline"
+                        href={passageHref(h.notebookId, h.sourceId, h.part)}
+                      >
                         {h.sourceTitle}
                       </Link>
                       <span className="text-[11px] text-[#6b7482]">

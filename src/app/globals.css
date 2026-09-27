@@ -253,6 +253,24 @@ body {
   vertical-align: 0.1em;
   cursor: help;
 }
+button.cite {
+  cursor: pointer;
+  line-height: 1;
+  font-family: inherit;
+}
+button.cite:hover {
+  background: var(--cite-border, rgba(124, 140, 255, 0.32));
+}
+button.cite:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+mark.cited-passage {
+  background: rgba(124, 140, 255, 0.22);
+  color: inherit;
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(124, 140, 255, 0.22);
+}
 
 @keyframes fadeUp {
   from {

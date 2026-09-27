@@ -62,7 +62,7 @@ It returns `{ added: [...], errors: [...], warnings: [...] }`.
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/api/sources?exclude={notebookId}` | Every source with its notebook's id and title — the Library |
-| GET | `/api/sources/{id}` | Full text and metadata |
+| GET | `/api/sources/{id}` | Full text and metadata. `?part=n` also returns `passage`, the text of that cited part |
 | POST | `/api/sources/{id}` | `{ action: "apply"\|"dismiss" }` — accept or discard a detected change to a linked source |
 | DELETE | `/api/sources/{id}` | |
 
@@ -81,11 +81,16 @@ newline-delimited JSON events:
 | `{"type":"citations","citations":[...]}` | Retrieved passages the answer may cite as `[n]` |
 | `{"type":"notice", ...}` | Non-fatal note, e.g. keyword fallback |
 | `{"type":"delta","v":"..."}` | Next piece of answer text |
-| `{"type":"done","id":"...","citations":[...]}` | Saved message id and the citations actually used |
+| `{"type":"done","id":"...","citations":[...],"stopped":false}` | Saved message id and the citations actually used |
 | `{"type":"error","error":"..."}` | Failure |
 
 An unknown `sessionId` returns `404`; no configured model returns
-`400 {"code":"no_config"}`.
+`400 {"code":"no_config"}`; a `message` over 20,000 characters returns
+`400 {"code":"too_long"}`.
+
+Closing the connection mid-answer (the UI's **Stop** button) aborts the model
+request. The text received so far is saved as the answer, ending with
+"_(Stopped before the answer was finished.)_".
 
 | Method | Path | Body | Notes |
 |---|---|---|---|
