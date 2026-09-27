@@ -68,6 +68,10 @@ It returns `{ added: [...], errors: [...], warnings: [...] }`.
 
 ## Chat and sessions
 
+**`sourceIds`**, here and on the Studio routes below, limits grounding to those
+sources. If you omit it, every source in the notebook is used. An empty list
+`[]` is refused with `400 {"code": "no_sources"}` rather than treated as "all".
+
 `POST /api/chat` with `{ notebookId, message, sourceIds?, sessionId? }` streams
 newline-delimited JSON events:
 

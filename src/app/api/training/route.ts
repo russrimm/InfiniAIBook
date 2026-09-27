@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, noSourcesSelected } from "@/lib/http";
 import { chatJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
@@ -42,6 +42,8 @@ export async function POST(req: Request) {
       length?: string;
     };
     const { notebookId, sourceIds } = body;
+    const none = noSourcesSelected(sourceIds);
+    if (none) return none;
     const topic = body.topic?.trim() ?? "";
     const wanted = audioLength(body.length);
     const { key: presenterKey, preset } = presenter(body.presenter);

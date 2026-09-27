@@ -5,11 +5,18 @@
    of overlap on paragraph boundaries.
 2. **Embed** — each chunk is embedded and stored as a `Float32Array` blob in SQLite.
 3. **Retrieve** — queries are embedded and ranked by cosine similarity, blended
-   with a lexical overlap score (85/15) so rare proper nouns are not lost. If the
-   embedding call fails, retrieval degrades gracefully to keyword-only.
+   with a lexical overlap score (85/15) so rare proper nouns are not lost. The
+   lexical score matches Unicode words (so accented and non-Latin text counts)
+   of three or more letters, plus two-letter acronyms like "AI" or "EU", at word
+   starts. If the embedding call fails, retrieval degrades gracefully to
+   keyword-only.
 4. **Generate** — chat uses the top-k passages; studio generation uses an evenly
    spread sample across *every* selected source, so a report is not written from
-   page one alone.
+   page one alone. Each selected source is guaranteed its opening passage first
+   (shortened if many sources share the context budget), then the remaining
+   budget is shared round-robin with passages spread through each document.
+   With no source selected, chat and the studio refuse rather than falling back
+   to all sources.
 5. **Cite** — passages are numbered in the prompt, the model emits `[n]` markers,
    and the UI resolves them back to source title, part number and the raw excerpt.
 

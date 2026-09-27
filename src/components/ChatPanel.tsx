@@ -119,7 +119,7 @@ export default function ChatPanel({
 
   const send = async (text: string) => {
     const q = text.trim();
-    if (!q || streaming) return;
+    if (!q || streaming || selectedIds.length === 0) return;
     setInput("");
     setError(null);
     setDraft("");
@@ -209,6 +209,9 @@ export default function ChatPanel({
   };
 
   const disabled = sources.length === 0;
+  /** Sources exist but none is ticked: nothing to ground an answer in. */
+  const noneSelected = !disabled && selectedIds.length === 0;
+  const blocked = disabled || noneSelected;
 
   return (
     <section className="flex h-full min-h-0 flex-col">
@@ -270,9 +273,11 @@ export default function ChatPanel({
               <p className="mx-auto mt-2 max-w-md text-sm text-[var(--muted)]">
                 {disabled
                   ? "Add a source first — answers are grounded strictly in the documents you upload."
-                  : "Every answer is drawn only from your selected sources, with inline citations you can hover."}
+                  : noneSelected
+                    ? "Select at least one source to chat — answers use only the sources you tick."
+                    : "Every answer is drawn only from your selected sources, with inline citations you can hover."}
               </p>
-              {!disabled && (
+              {!blocked && (
                 <div className="mx-auto mt-6 grid max-w-xl gap-2 sm:grid-cols-2">
                   {STARTERS.map((s) => (
                     <button
@@ -361,10 +366,14 @@ export default function ChatPanel({
             className="input max-h-40 min-h-[44px] resize-none py-3"
             rows={1}
             placeholder={
-              disabled ? "Add a source to start chatting…" : "Ask about your sources…"
+              disabled
+                ? "Add a source to start chatting…"
+                : noneSelected
+                  ? "Select at least one source to chat…"
+                  : "Ask about your sources…"
             }
             value={input}
-            disabled={disabled}
+            disabled={blocked}
             onChange={(e) => {
               setInput(e.target.value);
               e.target.style.height = "auto";
@@ -379,7 +388,7 @@ export default function ChatPanel({
           />
           <button
             className="btn btn-primary h-[44px] shrink-0 !px-4"
-            disabled={disabled || streaming || !input.trim()}
+            disabled={blocked || streaming || !input.trim()}
           >
             {streaming ? "…" : "Send"}
           </button>

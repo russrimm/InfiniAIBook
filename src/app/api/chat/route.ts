@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
-import { fail } from "@/lib/http";
+import { fail, noSourcesSelected } from "@/lib/http";
 import { chatStream, describeAuthError, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, retrieveWithDiagnostics } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
@@ -23,6 +23,8 @@ export async function POST(req: Request) {
     if (!notebookId || !message?.trim()) {
       return NextResponse.json({ error: "Missing notebookId or message" }, { status: 400 });
     }
+    const none = noSourcesSelected(sourceIds);
+    if (none) return none;
 
     const { passages, mismatch } = await retrieveWithDiagnostics(
       notebookId,

@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, noSourcesSelected } from "@/lib/http";
 import { chatJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
@@ -66,6 +66,8 @@ export async function POST(req: Request) {
 
     const speaker =
       ALL_SPEAKERS.find((s) => s.toLowerCase() === (voice ?? "").toLowerCase()) ?? "Ava";
+    const none = noSourcesSelected(sourceIds);
+    if (none) return none;
 
     const focused = topic?.trim() ? await retrieve(notebookId, topic, sourceIds, 24) : [];
     const broad = sampleCorpus(notebookId, sourceIds, MAX_CONTEXT_CHARS);
