@@ -16,6 +16,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
     "check:ai": "tsx --env-file-if-exists=.env.local scripts/check-ai.ts",
     "check:ssrf": "tsx scripts/check-ssrf.ts"
   },
@@ -44,7 +45,8 @@
     "eslint-config-next": "15.5.25",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   },
   "allowScripts": {
     "esbuild@0.28.2": true
