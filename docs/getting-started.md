@@ -19,8 +19,10 @@ npm run dev
 ```
 
 Open <http://localhost:3000>. For a production build, `npm run build` then
-`npm start`. Add `-- -H 127.0.0.1` to either command to keep the server off
-your network.
+`npm start`. Both listen on `127.0.0.1` only, so other devices on your network
+cannot reach the server. To open it to your network, set
+`INFINIAIBOOK_PASSWORD` first, then use `npm run dev:lan` or `npm run start:lan`
+(see [Reaching it from other devices](#reaching-it-from-other-devices)).
 
 Upgrading from OpenNotebook? An existing `.data/opennotebook.db` is renamed to
 `.data/infiniaibook.db` on first start; nothing else needs to change.
@@ -46,3 +48,23 @@ Set `INFINIAIBOOK_PASSWORD` and every page and API route requires it. The
 browser signs in at `/login` (a 30-day, HTTP-only cookie); scripts send
 `Authorization: Bearer <password>`. It is a single shared password for a
 personal instance, not multi-user accounts — see [SECURITY.md](../SECURITY.md).
+
+## Reaching it from other devices
+
+Without a password the server answers only to `localhost`, `127.0.0.1` and
+`[::1]`. That stops a web page you visit from reaching it through DNS
+rebinding. Requests for any other hostname get a 403. Separately, browsers
+cannot send state-changing API requests (POST, PATCH, DELETE) from another site.
+Scripts that send no `Origin` header are unaffected.
+
+To use it from another device:
+
+1. Set `INFINIAIBOOK_PASSWORD` (see above).
+2. Start with `npm run dev:lan` or `npm run start:lan`, which listen on every
+   interface.
+3. If you reach it by name or IP and want that hostname checked too, list it
+   in `ALLOWED_HOSTS`, e.g. `ALLOWED_HOSTS=notes.example.com,192.168.1.20`.
+   When `ALLOWED_HOSTS` is set, it applies even with a password.
+
+Behind a reverse proxy that rewrites `Host`, set `TRUST_PROXY=true` so the
+forwarded host is accepted as the app's own origin.

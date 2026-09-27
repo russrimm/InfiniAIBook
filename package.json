@@ -12,9 +12,11 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1",
+    "dev:lan": "next dev -H 0.0.0.0",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 127.0.0.1",
+    "start:lan": "next start -H 0.0.0.0",
     "lint": "eslint",
     "test": "vitest run",
     "check:ai": "tsx --env-file-if-exists=.env.local scripts/check-ai.ts",

@@ -15,6 +15,15 @@ Authorization: Bearer <password>
 
 Unauthenticated API calls get `401 {"error": "..."}`.
 
+Two checks apply whether or not a password is set:
+
+- Requests whose `Host` is not a loopback name or listed in `ALLOWED_HOSTS` get
+  `403 {"code": "host"}`. This check always runs without a password, and runs
+  with one only when `ALLOWED_HOSTS` is set.
+- A POST, PATCH or DELETE a browser sends from another site (a cross-site
+  `Sec-Fetch-Site`, or a foreign `Origin`) gets `403 {"code": "csrf"}`. Scripts
+  that send neither header are unaffected.
+
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | POST | `/api/auth/login` | `{ password }` | Sets a 30-day HTTP-only cookie |

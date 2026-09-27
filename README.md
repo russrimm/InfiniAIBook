@@ -12,8 +12,9 @@ models via Ollama, llama.cpp or LM Studio.
 Inspired by [open-notebook](https://github.com/lfnovo/open-notebook).
 
 > **Single-user.** Without `INFINIAIBOOK_PASSWORD`, anyone who can reach the
-> server can use it, and your model quota with it. Run it on localhost, set a
-> password, or put it behind an authenticating proxy — see [SECURITY.md](SECURITY.md).
+> server can use it, and your model quota with it. It listens on localhost only
+> by default; set a password before using `npm run dev:lan`, or put it behind an
+> authenticating proxy — see [SECURITY.md](SECURITY.md).
 
 ![InfiniAIBook workspace with four selected sources, a chat session picker, a cited chat answer and Studio generation tools including a multi-speaker audio overview](docs/screenshots/workspace.png)
 

@@ -15,14 +15,20 @@ mind before running it anywhere other than your own machine:
 - **Authentication is off by default.** Without `INFINIAIBOOK_PASSWORD`, anyone
   who can reach the server can read every notebook, add sources, and spend your
   model, Speech and search quota using the credentials the server runs with.
-  Setting it puts every page and API route behind one shared password
+  So by default `npm run dev` and `npm start` listen on `127.0.0.1` only, and
+  the middleware (`src/middleware.ts`, `src/lib/access.ts`) answers only to
+  loopback hostnames plus any in `ALLOWED_HOSTS`. That blocks DNS rebinding,
+  where a page you visit re-points its own domain at your machine. Browsers are
+  also refused when they send a state-changing API request (POST, PATCH,
+  DELETE) from another site (CSRF). `npm run dev:lan` / `npm run start:lan`
+  listen on every interface; use them only with a password set.
+  Setting the password puts every page and API route behind one shared password
   (`src/middleware.ts`): browsers sign in at `/login` and get an HTTP-only
   cookie holding an HMAC of the password, and scripts send
   `Authorization: Bearer <password>`. Changing the password signs everyone out.
   It is not multi-user access control and has no rate limiting beyond a short
-  delay on failures, so still bind to localhost
-  (`npm run dev -- -H 127.0.0.1`, `npm start -- -H 127.0.0.1`), use HTTPS, or
-  put it behind an authenticating reverse proxy when it is reachable by others.
+  delay on failures, so keep the default localhost binding where you can, and
+  use HTTPS or an authenticating reverse proxy when it is reachable by others.
 - **The server fetches URLs on your behalf.** Links, feeds, discovery results
   and the built-in browser are fetched server-side. Addresses that resolve to
   loopback, private, link-local or cloud-metadata ranges are refused on every
