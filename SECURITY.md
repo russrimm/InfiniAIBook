@@ -40,6 +40,17 @@ mind before running it anywhere other than your own machine:
   redirect hop (`src/lib/safefetch.ts`, tested by `npm run check:ssrf`).
   `ALLOW_PRIVATE_NETWORK_FETCH=true` turns that protection off; only set it if
   you trust everyone who can add a source.
+- **Source text can try to steer the model.** Web pages, feeds and documents
+  go into the prompt verbatim, and an injected instruction could make an answer
+  embed a URL carrying private text. Markdown images in model output (chat,
+  studio artifacts, AI notes, search answers) are therefore shown as a link
+  rather than loaded (`src/components/Markdown.tsx`), and links show their real
+  host. Only notes you write yourself render images. Every response also sends
+  `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and
+  `Referrer-Policy: no-referrer`, and a Content Security Policy that allows no
+  remote images or connections (`next.config.ts`). The CSP is Report-Only for
+  now, so a violation is logged in the browser console rather than blocked.
+  Once it is enforced, remote images in your own notes will stop loading too.
 - **Secrets stay in `.env.local`.** It is git-ignored. Prefer Microsoft Entra ID
   (`az login` or a managed identity) over API keys for Azure services.
 - **Data is stored unencrypted** under `DATA_DIR` (default `./.data`): sources,

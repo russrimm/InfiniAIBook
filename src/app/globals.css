@@ -165,6 +165,25 @@ body {
   color: #8f9dff;
   text-decoration: underline;
 }
+.prose-nb .md-host {
+  color: var(--muted);
+  font-size: 0.8em;
+  text-decoration: none;
+}
+.prose-nb .md-blocked-img {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+.prose-nb img {
+  max-width: 100%;
+  border-radius: 8px;
+}
 .prose-nb blockquote {
   border-left: 3px solid #3a4250;
   padding-left: 1rem;

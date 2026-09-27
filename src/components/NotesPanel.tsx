@@ -201,7 +201,14 @@ function NoteEditor({
               onChange={(e) => setContent(e.target.value)}
             />
           ) : (
-            <Markdown citations={note?.citations}>{content || "_Nothing here yet._"}</Markdown>
+            <Markdown
+              citations={note?.citations}
+              // Only a note the user wrote may load images; saved AI answers
+              // and transformation output are model text like any other.
+              allowImages={!note || note.kind === "human"}
+            >
+              {content || "_Nothing here yet._"}
+            </Markdown>
           )}
         </div>
 

