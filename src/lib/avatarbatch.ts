@@ -159,7 +159,7 @@ export async function submitAvatarJob(
       videoFormat: "mp4",
       videoCodec: "h264",
       subtitleType: "hard_embedded",
-      bitrateKbps: 4000,
+      bitrateKbps: 2000,
       ...(image && /^https:\/\//i.test(image)
         ? { backgroundImage: image }
         : { backgroundColor: `${opts.background}FF` }),

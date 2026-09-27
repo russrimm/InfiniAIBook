@@ -18,6 +18,29 @@ two steps, so nothing is billed for video until you are happy with the script.
 Editing is locked while a render runs. If you change the script afterwards, the
 editor says the video is out of date and offers **Render again**.
 
+## Sample
+
+[![A presenter on a slate background, with the subtitle "If you build or manage agents in Copilot Studio, the pace of change is fast"](screenshots/training-video.jpg)](https://github.com/user-attachments/assets/7651fdca-42dd-45e4-8e56-f56f07c3b6d9)
+
+*Click the image to play the 3:37 sample, shown here at 720p.* It was generated from a notebook of
+two public "What's new in Copilot Studio" pages, using the Short length and Lisa
+(casual) with the Ava voice.
+
+![Finished training video playing above the editable transcript, with presenter settings and a Render again button](screenshots/training-editor.png)
+
+## Measured
+
+The sample above is a real run:
+
+| Step | Result |
+|---|---|
+| Write transcript | 32 s with `gpt-5-mini`, 5 sections, 557 words |
+| Render | about 4.5 minutes from submission to a saved MP4 |
+| Output | 3:37 at 1920x1080, H.264, 217 s of avatar time billed |
+
+Videos are requested at 2 Mbps, about 15 MB per minute. That is ample for a
+presenter on a flat background.
+
 ## Why the text-to-speech avatar, not a generative video model
 
 Foundry offers two ways to produce a person on video:
@@ -76,9 +99,12 @@ in December 2026.
 - **Length.** Short, medium and long target about 3, 6 and 10 minutes. The
   service accepts up to 20 minutes, and the editor blocks rendering when the
   word count would exceed that.
-- **Rendering time.** Azure renders in the cloud, typically a few minutes of
-  wall-clock time per minute of video. Progress is stored on the artifact, so
-  you can close it and carry on; watching resumes after a server restart.
+- **Rendering time.** Azure renders in the cloud. The measured sample took
+  about 1.25 minutes of wall-clock time per minute of video. Progress is
+  stored on the artifact, so you can close it and carry on, and watching
+  resumes after a server restart.
+- **Rate limit.** On the S0 tier the service accepts about two new render jobs
+  a minute. Starting more at once returns a "retry after N seconds" message.
 - **Cleanup.** Once the MP4 is downloaded, the Azure job is deleted. Deleting
   the artifact or its notebook deletes the local file too.
 - **Billing.** The finished artifact records the avatar seconds Azure billed.

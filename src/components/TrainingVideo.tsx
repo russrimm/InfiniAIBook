@@ -62,7 +62,9 @@ export default function TrainingVideo({
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState<"save" | "render" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [elapsed, setElapsed] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const since = content.progress?.submittedAt;
+  const elapsed = since ? Math.max(0, (now - since) / 1000) : 0;
 
   // Adopt the stored transcript whenever it changes underneath us, unless the
   // user is mid-edit — polling must never overwrite what they are typing.
@@ -89,7 +91,7 @@ export default function TrainingVideo({
 
   useEffect(() => {
     if (!rendering) return;
-    const tick = setInterval(() => setElapsed((s) => s + 1), 1000);
+    const tick = setInterval(() => setNow(Date.now()), 1000);
     const poll = setInterval(() => {
       void Promise.resolve(refresh.current()).catch(() => {});
     }, 5000);
@@ -142,7 +144,6 @@ export default function TrainingVideo({
         const res = await fetch(`/api/training/${artifactId}/render`, { method: "POST" });
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) throw new Error(j.error || "Could not start the render.");
-        setElapsed(0);
         await refresh.current();
       }
     } catch (e) {
@@ -222,8 +223,8 @@ export default function TrainingVideo({
             })}
           </ol>
           <p className="mt-3 text-[11px] leading-snug text-[var(--muted)]">
-            Azure renders the presenter in the cloud — usually a few minutes
-            per minute of video. You can close this; it carries on, and
+            Azure renders the presenter in the cloud, usually a little longer
+            than the video runs. You can close this; it carries on, and
             survives a server restart.
           </p>
         </div>
@@ -399,7 +400,7 @@ export default function TrainingVideo({
         </button>
       </section>
 
-      <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center gap-2 border-t border-[var(--border)] bg-[var(--panel)] px-1 py-3">
+      <div className="sticky -bottom-6 -mx-1 flex flex-wrap items-center gap-2 border-t border-[var(--border)] bg-[var(--panel)] px-1 pt-3 pb-9">
         <p className="mr-auto text-[11px] leading-snug text-[var(--muted)]">
           Spoken exactly as written, with subtitles burned in. Avoid markdown,
           links and stage directions.
