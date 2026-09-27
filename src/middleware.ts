@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { AUTH_COOKIE, authPassword, safeEqual, sessionToken } from "@/lib/auth";
+import { AUTH_COOKIE, authPassword, bearerAllowed, verifySessionToken } from "@/lib/auth";
 import { hostAllowed, isCrossSiteWrite, parseAllowedHosts } from "@/lib/access";
 
 function refuse(pathname: string, status: number, error: string, code: string) {
@@ -23,8 +23,9 @@ function refuse(pathname: string, status: number, error: string, code: string) {
  *    browsers and pass.
  *
  * With INFINIAIBOOK_PASSWORD set, every page and API route requires either the
- * session cookie from /login or `Authorization: Bearer <password>` (for
- * scripts using the REST API). Without it, only the two checks above apply.
+ * signed session cookie from /login or a bearer token: INFINIAIBOOK_API_TOKEN,
+ * or the password when no API token is set (deprecated). Without it, only the
+ * two checks above apply.
  */
 export async function middleware(req: NextRequest) {
   const password = authPassword();
@@ -61,10 +62,10 @@ export async function middleware(req: NextRequest) {
   if (pathname === "/login" || pathname.startsWith("/api/auth/")) return NextResponse.next();
 
   const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (bearer && safeEqual(bearer, password)) return NextResponse.next();
+  if (bearer && bearerAllowed(bearer, password)) return NextResponse.next();
 
   const cookie = req.cookies.get(AUTH_COOKIE)?.value;
-  if (cookie && safeEqual(cookie, await sessionToken(password))) return NextResponse.next();
+  if (cookie && (await verifySessionToken(cookie, password))) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Authentication required", code: "auth" }, { status: 401 });

@@ -115,6 +115,8 @@ commentary. Only a model provider is required.
 | `MAX_FETCH_BYTES`, `FETCH_MAX_REDIRECTS`, `FETCH_TIMEOUT_MS` | Limits on fetched pages and files |
 | `DATA_DIR` | Where the database and generated media live (default `./.data`) |
 | `INFINIAIBOOK_PASSWORD` | Require a password for the UI and API (default off) |
+| `INFINIAIBOOK_API_TOKEN` | Bearer token for scripts calling the API. Once set, the password is no longer accepted as a bearer token |
+| `INFINIAIBOOK_SESSION_SECRET` | Optional extra key for signing session cookies; change it to sign every browser out |
 | `ALLOWED_HOSTS` | Extra hostnames the server answers to, comma-separated (`*` for any). Loopback names are always allowed. Without a password, other hosts get a 403 |
 | `TRUST_PROXY` | `true` behind a reverse proxy: honour `X-Forwarded-Host` / `X-Forwarded-Proto` |
 

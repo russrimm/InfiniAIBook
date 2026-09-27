@@ -5,13 +5,16 @@ be scripted too. Requests and responses are JSON unless noted.
 
 ## Authentication
 
-When `INFINIAIBOOK_PASSWORD` is unset, the API is open. When it is set, every
-route except `/api/auth/*` needs either the session cookie from
-`POST /api/auth/login` or the header:
+When `INFINIAIBOOK_PASSWORD` is unset, the API needs no credentials. When it is
+set, every route except `/api/auth/*` needs either the session cookie from
+`POST /api/auth/login` or a bearer token:
 
 ```http
-Authorization: Bearer <password>
+Authorization: Bearer <INFINIAIBOOK_API_TOKEN>
 ```
+
+Until `INFINIAIBOOK_API_TOKEN` is set, the password is accepted in its place
+(deprecated; the server logs a warning). Once it is set, only the token works.
 
 Unauthenticated API calls get `401 {"error": "..."}`.
 
@@ -26,8 +29,9 @@ Two checks apply whether or not a password is set:
 
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| POST | `/api/auth/login` | `{ password }` | Sets a 30-day HTTP-only cookie |
+| POST | `/api/auth/login` | `{ password }` | Sets a signed 30-day HTTP-only cookie. Attempts are serialised; each failure delays the next one longer (up to 30 s) |
 | POST | `/api/auth/logout` | — | Clears the cookie |
+| GET | `/api/auth/status` | — | `{ auth }`: whether a password is required |
 
 ## Notebooks
 

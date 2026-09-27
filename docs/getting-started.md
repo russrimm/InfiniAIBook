@@ -45,9 +45,11 @@ lines in the [`Dockerfile`](../Dockerfile) to include it.
 ## Password protection
 
 Set `INFINIAIBOOK_PASSWORD` and every page and API route requires it. The
-browser signs in at `/login` (a 30-day, HTTP-only cookie); scripts send
-`Authorization: Bearer <password>`. It is a single shared password for a
-personal instance, not multi-user accounts — see [SECURITY.md](../SECURITY.md).
+browser signs in at `/login` (a signed 30-day, HTTP-only cookie) and can sign
+out from the home page. Scripts send `Authorization: Bearer <token>` with
+`INFINIAIBOOK_API_TOKEN`; until that is set, the password works as the token.
+It is a single shared password for a personal instance, not multi-user
+accounts — see [SECURITY.md](../SECURITY.md).
 
 ## Reaching it from other devices
 

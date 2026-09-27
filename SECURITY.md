@@ -23,12 +23,17 @@ mind before running it anywhere other than your own machine:
   DELETE) from another site (CSRF). `npm run dev:lan` / `npm run start:lan`
   listen on every interface; use them only with a password set.
   Setting the password puts every page and API route behind one shared password
-  (`src/middleware.ts`): browsers sign in at `/login` and get an HTTP-only
-  cookie holding an HMAC of the password, and scripts send
-  `Authorization: Bearer <password>`. Changing the password signs everyone out.
-  It is not multi-user access control and has no rate limiting beyond a short
-  delay on failures, so keep the default localhost binding where you can, and
-  use HTTPS or an authenticating reverse proxy when it is reachable by others.
+  (`src/middleware.ts`). Browsers sign in at `/login` and get an HTTP-only
+  cookie that holds a signed expiry (30 days), never the password. Scripts send
+  `INFINIAIBOOK_API_TOKEN` as a bearer token. Until you set one, the password
+  itself is accepted as the bearer token, with a warning in the server log.
+  Changing the password or `INFINIAIBOOK_SESSION_SECRET` signs everyone out;
+  **Sign out** on the home page clears this browser's cookie. Sign-in attempts
+  are handled one at a time, and each failure holds the next attempt for
+  longer (up to 30 s). Behind a TLS-terminating proxy, set `TRUST_PROXY=true`
+  so the cookie gets the `Secure` flag. It is not multi-user access control,
+  so keep the default localhost binding where you can, and use HTTPS or an
+  authenticating reverse proxy when it is reachable by others.
 - **The server fetches URLs on your behalf.** Links, feeds, discovery results
   and the built-in browser are fetched server-side. Addresses that resolve to
   loopback, private, link-local or cloud-metadata ranges are refused on every

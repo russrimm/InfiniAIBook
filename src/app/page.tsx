@@ -8,6 +8,7 @@ export default function Home() {
   const router = useRouter();
   const [notebooks, setNotebooks] = useState<Notebook[] | null>(null);
   const [creating, setCreating] = useState(false);
+  const [authOn, setAuthOn] = useState(false);
 
   const load = async () => {
     const res = await fetch("/api/notebooks");
@@ -16,7 +17,16 @@ export default function Home() {
 
   useEffect(() => {
     void load();
+    void fetch("/api/auth/status")
+      .then((r) => (r.ok ? r.json() : { auth: false }))
+      .then((j: { auth?: boolean }) => setAuthOn(!!j.auth))
+      .catch(() => {});
   }, []);
+
+  const signOut = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/login";
+  };
 
   const create = async () => {
     setCreating(true);
@@ -53,6 +63,11 @@ export default function Home() {
           <button className="btn" onClick={() => router.push("/search")}>
             🔎 Search all
           </button>
+          {authOn && (
+            <button className="btn" onClick={() => void signOut()}>
+              Sign out
+            </button>
+          )}
           <button className="btn btn-primary" onClick={create} disabled={creating}>
             {creating ? "Creating…" : "+ New notebook"}
           </button>
