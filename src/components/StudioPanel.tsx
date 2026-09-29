@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { STUDIO, STUDIO_ORDER } from "@/lib/studio";
 import {
   DEFAULT_STYLE,
@@ -127,6 +127,10 @@ export default function StudioPanel({
   const [delivery, setDelivery] = useState<Delivery>("natural");
   const [audioLen, setAudioLen] = useState<AudioLength>("medium");
   const [narrator, setNarrator] = useState("Ava");
+  const [motionNarrator, setMotionNarrator] = useState("Ava");
+  const [motionMusic, setMotionMusic] = useState(false);
+  /** Music is only offered when the server has a track folder configured. */
+  const [musicReady, setMusicReady] = useState(false);
   const [episodeProfile, setEpisodeProfile] = useState("deep-dive");
   const [speakers, setSpeakers] = useState<SpeakerConfig[]>(() =>
     profileSpeakers("deep-dive")
@@ -142,6 +146,17 @@ export default function StudioPanel({
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    fetch("/api/motion")
+      .then((r) => (r.ok ? r.json() : { music: false }))
+      .then((j: { music?: boolean }) => live && setMusicReady(Boolean(j.music)))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
 
   /** Play a speaker's sample, replacing whatever was playing. */
   const preview = async (name: string) => {
@@ -253,6 +268,15 @@ export default function StudioPanel({
       voice: narrator,
     });
 
+  const generateMotion = () =>
+    run("motion", "/api/motion", {
+      notebookId,
+      topic: topic.trim() || undefined,
+      sourceIds: selectedIds,
+      voice: motionNarrator,
+      music: musicReady && motionMusic,
+    });
+
   const generateTraining = () =>
     run("training", "/api/training", {
       notebookId,
@@ -275,6 +299,7 @@ export default function StudioPanel({
   const blocked = !hasSources || selectedIds.length === 0;
   const audioBusy = running.has("podcast");
   const videoBusy = running.has("video");
+  const motionBusy = running.has("motion");
   const trainingBusy = running.has("training");
   const pinnedVoices = delivery === "pinned";
   /** Fixed voices exist for only some speakers, so warn before generating. */
@@ -498,6 +523,63 @@ export default function StudioPanel({
             <span className="shrink-0 text-[10px] leading-snug text-[var(--muted)]">
               Uses the focus box above
             </span>
+          </div>
+        </div>
+
+        <div
+          className={`card relative mb-2 overflow-hidden transition ${
+            motionBusy ? "shimmer border-[var(--accent)]" : ""
+          }`}
+        >
+          <button
+            disabled={blocked || motionBusy}
+            onClick={() => void generateMotion()}
+            className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span className="text-xl">{STUDIO.motion.icon}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-medium">Motion explainer</span>
+              <span className="block text-[10px] leading-snug text-[var(--muted)]">
+                {motionBusy
+                  ? "Writing the story — designing and animating takes 10–15 minutes"
+                  : "An animated 2D story: problem, solution, how it works, next step"}
+              </span>
+            </span>
+          </button>
+
+          <div className="space-y-2 border-t border-[var(--border)] px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                Voice
+              </span>
+              <SpeakerSelect
+                value={motionNarrator}
+                disabled={false}
+                onChange={setMotionNarrator}
+                onPreview={preview}
+                previewing={previewing}
+                loading={previewLoading}
+              />
+              <span className="shrink-0 text-[10px] leading-snug text-[var(--muted)]">
+                Uses the focus box above
+              </span>
+            </div>
+            {musicReady && (
+              <label className="flex cursor-pointer items-center gap-2 text-[11px] text-[var(--fg)]">
+                <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                  Music
+                </span>
+                <input
+                  type="checkbox"
+                  className="cursor-pointer accent-[var(--accent)]"
+                  checked={motionMusic}
+                  onChange={(e) => setMotionMusic(e.target.checked)}
+                />
+                <span className="text-[10px] leading-snug text-[var(--muted)]">
+                  Add a background track, lowered under the narration
+                </span>
+              </label>
+            )}
           </div>
         </div>
 

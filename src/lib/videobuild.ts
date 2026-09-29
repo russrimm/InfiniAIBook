@@ -52,7 +52,7 @@ export function setProgress(id: string, patch: Partial<Record<string, unknown>>)
 }
 
 /** Refresh the heartbeat without disturbing the stage the build is reporting. */
-function touch(id: string) {
+export function touch(id: string) {
   const row = db.prepare("SELECT content FROM artifacts WHERE id = ?").get(id) as
     | { content: string }
     | undefined;
@@ -71,7 +71,7 @@ function touch(id: string) {
  * ticking while it waits.
  */
 const STALL_MS = 90_000;
-const HEARTBEAT_MS = 20_000;
+export const HEARTBEAT_MS = 20_000;
 
 type VideoRow = { id: string; content: string; created_at: number };
 
@@ -125,8 +125,8 @@ export function reconcileStalledVideos(notebookId?: string): number {
   const rows = db
     .prepare(
       notebookId
-        ? "SELECT id, content, created_at FROM artifacts WHERE type = 'video' AND notebook_id = ?"
-        : "SELECT id, content, created_at FROM artifacts WHERE type = 'video'"
+        ? "SELECT id, content, created_at FROM artifacts WHERE type IN ('video', 'motion') AND notebook_id = ?"
+        : "SELECT id, content, created_at FROM artifacts WHERE type IN ('video', 'motion')"
     )
     .all(...(notebookId ? [notebookId] : [])) as unknown as VideoRow[];
 
@@ -139,7 +139,7 @@ export function reconcileStalledVideos(notebookId?: string): number {
 export function reconcileStalledVideo(id: string): boolean {
   const row = db
     .prepare(
-      "SELECT id, content, created_at FROM artifacts WHERE id = ? AND type = 'video'"
+      "SELECT id, content, created_at FROM artifacts WHERE id = ? AND type IN ('video', 'motion')"
     )
     .get(id) as unknown as VideoRow | undefined;
   return row ? reconcileRow(row) : false;
@@ -162,7 +162,7 @@ async function ensureHand(): Promise<string> {
   return file;
 }
 
-async function narrate(text: string, speaker: string): Promise<Buffer> {
+export async function narrate(text: string, speaker: string): Promise<Buffer> {
   const ssml =
     `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' ` +
     `xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='en-US'>` +
@@ -173,7 +173,7 @@ async function narrate(text: string, speaker: string): Promise<Buffer> {
 }
 
 /** Run a handful at a time: the image deployment has small capacity. */
-async function pool<T>(items: T[], n: number, work: (item: T, i: number) => Promise<void>) {
+export async function pool<T>(items: T[], n: number, work: (item: T, i: number) => Promise<void>) {
   let next = 0;
   await Promise.all(
     Array.from({ length: Math.min(n, items.length) }, async () => {
@@ -182,9 +182,10 @@ async function pool<T>(items: T[], n: number, work: (item: T, i: number) => Prom
   );
 }
 
-function runRenderer(configPath: string): Promise<void> {
+/** Run a renderer under scripts/ with a config file, rejecting with its stderr tail. */
+export function runPythonRenderer(scriptPath: string[], configPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const script = path.join(process.cwd(), "scripts", "whiteboard", "render.py");
+    const script = path.join(process.cwd(), "scripts", ...scriptPath);
     const py = process.env.PYTHON_BIN || "python";
     const child = spawn(py, [script, configPath], { cwd: process.cwd() });
 
@@ -299,7 +300,7 @@ async function runBuild(
   const configPath = path.join(work, "config.json");
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 
-  await runRenderer(configPath);
+  await runPythonRenderer(["whiteboard", "render.py"], configPath);
 
   if (!fs.existsSync(out)) {
     throw new Error("The renderer finished but produced no file.");

@@ -3,22 +3,40 @@
 import { useEffect, useRef, useState } from "react";
 import type { VideoContent } from "@/lib/types";
 
-const STAGES: { key: string; label: string }[] = [
-  { key: "artwork", label: "Drawing the scenes" },
-  { key: "narration", label: "Recording narration" },
-  { key: "rendering", label: "Rendering the video" },
-];
+const STAGES: Record<"whiteboard" | "motion", { key: string; label: string }[]> = {
+  whiteboard: [
+    { key: "artwork", label: "Drawing the scenes" },
+    { key: "narration", label: "Recording narration" },
+    { key: "rendering", label: "Rendering the video" },
+  ],
+  motion: [
+    { key: "artwork", label: "Designing scenes and characters" },
+    { key: "narration", label: "Recording narration" },
+    { key: "rendering", label: "Animating the video" },
+  ],
+};
+
+const BEAT_LABELS: Record<string, string> = {
+  problem: "Problem",
+  solution: "Solution",
+  how: "How",
+  benefits: "Benefits",
+  cta: "Next step",
+};
 
 export default function VideoPlayer({
   artifactId,
   content,
   onRefresh,
+  variant = "whiteboard",
 }: {
   artifactId: string;
   content: VideoContent;
   /** Pulls the artifact again so progress advances while a build runs. */
   onRefresh: () => Promise<void> | void;
+  variant?: "whiteboard" | "motion";
 }) {
+  const stages = STAGES[variant];
   const progress = content.progress;
   const stage = progress?.stage ?? (content.videoUrl ? "done" : "artwork");
   const building = stage !== "done" && stage !== "failed";
@@ -59,14 +77,14 @@ export default function VideoPlayer({
   }
 
   if (building) {
-    const idx = STAGES.findIndex((s) => s.key === stage);
+    const idx = stages.findIndex((s) => s.key === stage);
     return (
       <div>
         <div className="rounded-2xl border border-[var(--border)] bg-[#0e1116] p-6">
           <div className="flex items-center gap-2">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
             <span className="text-[13px] font-medium">
-              {STAGES[idx]?.label ?? "Working"}
+              {stages[idx]?.label ?? "Working"}
             </span>
             <span className="ml-auto font-mono text-[11px] text-[var(--muted)] tabular-nums">
               {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}
@@ -74,7 +92,7 @@ export default function VideoPlayer({
           </div>
 
           <div className="mt-4 space-y-2">
-            {STAGES.map((s, i) => {
+            {stages.map((s, i) => {
               const state = i < idx ? "done" : i === idx ? "now" : "todo";
               const pct =
                 state === "done"
@@ -144,6 +162,7 @@ export default function VideoPlayer({
       <SceneList content={content} />
       <p className="mt-4 text-[10px] text-[var(--muted)]">
         Narrated by {content.voice ?? "Ava"}
+        {content.music ? " · with music" : ""}
         {content.bytes ? ` · ${(content.bytes / 1_048_576).toFixed(1)} MB` : ""}
       </p>
       <input type="hidden" value={artifactId} readOnly />
@@ -165,9 +184,14 @@ function SceneList({ content }: { content: VideoContent }) {
             className="flex gap-3 rounded-xl border border-[var(--border)] px-3 py-2.5"
           >
             <span className="mt-0.5 w-6 shrink-0 text-center text-[10px] font-semibold text-[var(--muted)]">
-              {s.step ?? "—"}
+              {s.beat ? i + 1 : (s.step ?? "—")}
             </span>
             <div className="min-w-0 flex-1">
+              {s.beat && (
+                <div className="text-[10px] font-semibold tracking-widest text-[var(--accent)] uppercase">
+                  {BEAT_LABELS[s.beat] ?? s.beat}
+                </div>
+              )}
               <div className="text-[12px] font-semibold tracking-wide">{s.title}</div>
               <div className="text-[12px] text-[#c9d2dd]">{s.caption}</div>
               <div className="mt-1 text-[11px] leading-relaxed text-[var(--muted)]">

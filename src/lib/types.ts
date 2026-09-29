@@ -9,6 +9,7 @@ export type ArtifactType =
   | "timeline"
   | "infographic"
   | "video"
+  | "motion"
   | "training"
   | "podcast";
 
@@ -146,10 +147,14 @@ export type VideoContent = {
     caption: string;
     narration: string;
     step?: number;
+    /** Story beat of a motion explainer scene: problem, solution, how, benefits, cta. */
+    beat?: string;
   }[];
   videoUrl?: string;
   bytes?: number;
   voice?: string;
+  /** Motion explainers record whether a music bed was mixed in. */
+  music?: boolean;
   progress?: { stage: string; done: number; total: number; note?: string };
 };
 

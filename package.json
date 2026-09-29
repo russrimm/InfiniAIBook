@@ -20,7 +20,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "check:ai": "tsx --env-file-if-exists=.env.local scripts/check-ai.ts",
-    "check:ssrf": "tsx scripts/check-ssrf.ts"
+    "check:ssrf": "tsx scripts/check-ssrf.ts",
+    "check:motion": "tsx scripts/check-motion.ts"
   },
   "dependencies": {
     "@azure/identity": "^4.13.3",

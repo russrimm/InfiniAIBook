@@ -192,17 +192,45 @@ const IMAGE_API_VERSION =
 
 export type GeneratedImage = { png: Buffer; model: string; size: string };
 
+export type ImageOptions = {
+  size?: string;
+  quality?: string;
+  /**
+   * Ask for a transparent background (gpt-image models). Best effort: a model
+   * or endpoint that rejects the parameter is retried without it, so callers
+   * must cope with an opaque result.
+   */
+  background?: "transparent" | "opaque";
+};
+
 /**
  * Renders a prompt to a PNG. Returns raw bytes rather than a URL because the
  * gpt-image family replies with base64 and no hosted URL to fetch.
  */
 export async function generateImage(
   prompt: string,
-  opts: { size?: string; quality?: string } = {}
+  opts: ImageOptions = {}
 ): Promise<GeneratedImage> {
+  if (!opts.background) return requestImage(prompt, opts);
+  try {
+    return await requestImage(prompt, opts);
+  } catch (e) {
+    const status = (e as { status?: number }).status;
+    const message = e instanceof Error ? e.message : "";
+    if (status === 400 && /background|output_format/i.test(message)) {
+      return requestImage(prompt, { ...opts, background: undefined });
+    }
+    throw e;
+  }
+}
+
+async function requestImage(prompt: string, opts: ImageOptions): Promise<GeneratedImage> {
   const model = imageModel();
   const size = opts.size || "1536x1024";
   const quality = opts.quality || "high";
+  const extra = opts.background
+    ? { background: opts.background, output_format: "png" }
+    : {};
 
   const url =
     PROVIDER === "azure"
@@ -217,8 +245,8 @@ export async function generateImage(
       headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify(
         PROVIDER === "azure"
-          ? { prompt, n: 1, size, quality }
-          : { model, prompt, n: 1, size, response_format: "b64_json" }
+          ? { prompt, n: 1, size, quality, ...extra }
+          : { model, prompt, n: 1, size, response_format: "b64_json", ...extra }
       ),
     });
 

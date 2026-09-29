@@ -49,12 +49,13 @@ How it works, setup and costs: [Training videos](docs/training-videos.md).
   reusable prompts run on a source. [More](docs/notes-and-search.md)
 - **Search everything** — keyword or semantic search, and a grounded **Ask**,
   across every notebook. [More](docs/notes-and-search.md#search-and-ask)
-- **Studio** — twelve generators, each producing a structured, interactive artifact:
+- **Studio** — thirteen generators, each producing a structured, interactive artifact:
 
   | Format | Output |
   |---|---|
   | 🎧 [Audio overview](docs/audio-overviews.md) | One to four speakers discuss your sources, with a synced transcript |
   | 🎬 [Whiteboard video](docs/whiteboard-videos.md) | A narrated, hand-drawn explainer, MP4 |
+  | 🎞️ [Motion explainer](docs/motion-explainers.md) | A narrated 2D animated explainer (problem → solution → how → benefits → next step), with optional music, MP4 |
   | 🧑‍🏫 [Training video](docs/training-videos.md) | An editable trainer's script from sources and notes, rendered by a lip-synced Azure avatar presenter, MP4 |
   | 📊 [Infographic](docs/infographics.md) | Headline stats and themed sections in **20 styles** |
   | 🕸️ [Mind map](docs/studio.md#mind-maps) | Interactive, expandable concept tree |

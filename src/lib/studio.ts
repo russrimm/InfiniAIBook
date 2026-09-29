@@ -310,6 +310,16 @@ Omit "pullQuote", "nextSteps", "flow", "chart", "compare", "checklist", "regions
     instruction: () => "",
   },
 
+  motion: {
+    label: "Motion explainer",
+    blurb: "Narrated 2D animated explainer",
+    icon: "🎞️",
+    json: true,
+    // Planned by src/lib/motion.ts and built by /api/motion, not here. This
+    // entry exists so the artifact list has a label and an icon for it.
+    instruction: () => "",
+  },
+
   training: {
     label: "Training video",
     blurb: "Presenter-led training session",
