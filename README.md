@@ -1,5 +1,8 @@
 # InfiniAIBook
 
+[![CI](https://github.com/russrimm/InfiniAIBook/actions/workflows/ci.yml/badge.svg)](https://github.com/russrimm/InfiniAIBook/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A self-hosted Agentic Powered Notebook research studio. Upload your own sources, chat with
 them, and turn them into **reports, briefings, infographics, mind maps, quizzes,
 study guides, FAQs, timelines, audio overviews and avatar training videos**. Every claim is cited back to the document it came from.
@@ -55,7 +58,7 @@ How it works, setup and costs: [Training videos](docs/training-videos.md).
   |---|---|
   | 🎧 [Audio overview](docs/audio-overviews.md) | One to four speakers discuss your sources, with a synced transcript |
   | 🎬 [Whiteboard video](docs/whiteboard-videos.md) | A narrated, hand-drawn explainer, MP4 |
-  | 🎞️ [Motion explainer](docs/motion-explainers.md) | A narrated 2D animated explainer (problem → solution → how → benefits → next step), with optional music, MP4 |
+  | 🎞️ [Motion explainer](docs/motion-explainers.md) | A narrated 2D animated explainer (problem → solution → how → benefits → next step), with optional music, MP4. [Customize](docs/motion-explainers.md#customizing-a-video) the length, tone, audience, illustration style, colors, character, closing call to action and resolution |
   | 🧑‍🏫 [Training video](docs/training-videos.md) | An editable trainer's script from sources and notes, rendered by a lip-synced Azure avatar presenter, MP4 |
   | 📊 [Infographic](docs/infographics.md) | Headline stats and themed sections in **20 styles** |
   | 🕸️ [Mind map](docs/studio.md#mind-maps) | Interactive, expandable concept tree |
@@ -82,6 +85,27 @@ Open <http://localhost:3000>. See [Getting started](docs/getting-started.md) for
 Docker and password protection, and [Configuration](docs/configuration.md) for
 providers and environment variables.
 
+### Models and what they're used for
+
+Only a chat model is required; each of the others switches features on. Azure
+settings are shown here; other providers use the `AI_*` equivalents. The
+[full table](docs/configuration.md#models-and-what-theyre-used-for) covers
+defaults and what happens without each one.
+
+| Model | Setting | Used for |
+|---|---|---|
+| Chat (required) | `AZURE_OPENAI_DEPLOYMENT` or `AI_MODEL` | Chat, search Ask, notes and transformations, and the written Studio formats |
+| Studio script | `AI_STUDIO_MODEL` (optional, defaults to chat) | Audio-overview scripts, whiteboard and motion scene plans, training transcripts |
+| Embeddings | `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` or `AI_EMBEDDING_MODEL` | Semantic retrieval and search; keyword ranking without it |
+| Image | `AZURE_OPENAI_IMAGE_DEPLOYMENT` or `AI_IMAGE_MODEL` | AI-image infographics, whiteboard videos and motion explainers |
+| Vision | `AZURE_OPENAI_VISION_DEPLOYMENT` or `AI_VISION_MODEL` | Reading uploaded images (defaults to chat) |
+| Transcription | `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT` or `AI_TRANSCRIPTION_MODEL` | Audio and video sources |
+| Azure Speech | `AZURE_SPEECH_REGION` + `AZURE_SPEECH_RESOURCE_ID` (or `AZURE_SPEECH_KEY`) | Every voice: audio overviews, video narration, training-video avatars |
+| Gemini | `GEMINI_API_KEY` | YouTube transcripts |
+
+Whiteboard videos and motion explainers also need Python 3 with `numpy`,
+`Pillow` and `imageio-ffmpeg`.
+
 ## Documentation
 
 Full documentation is in [docs/](docs/README.md), including
@@ -91,9 +115,9 @@ and the [REST API](docs/API.md).
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and the checks to
-run before a pull request. Report security issues privately as described in
-[SECURITY.md](SECURITY.md).
+run before a pull request, and the [Code of Conduct](CODE_OF_CONDUCT.md). Report
+security issues privately as described in [SECURITY.md](SECURITY.md).
 
-## Licence
+## License
 
 [MIT](LICENSE)

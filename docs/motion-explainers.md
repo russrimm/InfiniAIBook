@@ -1,13 +1,32 @@
 # Motion explainers
 
-The 🎞️ button turns your sources into a short 2D animated explainer. Flat
-vector characters and objects slide and pop into simple scenes, headlines
-animate on word by word, stat cards count up and scenes change with wipes and
-slides. A narrator tells the story over it, and an optional music bed plays
-underneath.
+The 🎞️ button turns your sources into a short 2D animated explainer.
+Characters and objects slide and pop into simple scenes, headlines animate on
+word by word, stat cards count up, and scenes change with wipes and slides. A
+narrator tells the story over it, and an optional music bed plays underneath.
+
+By default it is a seven-scene, flat-vector video at 720p with a friendly
+narrator. Everything about that can be changed under **Customize** on the card:
+see [Customizing a video](#customizing-a-video).
 
 The **focus box** at the top of the Studio panel steers it, like every other
 generator.
+
+## What you need
+
+| Piece | Setting | Used for |
+|---|---|---|
+| Studio script model | `AI_STUDIO_MODEL`, else the chat model (`AZURE_OPENAI_DEPLOYMENT` / `AI_MODEL`) | Writing the scene plan: story, on-screen text, narration, palette and character |
+| Image model | `AZURE_OPENAI_IMAGE_DEPLOYMENT` or `AI_IMAGE_MODEL` | Drawing every background, the character and each prop |
+| Azure Speech | `AZURE_SPEECH_REGION` + `AZURE_SPEECH_RESOURCE_ID` (Entra) or `AZURE_SPEECH_KEY` | The narrator's voice (`en-Multitalker:DragonHDLatestNeural`) |
+| Embeddings (optional) | `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` / `AI_EMBEDDING_MODEL` | Finding the passages that match the focus box |
+| Python 3 | `PYTHON_BIN` (default `python`), plus `numpy`, `Pillow`, `imageio-ffmpeg` | Animating and encoding the MP4 |
+| Music (optional) | `MOTION_MUSIC_DIR` | A background track under the narration |
+
+No AI model animates anything. The motion, text and transitions come from the
+renderer, `scripts/motion/render.py`, which plays back a timeline computed in
+TypeScript. See [Models and what they're used for](configuration.md#models-and-what-theyre-used-for)
+for every model setting in the app.
 
 ## The story
 
@@ -17,14 +36,62 @@ Each video follows the arc used by product and explainer videos:
 |---|---|
 | Problem | The pain or question the sources address, made concrete |
 | Solution | What the sources propose |
-| How (×3) | One mechanism or step each, in order |
+| How (×1, ×3 or ×5, by length) | One mechanism or step each, in order |
 | Benefits | The payoff, with a number from the sources if there is one |
 | Next step | The one thing a viewer should do next, shown on a closing card |
 
 Every claim is grounded in the excerpts. The planner is told never to invent a
 number, a URL, a price or an offer. A stat card only appears when the value
 contains a digit, and the closing card recaps a next step taken from the
-sources. Scene prompts are barred from naming real brands, logos or people.
+sources, or the closing message you supply. Scene prompts are barred from
+naming real brands, logos or people.
+
+## Customizing a video
+
+Open **Customize** on the Motion explainer card. Every control is optional. The
+header lists whatever differs from the defaults, and **Reset** puts them all
+back.
+
+| Control | Choices | Default | What it changes |
+|---|---|---|---|
+| **Length** | Short (5 scenes, about 1 min) · Standard (7, about 1.5–2 min) · Long (9, about 2.5 min) | Standard | How many "how" scenes the story gets, and so the running time, picture count and build time |
+| **Tone** | Friendly · Professional · Energetic · Calm · Playful | Friendly | How the narration and headlines are written |
+| **Audience** | General · Beginners · Executives · Technical | General | Depth and framing: beginners get defined terms and an analogy, executives get outcomes and risks, technical viewers get mechanisms and trade-offs |
+| **Look** | Flat vector · Isometric · Paper cutout · Hand-drawn · Soft 3D clay · Minimal line art | Flat vector | The illustration style sent with every picture, so backgrounds, character and props match |
+| **Colors** | Auto · Ocean · Sunset · Forest · Berry · Corporate · Monochrome · Custom | Auto | The five-color palette used by the pictures, text panels, chips, stat cards and closing card. Auto lets the planner pick colors to suit the subject; Custom shows five color pickers (text, primary, accent, highlight, background) |
+| **Character** | Designed to suit the subject · Describe my own · No character | Designed | The recurring character. Describe your own (for example "a nurse in blue scrubs with a stethoscope") to fix its look, or choose none for a video told with objects and settings only |
+| **Closing** | Free text, up to 160 characters | none | The call to action on the closing card and in the last line of narration. It is used as written, so it may include a link or contact detail that is not in the sources |
+| **Quality** | 720p · 1080p | 720p | Output resolution. Every layer scales, so the layout is the same; 1080p takes longer to render and makes a larger file. Pictures are drawn at the image model's own sizes either way |
+
+The **Voice** picker and the **Music** checkbox sit above Customize, and the
+**focus box** at the top of the panel still decides what the video is about.
+
+Each finished video records the options it was made with, and the player lists
+any that differ from the defaults under the video.
+
+Through the API, send the same choices to `POST /api/motion` (see
+[API](API.md#studio)):
+
+```json
+{
+  "notebookId": "...",
+  "topic": "watering rota",
+  "voice": "Andrew",
+  "length": "short",
+  "tone": "energetic",
+  "audience": "beginners",
+  "visual": "papercut",
+  "palette": "forest",
+  "character": "none",
+  "closing": "Sign up at the garden shed on Saturday",
+  "resolution": "1080p"
+}
+```
+
+`palette` also accepts `"custom"` with a `customPalette` object, or a palette
+object directly: `{ "dark", "primary", "accent", "pop", "light" }`, each
+`#RRGGBB`. `character` also accepts `"custom"` with `characterDescription`, or
+a description directly. Unknown values fall back to the default.
 
 ## How it is built
 
@@ -32,18 +99,20 @@ sources. Scene prompts are barred from naming real brands, logos or people.
 sources ─► scene planner ─► pictures ─► narration ─► timeline ─► renderer ─► MP4
 ```
 
-1. **Plan** (`src/lib/motion.ts`). One JSON call writes the scenes, a palette
-   and a description of the recurring hero character. The normalizer clamps
-   lengths, whitelists every enum, spreads actors across the left, center and
-   right slots, and caps the pictures: at most two actors per scene and eight
-   props per video.
+1. **Plan** (`src/lib/motion.ts`). One JSON call to the studio script model
+   writes the scenes, a palette and a description of the recurring character,
+   following the chosen length, tone, audience and closing message. The
+   normalizer clamps lengths, whitelists every enum, spreads actors across the
+   left, center and right slots, applies any palette or character you pinned,
+   and caps the pictures: at most two actors per scene and eight props per
+   video.
 2. **Pictures** (`src/lib/motionbuild.ts`). The image model draws a background
-   plate for each scene, the hero **once** (reused in every scene it appears
-   in, which keeps the character consistent) and each prop. Characters and
+   plate for each scene, the character **once** (reused in every scene it
+   appears in, which keeps it consistent) and each prop. Characters and
    props are requested with a transparent background. Every prompt starts with
-   the same style description and palette, so the pieces look like one film.
-   A picture that fails is dropped and the video goes on without it. A
-   configuration or permission error stops the build.
+   the same style description (the chosen **Look**) and palette, so the pieces
+   look like one film. A picture that fails is dropped and the video goes on
+   without it. A configuration or permission error stops the build.
 3. **Narration**. Each scene is voiced by Azure Speech. The clip lengths set
    the scene lengths.
 4. **Timeline** (`src/lib/motiontimeline.ts`). A pure function turns the plan
@@ -66,9 +135,8 @@ area inside the object, like a phone screen, is kept.
 
 ## Setup
 
-It uses the same pieces as [whiteboard videos](whiteboard-videos.md): the
-configured image model (`AZURE_OPENAI_IMAGE_DEPLOYMENT` or `AI_IMAGE_MODEL`),
-Azure Speech, and Python 3 with `numpy`, `Pillow` and `imageio-ffmpeg`:
+It uses the same pieces as [whiteboard videos](whiteboard-videos.md), listed
+under [What you need](#what-you-need). Install the renderer's Python packages:
 
 ```bash
 python -m pip install numpy pillow imageio-ffmpeg
@@ -78,7 +146,8 @@ Set `PYTHON_BIN` if `python` is not the interpreter you want. To check the
 renderer without spending any model calls:
 
 ```bash
-npm run check:motion
+npm run check:motion              # 1280x720
+npm run check:motion -- --1080p   # 1920x1080
 ```
 
 That renders a 13-second video from synthetic shapes and tones into
@@ -105,6 +174,11 @@ rendering. That produced a 99-second, 9.2 MB file at 1280×720, normalized to
 Pictures dominate, and they are drawn **one at a time**, for the same reason as
 whiteboard videos: concurrent calls collide on a small image deployment's
 per-minute limit. The prop cap (eight per video) bounds the worst case.
+A **Short** video draws about ten pictures and a **Long** one up to eighteen, so
+at the same pace expect roughly 8 and 16 minutes; choosing **No character**
+saves one picture. **1080p** about doubles rendering time (7.4 s against 15.0 s
+for the 12.6-second `check:motion` video), which adds roughly a minute to a
+seven-scene video.
 
 The build runs in the background, like the other videos. The artifact is saved
 as soon as the plan exists, and the player shows each stage's progress.

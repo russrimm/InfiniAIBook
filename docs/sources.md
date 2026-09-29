@@ -117,7 +117,7 @@ videos into one notebook to build material for an audiobook or generate FAQs,
 learning guides and infographics grounded in those videos.
 
 Paste a YouTube URL into **Link**. `watch?v=`, `youtu.be`, `/shorts/` and
-`/embed/` forms are all recognised.
+`/embed/` forms are all recognized.
 
 ### Transcripts, the supported way
 
@@ -168,7 +168,7 @@ through its original strategies and then reports honestly rather than claiming
 - It names the caption tracks the Data API confirms exist, so you know the
   captions are there and the refusal is YouTube's.
 - It falls back to ingesting the video **description**, which is often
-  substantial, clearly labelled `(description only)` with an in-text note and a
+  substantial, clearly labeled `(description only)` with an in-text note and a
   warning in the Sources panel — you are never led to believe you got a
   transcript. Descriptions under 200 characters are rejected instead.
 - `YOUTUBE_COOKIE` (the `Cookie` header from a signed-in session) is used when

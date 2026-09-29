@@ -11,7 +11,7 @@ const MAX_MESSAGE_CHARS = 20_000;
 const STOPPED_MARK = "\n\n_(Stopped before the answer was finished.)_";
 
 const STARTERS = [
-  "Summarise the key arguments across my sources.",
+  "Summarize the key arguments across my sources.",
   "What do these sources disagree about?",
   "What evidence is weakest or least supported?",
   "Give me a timeline of what happened.",

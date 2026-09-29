@@ -197,7 +197,7 @@ export async function synthesizeDialogue(
   breath = 1
 ): Promise<SynthesisResult> {
   assertConfigured();
-  if (!turns.length) throw new Error("Nothing to synthesise.");
+  if (!turns.length) throw new Error("Nothing to synthesize.");
 
   const parts: Buffer[] = [];
   const offsets: number[] = [];

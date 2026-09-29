@@ -37,10 +37,10 @@ src/
     SearchView  LibraryModal  TransformationsModal
     ArtifactModal  SourceModal  DiscoverModal  BrowserModal  SourceUpdates
     MindMap  Quiz  Flashcards  Infographic  Metaphors
-    PodcastPlayer  VideoPlayer  Markdown
+    PodcastPlayer  VideoPlayer  MotionCustomize  Markdown
   lib/
     db.ts        SQLite schema (node:sqlite, no native build step)
-    ai.ts        model client (Azure OpenAI with Entra ID, or OpenAI-compatible): chat / JSON / embeddings / images / transcription
+    ai.ts        model client (Azure OpenAI with Entra ID, or OpenAI-compatible): chat / JSON / studio scripts / embeddings / images / transcription
     providers.ts named provider presets (base URL, key variable, default models)
     sessions.ts  notes.ts  transformations.ts   chat sessions, notes, transformation prompts
     auth.ts      optional password: HMAC session token (Edge + Node); see src/middleware.ts
@@ -60,14 +60,14 @@ src/
     refresh.ts   re-fetch, word-level change detection, bot-wall guard, re-indexing
     vision.ts    image description, with a guard against blind models inventing one
     whiteboard.ts scene planning for videos; videobuild.ts runs the pipeline
-    motion.ts    motion explainer planning; motiontimeline.ts compiles the render config; motionbuild.ts runs the pipeline
+    motion.ts    motion explainer planning and customization options; motiontimeline.ts compiles the render config; motionbuild.ts runs the pipeline
     paths.ts     data/audio, images, voices and video paths, traversal-safe resolution
     rangefile.ts byte-range file streaming for media routes
     http.ts  types.ts   JSON response helpers and shared types
 scripts/
   check-ai.ts         live checks against the configured model provider
   check-ssrf.ts       offline tests for safefetch.ts
-  check-motion.ts     renders a motion explainer from synthetic assets (no model calls)
+  check-motion.ts     renders a motion explainer from synthetic assets (no model calls; --1080p for full HD)
   whiteboard/render.py  Python renderer that composites and encodes whiteboard videos
   motion/render.py    Python renderer that animates layered motion explainers
 ```

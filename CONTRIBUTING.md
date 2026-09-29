@@ -44,5 +44,10 @@ with these checks and the guidelines below as a checklist.
   `.env.example` when you add a feature, setting or environment variable.
 - Never commit `.env*` files (other than `.env.example`), `.data/`, API keys,
   cookies or real user documents. Screenshots should use fictional sample data.
+- `package-lock.json` must resolve every package from `https://registry.npmjs.org/`
+  (CI checks this). If you install through a private mirror, set
+  `replace-registry-host=npmjs` in your `.npmrc` so its host is not written
+  into the lockfile.
+- Follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 - By contributing you agree that your contributions are licensed under the
   [MIT License](LICENSE).

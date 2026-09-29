@@ -4,6 +4,7 @@
  * that the timeline compiler and renderer still agree on the config format.
  *
  * Run with: npm run check:motion
+ * Add --1080p to render at 1920x1080 instead of the default 1280x720.
  *
  * Writes into .data/motion-check/ and prints the MP4 path, so the result can
  * be watched as well as checked.
@@ -11,10 +12,11 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { normalizeMotionPlan } from "../src/lib/motion";
+import { MOTION_RESOLUTIONS, normalizeMotionPlan } from "../src/lib/motion";
 import { compileTimeline, mp3Duration } from "../src/lib/motiontimeline";
 
 const py = process.env.PYTHON_BIN || "python";
+const size = MOTION_RESOLUTIONS[process.argv.includes("--1080p") ? "1080p" : "720p"];
 const dir = path.join(process.env.DATA_DIR || path.join(process.cwd(), ".data"), "motion-check");
 const slash = (p: string) => p.replace(/\\/g, "/");
 const at = (name: string) => slash(path.join(dir, name));
@@ -88,7 +90,7 @@ const config = compileTimeline(
     { background: at("bg.png"), actors: [at("hero.png")], ...clip(2) },
     { background: null, actors: [at("hero.png"), at("prop.png")], narration: null, narrationSeconds: 1.5 },
   ],
-  { output: at("check.mp4"), music: at("music.mp3") }
+  { output: at("check.mp4"), music: at("music.mp3"), width: size.width, height: size.height }
 );
 const configPath = path.join(dir, "config.json");
 fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
@@ -102,5 +104,5 @@ if (!fs.existsSync(out) || fs.statSync(out).size < 10_000) {
   process.exit(1);
 }
 console.log(
-  `ok    ${config.duration.toFixed(1)} s of video rendered in ${((Date.now() - started) / 1000).toFixed(1)} s → ${out}`
+  `ok    ${config.duration.toFixed(1)} s of ${config.width}x${config.height} video rendered in ${((Date.now() - started) / 1000).toFixed(1)} s → ${out}`
 );

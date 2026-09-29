@@ -6,7 +6,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/russrimm/opennotebook.git"
+    "url": "git+https://github.com/russrimm/InfiniAIBook.git"
+  },
+  "homepage": "https://github.com/russrimm/InfiniAIBook#readme",
+  "bugs": {
+    "url": "https://github.com/russrimm/InfiniAIBook/issues"
   },
   "engines": {
     "node": ">=22.13"
@@ -50,6 +54,9 @@
     "tsx": "^4.23.13",
     "typescript": "^5",
     "vitest": "^3.2.7"
+  },
+  "overrides": {
+    "postcss": "^8.5.28"
   },
   "allowScripts": {
     "esbuild@0.28.2": true

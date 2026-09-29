@@ -49,6 +49,13 @@ type AssetJob = {
   options: ImageOptions;
 };
 
+type BuildOptions = {
+  music: boolean;
+  /** Output frame size; the timeline scales every layer to it. */
+  width?: number;
+  height?: number;
+};
+
 /**
  * Failures that will fail every other call as well. Anything else — a refused
  * prompt, a timeout — loses one picture and the video goes on without it.
@@ -68,7 +75,7 @@ export async function buildMotionVideo(
   id: string,
   plan: MotionPlan,
   voice: string,
-  opts: { music: boolean }
+  opts: BuildOptions
 ): Promise<void> {
   const work = videoWorkDir(id);
   fs.mkdirSync(work, { recursive: true });
@@ -87,7 +94,7 @@ async function runBuild(
   id: string,
   plan: MotionPlan,
   voice: string,
-  opts: { music: boolean },
+  opts: BuildOptions,
   work: string
 ): Promise<void> {
   const scenes = plan.scenes;
@@ -196,6 +203,8 @@ async function runBuild(
   const config = compileTimeline(plan, assets, {
     output: slash(out),
     music: music ? slash(music) : null,
+    width: opts.width,
+    height: opts.height,
   });
   const configPath = path.join(work, "config.json");
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));

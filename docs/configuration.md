@@ -73,7 +73,7 @@ AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE.openai.azure.com
 AZURE_OPENAI_API_VERSION=2024-10-21
 AZURE_OPENAI_DEPLOYMENT=gpt-5                             # chat deployment name
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-large  # embedding deployment name
-AZURE_OPENAI_IMAGE_DEPLOYMENT=gpt-image-2.5-sunburst      # optional, for image infographics
+AZURE_OPENAI_IMAGE_DEPLOYMENT=gpt-image-2.5-sunburst      # optional: image infographics, whiteboard and motion videos
 # DATA_DIR=./.data                                        # optional
 ```
 
@@ -83,6 +83,31 @@ List what your resource actually has:
 ```bash
 az cognitiveservices account deployment list -n <resource> -g <rg> -o table
 ```
+
+## Models and what they're used for
+
+Only a **chat model** is required. Everything else is optional and turns on the
+features that need it. For Azure, each value is a deployment name; for any
+other provider it is a model id.
+
+| Model | Azure setting | Other providers | Default | Used for | Without it |
+|---|---|---|---|---|---|
+| **Chat** (required) | `AZURE_OPENAI_DEPLOYMENT` | `AI_MODEL` (or the `AI_PROVIDER` preset) | `gpt-4o` | Grounded chat, search **Ask**, transformations, source summaries and change summaries, source discovery, and every Studio text format: report, briefing, study guide, FAQ, timeline, quiz, flashcards, mind map and infographic content | Nothing works |
+| **Studio script** | `AI_STUDIO_MODEL`, plus `AI_STUDIO_ENDPOINT` if it lives on another resource | `AI_STUDIO_MODEL`; `AI_STUDIO_API=anthropic` for Claude | the chat model | Audio-overview scripts, whiteboard and motion-explainer scene plans, and training-video transcripts ([details](#studio-script-model)) | The chat model writes them |
+| **Embeddings** | `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | `AI_EMBEDDING_MODEL` (or `AI_EMBEDDING_PROVIDER`) | `text-embedding-3-small` | Semantic retrieval for chat and Studio, semantic search, and matching the Studio focus box | Retrieval falls back to keyword ranking |
+| **Image** | `AZURE_OPENAI_IMAGE_DEPLOYMENT` (`AZURE_OPENAI_IMAGE_API_VERSION` for its API version) | `AI_IMAGE_MODEL` | `gpt-image-2.5-sunburst` | The "AI image" infographic style, whiteboard-video scenes and the drawing hand, and motion-explainer backgrounds, character and props | Those three features fail unless a deployment with the default name exists |
+| **Vision** | `AZURE_OPENAI_VISION_DEPLOYMENT` | `AI_VISION_MODEL` | the chat model | Reading uploaded images so they can be indexed as sources | Uses the chat model, which must then support images |
+| **Transcription** | `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT` | `AI_TRANSCRIPTION_MODEL` (or `AI_TRANSCRIPTION_PROVIDER`) | the preset's, if any | Audio and video file sources | Audio and video uploads fail with a message saying what to set |
+| **Speech** (Azure AI Speech, not a deployment) | `AZURE_SPEECH_REGION` + `AZURE_SPEECH_RESOURCE_ID`, or `AZURE_SPEECH_KEY` | same | `en-Multitalker:DragonHDLatestNeural` and the standalone neural voices | Audio overviews, voice previews, whiteboard and motion narration, and training-video avatars (`AZURE_SPEECH_ENDPOINT` for the avatar service) | Those features are unavailable |
+| **Gemini** | `GEMINI_API_KEY`, `GEMINI_MODEL` | same | `gemini-2.5-flash` | YouTube transcripts, fetched by Gemini on Google's side | The app tries YouTube's own captions, then falls back to the video description, clearly labeled |
+
+No model animates the videos. Whiteboard and motion explainers are assembled
+by the Python renderers in `scripts/`, which need Python 3 with `numpy`,
+`Pillow` and `imageio-ffmpeg` (`PYTHON_BIN` picks the interpreter).
+
+The chat, embedding, image and vision models can also be switched from the
+**model picker** in the app header. A choice saved there overrides the
+environment until you reset it.
 
 ## Environment variables
 
@@ -107,6 +132,7 @@ commentary. Only a model provider is required.
 | `AZURE_SPEECH_ENDPOINT` | Custom-domain Speech endpoint for the avatar service; derived from `AZURE_SPEECH_RESOURCE_ID` when unset |
 | `AZURE_AVATAR_BACKGROUND_URL`, `AZURE_AVATAR_PRICE_PER_MINUTE` | Optional training-video background image and cost estimate ([Training videos](training-videos.md)) |
 | `STUDIO_CONTEXT_CHARS` | Starting source budget for Studio generation (default `30000`) |
+| `AI_STUDIO_MODEL`, `AI_STUDIO_ENDPOINT`, `AI_STUDIO_API`, `AI_STUDIO_BASE_URL`, `AI_STUDIO_API_KEY`, `AI_STUDIO_MAX_TOKENS` | Separate model for audio-overview, video and training scripts and scene plans; see [Studio script model](#studio-script-model) |
 | `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX` | Optional discovery providers; DuckDuckGo is used without them |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | YouTube transcripts via Gemini |
 | `YOUTUBE_API_KEY`, `YOUTUBE_COOKIE`, `YOUTUBE_CAPTION_LANG` | YouTube metadata and transcript fallbacks |
@@ -120,7 +146,7 @@ commentary. Only a model provider is required.
 | `INFINIAIBOOK_API_TOKEN` | Bearer token for scripts calling the API. Once set, the password is no longer accepted as a bearer token |
 | `INFINIAIBOOK_SESSION_SECRET` | Optional extra key for signing session cookies; change it to sign every browser out |
 | `ALLOWED_HOSTS` | Extra hostnames the server answers to, comma-separated (`*` for any). Loopback names are always allowed. Without a password, other hosts get a 403 |
-| `TRUST_PROXY` | `true` behind a reverse proxy: honour `X-Forwarded-Host` / `X-Forwarded-Proto` |
+| `TRUST_PROXY` | `true` behind a reverse proxy: honor `X-Forwarded-Host` / `X-Forwarded-Proto` |
 
 ## Checking a provider
 
@@ -210,7 +236,7 @@ servers never serve an expired token. Auth failures are translated into
 actionable messages in the UI (missing credential vs. missing role assignment)
 rather than a bare 401.
 
-> A legacy `AZURE_OPENAI_API_KEY` is still honoured if present, and takes
+> A legacy `AZURE_OPENAI_API_KEY` is still honored if present, and takes
 > precedence over Entra. Leave it unset to use Entra.
 
 Without any working credential the app still runs: sources ingest and are
@@ -223,7 +249,7 @@ carry, and studio generation is context-hungry. Two mechanisms keep it working
 on small deployments:
 
 1. **Retry with backoff** — 429 and 5xx responses are retried up to five times,
-   honouring `Retry-After` when Azure supplies it.
+   honoring `Retry-After` when Azure supplies it.
 2. **Adaptive context** — if rate limiting persists, generation halves its
    excerpt budget and retries, down to a floor, rather than failing.
 
@@ -235,3 +261,38 @@ if you see repeated throttling. Check what your deployment allows with:
 az cognitiveservices account deployment list -n <resource> -g <rg> \
   --query "[].{name:name, capacity:sku.capacity}" -o table
 ```
+
+## Studio script model
+
+Audio-overview scripts, whiteboard and motion-explainer scene plans, and
+training-video transcripts can use a different model from chat. Leave
+`AI_STUDIO_MODEL` unset to use the chat model.
+
+Another deployment on the same resource, such as a larger GPT model:
+
+```bash
+AI_STUDIO_MODEL=gpt-5
+```
+
+A deployment on a different Azure resource. Entra ID is used unless
+`AI_STUDIO_API_KEY` holds that resource's key:
+
+```bash
+AI_STUDIO_MODEL=gpt-chat-latest
+AI_STUDIO_ENDPOINT=https://<other-resource>.cognitiveservices.azure.com
+```
+
+A Claude deployment in Microsoft Foundry, which accepts only Anthropic's
+Messages API. The app calls the Azure endpoint (`AI_STUDIO_ENDPOINT`, else
+`AZURE_OPENAI_ENDPOINT`) + `/anthropic` with Entra ID (scope
+`https://ai.azure.com/.default`, role **Cognitive Services User**) or a key:
+
+```bash
+AI_STUDIO_MODEL=claude-opus-5-5   # the deployment name
+AI_STUDIO_API=anthropic
+```
+
+Without an Azure endpoint, `AI_STUDIO_API=anthropic` calls `api.anthropic.com`
+with `ANTHROPIC_API_KEY`. `AI_STUDIO_BASE_URL` and `AI_STUDIO_API_KEY` override
+the endpoint and key, and `AI_STUDIO_MAX_TOKENS` (default `16000`) caps the
+response length.

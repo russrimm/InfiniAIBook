@@ -4,8 +4,9 @@
 
 - [Getting started](getting-started.md) — prerequisites, local install, Docker
   and password protection
-- [Configuration](configuration.md) — model providers, custom endpoints,
-  environment variables, Entra ID sign-in, reasoning models and rate limits
+- [Configuration](configuration.md) — model providers, custom endpoints, which
+  model does what, environment variables, Entra ID sign-in, reasoning models and
+  rate limits
 
 **Using the app**
 
@@ -18,7 +19,8 @@
 - [Infographic styles](infographics.md) — all 20 styles, with a gallery
 - [Audio overviews](audio-overviews.md) — multi-speaker podcasts, voices and pacing
 - [Whiteboard videos](whiteboard-videos.md) — narrated, hand-drawn explainer videos
-- [Motion explainers](motion-explainers.md) — narrated 2D animated explainer videos
+- [Motion explainers](motion-explainers.md) — narrated 2D animated explainer videos,
+  customizable length, tone, look, colors, character and closing
 - [Training videos](training-videos.md) — avatar-presented training sessions from your research
 - [Study aids, mind maps and exporting](studio.md) — quizzes, flashcards, mind
   maps and export formats

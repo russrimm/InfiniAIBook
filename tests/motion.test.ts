@@ -1,13 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_HERO,
+  DEFAULT_MOTION_OPTIONS,
   DEFAULT_PALETTE,
   MAX_ACTORS_PER_SCENE,
+  MAX_CHARACTER_CHARS,
+  MAX_CLOSING_CHARS,
   MAX_PROPS,
   MAX_SCENES,
+  MOTION_AUDIENCES,
+  MOTION_PALETTES,
+  MOTION_PLAN_INSTRUCTION,
+  MOTION_RESOLUTIONS,
+  MOTION_TONES,
+  MOTION_VISUALS,
   backgroundPrompt,
+  describeMotionOptions,
+  heroPrompt,
+  normalizeMotionOptions,
   normalizeMotionPlan,
   propPrompt,
+  styleBase,
   type MotionPlan,
 } from "@/lib/motion";
 import {
@@ -154,6 +167,121 @@ describe("asset prompts", () => {
     const plan = normalizeMotionPlan(raw([scene(), scene(), scene()]))!;
     expect(backgroundPrompt(plan.scenes[0], plan.style)).toMatch(/No text/);
     expect(propPrompt(plan.scenes[0].actors[1], plan.style)).toMatch(/transparent/);
+  });
+
+  it("draws every asset in the chosen look", () => {
+    const opts = normalizeMotionOptions({ visual: "papercut" });
+    const plan = normalizeMotionPlan(raw([scene(), scene(), scene()]), opts)!;
+    expect(styleBase(plan.style)).toContain(MOTION_VISUALS.papercut.look);
+    expect(heroPrompt(plan.style)).toMatch(/paper-cutout/);
+    expect(backgroundPrompt(plan.scenes[0], plan.style)).toMatch(/No text/);
+  });
+});
+
+describe("normalizeMotionOptions", () => {
+  it("defaults everything when nothing is given", () => {
+    expect(normalizeMotionOptions(undefined)).toEqual(DEFAULT_MOTION_OPTIONS);
+    expect(normalizeMotionOptions({ length: "epic", tone: 3, visual: "oil" })).toEqual(
+      DEFAULT_MOTION_OPTIONS
+    );
+  });
+
+  it("accepts presets, a custom palette and a palette object", () => {
+    expect(normalizeMotionOptions({ palette: "forest" }).palette).toBe("forest");
+    const custom = normalizeMotionOptions({
+      palette: "custom",
+      customPalette: { dark: "#000000", primary: "#ff0000", accent: "nope" },
+    });
+    expect(custom.palette).toBe("custom");
+    expect(custom.customPalette).toMatchObject({ dark: "#000000", primary: "#FF0000" });
+    expect(custom.customPalette!.accent).toBe(DEFAULT_PALETTE.accent);
+    expect(normalizeMotionOptions({ palette: { dark: "#101010" } }).palette).toBe("custom");
+  });
+
+  it("reads the character as auto, none, custom or a bare description", () => {
+    expect(normalizeMotionOptions({ character: "none" }).character).toBe("none");
+    expect(normalizeMotionOptions({ character: "custom" }).character).toBe("auto");
+    const described = normalizeMotionOptions({ character: "a robot **with** a lamp [1]" });
+    expect(described).toMatchObject({ character: "custom", characterDescription: "a robot with a lamp" });
+    expect(
+      normalizeMotionOptions({ character: "custom", characterDescription: "x".repeat(400) })
+        .characterDescription!.length
+    ).toBeLessThanOrEqual(MAX_CHARACTER_CHARS);
+  });
+
+  it("clips the closing message and drops an empty one", () => {
+    expect(normalizeMotionOptions({ closing: "   " }).closing).toBeUndefined();
+    expect(normalizeMotionOptions({ closing: "y ".repeat(200) }).closing!.length).toBeLessThanOrEqual(
+      MAX_CLOSING_CHARS
+    );
+  });
+
+  it("lists only what differs from the defaults", () => {
+    expect(describeMotionOptions(DEFAULT_MOTION_OPTIONS)).toEqual([]);
+    expect(
+      describeMotionOptions(normalizeMotionOptions({ length: "short", palette: "berry", resolution: "1080p" }))
+    ).toEqual(["Short", "Berry colors", "1080p"]);
+  });
+});
+
+describe("customized plans", () => {
+  const three = () => raw([scene(), scene(), scene({ beat: "cta" })]);
+
+  it("pins a chosen palette over the model's", () => {
+    const plan = normalizeMotionPlan(three(), normalizeMotionOptions({ palette: "sunset" }))!;
+    expect(plan.style.palette).toEqual(MOTION_PALETTES.sunset.colors);
+  });
+
+  it("uses a described character instead of the model's", () => {
+    const plan = normalizeMotionPlan(
+      three(),
+      normalizeMotionOptions({ character: "custom", characterDescription: "a nurse in blue scrubs" })
+    )!;
+    expect(plan.style.hero).toBe("a nurse in blue scrubs");
+  });
+
+  it("drops every hero actor when there is no character", () => {
+    const plan = normalizeMotionPlan(three(), normalizeMotionOptions({ character: "none" }))!;
+    expect(plan.style.hero).toBe("");
+    expect(plan.scenes.flatMap((s) => s.actors).every((a) => a.kind === "prop")).toBe(true);
+  });
+
+  it("asks the planner for the chosen length, tone, audience and closing", () => {
+    const opts = normalizeMotionOptions({
+      length: "short",
+      tone: "professional",
+      audience: "executives",
+      character: "none",
+      closing: "Book a demo at example.com",
+    });
+    const prompt = MOTION_PLAN_INSTRUCTION("", opts);
+    expect(prompt).toContain("Plan a 5-scene video");
+    expect(prompt).toContain("3. how — the single most important");
+    expect(prompt).toContain(MOTION_TONES.professional.rule);
+    expect(prompt).toContain(MOTION_AUDIENCES.executives.rule);
+    expect(prompt).toContain('"Book a demo at example.com"');
+    expect(prompt).toContain("There is no recurring character");
+    expect(MOTION_PLAN_INSTRUCTION("")).toContain("Plan a 7-scene video");
+    expect(MOTION_PLAN_INSTRUCTION("", normalizeMotionOptions({ length: "long" }))).toContain(
+      "3-7. how"
+    );
+  });
+
+  it("scales the timeline to the chosen resolution", () => {
+    const plan = normalizeMotionPlan(three())!;
+    const assets: SceneAssets[] = plan.scenes.map(() => ({
+      background: "bg.png",
+      actors: ["a.png", "b.png"],
+      narration: "n.mp3",
+      narrationSeconds: 5,
+    }));
+    const { width, height } = MOTION_RESOLUTIONS["1080p"];
+    const hd = compileTimeline(plan, assets, { output: "o.mp4", width, height });
+    const sd = compileTimeline(plan, assets, { output: "o.mp4" });
+    expect([hd.width, hd.height]).toEqual([1920, 1080]);
+    const size = (c: typeof hd) => c.scenes[0].layers.find((l) => l.type === "headline")!;
+    expect((size(hd) as { size: number }).size).toBe(Math.round((size(sd) as { size: number }).size * 1.5));
+    expect(hd.duration).toBe(sd.duration);
   });
 });
 

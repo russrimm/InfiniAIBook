@@ -66,7 +66,7 @@ when you want the whole picture at once.
 
 The layout is computed over only the visible nodes and refits after every
 change, so the map always stays in view, and nodes glide between positions
-instead of jumping. Branches are colour-coded from the root, nodes carry their
+instead of jumping. Branches are color-coded from the root, nodes carry their
 source note as a tooltip, and the whole tree is keyboard reachable with proper
 `aria-expanded` state.
 

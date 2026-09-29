@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import MotionCustomize, {
+  DEFAULT_MOTION_FORM,
+  motionRequest,
+  type MotionForm,
+} from "@/components/MotionCustomize";
 import { STUDIO, STUDIO_ORDER } from "@/lib/studio";
 import {
   DEFAULT_STYLE,
@@ -129,6 +134,7 @@ export default function StudioPanel({
   const [narrator, setNarrator] = useState("Ava");
   const [motionNarrator, setMotionNarrator] = useState("Ava");
   const [motionMusic, setMotionMusic] = useState(false);
+  const [motionForm, setMotionForm] = useState<MotionForm>(DEFAULT_MOTION_FORM);
   /** Music is only offered when the server has a track folder configured. */
   const [musicReady, setMusicReady] = useState(false);
   const [episodeProfile, setEpisodeProfile] = useState("deep-dive");
@@ -275,6 +281,7 @@ export default function StudioPanel({
       sourceIds: selectedIds,
       voice: motionNarrator,
       music: musicReady && motionMusic,
+      ...motionRequest(motionForm),
     });
 
   const generateTraining = () =>
@@ -580,6 +587,7 @@ export default function StudioPanel({
                 </span>
               </label>
             )}
+            <MotionCustomize value={motionForm} onChange={setMotionForm} />
           </div>
         </div>
 

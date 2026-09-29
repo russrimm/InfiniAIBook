@@ -84,7 +84,7 @@ Optional settings:
 
 | Variable | Effect |
 |---|---|
-| `AZURE_AVATAR_BACKGROUND_URL` | A public image shown behind the presenter instead of the chosen colour |
+| `AZURE_AVATAR_BACKGROUND_URL` | A public image shown behind the presenter instead of the chosen color |
 | `AZURE_AVATAR_PRICE_PER_MINUTE` | Shows an estimated cost in the editor before rendering |
 
 ## Presenters and voices
@@ -94,7 +94,7 @@ styles). Each has a default neural voice, and you can pick any of the pinned
 voices instead. The avatar called Jeff is left out because Microsoft retires it
 in December 2026.
 
-## Limits and behaviour
+## Limits and behavior
 
 - **Length.** Short, medium and long target about 3, 6 and 10 minutes. The
   service accepts up to 20 minutes, and the editor blocks rendering when the

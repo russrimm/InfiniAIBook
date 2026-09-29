@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ok, fail, noSourcesSelected } from "@/lib/http";
-import { chatJSON, type ChatMsg } from "@/lib/ai";
+import { studioJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
 import {
@@ -67,7 +67,7 @@ ${buildContext(passages)}`;
     let script: TrainingScript | null = null;
     for (let attempt = 0; attempt < 4 && !script; attempt++) {
       try {
-        const raw = await chatJSON<Loose>(
+        const raw = await studioJSON<Loose>(
           [
             { role: "system", content: system() },
             { role: "user", content: user() },
@@ -110,7 +110,7 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"}, keeping the same structure. ${
       }`;
       try {
         const retry = normaliseScript(
-          await chatJSON<Loose>(
+          await studioJSON<Loose>(
             [
               { role: "system", content: system(note) },
               { role: "user", content: user() },
