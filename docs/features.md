@@ -7,7 +7,7 @@
 | **Notes** | Write your own Markdown notes, save any chat answer as a note (citations kept), and turn a note into a source. |
 | **Transformations** | Reusable prompts — built-in (dense summary, key insights, analyze paper, glossary…) or your own — run on one source and saved as a note. |
 | **Search everything** | Keyword or semantic search across every notebook's sources and notes, plus a one-shot grounded **Ask** over the whole library. |
-| **Studio** | Eleven generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
+| **Studio** | Thirteen generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
 | **Everything is local** | Sources, chunks, embeddings, chat history, artifacts, generated audio, voice samples and images live under `.data/`. |
 | **Undo deletes** | Deleting a source, artifact, note, chat or notebook hides it right away and offers **Undo** for 8 seconds before anything is removed. |
 
@@ -17,7 +17,7 @@
 |---|---|
 | 🎧 Audio overview | One to four speakers discuss your sources — real MP3 audio with a synced, clickable transcript, at roughly 3, 6 or 10 minutes |
 | 🎬 Whiteboard video | A hand draws your sources as marker doodles, narrated — six scenes, MP4 |
-| 🎞️ Motion explainer | A 2D animated story from your sources: flat characters, kinetic headlines, stat cards, optional music — seven scenes, MP4 |
+| 🎞️ Motion explainer | A narrated 2D animated story from your sources: characters, kinetic headlines, stat cards, optional music — five, seven or nine scenes, MP4. **Customizable**: length, tone, audience, six illustration styles, color palettes (or your own colors), your own character or none, a closing call to action, and 720p or 1080p |
 | 🧑‍🏫 Training video | A trainer's script from your sources and notes, edited then rendered by a lip-synced Azure avatar, MP4 |
 | 📄 Report | Executive summary, analytical sections, key takeaways, open questions |
 | 🧾 Briefing doc | Under 700 words: bottom line, evidence, risks, next steps |

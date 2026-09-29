@@ -1,3 +1,5 @@
+import type { MotionOptions } from "./motion";
+
 export type ArtifactType =
   | "report"
   | "briefing"
@@ -155,6 +157,8 @@ export type VideoContent = {
   voice?: string;
   /** Motion explainers record whether a music bed was mixed in. */
   music?: boolean;
+  /** Motion explainers record the customization they were made with. */
+  options?: MotionOptions;
   progress?: { stage: string; done: number; total: number; note?: string };
 };
 

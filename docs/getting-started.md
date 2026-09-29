@@ -7,9 +7,13 @@
   an Azure OpenAI resource with a chat and an embedding deployment, or any
   OpenAI-compatible server (see [Configuration](configuration.md)).
 - *Optional:* the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
-  for Entra sign-in; an Azure Speech resource for audio overviews and videos;
-  Python 3 for whiteboard and motion videos; Gemini / YouTube / search API keys for the
-  features described in the [docs](README.md). Everything optional degrades cleanly when unset.
+  for Entra sign-in; an image model and an Azure Speech resource for audio
+  overviews, whiteboard videos and motion explainers; Python 3 with `numpy`,
+  `Pillow` and `imageio-ffmpeg` for whiteboard and motion videos; Gemini /
+  YouTube / search API keys for the features described in the [docs](README.md).
+  Everything optional degrades cleanly when unset. See
+  [Models and what they're used for](configuration.md#models-and-what-theyre-used-for)
+  for which setting turns on which feature.
 
 ```bash
 npm install

@@ -181,7 +181,7 @@ export default function MindMap({ root, title }: { root: MindNode; title: string
         <p className="text-xs text-[var(--muted)]">
           {placed.length} of {totalNodes} nodes ·{" "}
           {expanded.size === 0
-            ? "click the centre topic to explore"
+            ? "click the center topic to explore"
             : "click a topic to expand or collapse"}
         </p>
         <div className="flex gap-1">

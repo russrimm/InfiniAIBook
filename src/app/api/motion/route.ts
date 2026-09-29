@@ -5,7 +5,12 @@ import { ok, fail, noSourcesSelected } from "@/lib/http";
 import { studioJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
-import { MOTION_PLAN_INSTRUCTION, normalizeMotionPlan } from "@/lib/motion";
+import {
+  MOTION_PLAN_INSTRUCTION,
+  MOTION_RESOLUTIONS,
+  normalizeMotionOptions,
+  normalizeMotionPlan,
+} from "@/lib/motion";
 import { buildMotionVideo, musicAvailable } from "@/lib/motionbuild";
 import { setProgress } from "@/lib/videobuild";
 import { ALL_SPEAKERS } from "@/lib/voices";
@@ -23,13 +28,26 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { notebookId, topic, sourceIds, voice, music } = (await req.json()) as {
+    const body = (await req.json()) as {
       notebookId: string;
       topic?: string;
       sourceIds?: string[];
       voice?: string;
       music?: boolean;
+      // Customization; see normalizeMotionOptions for the accepted values.
+      length?: string;
+      tone?: string;
+      audience?: string;
+      visual?: string;
+      palette?: string | Record<string, string>;
+      customPalette?: Record<string, string>;
+      character?: string;
+      characterDescription?: string;
+      closing?: string;
+      resolution?: string;
     };
+    const { notebookId, topic, sourceIds, voice, music } = body;
+    const options = normalizeMotionOptions(body);
 
     const speaker =
       ALL_SPEAKERS.find((s) => s.toLowerCase() === (voice ?? "").toLowerCase()) ?? "Ava";
@@ -53,7 +71,7 @@ export async function POST(req: Request) {
     const messages: ChatMsg[] = [
       {
         role: "system",
-        content: `${GROUNDING_RULES}\n\n${MOTION_PLAN_INSTRUCTION(topic?.trim() ?? "")}`,
+        content: `${GROUNDING_RULES}\n\n${MOTION_PLAN_INSTRUCTION(topic?.trim() ?? "", options)}`,
       },
       {
         role: "user",
@@ -62,7 +80,7 @@ export async function POST(req: Request) {
     ];
 
     const raw = await studioJSON<Record<string, unknown>>(messages, 0.7);
-    const plan = normalizeMotionPlan(raw);
+    const plan = normalizeMotionPlan(raw, options);
     if (!plan) {
       return NextResponse.json(
         { error: "The model did not return a usable scene plan. Try again." },
@@ -77,6 +95,7 @@ export async function POST(req: Request) {
       description: plan.description,
       voice: speaker,
       music: withMusic,
+      options,
       scenes: plan.scenes.map((s) => ({
         title: s.headline,
         caption: s.subline,
@@ -94,7 +113,8 @@ export async function POST(req: Request) {
 
     // Deliberately not awaited: assets alone run for minutes. The row carries
     // progress, so the client watches it rather than holding a request open.
-    void buildMotionVideo(id, plan, speaker, { music: withMusic }).catch((e) => {
+    const { width, height } = MOTION_RESOLUTIONS[options.resolution];
+    void buildMotionVideo(id, plan, speaker, { music: withMusic, width, height }).catch((e) => {
       console.error("[motion] build failed", e);
       setProgress(id, {
         progress: {

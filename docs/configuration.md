@@ -73,7 +73,7 @@ AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE.openai.azure.com
 AZURE_OPENAI_API_VERSION=2024-10-21
 AZURE_OPENAI_DEPLOYMENT=gpt-5                             # chat deployment name
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-large  # embedding deployment name
-AZURE_OPENAI_IMAGE_DEPLOYMENT=gpt-image-2.5-sunburst      # optional, for image infographics
+AZURE_OPENAI_IMAGE_DEPLOYMENT=gpt-image-2.5-sunburst      # optional: image infographics, whiteboard and motion videos
 # DATA_DIR=./.data                                        # optional
 ```
 
@@ -83,6 +83,31 @@ List what your resource actually has:
 ```bash
 az cognitiveservices account deployment list -n <resource> -g <rg> -o table
 ```
+
+## Models and what they're used for
+
+Only a **chat model** is required. Everything else is optional and turns on the
+features that need it. For Azure, each value is a deployment name; for any
+other provider it is a model id.
+
+| Model | Azure setting | Other providers | Default | Used for | Without it |
+|---|---|---|---|---|---|
+| **Chat** (required) | `AZURE_OPENAI_DEPLOYMENT` | `AI_MODEL` (or the `AI_PROVIDER` preset) | `gpt-4o` | Grounded chat, search **Ask**, transformations, source summaries and change summaries, source discovery, and every Studio text format: report, briefing, study guide, FAQ, timeline, quiz, flashcards, mind map and infographic content | Nothing works |
+| **Studio script** | `AI_STUDIO_MODEL`, plus `AI_STUDIO_ENDPOINT` if it lives on another resource | `AI_STUDIO_MODEL`; `AI_STUDIO_API=anthropic` for Claude | the chat model | Audio-overview scripts, whiteboard and motion-explainer scene plans, and training-video transcripts ([details](#studio-script-model)) | The chat model writes them |
+| **Embeddings** | `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | `AI_EMBEDDING_MODEL` (or `AI_EMBEDDING_PROVIDER`) | `text-embedding-3-small` | Semantic retrieval for chat and Studio, semantic search, and matching the Studio focus box | Retrieval falls back to keyword ranking |
+| **Image** | `AZURE_OPENAI_IMAGE_DEPLOYMENT` (`AZURE_OPENAI_IMAGE_API_VERSION` for its API version) | `AI_IMAGE_MODEL` | `gpt-image-2.5-sunburst` | The "AI image" infographic style, whiteboard-video scenes and the drawing hand, and motion-explainer backgrounds, character and props | Those three features fail unless a deployment with the default name exists |
+| **Vision** | `AZURE_OPENAI_VISION_DEPLOYMENT` | `AI_VISION_MODEL` | the chat model | Reading uploaded images so they can be indexed as sources | Uses the chat model, which must then support images |
+| **Transcription** | `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT` | `AI_TRANSCRIPTION_MODEL` (or `AI_TRANSCRIPTION_PROVIDER`) | the preset's, if any | Audio and video file sources | Audio and video uploads fail with a message saying what to set |
+| **Speech** (Azure AI Speech, not a deployment) | `AZURE_SPEECH_REGION` + `AZURE_SPEECH_RESOURCE_ID`, or `AZURE_SPEECH_KEY` | same | `en-Multitalker:DragonHDLatestNeural` and the standalone neural voices | Audio overviews, voice previews, whiteboard and motion narration, and training-video avatars (`AZURE_SPEECH_ENDPOINT` for the avatar service) | Those features are unavailable |
+| **Gemini** | `GEMINI_API_KEY`, `GEMINI_MODEL` | same | `gemini-2.5-flash` | YouTube transcripts, fetched by Gemini on Google's side | The app tries YouTube's own captions, then falls back to the video description, clearly labeled |
+
+No model animates the videos. Whiteboard and motion explainers are assembled
+by the Python renderers in `scripts/`, which need Python 3 with `numpy`,
+`Pillow` and `imageio-ffmpeg` (`PYTHON_BIN` picks the interpreter).
+
+The chat, embedding, image and vision models can also be switched from the
+**model picker** in the app header. A choice saved there overrides the
+environment until you reset it.
 
 ## Environment variables
 

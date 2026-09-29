@@ -42,7 +42,7 @@ async function transcribeMedia(
   // The API infers the codec from the filename, so it must carry an extension.
   const filename = /\.[a-z0-9]+$/i.test(name) ? name : `${name}.${media.ext}`;
   const text = clean(await transcribe(buf, filename, media.mime));
-  if (!text) throw new Error(`No speech was recognised in "${name}".`);
+  if (!text) throw new Error(`No speech was recognized in "${name}".`);
   return { title: name, text, kind: media.kind };
 }
 

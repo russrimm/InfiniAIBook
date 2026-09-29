@@ -1,7 +1,9 @@
 /**
- * Motion explainers: a 2D flat-vector animated explainer planned from the
- * notebook, built from generated layers (background plates, a recurring hero
- * character and props) and animated by scripts/motion/render.py.
+ * Motion explainers: a 2D animated explainer planned from the notebook, built
+ * from generated layers (background plates, an optional recurring character
+ * and props) and animated by scripts/motion/render.py. Length, tone, audience,
+ * look, colors, character, closing message and resolution can be customized
+ * (MotionOptions); the defaults give a flat-vector video at 720p.
  *
  * The image model draws pictures only. Every word on screen is set by the
  * renderer in a real font, because image models misspell lettering.
@@ -60,7 +62,13 @@ export type MotionPalette = {
   light: string;
 };
 
-export type MotionStyle = { palette: MotionPalette; hero: string };
+export type MotionStyle = {
+  palette: MotionPalette;
+  /** The recurring character's look; empty when the video has no character. */
+  hero: string;
+  /** How every picture is drawn. */
+  visual: MotionVisual;
+};
 
 export type MotionPlan = {
   title: string;
@@ -69,7 +77,7 @@ export type MotionPlan = {
   scenes: MotionScene[];
 };
 
-/** Scenes asked of the planner: problem, solution, three how, benefits, CTA. */
+/** Scenes asked of the planner by default: problem, solution, three how, benefits, CTA. */
 export const MOTION_SCENE_COUNT = 7;
 export const MAX_SCENES = 9;
 export const MAX_ACTORS_PER_SCENE = 2;
@@ -88,11 +96,290 @@ export const DEFAULT_HERO =
   "a friendly cartoon office worker in their thirties with short dark hair, " +
   "a teal sweater over a white collar, navy trousers and brown shoes";
 
-export const MOTION_PLAN_INSTRUCTION = (topic: string) => `You are a scriptwriter and art director for 2D motion-graphics explainer videos:
-flat vector characters and objects slide and pop into simple scenes, bold
-headlines animate on, and a warm narrator tells a short story.
+// ---------------------------------------------------------------------------
+// Customization. Every option is optional; the defaults reproduce the
+// original seven-scene, friendly, flat-vector explainer at 720p.
+// ---------------------------------------------------------------------------
 
-Plan a ${MOTION_SCENE_COUNT}-scene video from the sources${topic ? `, focused on: ${topic}` : ""}.
+export const MOTION_LENGTHS = {
+  short: { label: "Short (about 1 min)", scenes: 5, how: 1 },
+  standard: { label: "Standard (about 1.5–2 min)", scenes: 7, how: 3 },
+  long: { label: "Long (about 2.5 min)", scenes: 9, how: 5 },
+} as const;
+export type MotionLength = keyof typeof MOTION_LENGTHS;
+
+export const MOTION_TONES = {
+  friendly: {
+    label: "Friendly",
+    rule: "Warm and conversational, plain language, contractions throughout.",
+  },
+  professional: {
+    label: "Professional",
+    rule: "Clear, confident and polished, like a well-run briefing: plain language, a measured pace, few contractions.",
+  },
+  energetic: {
+    label: "Energetic",
+    rule: "Upbeat and punchy, like a product launch: short sentences, active verbs, momentum from scene to scene.",
+  },
+  calm: {
+    label: "Calm",
+    rule: "Calm and reassuring, unhurried and gentle, like a patient guide.",
+  },
+  playful: {
+    label: "Playful",
+    rule: "Light and playful, with gentle humor where the sources allow it, never at the expense of accuracy.",
+  },
+} as const;
+export type MotionTone = keyof typeof MOTION_TONES;
+
+export const MOTION_AUDIENCES = {
+  general: { label: "General", rule: "a general audience with no prior knowledge of the subject" },
+  beginners: {
+    label: "Beginners",
+    rule: "complete beginners: define each term the first time it appears and use one everyday analogy",
+  },
+  executives: {
+    label: "Executives",
+    rule: "busy decision makers: lead with outcomes, costs and risks, and skip implementation detail",
+  },
+  technical: {
+    label: "Technical",
+    rule: "a technical audience: name the actual mechanisms, components and trade-offs precisely",
+  },
+} as const;
+export type MotionAudience = keyof typeof MOTION_AUDIENCES;
+
+/** How the image model draws every background, character and prop. */
+export const MOTION_VISUALS = {
+  flat: {
+    label: "Flat vector",
+    look:
+      "Flat 2D vector illustration in a modern explainer-animation style: clean " +
+      "geometric shapes, rounded corners, flat color fills with at most a subtle " +
+      "two-tone shadow, no gradients, no texture, no photorealism, no outlines " +
+      "heavier than a thin dark line.",
+  },
+  isometric: {
+    label: "Isometric",
+    look:
+      "Isometric 2D vector illustration in a modern tech-explainer style: everything " +
+      "drawn at one consistent 30-degree isometric angle, clean geometric shapes, flat " +
+      "color fills with simple two-tone shading, no texture, no photorealism.",
+  },
+  papercut: {
+    label: "Paper cutout",
+    look:
+      "Layered paper-cutout illustration: shapes cut from matte colored paper and " +
+      "stacked in layers, with short soft drop shadows between them and a faint paper " +
+      "grain, no photorealism.",
+  },
+  sketch: {
+    label: "Hand-drawn",
+    look:
+      "Hand-drawn editorial illustration: confident dark ink outlines with a slight " +
+      "wobble, loose flat color washes inside the lines, a friendly doodle feel, no " +
+      "photorealism.",
+  },
+  clay: {
+    label: "Soft 3D clay",
+    look:
+      "Soft 3D clay-style illustration: rounded, chunky, matte shapes like modeling " +
+      "clay, gentle studio lighting with soft shadows, playful proportions, not " +
+      "photorealistic.",
+  },
+  lineart: {
+    label: "Minimal line art",
+    look:
+      "Minimal line-art illustration: clean, even-weight dark outlines, mostly unfilled " +
+      "shapes with a few flat accent fills, plenty of empty space, no shading, no " +
+      "photorealism.",
+  },
+} as const;
+export type MotionVisual = keyof typeof MOTION_VISUALS;
+
+export const MOTION_PALETTES = {
+  ocean: { label: "Ocean", colors: DEFAULT_PALETTE },
+  sunset: {
+    label: "Sunset",
+    colors: { dark: "#2D1E2F", primary: "#E4572E", accent: "#F3A712", pop: "#A8201A", light: "#FDF6EC" },
+  },
+  forest: {
+    label: "Forest",
+    colors: { dark: "#1F3A2E", primary: "#2E8B57", accent: "#C9A227", pop: "#E07A5F", light: "#F3F7F0" },
+  },
+  berry: {
+    label: "Berry",
+    colors: { dark: "#2B1B3D", primary: "#7B2CBF", accent: "#F72585", pop: "#4CC9F0", light: "#F7F3FB" },
+  },
+  slate: {
+    label: "Corporate",
+    colors: { dark: "#1E293B", primary: "#2563EB", accent: "#0EA5E9", pop: "#F59E0B", light: "#F8FAFC" },
+  },
+  mono: {
+    label: "Monochrome",
+    colors: { dark: "#1A1A1A", primary: "#4A4A4A", accent: "#8A8A8A", pop: "#E63946", light: "#F5F5F5" },
+  },
+} as const satisfies Record<string, { label: string; colors: MotionPalette }>;
+/** "auto" lets the planner choose colors to suit the subject. */
+export type MotionPaletteChoice = "auto" | keyof typeof MOTION_PALETTES | "custom";
+
+export const MOTION_RESOLUTIONS = {
+  "720p": { label: "720p (faster)", width: 1280, height: 720 },
+  "1080p": { label: "1080p (sharper, slower to render)", width: 1920, height: 1080 },
+} as const;
+export type MotionResolution = keyof typeof MOTION_RESOLUTIONS;
+
+export const MAX_CHARACTER_CHARS = 220;
+export const MAX_CLOSING_CHARS = 160;
+
+export type MotionOptions = {
+  length: MotionLength;
+  tone: MotionTone;
+  audience: MotionAudience;
+  visual: MotionVisual;
+  palette: MotionPaletteChoice;
+  /** Used when palette is "custom". */
+  customPalette?: MotionPalette;
+  /** "auto" lets the planner design one, "none" leaves the video to props. */
+  character: "auto" | "custom" | "none";
+  /** Used when character is "custom". */
+  characterDescription?: string;
+  /** A call to action for the closing card, taken as given. */
+  closing?: string;
+  resolution: MotionResolution;
+};
+
+export const DEFAULT_MOTION_OPTIONS: MotionOptions = {
+  length: "standard",
+  tone: "friendly",
+  audience: "general",
+  visual: "flat",
+  palette: "auto",
+  character: "auto",
+  resolution: "720p",
+};
+
+function keyOf<T extends object>(table: T, v: unknown, fallback: keyof T): keyof T {
+  return typeof v === "string" && Object.prototype.hasOwnProperty.call(table, v)
+    ? (v as keyof T)
+    : fallback;
+}
+
+/**
+ * Coerce request options into something the planner and build can trust.
+ * Accepts `palette` as "auto", a preset name, "custom" with `customPalette`, or
+ * a palette object directly; and `character` as "auto", "none", "custom" with
+ * `characterDescription`, or a description directly.
+ */
+export function normalizeMotionOptions(raw: unknown): MotionOptions {
+  const o = (raw && typeof raw === "object" ? raw : {}) as Loose;
+  const d = DEFAULT_MOTION_OPTIONS;
+
+  let palette: MotionPaletteChoice = d.palette;
+  let customPalette: MotionPalette | undefined;
+  if (o.palette && typeof o.palette === "object") {
+    palette = "custom";
+    customPalette = normalizePalette(o.palette);
+  } else if (o.palette === "custom") {
+    palette = "custom";
+    customPalette = normalizePalette(o.customPalette);
+  } else if (typeof o.palette === "string" && o.palette in MOTION_PALETTES) {
+    palette = o.palette as MotionPaletteChoice;
+  }
+
+  let character: MotionOptions["character"] = "auto";
+  let characterDescription: string | undefined;
+  const c = str(o.character).trim();
+  if (c === "none") character = "none";
+  else if (c && c !== "auto") {
+    const described = c === "custom" ? str(o.characterDescription) : c;
+    characterDescription = clip(cleanText(described), MAX_CHARACTER_CHARS) || undefined;
+    if (characterDescription) character = "custom";
+  }
+
+  const closing = clip(cleanText(str(o.closing)), MAX_CLOSING_CHARS) || undefined;
+
+  return {
+    length: keyOf(MOTION_LENGTHS, o.length, d.length),
+    tone: keyOf(MOTION_TONES, o.tone, d.tone),
+    audience: keyOf(MOTION_AUDIENCES, o.audience, d.audience),
+    visual: keyOf(MOTION_VISUALS, o.visual ?? o.visualStyle, d.visual),
+    palette,
+    ...(customPalette ? { customPalette } : {}),
+    character,
+    ...(characterDescription ? { characterDescription } : {}),
+    ...(closing ? { closing } : {}),
+    resolution: keyOf(MOTION_RESOLUTIONS, o.resolution, d.resolution),
+  };
+}
+
+/** The palette an option set pins, or null when the planner chooses. */
+export function fixedPalette(opts: MotionOptions): MotionPalette | null {
+  if (opts.palette === "custom") return opts.customPalette ?? null;
+  if (opts.palette === "auto") return null;
+  return { ...MOTION_PALETTES[opts.palette].colors };
+}
+
+/** One line for the player, listing only what differs from the defaults. */
+export function describeMotionOptions(opts: MotionOptions | undefined): string[] {
+  if (!opts) return [];
+  const d = DEFAULT_MOTION_OPTIONS;
+  const out: string[] = [];
+  if (opts.length !== d.length) out.push(MOTION_LENGTHS[opts.length].label.split(" (")[0]);
+  if (opts.tone !== d.tone) out.push(MOTION_TONES[opts.tone].label);
+  if (opts.audience !== d.audience) out.push(`for ${MOTION_AUDIENCES[opts.audience].label.toLowerCase()}`);
+  if (opts.visual !== d.visual) out.push(MOTION_VISUALS[opts.visual].label);
+  if (opts.palette === "custom") out.push("custom colors");
+  else if (opts.palette !== "auto") out.push(`${MOTION_PALETTES[opts.palette].label} colors`);
+  if (opts.character === "none") out.push("no character");
+  else if (opts.character === "custom") out.push("custom character");
+  if (opts.closing) out.push("custom closing");
+  if (opts.resolution !== d.resolution) out.push(opts.resolution);
+  return out;
+}
+
+function storyArc(len: MotionLength): string {
+  const { how } = MOTION_LENGTHS[len];
+  const howLine =
+    how === 1
+      ? "3. how — the single most important mechanism or step."
+      : `3-${2 + how}. how — one mechanism or step each, in order.`;
+  return [
+    "1. problem — the pain or question the sources address, made concrete.",
+    "2. solution — what the sources propose, introduced by name if they give one.",
+    howLine,
+    `${3 + how}. benefits — the payoff, with a number from the sources if there is one.`,
+    `${4 + how}. cta — the one next step a viewer should take, as the sources describe it.`,
+  ].join("\n");
+}
+
+function lookRules(opts: MotionOptions): string {
+  const palette = fixedPalette(opts);
+  const paletteRule = palette
+    ? `The palette is fixed. Return exactly: ${JSON.stringify(palette)}.`
+    : "Pick a palette that suits the subject: one dark color for text, a primary and\n" +
+      "two accents, and a very light background color. Hex values only.";
+  const heroRule =
+    opts.character === "none"
+      ? 'There is no recurring character in this video. Set "hero" to an empty string\n' +
+        'and never use an actor of kind "hero": tell the story with props and settings.'
+      : opts.character === "custom"
+        ? `The hero is fixed. Return it as "hero" exactly: "${opts.characterDescription}".`
+        : "The hero is one recurring cartoon person who appears in most scenes. Describe\n" +
+          "their clothes and colors concretely so every drawing matches. Never a real\n" +
+          "person, never a celebrity, never a mascot from a real company.";
+  return `${paletteRule}\n${heroRule}`;
+}
+
+export const MOTION_PLAN_INSTRUCTION = (
+  topic: string,
+  opts: MotionOptions = DEFAULT_MOTION_OPTIONS
+) => `You are a scriptwriter and art director for 2D motion-graphics explainer videos:
+characters and objects slide and pop into simple scenes, bold headlines animate
+on, and a narrator tells a short story.
+
+Plan a ${MOTION_LENGTHS[opts.length].scenes}-scene video from the sources${topic ? `, focused on: ${topic}` : ""}.
+It is for ${MOTION_AUDIENCES[opts.audience].rule}.
 Respond with a single JSON object only. No markdown fences, no commentary.
 
 Schema:
@@ -124,22 +411,15 @@ Schema:
 }
 
 STORY ARC, in this order
-1. problem — the pain or question the sources address, made concrete.
-2. solution — what the sources propose, introduced by name if they give one.
-3-5. how — one mechanism or step each, in order.
-6. benefits — the payoff, with a number from the sources if there is one.
-7. cta — the one next step a viewer should take, as the sources describe it.
+${storyArc(opts.length)}
 
 THE LOOK
-Pick a palette that suits the subject: one dark color for text, a primary and
-two accents, and a very light background color. Hex values only.
-The hero is one recurring cartoon person who appears in most scenes. Describe
-their clothes and colors concretely so every drawing matches. Never a real
-person, never a celebrity, never a mascot from a real company.
+${lookRules(opts)}
 
 ACTORS
-At most two per scene, in different placements. Use the hero in four or more
-scenes. A prop is ONE object a designer could draw in a minute: "an
+At most two per scene, in different placements.${
+  opts.character === "none" ? "" : " Use the hero in about half the scenes or more."
+} A prop is ONE object a designer could draw in a minute: "an
 overflowing trash bin", "a smartphone showing a bar chart", "a delivery truck".
 Describe objects, not ideas. Never text, never a logo, never a brand.
 
@@ -156,11 +436,20 @@ characters ("40%", "3x", "1.3B tons"), label <= 32 characters. Omit "stat"
 otherwise. Never invent a number, a URL, a price, a phone number or an offer.
 
 NARRATION
-Warm and conversational, plain language, contractions throughout. Two or three
-sentences per scene. Close the cta scene on the next step, not a sign-off. No
-markdown, no citation markers, no stage directions: every character is read
-aloud.
-
+${MOTION_TONES[opts.tone].rule} Two or three sentences per scene. Close the cta
+scene on the next step, not a sign-off. No markdown, no citation markers, no
+stage directions: every character is read aloud.
+${
+  opts.closing
+    ? `
+CLOSING CALL TO ACTION
+The user supplied the closing message below. Build the cta scene around it: its
+headline and subline should state it, and its narration should say it plainly.
+Because the user wrote it, any link or contact detail in it may be used as given.
+"${opts.closing}"
+`
+    : ""
+}
 Ground every claim in the excerpts. If the sources do not support a beat, cover
 what they do support rather than inventing it.`;
 
@@ -257,11 +546,21 @@ function normalizeStat(raw: unknown): MotionScene["stat"] {
 /**
  * Coerce whatever the model returned into a plan the build can rely on:
  * lengths clamped, enums whitelisted, actors capped per scene and props capped
- * across the video. Returns null when too little survives to make a video.
+ * across the video. Choices the user pinned in `opts` (palette, character,
+ * look) win over whatever the model returned. Returns null when too little
+ * survives to make a video.
  */
-export function normalizeMotionPlan(raw: Loose): MotionPlan | null {
+export function normalizeMotionPlan(
+  raw: Loose,
+  opts: MotionOptions = DEFAULT_MOTION_OPTIONS
+): MotionPlan | null {
   const style = (raw.style && typeof raw.style === "object" ? raw.style : {}) as Loose;
-  const hero = clip(cleanText(str(style.hero)), 220) || DEFAULT_HERO;
+  const noHero = opts.character === "none";
+  const hero = noHero
+    ? ""
+    : opts.character === "custom" && opts.characterDescription
+      ? opts.characterDescription
+      : clip(cleanText(str(style.hero)), MAX_CHARACTER_CHARS) || DEFAULT_HERO;
 
   let props = 0;
   const scenes = (Array.isArray(raw.scenes) ? raw.scenes : [])
@@ -292,7 +591,7 @@ export function normalizeMotionPlan(raw: Loose): MotionPlan | null {
     .map((scene) => ({
       ...scene,
       actors: scene.actors.filter((a) => {
-        if (a.kind === "hero") return true;
+        if (a.kind === "hero") return !noHero;
         if (props >= MAX_PROPS) return false;
         props++;
         return true;
@@ -303,7 +602,11 @@ export function normalizeMotionPlan(raw: Loose): MotionPlan | null {
   return {
     title: clip(cleanText(str(raw.title, "Motion explainer")), 80) || "Motion explainer",
     description: cleanText(str(raw.description)),
-    style: { palette: normalizePalette(style.palette), hero },
+    style: {
+      palette: fixedPalette(opts) ?? normalizePalette(style.palette),
+      hero,
+      visual: opts.visual,
+    },
     scenes,
   };
 }
@@ -313,11 +616,9 @@ const paletteWords = (p: MotionPalette) =>
 
 /** Shared by every asset so the backgrounds, hero and props look like one film. */
 export function styleBase(style: MotionStyle): string {
+  const look = (MOTION_VISUALS[style.visual] ?? MOTION_VISUALS.flat).look;
   return (
-    "Flat 2D vector illustration in a modern explainer-animation style: clean " +
-    "geometric shapes, rounded corners, flat color fills with at most a subtle " +
-    "two-tone shadow, no gradients, no texture, no photorealism, no outlines " +
-    `heavier than a thin dark line. Limited palette built from ${paletteWords(style.palette)}. ` +
+    `${look} Limited palette built from ${paletteWords(style.palette)}. ` +
     "No text, letters, numbers, labels, logos, watermarks or brand marks anywhere."
   );
 }
@@ -334,7 +635,7 @@ export function backgroundPrompt(scene: MotionScene, style: MotionStyle): string
 
 export function heroPrompt(style: MotionStyle): string {
   return (
-    `${styleBase(style)} One full-body cartoon character: ${style.hero}. Standing, ` +
+    `${styleBase(style)} One full-body character: ${style.hero}. Standing, ` +
     "turned three-quarters toward the viewer's right, friendly expression, one hand " +
     "raised a little as if explaining. The whole figure in frame with margin around " +
     "it, feet visible. Isolated on a plain transparent background: no floor, no " +

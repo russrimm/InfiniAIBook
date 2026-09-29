@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { describeMotionOptions } from "@/lib/motion";
 import type { VideoContent } from "@/lib/types";
 
 const STAGES: Record<"whiteboard" | "motion", { key: string; label: string }[]> = {
@@ -163,6 +164,7 @@ export default function VideoPlayer({
       <p className="mt-4 text-[10px] text-[var(--muted)]">
         Narrated by {content.voice ?? "Ava"}
         {content.music ? " · with music" : ""}
+        {describeMotionOptions(content.options).map((d) => ` · ${d}`).join("")}
         {content.bytes ? ` · ${(content.bytes / 1_048_576).toFixed(1)} MB` : ""}
       </p>
       <input type="hidden" value={artifactId} readOnly />
