@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ok, fail, noSourcesSelected } from "@/lib/http";
-import { chatJSON, type ChatMsg } from "@/lib/ai";
+import { studioJSON, type ChatMsg } from "@/lib/ai";
 import {
   buildContext,
   citationList,
@@ -257,7 +257,7 @@ export async function POST(req: Request) {
         },
       ];
       try {
-        script = await chatJSON<Script>(messages, 0.7);
+        script = await studioJSON<Script>(messages, 0.7);
         break;
       } catch (e) {
         lastError = e;
@@ -313,7 +313,7 @@ ${
 Count the words in your answer before returning it.`;
 
       try {
-        const retry = await chatJSON<Script>(
+        const retry = await studioJSON<Script>(
           [
             {
               role: "system",

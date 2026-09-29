@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ok, fail, noSourcesSelected } from "@/lib/http";
-import { chatJSON, type ChatMsg } from "@/lib/ai";
+import { studioJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
 import { MOTION_PLAN_INSTRUCTION, normalizeMotionPlan } from "@/lib/motion";
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
       },
     ];
 
-    const raw = await chatJSON<Record<string, unknown>>(messages, 0.7);
+    const raw = await studioJSON<Record<string, unknown>>(messages, 0.7);
     const plan = normalizeMotionPlan(raw);
     if (!plan) {
       return NextResponse.json(

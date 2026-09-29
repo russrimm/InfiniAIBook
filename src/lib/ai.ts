@@ -355,6 +355,9 @@ export function getClient(): OpenAI | AzureOpenAI {
 
 /** Turn provider failures into actionable setup guidance rather than a raw code. */
 export function describeAuthError(e: unknown): string | null {
+  if (e instanceof StudioModelError) {
+    return [401, 403, 404, 429].includes(e.status) ? e.message : null;
+  }
   const msg = e instanceof Error ? e.message : String(e);
   const status = (e as { status?: number })?.status;
   const code = (e as { code?: string })?.code;
@@ -459,7 +462,7 @@ async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
  * accept only the default. We can't infer that from the deployment name, which
  * is user-chosen, so probe once and remember the answer for the process.
  */
-let supportsTemperature: boolean | null = null;
+const supportsTemperature = new Map<string, boolean>();
 
 function isTemperatureRejection(e: unknown): boolean {
   const err = e as { param?: string; code?: string; message?: string };
@@ -476,22 +479,23 @@ async function createChat(
   options: { signal?: AbortSignal } = {}
 ) {
   const client = getClient();
+  const model = params.model;
   const withoutTemp = () => {
     const { temperature: _omit, ...rest } = params;
     return rest as ChatParams;
   };
 
   return withRetry(async () => {
-    if (supportsTemperature === false) {
+    if (supportsTemperature.get(model) === false) {
       return client.chat.completions.create(withoutTemp(), options);
     }
     try {
       const res = await client.chat.completions.create(params as ChatParams, options);
-      if (supportsTemperature === null) supportsTemperature = true;
+      if (!supportsTemperature.has(model)) supportsTemperature.set(model, true);
       return res;
     } catch (e) {
       if (!isTemperatureRejection(e)) throw e;
-      supportsTemperature = false;
+      supportsTemperature.set(model, false);
       return client.chat.completions.create(withoutTemp(), options);
     }
   }, "chat");
@@ -526,9 +530,13 @@ export async function chatStream(
 }
 
 /** Ask the model for a JSON object and parse it defensively. */
-export async function chatJSON<T>(messages: ChatMsg[], temperature = 0.4): Promise<T> {
+export async function chatJSON<T>(
+  messages: ChatMsg[],
+  temperature = 0.4,
+  model: string = chatModel()
+): Promise<T> {
   const res = await createChat({
-    model: chatModel(),
+    model,
     temperature,
     response_format: { type: "json_object" },
     messages,
@@ -536,6 +544,153 @@ export async function chatJSON<T>(messages: ChatMsg[], temperature = 0.4): Promi
   const raw =
     (res as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content?.trim() ??
     "";
+  return parseJSON<T>(raw);
+}
+
+/**
+ * Scripts and scene plans (audio overviews, whiteboard videos, motion
+ * explainers, training videos) can use a stronger model than chat.
+ *
+ * AI_STUDIO_MODEL names it. By default it is called through the same client as
+ * chat, so any deployment on the same resource works. AI_STUDIO_API=anthropic
+ * sends it through Claude's Messages API instead, which Claude deployments in
+ * Microsoft Foundry require: the endpoint is AZURE_OPENAI_ENDPOINT + /anthropic
+ * with Entra ID or AZURE_OPENAI_API_KEY, or api.anthropic.com with
+ * ANTHROPIC_API_KEY when no Azure endpoint is set. AI_STUDIO_BASE_URL and
+ * AI_STUDIO_API_KEY override either.
+ */
+export function studioModel(): string {
+  return process.env.AI_STUDIO_MODEL?.trim() || chatModel();
+}
+
+const studioApi = () => process.env.AI_STUDIO_API?.trim().toLowerCase();
+
+/** Structured JSON for studio scripts and scene plans, on the studio model. */
+export async function studioJSON<T>(messages: ChatMsg[], temperature = 0.4): Promise<T> {
+  const model = process.env.AI_STUDIO_MODEL?.trim();
+  if (!model) return chatJSON<T>(messages, temperature);
+  if (studioApi() === "anthropic") return anthropicJSON<T>(model, messages, temperature);
+  return chatJSON<T>(messages, temperature, model);
+}
+
+/** A failure from the Messages API, already worded for the user. */
+export class StudioModelError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly headers: Record<string, string>
+  ) {
+    super(message);
+  }
+}
+
+const ANTHROPIC_SCOPE = "https://ai.azure.com/.default";
+let anthropicTokenProvider: (() => Promise<string>) | null = null;
+
+function anthropicBaseURL(): string {
+  const explicit = process.env.AI_STUDIO_BASE_URL?.trim();
+  if (explicit) return explicit.replace(/\/+$/, "");
+  if (endpoint) return `${endpoint.replace(/\/+$/, "")}/anthropic`;
+  return "https://api.anthropic.com";
+}
+
+async function anthropicHeaders(base: string): Promise<Record<string, string>> {
+  const key =
+    process.env.AI_STUDIO_API_KEY?.trim() ||
+    (/api\.anthropic\.com/.test(base)
+      ? process.env.ANTHROPIC_API_KEY?.trim()
+      : process.env.AZURE_OPENAI_API_KEY?.trim());
+  if (key) return { "x-api-key": key };
+  if (!anthropicTokenProvider) {
+    anthropicTokenProvider = getBearerTokenProvider(buildCredential(), ANTHROPIC_SCOPE);
+  }
+  return { Authorization: `Bearer ${await anthropicTokenProvider()}` };
+}
+
+/** Newer Claude models reject a custom temperature; remember which do. */
+const anthropicTemperature = new Map<string, boolean>();
+
+async function anthropicJSON<T>(
+  model: string,
+  messages: ChatMsg[],
+  temperature: number
+): Promise<T> {
+  const base = anthropicBaseURL();
+  const url = `${base}/v1/messages`;
+  const maxTokens = Number(process.env.AI_STUDIO_MAX_TOKENS) || 16000;
+  const system = [
+    ...messages.filter((m) => m.role === "system").map((m) => m.content),
+    "Respond with a single JSON object and nothing else.",
+  ].join("\n\n");
+  const turns = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => ({ role: m.role, content: m.content }));
+
+  const send = async (withTemp: boolean) => {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        ...(await anthropicHeaders(base)),
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: maxTokens,
+        system,
+        messages: turns,
+        ...(withTemp ? { temperature: Math.min(1, Math.max(0, temperature)) } : {}),
+      }),
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      let detail = text.slice(0, 500);
+      try {
+        detail = (JSON.parse(text) as { error?: { message?: string } }).error?.message ?? detail;
+      } catch {}
+      const hint =
+        res.status === 404
+          ? ` Check that AI_STUDIO_MODEL ("${model}") is a Claude deployment on ${base}.`
+          : res.status === 401 || res.status === 403
+            ? " With Entra ID the identity needs the 'Cognitive Services User' role on the Foundry resource."
+            : "";
+      throw new StudioModelError(
+        `${model} returned ${res.status}: ${detail.replace(/\.\s*$/, "")}.${hint}`,
+        res.status,
+        Object.fromEntries(res.headers.entries())
+      );
+    }
+    return JSON.parse(text) as {
+      content?: { type: string; text?: string }[];
+      stop_reason?: string;
+    };
+  };
+
+  const body = await withRetry(async () => {
+    if (anthropicTemperature.get(model) === false) return send(false);
+    try {
+      const r = await send(true);
+      anthropicTemperature.set(model, true);
+      return r;
+    } catch (e) {
+      if (!(e instanceof StudioModelError) || e.status !== 400 || !/temperature/i.test(e.message)) {
+        throw e;
+      }
+      anthropicTemperature.set(model, false);
+      return send(false);
+    }
+  }, "studio");
+
+  if (body.stop_reason === "max_tokens") {
+    throw new Error(
+      `${model} ran out of output tokens (${maxTokens}). Raise AI_STUDIO_MAX_TOKENS or choose a shorter length.`
+    );
+  }
+  const raw = (body.content ?? [])
+    .filter((b) => b.type === "text")
+    .map((b) => b.text ?? "")
+    .join("")
+    .trim();
   return parseJSON<T>(raw);
 }
 
