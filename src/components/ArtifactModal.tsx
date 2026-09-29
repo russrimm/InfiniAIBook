@@ -159,6 +159,13 @@ function toMarkdown(a: Artifact): string {
         .join("\n\n");
       return `${head}${t.description ? `${t.description}\n\n` : ""}${objectives}${body}\n`;
     }
+    case "motion": {
+      const v = c as unknown as VideoContent;
+      const body = (v.scenes ?? [])
+        .map((s) => `## ${s.title}\n\n${s.caption ? `*${s.caption}*\n\n` : ""}${s.narration}`)
+        .join("\n\n");
+      return `${head}${v.description ? `${v.description}\n\n` : ""}${body}\n`;
+    }
     default:
       return head + ((c as unknown as DocContent).markdown ?? "");
   }
@@ -395,9 +402,11 @@ function Body({
     case "podcast":
       return <PodcastPlayer content={c as PodcastContent} />;
     case "video":
+    case "motion":
       return (
         <VideoPlayer
           artifactId={artifact.id}
+          variant={artifact.type === "motion" ? "motion" : "whiteboard"}
           content={c as VideoContent}
           onRefresh={onRefresh ?? (() => {})}
         />

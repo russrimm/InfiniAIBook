@@ -129,7 +129,7 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     for (const a of artifacts) {
       if (a.type === "podcast") removeAudio(a.id);
       else if (a.type === "infographic") removeImage(a.id);
-      else if (a.type === "video") removeVideo(a.id);
+      else if (a.type === "video" || a.type === "motion") removeVideo(a.id);
       else if (a.type === "training") {
         removeVideo(a.id);
         forgetTraining(a.content);

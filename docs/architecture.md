@@ -26,6 +26,7 @@ src/
       generate/                    studio artifact generation
       podcast/                     dialogue script + speech synthesis
       video/                       plan a whiteboard video and start its build
+      motion/                      plan a motion explainer and start its build
       models/                      list deployments, read/set the active models
       audio/[id]/  video/[id]/     MP3 / MP4 streaming with byte-range support
       image/[id]/                  generated infographic PNGs
@@ -59,13 +60,16 @@ src/
     refresh.ts   re-fetch, word-level change detection, bot-wall guard, re-indexing
     vision.ts    image description, with a guard against blind models inventing one
     whiteboard.ts scene planning for videos; videobuild.ts runs the pipeline
+    motion.ts    motion explainer planning; motiontimeline.ts compiles the render config; motionbuild.ts runs the pipeline
     paths.ts     data/audio, images, voices and video paths, traversal-safe resolution
     rangefile.ts byte-range file streaming for media routes
     http.ts  types.ts   JSON response helpers and shared types
 scripts/
   check-ai.ts         live checks against the configured model provider
   check-ssrf.ts       offline tests for safefetch.ts
+  check-motion.ts     renders a motion explainer from synthetic assets (no model calls)
   whiteboard/render.py  Python renderer that composites and encodes whiteboard videos
+  motion/render.py    Python renderer that animates layered motion explainers
 ```
 
 **Storage note:** the database uses Node's built-in `node:sqlite` (Node 22.13+),

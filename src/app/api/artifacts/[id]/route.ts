@@ -70,7 +70,7 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     // Audio files and generated images are named after the artifact id.
     if (row?.type === "podcast") removeAudio(id);
     if (row?.type === "infographic") removeImage(id);
-    if (row?.type === "video") removeVideo(id);
+    if (row?.type === "video" || row?.type === "motion") removeVideo(id);
     if (row?.type === "training") {
       removeVideo(id);
       if (row.content) forgetTraining(row.content);
