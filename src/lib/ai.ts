@@ -476,9 +476,9 @@ function isTemperatureRejection(e: unknown): boolean {
 /** Run a chat call, retrying without `temperature` if the model refuses it. */
 async function createChat(
   params: ChatParams & { temperature?: number },
-  options: { signal?: AbortSignal } = {}
+  options: { signal?: AbortSignal } = {},
+  client: OpenAI | AzureOpenAI = getClient()
 ) {
-  const client = getClient();
   const model = params.model;
   const withoutTemp = () => {
     const { temperature: _omit, ...rest } = params;
@@ -530,17 +530,26 @@ export async function chatStream(
 }
 
 /** Ask the model for a JSON object and parse it defensively. */
-export async function chatJSON<T>(
+export async function chatJSON<T>(messages: ChatMsg[], temperature = 0.4): Promise<T> {
+  return jsonChat<T>(getClient(), chatModel(), messages, temperature);
+}
+
+async function jsonChat<T>(
+  client: OpenAI | AzureOpenAI,
+  model: string,
   messages: ChatMsg[],
-  temperature = 0.4,
-  model: string = chatModel()
+  temperature: number
 ): Promise<T> {
-  const res = await createChat({
-    model,
-    temperature,
-    response_format: { type: "json_object" },
-    messages,
-  });
+  const res = await createChat(
+    {
+      model,
+      temperature,
+      response_format: { type: "json_object" },
+      messages,
+    },
+    {},
+    client
+  );
   const raw =
     (res as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content?.trim() ??
     "";
@@ -552,25 +561,59 @@ export async function chatJSON<T>(
  * explainers, training videos) can use a stronger model than chat.
  *
  * AI_STUDIO_MODEL names it. By default it is called through the same client as
- * chat, so any deployment on the same resource works. AI_STUDIO_API=anthropic
- * sends it through Claude's Messages API instead, which Claude deployments in
- * Microsoft Foundry require: the endpoint is AZURE_OPENAI_ENDPOINT + /anthropic
- * with Entra ID or AZURE_OPENAI_API_KEY, or api.anthropic.com with
- * ANTHROPIC_API_KEY when no Azure endpoint is set. AI_STUDIO_BASE_URL and
- * AI_STUDIO_API_KEY override either.
+ * chat, so any deployment on the same resource works; AI_STUDIO_ENDPOINT points
+ * at a different Azure resource instead, with Entra ID or AI_STUDIO_API_KEY.
+ * AI_STUDIO_API=anthropic sends it through Claude's Messages API, which Claude
+ * deployments in Microsoft Foundry require: the endpoint is the Azure endpoint
+ * + /anthropic, or api.anthropic.com with ANTHROPIC_API_KEY when no Azure
+ * endpoint is set. AI_STUDIO_BASE_URL overrides the Messages API base URL.
  */
 export function studioModel(): string {
   return process.env.AI_STUDIO_MODEL?.trim() || chatModel();
 }
 
 const studioApi = () => process.env.AI_STUDIO_API?.trim().toLowerCase();
+const studioEndpoint = () => process.env.AI_STUDIO_ENDPOINT?.trim().replace(/\/+$/, "") || null;
+
+let studioClientCache: AzureOpenAI | null = null;
+
+/** The chat client, or one for AI_STUDIO_ENDPOINT when the model lives elsewhere. */
+function studioClient(): OpenAI | AzureOpenAI {
+  const ep = studioEndpoint();
+  if (!ep) return getClient();
+  if (studioClientCache) return studioClientCache;
+  const key = process.env.AI_STUDIO_API_KEY?.trim();
+  studioClientCache = key
+    ? new AzureOpenAI({ endpoint: ep, apiKey: key, apiVersion })
+    : new AzureOpenAI({
+        endpoint: ep,
+        azureADTokenProvider: getBearerTokenProvider(buildCredential(), SCOPE),
+        apiVersion,
+      });
+  return studioClientCache;
+}
 
 /** Structured JSON for studio scripts and scene plans, on the studio model. */
 export async function studioJSON<T>(messages: ChatMsg[], temperature = 0.4): Promise<T> {
   const model = process.env.AI_STUDIO_MODEL?.trim();
   if (!model) return chatJSON<T>(messages, temperature);
   if (studioApi() === "anthropic") return anthropicJSON<T>(model, messages, temperature);
-  return chatJSON<T>(messages, temperature, model);
+  try {
+    return await jsonChat<T>(studioClient(), model, messages, temperature);
+  } catch (e) {
+    const status = (e as { status?: number })?.status;
+    if (status !== 401 && status !== 403 && status !== 404) throw e;
+    const where = studioEndpoint() ?? endpoint ?? baseURL ?? "the chat provider";
+    const hint =
+      status === 404
+        ? ` Check that AI_STUDIO_MODEL ("${model}") is deployed on ${where}, or set AI_STUDIO_ENDPOINT to the resource that has it.`
+        : ` With Entra ID the identity needs the 'Cognitive Services OpenAI User' role on ${where}.`;
+    throw new StudioModelError(
+      `${model} returned ${status}: ${(e as Error).message.replace(/\.\s*$/, "")}.${hint}`,
+      status,
+      {}
+    );
+  }
 }
 
 /** A failure from the Messages API, already worded for the user. */
@@ -590,7 +633,8 @@ let anthropicTokenProvider: (() => Promise<string>) | null = null;
 function anthropicBaseURL(): string {
   const explicit = process.env.AI_STUDIO_BASE_URL?.trim();
   if (explicit) return explicit.replace(/\/+$/, "");
-  if (endpoint) return `${endpoint.replace(/\/+$/, "")}/anthropic`;
+  const azure = studioEndpoint() ?? endpoint?.replace(/\/+$/, "");
+  if (azure) return `${azure}/anthropic`;
   return "https://api.anthropic.com";
 }
 
@@ -599,7 +643,9 @@ async function anthropicHeaders(base: string): Promise<Record<string, string>> {
     process.env.AI_STUDIO_API_KEY?.trim() ||
     (/api\.anthropic\.com/.test(base)
       ? process.env.ANTHROPIC_API_KEY?.trim()
-      : process.env.AZURE_OPENAI_API_KEY?.trim());
+      : studioEndpoint()
+        ? undefined
+        : process.env.AZURE_OPENAI_API_KEY?.trim());
   if (key) return { "x-api-key": key };
   if (!anthropicTokenProvider) {
     anthropicTokenProvider = getBearerTokenProvider(buildCredential(), ANTHROPIC_SCOPE);

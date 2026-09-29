@@ -107,7 +107,7 @@ commentary. Only a model provider is required.
 | `AZURE_SPEECH_ENDPOINT` | Custom-domain Speech endpoint for the avatar service; derived from `AZURE_SPEECH_RESOURCE_ID` when unset |
 | `AZURE_AVATAR_BACKGROUND_URL`, `AZURE_AVATAR_PRICE_PER_MINUTE` | Optional training-video background image and cost estimate ([Training videos](training-videos.md)) |
 | `STUDIO_CONTEXT_CHARS` | Starting source budget for Studio generation (default `30000`) |
-| `AI_STUDIO_MODEL`, `AI_STUDIO_API`, `AI_STUDIO_BASE_URL`, `AI_STUDIO_API_KEY`, `AI_STUDIO_MAX_TOKENS` | Separate model for audio-overview, video and training scripts and scene plans; see [Studio script model](#studio-script-model) |
+| `AI_STUDIO_MODEL`, `AI_STUDIO_ENDPOINT`, `AI_STUDIO_API`, `AI_STUDIO_BASE_URL`, `AI_STUDIO_API_KEY`, `AI_STUDIO_MAX_TOKENS` | Separate model for audio-overview, video and training scripts and scene plans; see [Studio script model](#studio-script-model) |
 | `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX` | Optional discovery providers; DuckDuckGo is used without them |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | YouTube transcripts via Gemini |
 | `YOUTUBE_API_KEY`, `YOUTUBE_COOKIE`, `YOUTUBE_CAPTION_LANG` | YouTube metadata and transcript fallbacks |
@@ -249,10 +249,18 @@ Another deployment on the same resource, such as a larger GPT model:
 AI_STUDIO_MODEL=gpt-5
 ```
 
+A deployment on a different Azure resource. Entra ID is used unless
+`AI_STUDIO_API_KEY` holds that resource's key:
+
+```bash
+AI_STUDIO_MODEL=gpt-chat-latest
+AI_STUDIO_ENDPOINT=https://<other-resource>.cognitiveservices.azure.com
+```
+
 A Claude deployment in Microsoft Foundry, which accepts only Anthropic's
-Messages API. The app calls `AZURE_OPENAI_ENDPOINT` + `/anthropic` with Entra ID
-(scope `https://ai.azure.com/.default`, role **Cognitive Services User**) or
-`AZURE_OPENAI_API_KEY`:
+Messages API. The app calls the Azure endpoint (`AI_STUDIO_ENDPOINT`, else
+`AZURE_OPENAI_ENDPOINT`) + `/anthropic` with Entra ID (scope
+`https://ai.azure.com/.default`, role **Cognitive Services User**) or a key:
 
 ```bash
 AI_STUDIO_MODEL=claude-opus-5-5   # the deployment name
