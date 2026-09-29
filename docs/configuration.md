@@ -121,7 +121,7 @@ commentary. Only a model provider is required.
 | `INFINIAIBOOK_API_TOKEN` | Bearer token for scripts calling the API. Once set, the password is no longer accepted as a bearer token |
 | `INFINIAIBOOK_SESSION_SECRET` | Optional extra key for signing session cookies; change it to sign every browser out |
 | `ALLOWED_HOSTS` | Extra hostnames the server answers to, comma-separated (`*` for any). Loopback names are always allowed. Without a password, other hosts get a 403 |
-| `TRUST_PROXY` | `true` behind a reverse proxy: honour `X-Forwarded-Host` / `X-Forwarded-Proto` |
+| `TRUST_PROXY` | `true` behind a reverse proxy: honor `X-Forwarded-Host` / `X-Forwarded-Proto` |
 
 ## Checking a provider
 
@@ -211,7 +211,7 @@ servers never serve an expired token. Auth failures are translated into
 actionable messages in the UI (missing credential vs. missing role assignment)
 rather than a bare 401.
 
-> A legacy `AZURE_OPENAI_API_KEY` is still honoured if present, and takes
+> A legacy `AZURE_OPENAI_API_KEY` is still honored if present, and takes
 > precedence over Entra. Leave it unset to use Entra.
 
 Without any working credential the app still runs: sources ingest and are
@@ -224,7 +224,7 @@ carry, and studio generation is context-hungry. Two mechanisms keep it working
 on small deployments:
 
 1. **Retry with backoff** — 429 and 5xx responses are retried up to five times,
-   honouring `Retry-After` when Azure supplies it.
+   honoring `Retry-After` when Azure supplies it.
 2. **Adaptive context** — if rate limiting persists, generation halves its
    excerpt budget and retries, down to a floor, rather than failing.
 

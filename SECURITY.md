@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Please do not open a public issue for a security problem. Report it privately
-through GitHub's [private vulnerability reporting](https://github.com/russrimm/opennotebook/security/advisories/new)
+through GitHub's [private vulnerability reporting](https://github.com/russrimm/InfiniAIBook/security/advisories/new)
 for this repository, with enough detail to reproduce it. You should get a reply
 within a week.
 

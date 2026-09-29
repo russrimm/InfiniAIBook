@@ -19,7 +19,7 @@ oversized figure where the sources state a real one.
 
 Metaphors are chosen by meaning, from a fixed vocabulary the prompt supplies —
 scales for comparisons, gauges for limits, pipes for flows, coins for cost,
-gears for configuration, shields for security, funnels for optimisation,
+gears for configuration, shields for security, funnels for optimization,
 roadmaps for processes, and ten more. They are drawn as inline SVG in one visual
 language (navy outlines, rounded geometry, blue/teal/green with selective
 orange), so they stay crisp at any size, tint to match their region, and never
@@ -103,7 +103,7 @@ to apply it.<br><br>
 </td>
 <td width="50%" valign="top">
 <b>🔷 Flat vector</b> — the key takeaway printed first, then five to seven short
-labelled facts.<br><br>
+labeled facts.<br><br>
 <a href="screenshots/infographics/flat.png"><img src="screenshots/infographics/flat.png" alt="Flat vector infographic leading with the key takeaway above headline stats"></a>
 </td>
 </tr>
@@ -176,7 +176,7 @@ which image model you deploy.
 Infographics render as **real HTML, not generated images** — with one opt-in
 exception, below. HTML keeps the text selectable and searchable, citations
 hoverable, the layout reflowing on narrow screens, and nothing misspelled by an
-image model. Citation pills pick up each theme's accent colour rather than the
+image model. Citation pills pick up each theme's accent color rather than the
 app's dark default.
 
 ## Image infographics

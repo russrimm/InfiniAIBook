@@ -1,7 +1,7 @@
 # How grounding works
 
 1. **Ingest** — text is extracted (`unpdf` for PDF, `mammoth` for DOCX, `cheerio`
-   for HTML), normalised, and split into ~1400-character chunks with 200 characters
+   for HTML), normalized, and split into ~1400-character chunks with 200 characters
    of overlap on paragraph boundaries.
 2. **Embed** — each chunk is embedded and stored as a `Float32Array` blob in SQLite.
 3. **Retrieve** — queries are embedded and ranked by cosine similarity, blended
@@ -20,7 +20,7 @@
 5. **Cite** — passages are numbered in the prompt, the model emits `[n]` markers,
    and the UI resolves them back to source title, part number and the raw excerpt.
 
-Studio outputs are requested as JSON, then parsed defensively and normalised
+Studio outputs are requested as JSON, then parsed defensively and normalized
 (clamped answer indices, depth-limited mind-map trees, validated stat blocks) so a
 malformed model response can never break the UI.
 

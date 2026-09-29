@@ -29,7 +29,7 @@ Two checks apply whether or not a password is set:
 
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| POST | `/api/auth/login` | `{ password }` | Sets a signed 30-day HTTP-only cookie. Attempts are serialised; each failure delays the next one longer (up to 30 s) |
+| POST | `/api/auth/login` | `{ password }` | Sets a signed 30-day HTTP-only cookie. Attempts are serialized; each failure delays the next one longer (up to 30 s) |
 | POST | `/api/auth/logout` | — | Clears the cookie |
 | GET | `/api/auth/status` | — | `{ auth }`: whether a password is required |
 

@@ -1,5 +1,8 @@
 # InfiniAIBook
 
+[![CI](https://github.com/russrimm/InfiniAIBook/actions/workflows/ci.yml/badge.svg)](https://github.com/russrimm/InfiniAIBook/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A self-hosted Agentic Powered Notebook research studio. Upload your own sources, chat with
 them, and turn them into **reports, briefings, infographics, mind maps, quizzes,
 study guides, FAQs, timelines, audio overviews and avatar training videos**. Every claim is cited back to the document it came from.
@@ -91,9 +94,9 @@ and the [REST API](docs/API.md).
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and the checks to
-run before a pull request. Report security issues privately as described in
-[SECURITY.md](SECURITY.md).
+run before a pull request, and the [Code of Conduct](CODE_OF_CONDUCT.md). Report
+security issues privately as described in [SECURITY.md](SECURITY.md).
 
-## Licence
+## License
 
 [MIT](LICENSE)

@@ -5,7 +5,7 @@
 The bar above the chat lists every conversation in the notebook. **＋ New**
 starts a fresh one (created on its first question and named after it), ✎
 renames and 🗑 deletes. Follow-up context only comes from the session you are
-in, so an unrelated question in a new session is not coloured by an old thread.
+in, so an unrelated question in a new session is not colored by an old thread.
 Chat history from before sessions existed is kept as "Earlier conversation".
 
 ## Notes
