@@ -68,6 +68,8 @@ export type MotionStyle = {
   hero: string;
   /** How every picture is drawn. */
   visual: MotionVisual;
+  /** How much visual and explanatory detail to include. */
+  detail: MotionDetail;
 };
 
 export type MotionPlan = {
@@ -229,6 +231,12 @@ export const MOTION_RESOLUTIONS = {
 } as const;
 export type MotionResolution = keyof typeof MOTION_RESOLUTIONS;
 
+export const MOTION_DETAILS = {
+  standard: { label: "Standard" },
+  rich: { label: "Rich and detailed" },
+} as const;
+export type MotionDetail = keyof typeof MOTION_DETAILS;
+
 export const MAX_CHARACTER_CHARS = 220;
 export const MAX_CLOSING_CHARS = 160;
 
@@ -247,6 +255,7 @@ export type MotionOptions = {
   /** A call to action for the closing card, taken as given. */
   closing?: string;
   resolution: MotionResolution;
+  detail: MotionDetail;
 };
 
 export const DEFAULT_MOTION_OPTIONS: MotionOptions = {
@@ -257,6 +266,7 @@ export const DEFAULT_MOTION_OPTIONS: MotionOptions = {
   palette: "auto",
   character: "auto",
   resolution: "720p",
+  detail: "rich",
 };
 
 function keyOf<T extends object>(table: T, v: unknown, fallback: keyof T): keyof T {
@@ -310,6 +320,7 @@ export function normalizeMotionOptions(raw: unknown): MotionOptions {
     ...(characterDescription ? { characterDescription } : {}),
     ...(closing ? { closing } : {}),
     resolution: keyOf(MOTION_RESOLUTIONS, o.resolution, d.resolution),
+    detail: keyOf(MOTION_DETAILS, o.detail, d.detail),
   };
 }
 
@@ -335,6 +346,8 @@ export function describeMotionOptions(opts: MotionOptions | undefined): string[]
   else if (opts.character === "custom") out.push("custom character");
   if (opts.closing) out.push("custom closing");
   if (opts.resolution !== d.resolution) out.push(opts.resolution);
+  const detail = opts.detail ?? d.detail;
+  if (detail !== d.detail) out.push(MOTION_DETAILS[detail].label);
   return out;
 }
 
@@ -405,7 +418,7 @@ Schema:
       "entrance": "slide-left" | "slide-right" | "pop" | "rise" | "fade",
       "idle": "float" | "bob" | "none"
     }],
-    "narration": string,    // 2-3 sentences, 10-16 seconds spoken
+    "narration": string,    // ${opts.detail === "rich" ? "3-4 sentences, about 15-22 seconds spoken" : "2-3 sentences, 10-16 seconds spoken"}
     "transition": "wipe" | "slide" | "fade"
   }]
 }
@@ -424,9 +437,12 @@ overflowing trash bin", "a smartphone showing a bar chart", "a delivery truck".
 Describe objects, not ideas. Never text, never a logo, never a brand.
 
 BACKGROUND
-A simple setting described as a picture, with no people in it: "a bright
-modern kitchen counter with a window", "a city street at dusk". The closing
-cta scene is set on a plain card, so its background may be an empty string.
+A setting described as a picture, with no people in it: "a bright modern kitchen
+counter with a window", "a city street at dusk". ${
+  opts.detail === "rich"
+    ? "For each setting, include several specific, source-relevant visual details and foreground, middle-ground and background elements, while keeping a clear focal point and open space for text."
+    : "Keep the setting simple and uncluttered."
+} The closing cta scene is set on a plain card, so its background may be an empty string.
 
 ON-SCREEN TEXT
 Headlines are short and punchy: "FOOD GOES TO WASTE", "MEET THE FIX". The
@@ -436,9 +452,12 @@ characters ("40%", "3x", "1.3B tons"), label <= 32 characters. Omit "stat"
 otherwise. Never invent a number, a URL, a price, a phone number or an offer.
 
 NARRATION
-${MOTION_TONES[opts.tone].rule} Two or three sentences per scene. Close the cta
-scene on the next step, not a sign-off. No markdown, no citation markers, no
-stage directions: every character is read aloud.
+${MOTION_TONES[opts.tone].rule} ${
+  opts.detail === "rich"
+    ? "Three or four concise sentences per scene: explain the important context, how or why the mechanism works, and a concrete implication or example when the sources support it. Give each scene about 15-22 seconds of speech."
+    : "Two or three sentences per scene, about 10-16 seconds spoken."
+} Close the cta scene on the next step, not a sign-off. No markdown, no citation
+markers, no stage directions: every character is read aloud.
 ${
   opts.closing
     ? `
@@ -606,6 +625,7 @@ export function normalizeMotionPlan(
       palette: fixedPalette(opts) ?? normalizePalette(style.palette),
       hero,
       visual: opts.visual,
+      detail: opts.detail,
     },
     scenes,
   };
@@ -617,8 +637,12 @@ const paletteWords = (p: MotionPalette) =>
 /** Shared by every asset so the backgrounds, hero and props look like one film. */
 export function styleBase(style: MotionStyle): string {
   const look = (MOTION_VISUALS[style.visual] ?? MOTION_VISUALS.flat).look;
+  const detail =
+    style.detail === "rich"
+      ? " Richly detailed editorial illustration with layered composition, carefully rendered material and environmental details, subtle depth and nuanced lighting. Keep a strong focal point, readable silhouettes and clean negative space; preserve the chosen medium and do not become photorealistic."
+      : "";
   return (
-    `${look} Limited palette built from ${paletteWords(style.palette)}. ` +
+    `${look}${detail} Limited palette built from ${paletteWords(style.palette)}. ` +
     "No text, letters, numbers, labels, logos, watermarks or brand marks anywhere."
   );
 }
@@ -629,7 +653,8 @@ export function backgroundPrompt(scene: MotionScene, style: MotionStyle): string
     `${scene.background || "a simple, softly lit abstract space"}. Environment only, ` +
     "with no people, no characters and no animals. Keep the lower half open and " +
     "uncluttered and the top quarter plain, so characters and titles can be placed " +
-    "over it. Slightly muted, low-contrast colors so foreground elements stand out."
+    "over it. Include visual depth and small contextual details without crowding " +
+    "the focal area. Slightly muted, low-contrast colors so foreground elements stand out."
   );
 }
 
