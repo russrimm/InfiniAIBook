@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { describeMotionOptions, type MotionPlan } from "@/lib/motion";
+import {
+  MOTION_MOVEMENTS,
+  describeMotionOptions,
+  normalizeMotionOptions,
+  type MotionMovement,
+  type MotionPlan,
+} from "@/lib/motion";
 import type { VideoContent } from "@/lib/types";
 import type { ScenePlan } from "@/lib/whiteboard";
 import { EMPTY_NARRATION, readNarration, type NarrationSettings } from "@/lib/narration";
@@ -284,6 +290,8 @@ type ScriptDraft = {
   voice: string;
   music: MusicChoice | null;
   narration: NarrationSettings;
+  /** Motion explainers only. */
+  movement: MotionMovement;
 };
 
 function toScriptDraft(c: VideoContent, variant: "whiteboard" | "motion"): ScriptDraft {
@@ -310,6 +318,7 @@ function toScriptDraft(c: VideoContent, variant: "whiteboard" | "motion"): Scrip
     voice: c.voice ?? "Ava",
     music: normalizeMusicChoice(c.musicChoice),
     narration: c.narration ? readNarration(c.narration) : EMPTY_NARRATION,
+    movement: normalizeMotionOptions(c.options ?? {}).movement,
   };
 }
 
@@ -356,7 +365,13 @@ function ScriptEditor({
 
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
-  const stored = JSON.stringify([content.plan, content.voice, content.musicChoice, content.narration]);
+  const stored = JSON.stringify([
+    content.plan,
+    content.voice,
+    content.musicChoice,
+    content.narration,
+    content.options,
+  ]);
   useEffect(() => {
     if (!dirtyRef.current) setDraft(toScriptDraft(content, variant));
     // `stored` captures every field toScriptDraft reads.
@@ -386,6 +401,7 @@ function ScriptEditor({
         scenes: fromScriptDraft(draft, variant),
         voice: draft.voice,
         music: draft.music,
+        ...(variant === "motion" ? { movement: draft.movement } : {}),
         narration: {
           instructions: draft.narration.instructions,
           replacements: draft.narration.replacements.filter((r) => r.from.trim()),
@@ -460,6 +476,26 @@ function ScriptEditor({
             ))}
           </select>
         </div>
+        {variant === "motion" && (
+          <div className="flex items-center gap-2">
+            <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+              Motion
+            </span>
+            <select
+              aria-label="Character motion"
+              className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+              value={draft.movement}
+              disabled={locked}
+              onChange={(e) => edit({ movement: e.target.value as MotionMovement })}
+            >
+              {(Object.keys(MOTION_MOVEMENTS) as MotionMovement[]).map((k) => (
+                <option key={k} value={k}>
+                  {MOTION_MOVEMENTS[k].label}: {MOTION_MOVEMENTS[k].blurb}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <MusicPicker value={draft.music} onChange={(music) => edit({ music })} disabled={locked} />
         <NarrationOptions
           value={draft.narration}

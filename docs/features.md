@@ -18,7 +18,7 @@
 |---|---|
 | 🎧 Audio overview | One to four speakers discuss your sources — review and edit the script, then real MP3 audio with a synced, clickable transcript, at roughly 3, 6 or 10 minutes |
 | 🎬 Whiteboard video | A hand draws your sources as marker doodles, narrated — six scenes, script reviewed before rendering, MP4 |
-| 🎞️ Motion explainer | A narrated 2D animated story from your sources: characters, kinetic headlines, stat cards, optional music — five, seven or nine scenes, MP4. **Customizable**: length, tone, audience, six illustration styles, color palettes (or your own colors), your own character or none, a closing call to action, and 720p or 1080p |
+| 🎞️ Motion explainer | A narrated 2D animated story from your sources: characters, kinetic headlines, stat cards, optional music — five, seven or nine scenes, MP4. **Customizable**: length, tone, audience, six illustration styles, color palettes (or your own colors), your own character or none, a closing call to action, 720p or 1080p, and gentle, lively or still character motion |
 | 🧑‍🏫 Training video | A trainer's script from your sources and notes, edited then rendered by a lip-synced Azure avatar, MP4 |
 | 📽️ PowerPoint deck | Title, agenda, content slides with speaker notes and a sources slide; download as PPTX |
 | 📄 Report | Executive summary, analytical sections, key takeaways, open questions |

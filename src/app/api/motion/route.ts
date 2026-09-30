@@ -53,6 +53,7 @@ export async function POST(req: Request) {
       characterDescription?: string;
       closing?: string;
       resolution?: string;
+      movement?: string;
     };
     const { notebookId, topic, sourceIds, voice, music } = body;
     const options = normalizeMotionOptions(body);

@@ -62,6 +62,7 @@ back.
 | **Character** | Designed to suit the subject · Describe my own · No character | Designed | The recurring character. Describe your own (for example "a nurse in blue scrubs with a stethoscope") to fix its look, or choose none for a video told with objects and settings only |
 | **Closing** | Free text, up to 160 characters | none | The call to action on the closing card and in the last line of narration. It is used as written, so it may include a link or contact detail that is not in the sources |
 | **Quality** | 720p · 1080p | 720p | Output resolution. Every layer scales, so the layout is the same; 1080p takes longer to render and makes a larger file. Pictures are drawn at the image model's own sizes either way |
+| **Motion** | Gentle float · Lively · Still | Gentle float | How characters and props move once they have arrived. Gentle float is a slow drift; Lively adds the small bounces the planner picks for some of them; Still keeps them in place. It can also be changed in the script editor before rendering again |
 
 The **Voice** picker, **Music** picker and **Instructions** panel sit above
 Customize, and the **focus box** at the top of the panel still decides what the

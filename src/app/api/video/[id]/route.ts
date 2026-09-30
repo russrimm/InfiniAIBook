@@ -77,6 +77,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       voice?: string;
       music?: unknown;
       narration?: unknown;
+      movement?: string;
     };
 
     const next: Loose = { ...current };
@@ -134,6 +135,12 @@ export async function PATCH(req: Request, { params }: Ctx) {
       if (v) next.voice = v;
     }
     if ("music" in body) next.musicChoice = normalizeMusicChoice(body.music);
+    if (row.type === "motion" && typeof body.movement === "string") {
+      const options = normalizeMotionOptions({ ...(current.options as object), movement: body.movement });
+      if (options.movement !== normalizeMotionOptions(current.options ?? {}).movement) {
+        next.options = options;
+      }
+    }
 
     // The rendered file no longer matches what is on screen.
     if (current.videoUrl && current.progress?.stage === "done") next.editedSinceRender = true;

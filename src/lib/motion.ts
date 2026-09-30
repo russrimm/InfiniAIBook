@@ -232,6 +232,17 @@ export type MotionResolution = keyof typeof MOTION_RESOLUTIONS;
 export const MAX_CHARACTER_CHARS = 220;
 export const MAX_CLOSING_CHARS = 160;
 
+/**
+ * How characters and props move once they have arrived. The planner picks an
+ * idle per actor; this decides which of its picks survive.
+ */
+export const MOTION_MOVEMENTS = {
+  gentle: { label: "Gentle float", blurb: "a slow drift, no bouncing" },
+  lively: { label: "Lively", blurb: "floats and small bounces" },
+  still: { label: "Still", blurb: "no movement after they arrive" },
+} as const;
+export type MotionMovement = keyof typeof MOTION_MOVEMENTS;
+
 export type MotionOptions = {
   length: MotionLength;
   tone: MotionTone;
@@ -247,6 +258,8 @@ export type MotionOptions = {
   /** A call to action for the closing card, taken as given. */
   closing?: string;
   resolution: MotionResolution;
+  /** Idle movement of characters and props after they arrive. */
+  movement: MotionMovement;
 };
 
 export const DEFAULT_MOTION_OPTIONS: MotionOptions = {
@@ -257,6 +270,7 @@ export const DEFAULT_MOTION_OPTIONS: MotionOptions = {
   palette: "auto",
   character: "auto",
   resolution: "720p",
+  movement: "gentle",
 };
 
 function keyOf<T extends object>(table: T, v: unknown, fallback: keyof T): keyof T {
@@ -310,6 +324,22 @@ export function normalizeMotionOptions(raw: unknown): MotionOptions {
     ...(characterDescription ? { characterDescription } : {}),
     ...(closing ? { closing } : {}),
     resolution: keyOf(MOTION_RESOLUTIONS, o.resolution, d.resolution),
+    movement: keyOf(MOTION_MOVEMENTS, o.movement, d.movement),
+  };
+}
+
+/** Apply the chosen movement to every actor: the planner's idles are only suggestions. */
+export function applyMovement(plan: MotionPlan, movement: MotionMovement): MotionPlan {
+  if (movement === "lively") return plan;
+  return {
+    ...plan,
+    scenes: plan.scenes.map((s) => ({
+      ...s,
+      actors: s.actors.map((a) => ({
+        ...a,
+        idle: movement === "still" ? "none" : a.idle === "bob" ? "float" : a.idle,
+      })),
+    })),
   };
 }
 
@@ -335,6 +365,9 @@ export function describeMotionOptions(opts: MotionOptions | undefined): string[]
   else if (opts.character === "custom") out.push("custom character");
   if (opts.closing) out.push("custom closing");
   if (opts.resolution !== d.resolution) out.push(opts.resolution);
+  if (opts.movement && opts.movement !== d.movement) {
+    out.push(`${MOTION_MOVEMENTS[opts.movement].label.toLowerCase()} motion`);
+  }
   return out;
 }
 

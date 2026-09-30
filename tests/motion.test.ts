@@ -14,6 +14,7 @@ import {
   MOTION_RESOLUTIONS,
   MOTION_TONES,
   MOTION_VISUALS,
+  applyMovement,
   backgroundPrompt,
   describeMotionOptions,
   heroPrompt,
@@ -221,6 +222,36 @@ describe("normalizeMotionOptions", () => {
     expect(
       describeMotionOptions(normalizeMotionOptions({ length: "short", palette: "berry", resolution: "1080p" }))
     ).toEqual(["Short", "Berry colors", "1080p"]);
+    expect(describeMotionOptions(normalizeMotionOptions({ movement: "still" }))).toEqual([
+      "still motion",
+    ]);
+  });
+
+  it("reads the character movement, defaulting to a gentle float", () => {
+    expect(normalizeMotionOptions({}).movement).toBe("gentle");
+    expect(normalizeMotionOptions({ movement: "lively" }).movement).toBe("lively");
+    expect(normalizeMotionOptions({ movement: "wiggle" }).movement).toBe("gentle");
+  });
+});
+
+describe("applyMovement", () => {
+  const plan = () => normalizeMotionPlan(raw([scene(), scene(), scene({ beat: "cta" })]))!;
+  const idles = (p: MotionPlan) => p.scenes.flatMap((s) => s.actors.map((a) => a.idle));
+
+  it("keeps the planner's floats and bobs when lively", () => {
+    expect(idles(applyMovement(plan(), "lively"))).toContain("bob");
+  });
+
+  it("turns bobs into floats when gentle, and stops everything when still", () => {
+    expect(idles(applyMovement(plan(), "gentle"))).not.toContain("bob");
+    expect(idles(applyMovement(plan(), "gentle"))).toContain("float");
+    expect(new Set(idles(applyMovement(plan(), "still")))).toEqual(new Set(["none"]));
+  });
+
+  it("does not change the stored plan", () => {
+    const p = plan();
+    applyMovement(p, "still");
+    expect(idles(p)).toContain("bob");
   });
 });
 

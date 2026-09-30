@@ -257,8 +257,10 @@ export function compileTimeline(
             ? null
             : {
                 kind: actor.idle,
-                amp: Math.round((actor.idle === "float" ? 8 : 5) * s),
-                period: actor.idle === "float" ? 3.2 : 1.6,
+                // A bob is a hop, so it is kept small and unhurried: at 5 px
+                // every 0.8 s it read as jittery rather than lively.
+                amp: Math.round((actor.idle === "float" ? 8 : 3) * s),
+                period: actor.idle === "float" ? 3.2 : 2.4,
                 phase: round(n * 0.9),
               },
       });

@@ -8,6 +8,7 @@ import {
   MAX_CLOSING_CHARS,
   MOTION_AUDIENCES,
   MOTION_LENGTHS,
+  MOTION_MOVEMENTS,
   MOTION_PALETTES,
   MOTION_RESOLUTIONS,
   MOTION_TONES,
@@ -49,6 +50,7 @@ export function motionRequest(f: MotionForm): Record<string, unknown> {
     ...(f.character === "custom" ? { characterDescription: f.characterDescription.trim() } : {}),
     ...(f.closing.trim() ? { closing: f.closing.trim() } : {}),
     resolution: f.resolution,
+    movement: f.movement,
   };
 }
 
@@ -248,6 +250,21 @@ export default function MotionCustomize({
               />
             </div>
           )}
+
+          <Row label="Motion">
+            <select
+              aria-label="Character motion"
+              className={SELECT}
+              value={value.movement}
+              onChange={(e) => set("movement", e.target.value as MotionForm["movement"])}
+            >
+              {Object.entries(MOTION_MOVEMENTS).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v.label}: {v.blurb}
+                </option>
+              ))}
+            </select>
+          </Row>
 
           <Row label="Closing">
             <input

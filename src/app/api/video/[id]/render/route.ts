@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
-import { MOTION_RESOLUTIONS, normalizeMotionOptions, type MotionPlan } from "@/lib/motion";
+import {
+  MOTION_RESOLUTIONS,
+  applyMovement,
+  normalizeMotionOptions,
+  type MotionPlan,
+} from "@/lib/motion";
 import { buildMotionVideo } from "@/lib/motionbuild";
 import { resolveMusic } from "@/lib/music";
 import { normalizeMusicChoice } from "@/lib/musicchoice";
@@ -77,8 +82,11 @@ export async function POST(_req: Request, { params }: Ctx) {
       const plan = replaceInScenePlan(content.plan as ScenePlan, replacements);
       void buildVideo(id, plan, voice, { music }).catch(onFail);
     } else {
-      const plan = replaceInMotionPlan(content.plan as MotionPlan, replacements);
       const options = normalizeMotionOptions(content.options ?? {});
+      const plan = applyMovement(
+        replaceInMotionPlan(content.plan as MotionPlan, replacements),
+        options.movement
+      );
       const { width, height } = MOTION_RESOLUTIONS[options.resolution];
       void buildMotionVideo(id, plan, voice, { music, width, height }).catch(onFail);
     }
