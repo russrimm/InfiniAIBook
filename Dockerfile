@@ -18,7 +18,8 @@ FROM node:22-slim AS run
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 HOSTNAME=0.0.0.0 DATA_DIR=/data
-# Whiteboard videos render with Python; everything else works without it.
+# Whiteboard and motion videos render with Python, and background music is
+# mixed with it; everything else works without it.
 # Uncomment to enable them in the container:
 # RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip \
 #  && pip3 install --break-system-packages numpy pillow imageio-ffmpeg \
@@ -27,6 +28,8 @@ COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 COPY --from=build /app/scripts/whiteboard ./scripts/whiteboard
+COPY --from=build /app/scripts/motion ./scripts/motion
+COPY --from=build /app/scripts/audio ./scripts/audio
 RUN mkdir -p /data && chown -R node:node /data /app
 USER node
 VOLUME ["/data"]

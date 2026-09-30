@@ -5,6 +5,61 @@ videos have their own pages: [Infographic styles](infographics.md),
 [Audio overviews](audio-overviews.md), [Whiteboard videos](whiteboard-videos.md),
 [Motion explainers](motion-explainers.md) and [Training videos](training-videos.md).
 
+The Studio panel is grouped into **Audio & video**, **Documents** (report,
+briefing, study guide, FAQ, timeline and PowerPoint deck), **Visuals**
+(infographic and mind map) and **Study** (quiz and flashcards).
+
+## Spoken formats: script review, instructions and music
+
+The audio overview, whiteboard video, motion explainer and training video all
+work the same way.
+
+### Review the script first
+
+Generating one of these writes the **script only** and opens it in an editor.
+Nothing is narrated, drawn or rendered until you press **Narrate** (audio) or
+**Render video**. You can change any wording, reassign a line to another
+speaker, reorder or remove lines and scenes, and switch the voice. After it has
+been made, **Edit script** reopens the editor so you can change it and narrate or
+render again. Rendering a whiteboard or motion video again redraws its artwork.
+
+### Instructions
+
+Each spoken card has an **Instructions** panel with two parts:
+
+- **Tell the script writer** is free text added to the script prompt, for
+  example "Narrate in Spanish", "Explain it for a non-technical audience", or
+  "Don't mention pricing". It shapes newly written scripts and never overrides
+  the grounding rules.
+- **Always replace** is a list of terms and what to say instead, such as
+  `MCS → Copilot Studio`. Leave the replacement blank to remove a term. The
+  model is asked to avoid these terms, and the list is then enforced on the
+  finished script and again right before speech, so it also applies to anything
+  typed into the editor. Matching is whole-word and case-insensitive.
+
+**Save as notebook default** stores both parts on the notebook, so every spoken
+card in that notebook starts with them. Each script also keeps its own copy,
+editable in the script editor.
+
+A narration voice speaks the language its text is written in, so a translation
+instruction works best with a multilingual voice.
+
+### Background music
+
+Every spoken card has a **Music** picker: *No music*, *Random track* or a
+specific track, with a **Quiet**, **Medium** or **Loud** volume. The track loops
+to the length of the narration, fades in and out, and is lowered automatically
+whenever someone speaks. ▶ previews the selected track.
+
+Press **＋** to upload a track (MP3, M4A, AAC, WAV, OGG or FLAC, up to 50 MB)
+into the notebook-wide music library under `.data/music`; ✕ deletes an uploaded
+track. Tracks in the folder named by `MOTION_MUSIC_DIR`, if set, are listed too,
+read-only. No music ships with the app. Only upload tracks you have the rights
+to use.
+
+Mixing uses the same Python and `imageio-ffmpeg` as the video renderers. If a
+mix fails, the narration or video is kept without music and a note says so.
+
 ## Study aids
 
 The quiz and flashcard generators share two controls, set on their cards in the
@@ -70,11 +125,29 @@ instead of jumping. Branches are color-coded from the root, nodes carry their
 source note as a tooltip, and the whole tree is keyboard reachable with proper
 `aria-expanded` state.
 
+## PowerPoint deck
+
+The **PowerPoint deck** generator creates a presentation from the selected
+sources: title slide, agenda, content slides, speaker notes and an app-appended
+sources slide. Generate it from Studio like any written format; the focus box
+narrows the deck topic. Deck length follows the same short, standard or long
+slide-count ranges when a length is supplied.
+
+Decks support four visual themes in the generated content: **Midnight**
+(default), **Light**, **Ocean** and **Sunset**. Slide text is kept citation-free
+for readability, while speaker notes preserve citation markers so you can click
+through to evidence in the artifact view.
+
+Open the generated artifact to preview slides, move with the arrow keys, review
+speaker notes and download a real **PPTX** file. The exported deck keeps the
+theme colors and speaker notes.
+
 ## Exporting
 
 | Artifact | Formats |
 |---|---|
 | Audio overview | **MP3**, Markdown transcript |
+| PowerPoint deck | **PPTX**, Markdown |
 | Infographic | **PNG**, Markdown |
 | Mind map | **PNG**, Markdown outline |
 | Flashcards | **CSV** (Anki/Quizlet), Markdown table |

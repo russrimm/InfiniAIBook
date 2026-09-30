@@ -104,3 +104,47 @@ export function scenePrompt(scene: Scene): string {
     `Hand-lettered marker title at the top reading exactly "${scene.title}", no other words.`
   );
 }
+
+type Loose = Record<string, unknown>;
+const str = (v: unknown, fallback = "") => (typeof v === "string" ? v : fallback);
+
+/** Every character reaches a voice, so markup would be read out. */
+export const cleanScript = (s: string) =>
+  s
+    .replace(/\[\d+\](?:\[\d+\])*/g, "")
+    .replace(/[*_`#>]/g, "")
+    .replace(/\s+([.,!?;:])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+/**
+ * Coerce a model's plan, or a plan edited in the script editor, into one the
+ * build can rely on. Returns null when fewer than two usable scenes survive.
+ */
+export function normalizeScenePlan(raw: Loose): ScenePlan | null {
+  const scenes = (Array.isArray(raw.scenes) ? raw.scenes : [])
+    .map((s) => {
+      const o = (s && typeof s === "object" ? s : {}) as Loose;
+      const title = cleanScript(str(o.title)).toUpperCase().slice(0, 28);
+      const drawing = cleanScript(str(o.drawing));
+      const narration = cleanScript(str(o.narration));
+      if (!title || !drawing || !narration) return null;
+      const step = Number(o.step);
+      return {
+        title,
+        drawing,
+        caption: cleanScript(str(o.caption)).slice(0, 80) || title,
+        narration,
+        step: Number.isInteger(step) && step > 0 && step < 20 ? step : undefined,
+      };
+    })
+    .filter(Boolean) as ScenePlan["scenes"];
+
+  if (scenes.length < 2) return null;
+  return {
+    title: cleanScript(str(raw.title, "Whiteboard video")).slice(0, 80) || "Whiteboard video",
+    description: cleanScript(str(raw.description)),
+    // More scenes than asked for multiplies cost and running time.
+    scenes: scenes.slice(0, SCENE_COUNT + 2),
+  };
+}

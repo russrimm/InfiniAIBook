@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -13,9 +11,7 @@ import {
   type Passage,
 } from "@/lib/retrieve";
 import { GROUNDING_RULES, PODCAST_INSTRUCTION } from "@/lib/studio";
-import { synthesizeDialogue, type Turn } from "@/lib/speech";
 import {
-  SPEAKER_IDS,
   clampRate,
   resolveVoices,
   VOICE_PRESETS,
@@ -24,7 +20,24 @@ import {
   WORDS_PER_MINUTE,
   type SpeakerId,
 } from "@/lib/voices";
-import { audioDir } from "@/lib/paths";
+import {
+  applyReplacements,
+  narrationPromptBlock,
+  readNarration,
+} from "@/lib/narration";
+import { notebookNarration } from "@/lib/narrationstore";
+import { normalizeMusicChoice } from "@/lib/musicchoice";
+import {
+  cleanSpoken,
+  countWords,
+  readScript,
+  readSpeakerProfiles,
+  str,
+  toSegments,
+  trimToWords,
+  type RawScript,
+  type SpeakerInput,
+} from "@/lib/podcastscript";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,156 +46,25 @@ export const maxDuration = 800;
 const MAX_CONTEXT_CHARS = Number(process.env.STUDIO_CONTEXT_CHARS || 30000);
 const MIN_CONTEXT_CHARS = 6000;
 
-type Script = {
-  title?: unknown;
-  description?: unknown;
-  turns?: unknown;
-  segments?: unknown;
-};
-
-type SpeakerInput = { voice?: string; name?: string; role?: string };
-type SpeakerProfile = {
-  id: SpeakerId;
-  voice?: string;
-  name?: string;
-  role?: string;
-};
-
-const str = (v: unknown, fallback = "") => (typeof v === "string" ? v : fallback);
-const isSpeakerId = (v: string): v is SpeakerId =>
-  (SPEAKER_IDS as readonly string[]).includes(v);
-const activeSpeakerIds = (count: number) =>
-  SPEAKER_IDS.slice(0, Math.min(4, Math.max(1, count)));
-
-function cleanLabel(v: unknown, max = 60): string | undefined {
-  const s = str(v).replace(/\s+/g, " ").trim().slice(0, max);
-  return s || undefined;
-}
-
-function readSpeakerProfiles(
-  raw: unknown,
-  customVoices?: Partial<Record<SpeakerId, string>>
-): SpeakerProfile[] {
-  const defaultInputs: SpeakerInput[] = [
-    { role: "drives the conversation and asks the questions" },
-    { role: "is the analyst who explains and supplies detail" },
-  ];
-  const inputs = Array.isArray(raw) && raw.length ? raw.slice(0, 4) : defaultInputs;
-  const count = inputs.length >= 1 && inputs.length <= 4 ? inputs.length : 2;
-  return activeSpeakerIds(count).map((id, i) => {
-    const input = (inputs[i] ?? {}) as SpeakerInput;
-    return {
-      id,
-      voice: cleanLabel(input.voice) ?? customVoices?.[id],
-      name: cleanLabel(input.name),
-      role: cleanLabel(input.role, 180),
-    };
-  });
-}
-
-/** Strip anything the model may have slipped in that a voice would read aloud. */
-function cleanSpoken(text: string): string {
-  return (
-    text
-      .replace(/\[\d+\](?:\[\d+\])*/g, "")
-      // Stage directions. The prompt forbids them, but a model trained on
-      // recording scripts still reaches for [MUSIC] and (laughs) — and the
-      // voice reads them out, word for word, as part of the dialogue.
-      .replace(/\[(?:[A-Z][A-Z \-]{1,18}(?::[^\]]*)?)\]/g, "")
-      .replace(/\((?:laughs?|chuckles?|sighs?|pauses?|beat|music|sfx)[^)]*\)/gi, "")
-      .replace(/[*_`#>]/g, "")
-      .replace(/\((?:https?:\/\/|www\.)[^)]*\)/gi, "")
-      .replace(/https?:\/\/\S+/gi, "")
-      .replace(/^\s*[-•]\s*/gm, "")
-      .replace(/\s{2,}/g, " ")
-      // Removing citation markers leaves gaps like "bacteria ." — close them up.
-      .replace(/\s+([.,!?;:])/g, "$1")
-      .replace(/\(\s*\)/g, "")
-      .replace(/\s{2,}/g, " ")
-      .trim()
-  );
-}
-
 /**
- * Flatten the script to turns, remembering where each segment starts.
- *
- * Segment titles become the chapters offered in the player, so the boundary
- * has to survive flattening. Older scripts have a flat `turns` array and no
- * segments; they still play, just without chapters.
+ * Write an audio-overview script and stop. Nothing is narrated until the user
+ * has reviewed it and pressed Narrate (POST /api/podcast/[id]/narrate).
  */
-function readScript(
-  script: Script,
-  speakerCount: number
-): { turns: Turn[]; marks: { title: string; index: number }[] } {
-  const marks: { title: string; index: number }[] = [];
-  const turns: Turn[] = [];
-  const ids = activeSpeakerIds(speakerCount);
-
-  const push = (raw: unknown) => {
-    const o = raw as { speaker?: unknown; text?: unknown };
-    const text = cleanSpoken(str(o.text));
-    if (!text) return;
-    const given = str(o.speaker).toLowerCase();
-    const speaker = isSpeakerId(given) && ids.includes(given)
-      ? given
-      : ids[turns.length % ids.length];
-    turns.push({ speaker, text });
-  };
-
-  if (Array.isArray(script.segments) && script.segments.length) {
-    for (const seg of script.segments) {
-      const s = seg as { title?: unknown; turns?: unknown };
-      const title = cleanSpoken(str(s.title)).slice(0, 60);
-      const before = turns.length;
-      for (const t of Array.isArray(s.turns) ? s.turns : []) push(t);
-      // A segment that produced nothing should not leave a chapter marker
-      // pointing at the next segment's first line.
-      if (title && turns.length > before) marks.push({ title, index: before });
-    }
-  }
-  if (!turns.length && Array.isArray(script.turns)) {
-    for (const t of script.turns) push(t);
-  }
-
-  return { turns, marks };
-}
-
-const countWords = (turns: Turn[]) =>
-  turns.reduce((n, t) => n + (t.text.match(/\S+/g)?.length ?? 0), 0);
-
-/**
- * Cut a script down to a word budget, keeping the opening and the last two
- * turns.
- *
- * Returns which original positions survived, so chapter markers can be moved
- * with them rather than left pointing at whatever now sits at that index.
- */
-function trimToWords(
-  turns: Turn[],
-  target: number
-): { turns: Turn[]; kept: number[] } {
-  if (turns.length <= 4) return { turns, kept: turns.map((_, i) => i) };
-  const tailFrom = turns.length - 2;
-  const tailWords = countWords(turns.slice(tailFrom));
-
-  const kept: number[] = [];
-  let used = tailWords;
-  for (let i = 0; i < tailFrom; i++) {
-    const w = turns[i].text.match(/\S+/g)?.length ?? 0;
-    if (used + w > target && kept.length >= 2) break;
-    kept.push(i);
-    used += w;
-  }
-  kept.push(tailFrom, tailFrom + 1);
-
-  return {
-    turns: kept.map((orig) => turns[orig]),
-    kept,
-  };
-}
-
 export async function POST(req: Request) {
   try {
+    const body = (await req.json()) as {
+      notebookId: string;
+      topic?: string;
+      sourceIds?: string[];
+      preset?: keyof typeof VOICE_PRESETS;
+      voices?: Partial<Record<SpeakerId, string>>;
+      speakers?: SpeakerInput[];
+      rate?: number;
+      breath?: number;
+      length?: string;
+      narration?: unknown;
+      music?: unknown;
+    };
     const {
       notebookId,
       topic,
@@ -193,27 +75,23 @@ export async function POST(req: Request) {
       rate,
       breath,
       length,
-    } = (await req.json()) as {
-        notebookId: string;
-        topic?: string;
-        sourceIds?: string[];
-        preset?: keyof typeof VOICE_PRESETS;
-        voices?: Partial<Record<SpeakerId, string>>;
-        speakers?: SpeakerInput[];
-        rate?: number;
-        breath?: number;
-        length?: string;
-      };
+    } = body;
 
     const wanted = audioLength(length);
     const none = noSourcesSelected(sourceIds);
     if (none) return none;
+    const narration =
+      body.narration === undefined ? notebookNarration(notebookId) : readNarration(body.narration);
     const profiles = readSpeakerProfiles(speakerInput, customVoices);
-    const requestedVoices = Object.fromEntries(
-      profiles.map((s) => [s.id, s.voice])
-    ) as Partial<Record<SpeakerId, string>>;
+    // Fail before the script is written if these voices cannot be narrated.
+    resolveVoices(
+      preset,
+      Object.fromEntries(profiles.map((s) => [s.id, s.voice])) as Partial<Record<SpeakerId, string>>,
+      profiles.length
+    );
     const promptSpeakers = profiles.map(({ id, name, role }) => ({ id, name, role }));
     const podcastOpts = { audioLength: wanted, podcastSpeakers: promptSpeakers };
+    const steer = narrationPromptBlock(narration);
 
     const focused = topic?.trim()
       ? await retrieve(notebookId, topic, sourceIds, 24)
@@ -237,27 +115,22 @@ export async function POST(req: Request) {
       );
     }
 
-    let script: Script | null = null;
+    const system = (lengthNote = "") =>
+      `${GROUNDING_RULES}\n\n${PODCAST_INSTRUCTION(topic?.trim() ?? "", podcastOpts)}${steer}${lengthNote}`;
+
+    let script: RawScript | null = null;
     let lastError: unknown;
-    /** Fed back into the next attempt when a draft misses the running time. */
-    let lengthNote = "";
 
     for (let attempt = 0; attempt < 4; attempt++) {
       const messages: ChatMsg[] = [
-        {
-          role: "system",
-          content: `${GROUNDING_RULES}\n\n${PODCAST_INSTRUCTION(
-            topic?.trim() ?? "",
-            podcastOpts
-          )}${lengthNote}`,
-        },
+        { role: "system", content: system() },
         {
           role: "user",
           content: `SOURCE EXCERPTS\n===============\n${buildContext(passages)}`,
         },
       ];
       try {
-        script = await studioJSON<Script>(messages, 0.7);
+        script = await studioJSON<RawScript>(messages, 0.7);
         break;
       } catch (e) {
         lastError = e;
@@ -298,7 +171,7 @@ export async function POST(req: Request) {
       if (ratio <= 1.2 && ratio >= 0.75) break;
 
       const minutes = words / WORDS_PER_MINUTE;
-      lengthNote = `\n\nLENGTH CORRECTION
+      const lengthNote = `\n\nLENGTH CORRECTION
 Your previous draft was ${words} words, which runs about ${minutes.toFixed(
         1
       )} minutes. The target is ${AUDIO_LENGTHS[wanted].minutes} minutes, which is ${targetWords} words.
@@ -313,15 +186,9 @@ ${
 Count the words in your answer before returning it.`;
 
       try {
-        const retry = await studioJSON<Script>(
+        const retry = await studioJSON<RawScript>(
           [
-            {
-              role: "system",
-              content: `${GROUNDING_RULES}\n\n${PODCAST_INSTRUCTION(
-                topic?.trim() ?? "",
-                podcastOpts
-              )}${lengthNote}`,
-            },
+            { role: "system", content: system(lengthNote) },
             {
               role: "user",
               content: `SOURCE EXCERPTS\n===============\n${buildContext(passages)}`,
@@ -362,68 +229,48 @@ Count the words in your answer before returning it.`;
       turns = trimmed.turns;
     }
 
-    const voices = resolveVoices(preset, requestedVoices, profiles.length);
-    const resolvedSpeakers = profiles.map((s) => ({
-      ...s,
-      voice: voices[s.id],
-    }));
-    const speed = clampRate(rate);
-    // Pause shaping is a multiplier so it can be turned off entirely without
-    // a separate code path.
+    // The replacement list is enforced on the draft too, so the editor shows
+    // the words that will be spoken.
+    const replace = (s: string) => applyReplacements(s, narration.replacements);
+    const segments = toSegments({
+      turns: turns.map((t) => ({ ...t, text: replace(t.text) })),
+      marks: marks.map((m) => ({ ...m, title: replace(m.title) })),
+    });
+
     const breathiness = Number.isFinite(breath)
       ? Math.min(2, Math.max(0, breath as number))
       : 1;
-    const { audio, durationSec, offsets } = await synthesizeDialogue(
-      turns,
-      voices,
-      speed,
-      6,
-      breathiness
-    );
 
     const id = nanoid(12);
-    fs.mkdirSync(audioDir(), { recursive: true });
-    fs.writeFileSync(path.join(audioDir(), `${id}.mp3`), audio);
-    const voiceMap = {
-      a: voices.a,
-      b: voices.b,
-      ...Object.fromEntries(resolvedSpeakers.map((s) => [s.id, s.voice])),
-    } as Record<SpeakerId, string>;
-
+    const title = replace(cleanSpoken(str(script.title, "Audio overview"))).slice(0, 120) ||
+      "Audio overview";
     const content = {
-      title: cleanSpoken(str(script.title, "Audio overview")).slice(0, 120),
-      description: cleanSpoken(str(script.description)),
-      turns: turns.map((t, i) => ({ ...t, at: Number(offsets[i].toFixed(2)) })),
-      audioUrl: `/api/audio/${id}`,
-      durationSec: Number(durationSec.toFixed(2)),
-      voices: voiceMap,
-      speakers: resolvedSpeakers.map(({ id, name, voice, role }) => ({
-        id,
-        name,
-        voice,
-        role,
-      })),
-      rate: speed,
+      title,
+      description: replace(cleanSpoken(str(script.description))),
+      stage: "script",
+      script: segments,
+      turns: [],
+      durationSec: 0,
+      voices: Object.fromEntries(profiles.map((s) => [s.id, s.voice ?? ""])),
+      speakers: profiles.map(({ id, name, voice, role }) => ({ id, name, voice, role })),
+      settings: {
+        preset: preset === "classic" ? "classic" : "conversational",
+        rate: clampRate(rate),
+        breath: breathiness,
+      },
+      musicChoice: normalizeMusicChoice(body.music),
+      narration,
       length: wanted,
       targetMinutes: AUDIO_LENGTHS[wanted].minutes,
-      chapters: marks.map((m) => ({
-        title: m.title,
-        at: Number((offsets[m.index] ?? 0).toFixed(2)),
-      })),
       citations: citationList(passages),
     };
 
+    const now = Date.now();
     db.prepare(
       "INSERT INTO artifacts (id, notebook_id, type, title, content, created_at) VALUES (?,?,?,?,?,?)"
-    ).run(id, notebookId, "podcast", content.title, JSON.stringify(content), Date.now());
+    ).run(id, notebookId, "podcast", content.title, JSON.stringify(content), now);
 
-    return ok({
-      id,
-      type: "podcast",
-      title: content.title,
-      content,
-      createdAt: Date.now(),
-    });
+    return ok({ id, type: "podcast", title: content.title, content, createdAt: now });
   } catch (e) {
     return fail(e);
   }

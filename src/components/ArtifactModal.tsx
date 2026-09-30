@@ -9,7 +9,10 @@ import Infographic from "./Infographic";
 import PodcastPlayer from "./PodcastPlayer";
 import VideoPlayer from "./VideoPlayer";
 import TrainingVideo from "./TrainingVideo";
+import SlideDeck from "./SlideDeck";
 import { STUDIO } from "@/lib/studio";
+import { buildPptx, slidesToMarkdown } from "@/lib/slides";
+import { scriptOf } from "@/lib/podcastscript";
 import type {
   Artifact,
   ArtifactType,
@@ -23,6 +26,7 @@ import type {
   PodcastContent,
   PodcastSpeakerId,
   QuizContent,
+  SlidesContent,
   TimelineContent,
   TrainingContent,
   VideoContent,
@@ -84,6 +88,8 @@ function toMarkdown(a: Artifact): string {
       const t = c as unknown as TimelineContent;
       return head + t.items.map((i) => `**${i.date} — ${i.title}**\n\n${i.text}\n`).join("\n");
     }
+    case "slides":
+      return slidesToMarkdown(c as unknown as SlidesContent);
     case "mindmap": {
       const m = c as unknown as MindMapContent;
       return head + mindToMd(m.root);
@@ -144,8 +150,13 @@ function toMarkdown(a: Artifact): string {
     }
     case "podcast": {
       const p = c as unknown as PodcastContent;
-      const body = p.turns
-        .map((t) => `**${podcastSpeakerLabel(p, t.speaker)}:** ${t.text}`)
+      const body = scriptOf(p)
+        .segments.map((seg) => {
+          const lines = seg.turns
+            .map((t) => `**${podcastSpeakerLabel(p, t.speaker)}:** ${t.text}`)
+            .join("\n\n");
+          return seg.title ? `## ${seg.title}\n\n${lines}` : lines;
+        })
         .join("\n\n");
       return `${head}${p.description ?? ""}\n\n${body}\n`;
     }
@@ -159,6 +170,7 @@ function toMarkdown(a: Artifact): string {
         .join("\n\n");
       return `${head}${t.description ? `${t.description}\n\n` : ""}${objectives}${body}\n`;
     }
+    case "video":
     case "motion": {
       const v = c as unknown as VideoContent;
       const body = (v.scenes ?? [])
@@ -183,6 +195,7 @@ export default function ArtifactModal({
 }) {
   const [copied, setCopied] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [buildingPptx, setBuildingPptx] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const citations = (artifact.content as { citations?: Citation[] }).citations ?? [];
@@ -210,6 +223,19 @@ export default function ArtifactModal({
     new Blob([toMarkdown(artifact)], { type: "text/markdown" }),
     safeName("md")
   );
+
+  const downloadPptx = async () => {
+    setBuildingPptx(true);
+    setExportError(null);
+    try {
+      const blob = await buildPptx(artifact.content as unknown as SlidesContent);
+      saveBlob(blob, safeName("pptx"));
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : "Could not build PPTX.");
+    } finally {
+      setBuildingPptx(false);
+    }
+  };
 
   /** Flashcard decks are most useful where they can be imported. */
   const downloadCsv = () => {
@@ -295,15 +321,16 @@ export default function ArtifactModal({
           <button className="btn !px-2.5 !py-1.5 !text-xs" onClick={() => void copy()}>
             {copied ? "Copied" : "Copy"}
           </button>
-          {artifact.type === "podcast" && (
-            <a
-              className="btn !px-2.5 !py-1.5 !text-xs"
-              href={(artifact.content as { audioUrl?: string }).audioUrl}
-              download={safeName("mp3")}
-            >
-              MP3
-            </a>
-          )}
+          {artifact.type === "podcast" &&
+            (artifact.content as { audioUrl?: string }).audioUrl && (
+              <a
+                className="btn !px-2.5 !py-1.5 !text-xs"
+                href={(artifact.content as { audioUrl?: string }).audioUrl}
+                download={safeName("mp3")}
+              >
+                MP3
+              </a>
+            )}
           {artifact.type === "training" &&
             (artifact.content as { videoUrl?: string }).videoUrl && (
               <a
@@ -326,6 +353,15 @@ export default function ArtifactModal({
               disabled={exporting}
             >
               {exporting ? "Rendering…" : "PNG"}
+            </button>
+          )}
+          {artifact.type === "slides" && (
+            <button
+              className="btn !px-2.5 !py-1.5 !text-xs"
+              onClick={() => void downloadPptx()}
+              disabled={buildingPptx}
+            >
+              {buildingPptx ? "Building…" : "PPTX"}
             </button>
           )}
           <button className="btn !px-2.5 !py-1.5 !text-xs" onClick={download}>
@@ -399,8 +435,16 @@ function Body({
     }
     case "infographic":
       return <Infographic content={c as InfographicContent} citations={citations} />;
+    case "slides":
+      return <SlideDeck content={c as SlidesContent} citations={citations} />;
     case "podcast":
-      return <PodcastPlayer content={c as PodcastContent} />;
+      return (
+        <PodcastPlayer
+          artifactId={artifact.id}
+          content={c as PodcastContent}
+          onRefresh={onRefresh}
+        />
+      );
     case "video":
     case "motion":
       return (

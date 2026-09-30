@@ -1,4 +1,5 @@
 import type { ArtifactType, StudyDifficulty, StudyLength, StudyOptions } from "./types";
+import { SLIDE_COUNT } from "./slides";
 import { AUDIO_LENGTHS, SPEAKER_IDS, audioLength, type SpeakerId } from "./voices";
 
 export const GROUNDING_RULES = `
@@ -260,6 +261,35 @@ Use 6-15 items in chronological order. "date" is whatever precision the sources 
 "text" is 1-3 sentences with a citation marker. Only include events actually stated in the excerpts.`,
   },
 
+  slides: {
+    label: "PowerPoint deck",
+    blurb: "Presentation slides with speaker notes",
+    icon: "📽️",
+    json: true,
+    study: false,
+    instruction: (topic, opts) => {
+      const count = SLIDE_COUNT[opts?.length ?? "standard"];
+      return `Create a presentation deck from the sources${topic ? ` about: ${topic}` : ""}.
+${jsonNote}
+Schema:
+{
+  "title": string,
+  "subtitle": string,
+  "slides": [{
+    "layout": "title" | "agenda" | "section" | "bullets" | "closing",
+    "title": string,
+    "subtitle": string,
+    "bullets": [string],
+    "notes": string
+  }]
+}
+Provide ${count} slides. The first slide must be a title slide. The second slide must be an agenda.
+Content slides should use 3-5 concise bullets, each 12 words or fewer, with no citation markers on slide text.
+Speaker notes must be 2-4 sentences and must include source citation markers like [2].
+End with a closing slide that states the key takeaways. Do not add a sources slide; the app appends it.`;
+    },
+  },
+
   infographic: {
     label: "Infographic",
     blurb: "Visual stats & highlights",
@@ -462,17 +492,17 @@ like a document being narrated is almost entirely in the writing.
   },
 };
 
-/** Text formats offered in the studio grid. Audio is generated separately. */
-export const STUDIO_ORDER: ArtifactType[] = [
-  "report",
-  "briefing",
-  "infographic",
-  "mindmap",
-  "quiz",
-  "flashcards",
-  "study_guide",
-  "faq",
-  "timeline",
+export const STUDIO_SECTIONS: { key: string; label: string; types: ArtifactType[] }[] = [
+  {
+    key: "documents",
+    label: "Documents",
+    types: ["report", "briefing", "study_guide", "faq", "timeline", "slides"],
+  },
+  { key: "visuals", label: "Visuals", types: ["infographic", "mindmap"] },
+  { key: "study", label: "Study", types: ["quiz", "flashcards"] },
 ];
+
+/** Text formats offered in the studio grid. Audio is generated separately. */
+export const STUDIO_ORDER: ArtifactType[] = STUDIO_SECTIONS.flatMap((section) => section.types);
 
 export const PODCAST_INSTRUCTION = STUDIO.podcast.instruction;

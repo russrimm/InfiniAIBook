@@ -7,12 +7,14 @@ import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from
 import { GROUNDING_RULES } from "@/lib/studio";
 import {
   MOTION_PLAN_INSTRUCTION,
-  MOTION_RESOLUTIONS,
   normalizeMotionOptions,
   normalizeMotionPlan,
 } from "@/lib/motion";
-import { buildMotionVideo, musicAvailable } from "@/lib/motionbuild";
-import { setProgress } from "@/lib/videobuild";
+import { musicAvailable } from "@/lib/music";
+import { normalizeMusicChoice } from "@/lib/musicchoice";
+import { narrationPromptBlock, readNarration } from "@/lib/narration";
+import { notebookNarration } from "@/lib/narrationstore";
+import { motionScenes, replaceInMotionPlan } from "@/lib/videoscript";
 import { ALL_SPEAKERS } from "@/lib/voices";
 
 export const runtime = "nodejs";
@@ -21,11 +23,15 @@ export const maxDuration = 300;
 
 const MAX_CONTEXT_CHARS = Number(process.env.STUDIO_CONTEXT_CHARS || 30000);
 
-/** Whether the Studio card should offer a music bed. */
+/** Whether any background-music track is available. Kept for older clients. */
 export async function GET() {
   return ok({ music: musicAvailable() });
 }
 
+/**
+ * Write the scene plan and stop. Artwork, narration and animation only start
+ * when the user presses Render (POST /api/video/[id]/render).
+ */
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as {
@@ -33,7 +39,9 @@ export async function POST(req: Request) {
       topic?: string;
       sourceIds?: string[];
       voice?: string;
-      music?: boolean;
+      /** { track, volume }; `true` from older clients means a random track. */
+      music?: unknown;
+      narration?: unknown;
       // Customization; see normalizeMotionOptions for the accepted values.
       length?: string;
       tone?: string;
@@ -48,6 +56,10 @@ export async function POST(req: Request) {
     };
     const { notebookId, topic, sourceIds, voice, music } = body;
     const options = normalizeMotionOptions(body);
+    const narration =
+      body.narration === undefined ? notebookNarration(notebookId) : readNarration(body.narration);
+    const musicChoice =
+      music === true ? { track: "random", volume: "medium" as const } : normalizeMusicChoice(music);
 
     const speaker =
       ALL_SPEAKERS.find((s) => s.toLowerCase() === (voice ?? "").toLowerCase()) ?? "Ava";
@@ -71,7 +83,10 @@ export async function POST(req: Request) {
     const messages: ChatMsg[] = [
       {
         role: "system",
-        content: `${GROUNDING_RULES}\n\n${MOTION_PLAN_INSTRUCTION(topic?.trim() ?? "", options)}`,
+        content: `${GROUNDING_RULES}\n\n${MOTION_PLAN_INSTRUCTION(
+          topic?.trim() ?? "",
+          options
+        )}${narrationPromptBlock(narration)}`,
       },
       {
         role: "user",
@@ -80,29 +95,27 @@ export async function POST(req: Request) {
     ];
 
     const raw = await studioJSON<Record<string, unknown>>(messages, 0.7);
-    const plan = normalizeMotionPlan(raw, options);
-    if (!plan) {
+    const normalized = normalizeMotionPlan(raw, options);
+    if (!normalized) {
       return NextResponse.json(
         { error: "The model did not return a usable scene plan. Try again." },
         { status: 502 }
       );
     }
+    const plan = replaceInMotionPlan(normalized, narration.replacements);
 
-    const withMusic = Boolean(music) && musicAvailable();
     const id = nanoid(12);
     const content = {
       title: plan.title,
       description: plan.description,
       voice: speaker,
-      music: withMusic,
+      music: false,
+      musicChoice,
+      narration,
       options,
-      scenes: plan.scenes.map((s) => ({
-        title: s.headline,
-        caption: s.subline,
-        narration: s.narration,
-        beat: s.beat,
-      })),
-      progress: { stage: "artwork", done: 0, total: plan.scenes.length },
+      plan,
+      scenes: motionScenes(plan),
+      progress: { stage: "script", done: 0, total: plan.scenes.length },
       citations: citationList(passages),
     };
 
@@ -110,21 +123,6 @@ export async function POST(req: Request) {
     db.prepare(
       "INSERT INTO artifacts (id, notebook_id, type, title, content, created_at) VALUES (?,?,?,?,?,?)"
     ).run(id, notebookId, "motion", plan.title, JSON.stringify(content), now);
-
-    // Deliberately not awaited: assets alone run for minutes. The row carries
-    // progress, so the client watches it rather than holding a request open.
-    const { width, height } = MOTION_RESOLUTIONS[options.resolution];
-    void buildMotionVideo(id, plan, speaker, { music: withMusic, width, height }).catch((e) => {
-      console.error("[motion] build failed", e);
-      setProgress(id, {
-        progress: {
-          stage: "failed",
-          done: 0,
-          total: plan.scenes.length,
-          note: e instanceof Error ? e.message : "The build failed.",
-        },
-      });
-    });
 
     return ok({ id, notebookId, type: "motion", title: plan.title, content, createdAt: now });
   } catch (e) {

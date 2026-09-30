@@ -20,29 +20,6 @@ import {
   type VideoProgress,
 } from "./videobuild";
 
-const MUSIC_EXTENSIONS = new Set([".mp3", ".m4a", ".aac", ".wav", ".ogg", ".flac"]);
-
-/** Tracks in MOTION_MUSIC_DIR. Empty when unset or unreadable. */
-export function musicTracks(): string[] {
-  const dir = process.env.MOTION_MUSIC_DIR?.trim();
-  if (!dir) return [];
-  try {
-    return fs
-      .readdirSync(dir, { withFileTypes: true })
-      .filter((e) => e.isFile() && MUSIC_EXTENSIONS.has(path.extname(e.name).toLowerCase()))
-      .map((e) => path.join(dir, e.name));
-  } catch {
-    return [];
-  }
-}
-
-export const musicAvailable = () => musicTracks().length > 0;
-
-function pickMusic(): string | null {
-  const tracks = musicTracks();
-  return tracks.length ? tracks[Math.floor(Math.random() * tracks.length)]! : null;
-}
-
 type AssetJob = {
   key: string;
   prompt: string;
@@ -50,7 +27,8 @@ type AssetJob = {
 };
 
 type BuildOptions = {
-  music: boolean;
+  /** A resolved track and its gain, or null for no music. */
+  music: { file: string; gain: number; name?: string } | null;
   /** Output frame size; the timeline scales every layer to it. */
   width?: number;
   height?: number;
@@ -198,11 +176,14 @@ async function runBuild(
     };
   });
 
-  const music = opts.music ? pickMusic() : null;
-  const out = videoPath(id);
+  const music = opts.music && fs.existsSync(opts.music.file) ? opts.music : null;
+  // Rendered into scratch and moved into place only once complete, so a
+  // failed re-render leaves the previous video intact.
+  const out = path.join(work, "render.mp4");
   const config = compileTimeline(plan, assets, {
     output: slash(out),
-    music: music ? slash(music) : null,
+    music: music ? slash(music.file) : null,
+    musicVolume: music?.gain,
     width: opts.width,
     height: opts.height,
   });
@@ -220,11 +201,16 @@ async function runBuild(
     /* already cleaned up by the renderer */
   }
 
+  const final = videoPath(id);
+  fs.mkdirSync(path.dirname(final), { recursive: true });
+  fs.renameSync(out, final);
+
   setProgress(id, {
     progress: { stage: "done", done: 1, total: 1 } satisfies VideoProgress,
-    videoUrl: `/api/video/${id}`,
-    bytes: fs.statSync(out).size,
+    videoUrl: `/api/video/${id}?v=${Date.now()}`,
+    bytes: fs.statSync(final).size,
     music: Boolean(music),
+    editedSinceRender: false,
   });
 
   // Assets and narration clips are only inputs to the render.

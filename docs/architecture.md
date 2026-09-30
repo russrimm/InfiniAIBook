@@ -24,9 +24,10 @@ src/
       sources/[id]/                read full text, re-index / keep, delete
       chat/                        NDJSON streaming, grounded answers
       generate/                    studio artifact generation
-      podcast/                     dialogue script + speech synthesis
-      video/                       plan a whiteboard video and start its build
-      motion/                      plan a motion explainer and start its build
+      podcast/                     write a dialogue script; [id] edits it, [id]/narrate voices it
+      video/                       plan a whiteboard video; video/[id] edits a whiteboard or motion script, [id]/render builds it
+      motion/                      plan a motion explainer
+      music/                       background-music library: list, upload, stream, delete
       models/                      list deployments, read/set the active models
       audio/[id]/  video/[id]/     MP3 / MP4 streaming with byte-range support
       image/[id]/                  generated infographic PNGs
@@ -38,6 +39,7 @@ src/
     ArtifactModal  SourceModal  DiscoverModal  BrowserModal  SourceUpdates
     MindMap  Quiz  Flashcards  Infographic  Metaphors
     PodcastPlayer  VideoPlayer  MotionCustomize  Markdown
+    MusicPicker  NarrationOptions  SlideDeck  AboutModal
   lib/
     db.ts        SQLite schema (node:sqlite, no native build step)
     ai.ts        model client (Azure OpenAI with Entra ID, or OpenAI-compatible): chat / JSON / studio scripts / embeddings / images / transcription
@@ -61,6 +63,11 @@ src/
     vision.ts    image description, with a guard against blind models inventing one
     whiteboard.ts scene planning for videos; videobuild.ts runs the pipeline
     motion.ts    motion explainer planning and customization options; motiontimeline.ts compiles the render config; motionbuild.ts runs the pipeline
+    videoscript.ts  podcastscript.ts  podcaststore.ts   script editing for videos and audio overviews
+    narration.ts narration instructions and word replacements; narrationstore.ts keeps the notebook defaults
+    music.ts     background-music library and ducked mixing; musicchoice.ts is the client-safe choice type
+    slides.ts    PowerPoint deck themes, normalization and PPTX export
+    python.ts    runs the Python renderers and mixer under scripts/
     paths.ts     data/audio, images, voices and video paths, traversal-safe resolution
     rangefile.ts byte-range file streaming for media routes
     http.ts  types.ts   JSON response helpers and shared types
@@ -70,6 +77,7 @@ scripts/
   check-motion.ts     renders a motion explainer from synthetic assets (no model calls; --1080p for full HD)
   whiteboard/render.py  Python renderer that composites and encodes whiteboard videos
   motion/render.py    Python renderer that animates layered motion explainers
+  audio/mix.py        mixes a ducked music bed under an MP3 or an MP4's soundtrack
 ```
 
 **Storage note:** the database uses Node's built-in `node:sqlite` (Node 22.13+),

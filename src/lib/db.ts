@@ -167,6 +167,16 @@ function migrate(db: DatabaseSync) {
     }
   }
 
+  // Per-notebook narration defaults for the spoken Studio formats.
+  const nbCols = (db.prepare("PRAGMA table_info(notebooks)").all() as unknown as {
+    name: string;
+  }[]).map((c) => c.name);
+  for (const name of ["narration_instructions", "narration_replacements"]) {
+    if (!nbCols.includes(name)) {
+      db.exec(`ALTER TABLE notebooks ADD COLUMN ${name} TEXT`);
+    }
+  }
+
   // Chat sessions. Messages written before sessions existed belong to one
   // implicit conversation per notebook, so each such notebook gets a session
   // that adopts them — nothing already said disappears from view.

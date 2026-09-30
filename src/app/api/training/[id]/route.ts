@@ -5,6 +5,8 @@ import { backgroundColour, presenter, presenterVoice } from "@/lib/avatars";
 import { cleanSpoken, normaliseSections } from "@/lib/training";
 import { isRendering } from "@/lib/trainingbuild";
 import type { TrainingContent } from "@/lib/types";
+import { readNarration } from "@/lib/narration";
+import { normalizeMusicChoice } from "@/lib/musicchoice";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +45,8 @@ export async function PATCH(req: Request, { params }: Ctx) {
       presenter: string;
       voice: string;
       background: string;
+      narration: unknown;
+      music: unknown;
     }>;
 
     const next: TrainingContent = { ...current };
@@ -86,6 +90,16 @@ export async function PATCH(req: Request, { params }: Ctx) {
       const before = next.background;
       next.background = backgroundColour(body.background);
       scriptChanged ||= before !== next.background;
+    }
+    if (body.narration !== undefined) {
+      next.narration = readNarration(body.narration);
+      scriptChanged ||=
+        JSON.stringify(next.narration) !== JSON.stringify(readNarration(current.narration));
+    }
+    if ("music" in body) {
+      next.musicChoice = normalizeMusicChoice(body.music);
+      scriptChanged ||=
+        JSON.stringify(next.musicChoice) !== JSON.stringify(current.musicChoice ?? null);
     }
     // The existing video no longer matches what is on screen.
     if (scriptChanged && current.videoUrl) next.editedSinceRender = true;

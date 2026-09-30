@@ -21,7 +21,7 @@ generator.
 | Azure Speech | `AZURE_SPEECH_REGION` + `AZURE_SPEECH_RESOURCE_ID` (Entra) or `AZURE_SPEECH_KEY` | The narrator's voice (`en-Multitalker:DragonHDLatestNeural`) |
 | Embeddings (optional) | `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` / `AI_EMBEDDING_MODEL` | Finding the passages that match the focus box |
 | Python 3 | `PYTHON_BIN` (default `python`), plus `numpy`, `Pillow`, `imageio-ffmpeg` | Animating and encoding the MP4 |
-| Music (optional) | `MOTION_MUSIC_DIR` | A background track under the narration |
+| Music (optional) | Upload in the app, or `MOTION_MUSIC_DIR` | A background track under the narration |
 
 No AI model animates anything. The motion, text and transitions come from the
 renderer, `scripts/motion/render.py`, which plays back a timeline computed in
@@ -63,8 +63,11 @@ back.
 | **Closing** | Free text, up to 160 characters | none | The call to action on the closing card and in the last line of narration. It is used as written, so it may include a link or contact detail that is not in the sources |
 | **Quality** | 720p · 1080p | 720p | Output resolution. Every layer scales, so the layout is the same; 1080p takes longer to render and makes a larger file. Pictures are drawn at the image model's own sizes either way |
 
-The **Voice** picker and the **Music** checkbox sit above Customize, and the
-**focus box** at the top of the panel still decides what the video is about.
+The **Voice** picker, **Music** picker and **Instructions** panel sit above
+Customize, and the **focus box** at the top of the panel still decides what the
+video is about. Generating writes the scene plan and opens it for review; the
+artwork, narration and animation start when you press **Render video**. See
+[Spoken formats](studio.md#spoken-formats-script-review-instructions-and-music).
 
 Each finished video records the options it was made with, and the player lists
 any that differ from the defaults under the video.
@@ -156,12 +159,14 @@ key-out and music ducking.
 
 ## Music
 
-Music is off by default. To offer it, point `MOTION_MUSIC_DIR` at a folder of
-tracks you have the rights to use (`.mp3`, `.m4a`, `.aac`, `.wav`, `.ogg` or
-`.flac`). A **Music** checkbox then appears on the card. Each video picks one
-track at random, loops it if needed, fades it in and out and ducks it under the
-narration. No music ships with the app. Royalty-free doesn't always mean free
-to redistribute, so check each track's license before you publish a video.
+Music is off by default. Pick a track (or *Random track*) and a volume in the
+**Music** picker on the card or in the script editor. Tracks come from the
+in-app music library, where **＋** uploads one, and from the folder
+`MOTION_MUSIC_DIR` names, if set; see
+[Background music](studio.md#background-music). The track loops if needed,
+fades in and out and is ducked under the narration. No music ships with the
+app. Royalty-free doesn't always mean free to redistribute, so check each
+track's license before you publish a video.
 
 ## Timings, measured
 

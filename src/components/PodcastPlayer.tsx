@@ -2,6 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { PodcastContent, PodcastSpeakerId } from "@/lib/types";
+import {
+  podcastSettings,
+  scriptOf,
+  type PodcastScript,
+  type ScriptTurn,
+} from "@/lib/podcastscript";
+import { EMPTY_NARRATION, readNarration, type NarrationSettings } from "@/lib/narration";
+import { normalizeMusicChoice, type MusicChoice } from "@/lib/musicchoice";
+import { MULTITALKER_SPEAKERS, RATE_CHOICES, WORDS_PER_MINUTE } from "@/lib/voices";
+import MusicPicker from "./MusicPicker";
+import NarrationOptions from "./NarrationOptions";
 
 function clock(sec: number): string {
   if (!Number.isFinite(sec) || sec < 0) sec = 0;
@@ -23,7 +34,7 @@ function speakerLabel(content: PodcastContent, id: PodcastSpeakerId): string {
   return profile?.name?.trim() || content.voices[id] || id.toUpperCase();
 }
 
-export default function PodcastPlayer({ content }: { content: PodcastContent }) {
+function Player({ content }: { content: PodcastContent & { audioUrl: string } }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const activeRef = useRef<HTMLLIElement>(null);
   const [time, setTime] = useState(0);
@@ -74,6 +85,7 @@ export default function PodcastPlayer({ content }: { content: PodcastContent }) 
   return (
     <div>
       <audio
+        key={content.audioUrl}
         ref={audioRef}
         src={content.audioUrl}
         preload="metadata"
@@ -265,6 +277,460 @@ export default function PodcastPlayer({ content }: { content: PodcastContent }) 
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+const inputCls =
+  "w-full rounded-md border border-[var(--border)] bg-[#0e1116] px-2.5 py-1.5 text-[13px] text-[var(--fg)] outline-none placeholder:text-[#53606f] focus:border-[#4d5a7a] disabled:opacity-60";
+const smallSelect =
+  "cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a] disabled:opacity-60";
+
+type Draft = {
+  title: string;
+  script: PodcastScript;
+  voices: Partial<Record<PodcastSpeakerId, string>>;
+  rate: number;
+  music: MusicChoice | null;
+  narration: NarrationSettings;
+};
+
+const toDraft = (c: PodcastContent): Draft => ({
+  title: c.title,
+  script: {
+    segments: scriptOf(c).segments.map((s) => ({
+      title: s.title,
+      turns: s.turns.map((t) => ({ ...t })),
+    })),
+  },
+  voices: Object.fromEntries(
+    (c.speakers ?? []).map((s) => [s.id, s.voice])
+  ) as Partial<Record<PodcastSpeakerId, string>>,
+  rate: podcastSettings(c).rate ?? 1,
+  music: normalizeMusicChoice(c.musicChoice),
+  narration: c.narration ? readNarration(c.narration) : EMPTY_NARRATION,
+});
+
+const countDraftWords = (s: PodcastScript) =>
+  s.segments.reduce(
+    (n, seg) => n + seg.turns.reduce((m, t) => m + (t.text.match(/\S+/g)?.length ?? 0), 0),
+    0
+  );
+
+/**
+ * An audio overview: the script editor until it has been narrated, then the
+ * player, with the script a click away for edits and a fresh narration.
+ */
+export default function PodcastPlayer({
+  artifactId,
+  content,
+  onRefresh,
+}: {
+  artifactId: string;
+  content: PodcastContent;
+  onRefresh?: () => Promise<void> | void;
+}) {
+  const narrated = Boolean(content.audioUrl);
+  // A narration older than the server's timeout died with its process; the
+  // next poll resets it, but the editor should not wait on it meanwhile.
+  const serverNarrating =
+    content.stage === "narrating" &&
+    Date.now() - Number(content.narratingAt ?? 0) < 20 * 60_000;
+  const [editing, setEditing] = useState(!narrated);
+  const [draft, setDraft] = useState<Draft>(() => toDraft(content));
+  const [dirty, setDirty] = useState(false);
+  const [busy, setBusy] = useState<"save" | "narrate" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+
+  const refresh = useRef(onRefresh);
+  refresh.current = onRefresh;
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+
+  const stored = JSON.stringify([
+    content.title,
+    content.script,
+    content.speakers,
+    content.settings,
+    content.musicChoice,
+    content.narration,
+    content.audioUrl,
+  ]);
+  useEffect(() => {
+    if (!dirtyRef.current) setDraft(toDraft(content));
+    // `stored` captures every field toDraft reads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stored]);
+
+  useEffect(() => {
+    if (!narrated) setEditing(true);
+  }, [narrated]);
+
+  const narrating = busy === "narrate" || serverNarrating;
+  useEffect(() => {
+    if (!narrating) {
+      setElapsed(0);
+      return;
+    }
+    const tick = setInterval(() => setElapsed((s) => s + 1), 1000);
+    // Another tab or an earlier visit may have started it; watch the row.
+    const poll = serverNarrating && busy !== "narrate"
+      ? setInterval(() => void Promise.resolve(refresh.current?.()).catch(() => {}), 5000)
+      : null;
+    return () => {
+      clearInterval(tick);
+      if (poll) clearInterval(poll);
+    };
+  }, [narrating, serverNarrating, busy]);
+
+  const edit = (patch: Partial<Draft>) => {
+    setDraft((d) => ({ ...d, ...patch }));
+    setDirty(true);
+  };
+  const setSegments = (segments: PodcastScript["segments"]) =>
+    edit({ script: { segments } });
+  const editSegment = (i: number, patch: Partial<PodcastScript["segments"][number]>) =>
+    setSegments(draft.script.segments.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+  const editTurn = (si: number, ti: number, patch: Partial<ScriptTurn>) =>
+    editSegment(si, {
+      turns: draft.script.segments[si]!.turns.map((t, j) => (j === ti ? { ...t, ...patch } : t)),
+    });
+  const moveTurn = (si: number, ti: number, by: -1 | 1) => {
+    const turns = [...draft.script.segments[si]!.turns];
+    const j = ti + by;
+    if (j < 0 || j >= turns.length) return;
+    [turns[ti], turns[j]] = [turns[j]!, turns[ti]!];
+    editSegment(si, { turns });
+  };
+
+  const save = async () => {
+    const res = await fetch(`/api/podcast/${artifactId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: draft.title,
+        script: draft.script,
+        voices: draft.voices,
+        rate: draft.rate,
+        music: draft.music,
+        narration: {
+          instructions: draft.narration.instructions,
+          replacements: draft.narration.replacements.filter((r) => r.from.trim()),
+        },
+      }),
+    });
+    const j = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) throw new Error(j.error || "Could not save the script.");
+    setDirty(false);
+    await refresh.current?.();
+  };
+
+  const run = async (what: "save" | "narrate") => {
+    setBusy(what);
+    setError(null);
+    try {
+      if (dirty) await save();
+      if (what === "narrate") {
+        const res = await fetch(`/api/podcast/${artifactId}/narrate`, { method: "POST" });
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        if (!res.ok) throw new Error(j.error || "Narration failed.");
+        await refresh.current?.();
+        setEditing(false);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+      await Promise.resolve(refresh.current?.()).catch(() => {});
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const speakers: { id: PodcastSpeakerId; voice: string; name?: string }[] = content.speakers?.length
+    ? content.speakers
+    : (["a", "b"] as PodcastSpeakerId[]).map((id) => ({ id, voice: content.voices?.[id] ?? "" }));
+  const words = countDraftWords(draft.script);
+  const minutes = words / WORDS_PER_MINUTE / (draft.rate || 1);
+  const locked = narrating || busy !== null;
+  const allVoices = [...MULTITALKER_SPEAKERS.female, ...MULTITALKER_SPEAKERS.male];
+
+  return (
+    <div className="space-y-5">
+      {narrated && !editing && content.audioUrl && (
+        <>
+          <Player content={content as PodcastContent & { audioUrl: string }} />
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="mr-auto text-[11px] text-[var(--muted)]">
+              {content.music ? "With background music · " : ""}
+              {content.editedSinceNarration
+                ? "The script has changed since this was narrated."
+                : "Want different wording? Edit the script and narrate it again."}
+            </p>
+            <button className="btn !text-xs" onClick={() => setEditing(true)}>
+              Edit script
+            </button>
+          </div>
+        </>
+      )}
+
+      {narrating && (
+        <div className="rounded-2xl border border-[var(--border)] bg-[#0e1116] p-5">
+          <div className="flex items-center gap-2">
+            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
+            <span className="text-[13px] font-medium">Narrating the script</span>
+            <span className="ml-auto font-mono text-[11px] text-[var(--muted)] tabular-nums">
+              {clock(elapsed)}
+            </span>
+          </div>
+          <p className="mt-2 text-[11px] leading-snug text-[var(--muted)]">
+            Every line is being voiced{draft.music ? " and the music mixed in" : ""}. Longer
+            overviews take a few minutes.
+          </p>
+        </div>
+      )}
+
+      {content.note && !narrating && !error && (
+        <p className="rounded-xl border border-amber-900/50 bg-amber-950/20 px-4 py-3 text-[12px] text-amber-100">
+          {content.note}
+        </p>
+      )}
+      {error && (
+        <p className="rounded-xl border border-red-900/50 bg-red-950/20 px-4 py-3 text-[13px] text-red-200">
+          {error}
+        </p>
+      )}
+
+      {editing && (
+        <>
+          {!narrated && (
+            <p className="rounded-xl border border-[var(--border)] bg-[#0e1116] px-4 py-3 text-[12px] leading-relaxed text-[var(--muted)]">
+              Review the script below — change any wording, reassign lines, or
+              remove what you don&apos;t want said. Nothing is narrated until you
+              press <span className="text-[var(--fg)]">Narrate</span>.
+            </p>
+          )}
+
+          <section className="space-y-2 rounded-2xl border border-[var(--border)] p-4">
+            <h3 className="text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
+              Voices &amp; sound
+            </h3>
+            <div className="flex flex-wrap items-center gap-2">
+              {speakers.map((s) => (
+                <label key={s.id} className="flex items-center gap-1.5 text-[11px]">
+                  <span className={`font-semibold uppercase ${SPEAKER_COLORS[s.id]}`}>
+                    {s.name?.trim() || s.id}
+                  </span>
+                  <select
+                    className={smallSelect}
+                    disabled={locked}
+                    value={draft.voices[s.id] ?? s.voice ?? ""}
+                    onChange={(e) =>
+                      edit({ voices: { ...draft.voices, [s.id]: e.target.value } })
+                    }
+                  >
+                    {/* Older fixed-voice overviews stored full voice names. */}
+                    {s.voice && !(allVoices as string[]).includes(s.voice) && (
+                      <option value={s.voice}>{s.voice}</option>
+                    )}
+                    {allVoices.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+              <select
+                aria-label="Speed"
+                className={smallSelect}
+                disabled={locked}
+                value={draft.rate}
+                onChange={(e) => edit({ rate: Number(e.target.value) })}
+              >
+                {RATE_CHOICES.map((r) => (
+                  <option key={r} value={r}>
+                    {r === 1 ? "Normal speed" : `${r}× speed`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <MusicPicker value={draft.music} onChange={(music) => edit({ music })} disabled={locked} />
+            <NarrationOptions
+              value={draft.narration}
+              onChange={(narration) => edit({ narration })}
+              disabled={locked}
+            />
+            <p className="text-[10px] leading-snug text-[var(--muted)]">
+              Instructions shape newly written scripts; the replacement list is
+              applied to this script every time it is narrated.
+            </p>
+          </section>
+
+          <section className="space-y-3">
+            <div className="flex items-baseline gap-3">
+              <h3 className="text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
+                Script
+              </h3>
+              <span className="text-[11px] text-[var(--muted)] tabular-nums">
+                {words.toLocaleString()} words · about {minutes.toFixed(1)} min
+                {content.targetMinutes ? ` · target ${content.targetMinutes} min` : ""}
+              </span>
+            </div>
+            <input
+              className={`${inputCls} text-[15px] font-semibold`}
+              aria-label="Title"
+              value={draft.title}
+              disabled={locked}
+              onChange={(e) => edit({ title: e.target.value })}
+            />
+
+            {draft.script.segments.map((seg, si) => (
+              <div key={si} className="rounded-xl border border-[var(--border)] p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <input
+                    className={`${inputCls} font-medium`}
+                    placeholder="Chapter title (optional)"
+                    aria-label={`Chapter ${si + 1} title`}
+                    value={seg.title}
+                    disabled={locked}
+                    onChange={(e) => editSegment(si, { title: e.target.value })}
+                  />
+                  <button
+                    className="btn !px-2 !py-1 !text-xs hover:text-red-300"
+                    aria-label={`Remove chapter ${si + 1}`}
+                    disabled={locked || draft.script.segments.length <= 1}
+                    onClick={() => setSegments(draft.script.segments.filter((_, j) => j !== si))}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <ol className="space-y-2">
+                  {seg.turns.map((t, ti) => (
+                    <li key={ti} className="flex gap-2">
+                      <div className="flex w-24 shrink-0 flex-col gap-1">
+                        <select
+                          aria-label={`Speaker for line ${ti + 1}`}
+                          className={`${smallSelect} ${SPEAKER_COLORS[t.speaker]}`}
+                          disabled={locked}
+                          value={t.speaker}
+                          onChange={(e) =>
+                            editTurn(si, ti, { speaker: e.target.value as PodcastSpeakerId })
+                          }
+                        >
+                          {speakers.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name?.trim() || draft.voices[s.id] || s.voice || s.id.toUpperCase()}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="flex gap-1">
+                          <button
+                            className="btn !px-1.5 !py-0.5 !text-[10px]"
+                            aria-label="Move line up"
+                            disabled={locked || ti === 0}
+                            onClick={() => moveTurn(si, ti, -1)}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            className="btn !px-1.5 !py-0.5 !text-[10px]"
+                            aria-label="Move line down"
+                            disabled={locked || ti === seg.turns.length - 1}
+                            onClick={() => moveTurn(si, ti, 1)}
+                          >
+                            ↓
+                          </button>
+                          <button
+                            className="btn !px-1.5 !py-0.5 !text-[10px] hover:text-red-300"
+                            aria-label="Remove line"
+                            disabled={locked}
+                            onClick={() =>
+                              editSegment(si, { turns: seg.turns.filter((_, j) => j !== ti) })
+                            }
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                      <textarea
+                        className={`${inputCls} min-h-[4rem] flex-1 leading-relaxed`}
+                        aria-label={`Line ${ti + 1}`}
+                        value={t.text}
+                        disabled={locked}
+                        onChange={(e) => editTurn(si, ti, { text: e.target.value })}
+                      />
+                    </li>
+                  ))}
+                </ol>
+                <button
+                  className="mt-2 text-[11px] text-[var(--muted)] hover:text-[var(--fg)] disabled:opacity-50"
+                  disabled={locked}
+                  onClick={() =>
+                    editSegment(si, {
+                      turns: [
+                        ...seg.turns,
+                        {
+                          speaker:
+                            speakers[(seg.turns.length) % speakers.length]?.id ?? "a",
+                          text: "",
+                        },
+                      ],
+                    })
+                  }
+                >
+                  + Add line
+                </button>
+              </div>
+            ))}
+            <button
+              className="btn !text-xs"
+              disabled={locked}
+              onClick={() =>
+                setSegments([
+                  ...draft.script.segments,
+                  { title: "", turns: [{ speaker: speakers[0]?.id ?? "a", text: "" }] },
+                ])
+              }
+            >
+              + Add chapter
+            </button>
+          </section>
+
+          <div className="sticky -bottom-6 -mx-1 flex flex-wrap items-center gap-2 border-t border-[var(--border)] bg-[var(--panel)] px-1 pt-3 pb-9">
+            <p className="mr-auto text-[11px] leading-snug text-[var(--muted)]">
+              Spoken exactly as written. Avoid markdown, links and stage
+              directions like [MUSIC] — they would be read aloud.
+            </p>
+            {narrated && (
+              <button
+                className="btn !text-xs"
+                disabled={locked}
+                onClick={() => {
+                  setDraft(toDraft(content));
+                  setDirty(false);
+                  setEditing(false);
+                }}
+              >
+                Cancel
+              </button>
+            )}
+            <button
+              className="btn !text-xs"
+              disabled={!dirty || locked}
+              onClick={() => void run("save")}
+            >
+              {busy === "save" ? "Saving…" : dirty ? "Save changes" : "Saved"}
+            </button>
+            <button
+              className="btn btn-primary !text-xs"
+              disabled={locked || words === 0}
+              onClick={() => void run("narrate")}
+            >
+              {narrating ? "Narrating…" : narrated ? "Narrate again" : "Narrate"}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

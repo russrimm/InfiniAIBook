@@ -6,7 +6,12 @@ import MotionCustomize, {
   motionRequest,
   type MotionForm,
 } from "@/components/MotionCustomize";
-import { STUDIO, STUDIO_ORDER } from "@/lib/studio";
+import MusicPicker from "@/components/MusicPicker";
+import NarrationOptions from "@/components/NarrationOptions";
+import { STUDIO, STUDIO_SECTIONS } from "@/lib/studio";
+import { DEFAULT_SLIDE_THEME, SLIDE_THEMES } from "@/lib/slides";
+import { EMPTY_NARRATION, type NarrationSettings } from "@/lib/narration";
+import type { MusicChoice } from "@/lib/musicchoice";
 import {
   DEFAULT_STYLE,
   INFOGRAPHIC_STYLES,
@@ -27,6 +32,7 @@ import {
 import type {
   ArtifactSummary,
   ArtifactType,
+  SlideTheme,
   StudyDifficulty,
   StudyLength,
 } from "@/lib/types";
@@ -40,6 +46,16 @@ import {
 
 /** Speakers that can be pinned, listed when a chosen one cannot be. */
 const PINNABLE = Object.keys(PINNED_VOICES);
+
+/** The formats that are spoken aloud and so take instructions and music. */
+const SPOKEN = ["podcast", "video", "motion", "training"] as const;
+type SpokenType = (typeof SPOKEN)[number];
+const spokenRecord = <T,>(v: T): Record<SpokenType, T> => ({
+  podcast: v,
+  video: v,
+  motion: v,
+  training: v,
+});
 
 /** How the dialogue is rendered: voice family plus pause shaping. */
 type Delivery = "natural" | "even" | "pinned";
@@ -113,6 +129,8 @@ export default function StudioPanel({
   openingId,
   onRemove,
   onChanged,
+  narrationDefaults,
+  onSaveNarration,
 }: {
   notebookId: string;
   hasSources: boolean;
@@ -124,19 +142,56 @@ export default function StudioPanel({
   /** Delete with an undo window; the panel only asks. */
   onRemove: (a: ArtifactSummary) => void;
   onChanged: () => Promise<void> | void;
+  /** The notebook's saved narration instructions, pre-filled on each spoken card. */
+  narrationDefaults?: NarrationSettings;
+  onSaveNarration?: (n: NarrationSettings) => Promise<NarrationSettings>;
 }) {
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState<InfographicStyle>(DEFAULT_STYLE);
   const [difficulty, setDifficulty] = useState<StudyDifficulty>("medium");
   const [length, setLength] = useState<StudyLength>("standard");
+  const [slideTheme, setSlideTheme] = useState<SlideTheme>(DEFAULT_SLIDE_THEME);
+  const [slideLength, setSlideLength] = useState<StudyLength>("standard");
   const [delivery, setDelivery] = useState<Delivery>("natural");
   const [audioLen, setAudioLen] = useState<AudioLength>("medium");
   const [narrator, setNarrator] = useState("Ava");
   const [motionNarrator, setMotionNarrator] = useState("Ava");
-  const [motionMusic, setMotionMusic] = useState(false);
   const [motionForm, setMotionForm] = useState<MotionForm>(DEFAULT_MOTION_FORM);
-  /** Music is only offered when the server has a track folder configured. */
-  const [musicReady, setMusicReady] = useState(false);
+  const defaults = narrationDefaults ?? EMPTY_NARRATION;
+  const [narration, setNarration] = useState<Record<SpokenType, NarrationSettings>>(() =>
+    spokenRecord(defaults)
+  );
+  /** Cards whose instructions were edited here are not overwritten by the saved default. */
+  const touched = useRef<Set<SpokenType>>(new Set());
+  const [music, setMusic] = useState<Record<SpokenType, MusicChoice | null>>(() =>
+    spokenRecord<MusicChoice | null>(null)
+  );
+  const defaultsKey = JSON.stringify(defaults);
+  useEffect(() => {
+    const d = JSON.parse(defaultsKey) as NarrationSettings;
+    setNarration((prev) => {
+      const next = { ...prev };
+      for (const t of SPOKEN) if (!touched.current.has(t)) next[t] = d;
+      return next;
+    });
+  }, [defaultsKey]);
+  const editNarration = (t: SpokenType) => (v: NarrationSettings) => {
+    touched.current.add(t);
+    setNarration((prev) => ({ ...prev, [t]: v }));
+  };
+  const saveNarration = async (v: NarrationSettings) => {
+    if (!onSaveNarration) return;
+    const saved = await onSaveNarration(v);
+    // Every card that matched the old default, or is the one saved from, follows the new one.
+    touched.current.clear();
+    setNarration(spokenRecord(saved));
+  };
+  const narrationFor = (t: SpokenType) => ({
+    instructions: narration[t].instructions,
+    replacements: narration[t].replacements.filter((r) => r.from.trim()),
+  });
+  const setMusicFor = (t: SpokenType) => (v: MusicChoice | null) =>
+    setMusic((prev) => (prev[t] === v ? prev : { ...prev, [t]: v }));
   const [episodeProfile, setEpisodeProfile] = useState("deep-dive");
   const [speakers, setSpeakers] = useState<SpeakerConfig[]>(() =>
     profileSpeakers("deep-dive")
@@ -152,17 +207,6 @@ export default function StudioPanel({
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    fetch("/api/motion")
-      .then((r) => (r.ok ? r.json() : { music: false }))
-      .then((j: { music?: boolean }) => live && setMusicReady(Boolean(j.music)))
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, []);
 
   /** Play a speaker's sample, replacing whatever was playing. */
   const preview = async (name: string) => {
@@ -246,6 +290,7 @@ export default function StudioPanel({
       topic: topic.trim() || undefined,
       sourceIds: selectedIds,
       ...(type === "infographic" ? { style } : {}),
+      ...(type === "slides" ? { theme: slideTheme, length: slideLength } : {}),
       ...(STUDIO[type].study ? { difficulty, length } : {}),
     });
 
@@ -264,6 +309,8 @@ export default function StudioPanel({
       rate: speed,
       breath: delivery === "even" ? 0 : 1,
       length: audioLen,
+      narration: narrationFor("podcast"),
+      music: music.podcast,
     });
 
   const generateVideo = () =>
@@ -272,6 +319,8 @@ export default function StudioPanel({
       topic: topic.trim() || undefined,
       sourceIds: selectedIds,
       voice: narrator,
+      narration: narrationFor("video"),
+      music: music.video,
     });
 
   const generateMotion = () =>
@@ -280,7 +329,8 @@ export default function StudioPanel({
       topic: topic.trim() || undefined,
       sourceIds: selectedIds,
       voice: motionNarrator,
-      music: musicReady && motionMusic,
+      music: music.motion,
+      narration: narrationFor("motion"),
       ...motionRequest(motionForm),
     });
 
@@ -293,6 +343,8 @@ export default function StudioPanel({
       voice: trainerVoice,
       background: trainingBg,
       length: trainingLen,
+      narration: narrationFor("training"),
+      music: music.training,
     });
 
   const updateSpeaker = (i: number, patch: Partial<SpeakerConfig>) =>
@@ -334,6 +386,10 @@ export default function StudioPanel({
           onChange={(e) => setTopic(e.target.value)}
         />
 
+        <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
+          Audio &amp; video
+        </h3>
+
         <div
           className={`card relative mb-2 overflow-hidden transition ${
             audioBusy ? "shimmer border-[var(--accent)]" : ""
@@ -349,7 +405,7 @@ export default function StudioPanel({
               <span className="block text-[13px] font-medium">Audio overview</span>
               <span className="block text-[10px] leading-snug text-[var(--muted)]">
                 {audioBusy
-                  ? `Writing and narrating about ${AUDIO_LENGTHS[audioLen].minutes} minutes — this takes a while`
+                  ? `Writing a script for about ${AUDIO_LENGTHS[audioLen].minutes} minutes…`
                   : speakers.length === 1
                     ? "A solo narration explains your sources"
                     : `${speakers.length} speakers discuss your sources`}
@@ -491,6 +547,16 @@ export default function StudioPanel({
             {previewError && (
               <p className="text-[10px] leading-snug text-red-300">{previewError}</p>
             )}
+            <MusicPicker value={music.podcast} onChange={setMusicFor("podcast")} />
+            <NarrationOptions
+              value={narration.podcast}
+              onChange={editNarration("podcast")}
+              defaults={defaults}
+              onSaveDefault={onSaveNarration ? saveNarration : undefined}
+            />
+            <p className="text-[10px] leading-snug text-[var(--muted)]">
+              You review and edit the script before anything is narrated.
+            </p>
           </div>
         </div>
 
@@ -509,27 +575,36 @@ export default function StudioPanel({
               <span className="block text-[13px] font-medium">Whiteboard video</span>
               <span className="block text-[10px] leading-snug text-[var(--muted)]">
                 {videoBusy
-                  ? "Planning the scenes — drawing takes a few minutes"
-                  : "A hand draws your sources, narrated"}
+                  ? "Writing the scene plan…"
+                  : "A hand draws your sources, narrated — review the script, then render"}
               </span>
             </span>
           </button>
 
-          <div className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-2">
-            <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-              Voice
-            </span>
-            <SpeakerSelect
-              value={narrator}
-              disabled={false}
-              onChange={setNarrator}
-              onPreview={preview}
-              previewing={previewing}
-              loading={previewLoading}
+          <div className="space-y-2 border-t border-[var(--border)] px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                Voice
+              </span>
+              <SpeakerSelect
+                value={narrator}
+                disabled={false}
+                onChange={setNarrator}
+                onPreview={preview}
+                previewing={previewing}
+                loading={previewLoading}
+              />
+              <span className="shrink-0 text-[10px] leading-snug text-[var(--muted)]">
+                Uses the focus box above
+              </span>
+            </div>
+            <MusicPicker value={music.video} onChange={setMusicFor("video")} />
+            <NarrationOptions
+              value={narration.video}
+              onChange={editNarration("video")}
+              defaults={defaults}
+              onSaveDefault={onSaveNarration ? saveNarration : undefined}
             />
-            <span className="shrink-0 text-[10px] leading-snug text-[var(--muted)]">
-              Uses the focus box above
-            </span>
           </div>
         </div>
 
@@ -548,8 +623,8 @@ export default function StudioPanel({
               <span className="block text-[13px] font-medium">Motion explainer</span>
               <span className="block text-[10px] leading-snug text-[var(--muted)]">
                 {motionBusy
-                  ? "Writing the story — designing and animating takes 10–15 minutes"
-                  : "An animated 2D story: problem, solution, how it works, next step"}
+                  ? "Writing the story…"
+                  : "An animated 2D story — review the script, then render"}
               </span>
             </span>
           </button>
@@ -571,22 +646,13 @@ export default function StudioPanel({
                 Uses the focus box above
               </span>
             </div>
-            {musicReady && (
-              <label className="flex cursor-pointer items-center gap-2 text-[11px] text-[var(--fg)]">
-                <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                  Music
-                </span>
-                <input
-                  type="checkbox"
-                  className="cursor-pointer accent-[var(--accent)]"
-                  checked={motionMusic}
-                  onChange={(e) => setMotionMusic(e.target.checked)}
-                />
-                <span className="text-[10px] leading-snug text-[var(--muted)]">
-                  Add a background track, lowered under the narration
-                </span>
-              </label>
-            )}
+            <MusicPicker value={music.motion} onChange={setMusicFor("motion")} />
+            <NarrationOptions
+              value={narration.motion}
+              onChange={editNarration("motion")}
+              defaults={defaults}
+              onSaveDefault={onSaveNarration ? saveNarration : undefined}
+            />
             <MotionCustomize value={motionForm} onChange={setMotionForm} />
           </div>
         </div>
@@ -672,6 +738,13 @@ export default function StudioPanel({
                 ))}
               </select>
             </div>
+            <MusicPicker value={music.training} onChange={setMusicFor("training")} />
+            <NarrationOptions
+              value={narration.training}
+              onChange={editNarration("training")}
+              defaults={defaults}
+              onSaveDefault={onSaveNarration ? saveNarration : undefined}
+            />
             <p className="text-[10px] leading-snug text-[var(--muted)]">
               Uses the focus box, selected sources and all notes. Nothing is
               billed for video until you press Render.
@@ -679,10 +752,74 @@ export default function StudioPanel({
           </div>
         </div>
 
+        {STUDIO_SECTIONS.map((section) => (
+        <section key={section.key} className="mt-4" aria-labelledby={`studio-${section.key}`}>
+        <h3
+          id={`studio-${section.key}`}
+          className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase"
+        >
+          {section.label}
+        </h3>
         <div className="grid grid-cols-2 gap-2">
-          {STUDIO_ORDER.map((type) => {
+          {section.types.map((type) => {
             const s = STUDIO[type];
             const isBusy = running.has(type);
+
+            if (type === "slides") {
+              return (
+                <div
+                  key={type}
+                  className={`card relative col-span-2 overflow-hidden transition ${
+                    isBusy ? "shimmer border-[var(--accent)]" : ""
+                  }`}
+                >
+                  <button
+                    disabled={blocked || isBusy}
+                    onClick={() => void generate(type)}
+                    className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <span className="text-lg">{s.icon}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px] font-medium">{s.label}</span>
+                      <span className="block text-[10px] leading-snug text-[var(--muted)]">
+                        {isBusy ? "Generating…" : s.blurb}
+                      </span>
+                    </span>
+                  </button>
+
+                  <div className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-2">
+                    <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Theme
+                    </span>
+                    <select
+                      aria-label="Slide theme"
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                      value={slideTheme}
+                      onChange={(e) => setSlideTheme(e.target.value as SlideTheme)}
+                    >
+                      {(Object.keys(SLIDE_THEMES) as SlideTheme[]).map((k) => (
+                        <option key={k} value={k}>
+                          {SLIDE_THEMES[k].label}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Length
+                    </span>
+                    <select
+                      aria-label="Deck length"
+                      className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                      value={slideLength}
+                      onChange={(e) => setSlideLength(e.target.value as StudyLength)}
+                    >
+                      <option value="short">Short</option>
+                      <option value="standard">Standard</option>
+                      <option value="long">Long</option>
+                    </select>
+                  </div>
+                </div>
+              );
+            }
 
             // Study aids carry their own level and length controls for the
             // same reason the infographic carries its style picker: settings
@@ -808,6 +945,8 @@ export default function StudioPanel({
             );
           })}
         </div>
+        </section>
+        ))}
 
         {blocked && (
           <p className="mt-3 text-[11px] text-[var(--muted)]">

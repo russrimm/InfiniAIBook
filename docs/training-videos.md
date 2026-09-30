@@ -18,6 +18,12 @@ two steps, so nothing is billed for video until you are happy with the script.
 Editing is locked while a render runs. If you change the script afterwards, the
 editor says the video is out of date and offers **Render again**.
 
+The card and the editor also have a **Music** picker and an **Instructions**
+panel. Music is mixed into the MP4 after Azure returns it, lowered whenever the
+presenter speaks. The replacement list is applied to the transcript each time it
+is sent for rendering. See
+[Spoken formats](studio.md#spoken-formats-script-review-instructions-and-music).
+
 ## Sample
 
 [![A presenter on a slate background, with the subtitle "If you build or manage agents in Copilot Studio, the pace of change is fast"](screenshots/training-video.jpg)](https://github.com/user-attachments/assets/7651fdca-42dd-45e4-8e56-f56f07c3b6d9)

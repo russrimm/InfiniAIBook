@@ -4,8 +4,9 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A self-hosted Agentic Powered Notebook research studio. Upload your own sources, chat with
-them, and turn them into **reports, briefings, infographics, mind maps, quizzes,
-study guides, FAQs, timelines, audio overviews and avatar training videos**. Every claim is cited back to the document it came from.
+them, and turn them into **reports, briefings, PowerPoint decks, infographics,
+mind maps, quizzes, study guides, FAQs, timelines, audio overviews and avatar
+training videos**. Every claim is cited back to the document it came from.
 
 Built with Next.js 15, TypeScript and SQLite. Runs against Azure OpenAI, a dozen
 named providers (OpenAI, Anthropic, Gemini, Groq, Mistral, DeepSeek, OpenRouter,
@@ -52,20 +53,27 @@ How it works, setup and costs: [Training videos](docs/training-videos.md).
   reusable prompts run on a source. [More](docs/notes-and-search.md)
 - **Search everything** — keyword or semantic search, and a grounded **Ask**,
   across every notebook. [More](docs/notes-and-search.md#search-and-ask)
-- **Studio** — thirteen generators, each producing a structured, interactive artifact:
+- **Studio** — fourteen generators, each producing a structured, interactive artifact:
 
   | Format | Output |
   |---|---|
   | 🎧 [Audio overview](docs/audio-overviews.md) | One to four speakers discuss your sources, with a synced transcript |
   | 🎬 [Whiteboard video](docs/whiteboard-videos.md) | A narrated, hand-drawn explainer, MP4 |
-  | 🎞️ [Motion explainer](docs/motion-explainers.md) | A narrated 2D animated explainer (problem → solution → how → benefits → next step), with optional music, MP4. [Customize](docs/motion-explainers.md#customizing-a-video) the length, tone, audience, illustration style, colors, character, closing call to action and resolution |
+  | 🎞️ [Motion explainer](docs/motion-explainers.md) | A narrated 2D animated explainer (problem → solution → how → benefits → next step), MP4. [Customize](docs/motion-explainers.md#customizing-a-video) the length, tone, audience, illustration style, colors, character, closing call to action and resolution |
   | 🧑‍🏫 [Training video](docs/training-videos.md) | An editable trainer's script from sources and notes, rendered by a lip-synced Azure avatar presenter, MP4 |
+  | 📽️ [PowerPoint deck](docs/studio.md#powerpoint-deck) | Title, agenda, content slides with speaker notes and a sources slide; download as PPTX |
   | 📊 [Infographic](docs/infographics.md) | Headline stats and themed sections in **20 styles** |
   | 🕸️ [Mind map](docs/studio.md#mind-maps) | Interactive, expandable concept tree |
   | 🧠 [Quiz](docs/studio.md#quiz) · 🗂️ [Flashcards](docs/studio.md#flashcards) | Scored quizzes and self-graded decks |
   | 📄 Report · 🧾 Briefing · 🎓 Study guide · ❓ FAQ · 🗓️ Timeline | Structured written summaries |
 
-- **Exports**: Markdown, MP3, MP4, PNG and Anki/Quizlet CSV. [More](docs/studio.md#exporting)
+  Audio overviews and all three video formats stop at an **editable script**
+  before anything is narrated or rendered, accept **narration instructions**
+  and a **word-replacement list** (for terms to avoid, translation or a
+  different register), and can add **background music** you upload.
+  [More](docs/studio.md#spoken-formats-script-review-instructions-and-music)
+
+- **Exports**: Markdown, PPTX, MP3, MP4, PNG and Anki/Quizlet CSV. [More](docs/studio.md#exporting)
 - **Everything is local** — sources, embeddings, chat history, artifacts and
   media live under `.data/`. Password protection and a Docker image included.
 

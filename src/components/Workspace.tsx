@@ -14,6 +14,7 @@ import ModelPicker from "./ModelPicker";
 import NotesPanel from "./NotesPanel";
 import TransformationsModal from "./TransformationsModal";
 import LibraryModal from "./LibraryModal";
+import AboutModal from "./AboutModal";
 import { CitationContext } from "./CitationContext";
 import { useDeferredDelete } from "./UndoToast";
 import type { SourceHighlight } from "./SourceModal";
@@ -29,6 +30,7 @@ import type {
   Notebook,
   Source,
 } from "@/lib/types";
+import type { NarrationSettings } from "@/lib/narration";
 
 type Data = {
   notebook: Notebook;
@@ -59,6 +61,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [discovering, setDiscovering] = useState(false);
   const [browsing, setBrowsing] = useState(false);
   const [pickingModel, setPickingModel] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [model, setModel] = useState("");
   const [tab, setTab] = useState<Tab>("chat");
   /** Which panel fills the right-hand column on wide screens. */
@@ -187,6 +190,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         discovering ||
         browsing ||
         pickingModel ||
+        aboutOpen ||
         showUpdates ||
         openNoteId ||
         managingTransformations ||
@@ -198,6 +202,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     discovering,
     browsing,
     pickingModel,
+    aboutOpen,
     showUpdates,
     openNoteId,
     managingTransformations,
@@ -375,6 +380,14 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         >
           🧠 <span className="hidden max-w-[10rem] truncate md:inline">{model}</span>
         </button>
+        <button
+          aria-label="About InfiniAIBook"
+          title="About"
+          className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
+          onClick={() => setAboutOpen(true)}
+        >
+          ⓘ
+        </button>
       </header>
 
       {pendingUpdates.length > 0 && (
@@ -492,6 +505,22 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
                 deferRemove(a.id, `“${a.title}”`, `/api/artifacts/${a.id}`)
               }
               onChanged={() => void load()}
+              narrationDefaults={data.notebook.narration}
+              onSaveNarration={async (narration) => {
+                const res = await fetch(`/api/notebooks/${notebookId}`, {
+                  method: "PATCH",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ narration }),
+                });
+                const j = (await res.json().catch(() => ({}))) as {
+                  error?: string;
+                  narration?: NarrationSettings;
+                };
+                if (!res.ok || !j.narration) throw new Error(j.error || "Could not save.");
+                const saved = j.narration;
+                setData((d) => (d ? { ...d, notebook: { ...d.notebook, narration: saved } } : d));
+                return saved;
+              }}
             />
           </div>
           <div
@@ -577,6 +606,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           }}
         />
       )}
+      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
       {showUpdates && (
         <SourceUpdates
           updates={pendingUpdates}

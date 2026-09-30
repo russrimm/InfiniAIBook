@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Notebook } from "@/lib/types";
+import AboutModal from "@/components/AboutModal";
 import { useDeferredDelete } from "@/components/UndoToast";
 
 export default function Home() {
@@ -10,6 +11,7 @@ export default function Home() {
   const [notebooks, setNotebooks] = useState<Notebook[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [authOn, setAuthOn] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const deferDelete = useDeferredDelete();
   /** Notebooks deleted but still within their undo window. */
   const [hiddenNb, setHiddenNb] = useState<Set<string>>(new Set());
@@ -82,6 +84,14 @@ export default function Home() {
           <button className="btn" onClick={() => router.push("/search")}>
             🔎 Search all
           </button>
+          <button
+            aria-label="About InfiniAIBook"
+            title="About"
+            className="btn"
+            onClick={() => setAboutOpen(true)}
+          >
+            ⓘ
+          </button>
           {authOn && (
             <button className="btn" onClick={() => void signOut()}>
               Sign out
@@ -139,6 +149,7 @@ export default function Home() {
           ))}
         </div>
       )}
+      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
     </main>
   );
 }

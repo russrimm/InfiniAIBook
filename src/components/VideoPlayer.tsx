@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { describeMotionOptions } from "@/lib/motion";
+import { describeMotionOptions, type MotionPlan } from "@/lib/motion";
 import type { VideoContent } from "@/lib/types";
+import type { ScenePlan } from "@/lib/whiteboard";
+import { EMPTY_NARRATION, readNarration, type NarrationSettings } from "@/lib/narration";
+import { normalizeMusicChoice, type MusicChoice } from "@/lib/musicchoice";
+import { MULTITALKER_SPEAKERS, WORDS_PER_MINUTE } from "@/lib/voices";
+import MusicPicker from "./MusicPicker";
+import NarrationOptions from "./NarrationOptions";
 
 const STAGES: Record<"whiteboard" | "motion", { key: string; label: string }[]> = {
   whiteboard: [
@@ -40,9 +46,12 @@ export default function VideoPlayer({
   const stages = STAGES[variant];
   const progress = content.progress;
   const stage = progress?.stage ?? (content.videoUrl ? "done" : "artwork");
-  const building = stage !== "done" && stage !== "failed";
+  const inScript = stage === "script";
+  const building = stage !== "done" && stage !== "failed" && !inScript;
+  const editable = Boolean(content.plan);
 
   const [elapsed, setElapsed] = useState(0);
+  const [editing, setEditing] = useState(false);
 
   // The caller passes a fresh closure on every render. Holding it in a ref
   // keeps it out of the effect's dependencies — with it in there, each poll
@@ -54,6 +63,7 @@ export default function VideoPlayer({
 
   useEffect(() => {
     if (!building) return;
+    setEditing(false);
     const tick = setInterval(() => setElapsed((s) => s + 1), 1000);
     const poll = setInterval(() => {
       // Never let a failed poll surface as a page error. The build outlives
@@ -66,12 +76,53 @@ export default function VideoPlayer({
     };
   }, [building]);
 
+  if (editable && (inScript || editing)) {
+    return (
+      <ScriptEditor
+        artifactId={artifactId}
+        content={content}
+        variant={variant}
+        rendered={Boolean(content.videoUrl) || stage === "failed"}
+        onCancel={inScript ? undefined : () => setEditing(false)}
+        onRefresh={() => refresh.current()}
+      />
+    );
+  }
+
+  const editButton = editable ? (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <p className="mr-auto text-[11px] text-[var(--muted)]">
+        {content.editedSinceRender
+          ? "The script has changed since this video was rendered."
+          : "Want different wording? Edit the script and render again."}
+      </p>
+      <button className="btn !text-xs" onClick={() => setEditing(true)}>
+        Edit script
+      </button>
+    </div>
+  ) : null;
+
   if (stage === "failed") {
     return (
       <div>
         <p className="rounded-xl border border-red-900/50 bg-red-950/20 px-4 py-3 text-[13px] text-red-200">
           {progress?.note ?? "The video could not be built."}
         </p>
+        {content.videoUrl && (
+          <>
+            <p className="mt-3 text-[11px] text-[var(--muted)]">
+              The previous video is unchanged:
+            </p>
+            <video
+              key={content.videoUrl}
+              src={content.videoUrl}
+              controls
+              preload="metadata"
+              className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-black"
+            />
+          </>
+        )}
+        {editButton}
         <SceneList content={content} />
       </div>
     );
@@ -141,6 +192,7 @@ export default function VideoPlayer({
   return (
     <div>
       <video
+        key={content.videoUrl}
         src={content.videoUrl}
         controls
         preload="metadata"
@@ -160,6 +212,7 @@ export default function VideoPlayer({
           Download
         </a>
       </div>
+      {editButton}
       <SceneList content={content} />
       <p className="mt-4 text-[10px] text-[var(--muted)]">
         Narrated by {content.voice ?? "Ava"}
@@ -204,5 +257,360 @@ function SceneList({ content }: { content: VideoContent }) {
         ))}
       </ol>
     </>
+  );
+}
+
+const inputCls =
+  "w-full rounded-md border border-[var(--border)] bg-[#0e1116] px-2.5 py-1.5 text-[13px] text-[var(--fg)] outline-none placeholder:text-[#53606f] focus:border-[#4d5a7a] disabled:opacity-60";
+const labelCls = "mb-1 block text-[10px] tracking-wide text-[var(--muted)] uppercase";
+
+type EditScene = {
+  /** Whiteboard: the hand-lettered title. Motion: the headline. */
+  title: string;
+  /** Whiteboard: caption band. Motion: subline. */
+  caption: string;
+  narration: string;
+  /** Whiteboard only: what the image model draws. */
+  drawing?: string;
+  /** Motion only: short chips, comma separated while editing. */
+  callouts?: string;
+  /** Everything else about the scene, passed back untouched. */
+  rest: Record<string, unknown>;
+};
+
+type ScriptDraft = {
+  title: string;
+  scenes: EditScene[];
+  voice: string;
+  music: MusicChoice | null;
+  narration: NarrationSettings;
+};
+
+function toScriptDraft(c: VideoContent, variant: "whiteboard" | "motion"): ScriptDraft {
+  const plan = c.plan as (ScenePlan | MotionPlan) | undefined;
+  const scenes: EditScene[] =
+    variant === "motion"
+      ? ((plan as MotionPlan | undefined)?.scenes ?? []).map((s) => {
+          const { headline, subline, narration, callouts, ...rest } = s;
+          return {
+            title: headline,
+            caption: subline,
+            narration,
+            callouts: callouts.join(", "),
+            rest,
+          };
+        })
+      : ((plan as ScenePlan | undefined)?.scenes ?? []).map((s) => {
+          const { title, caption, narration, drawing, ...rest } = s;
+          return { title, caption, narration, drawing, rest };
+        });
+  return {
+    title: plan?.title ?? c.title,
+    scenes,
+    voice: c.voice ?? "Ava",
+    music: normalizeMusicChoice(c.musicChoice),
+    narration: c.narration ? readNarration(c.narration) : EMPTY_NARRATION,
+  };
+}
+
+function fromScriptDraft(d: ScriptDraft, variant: "whiteboard" | "motion") {
+  return d.scenes.map((s) =>
+    variant === "motion"
+      ? {
+          ...s.rest,
+          headline: s.title,
+          subline: s.caption,
+          narration: s.narration,
+          callouts: (s.callouts ?? "")
+            .split(",")
+            .map((x) => x.trim())
+            .filter(Boolean),
+        }
+      : { ...s.rest, title: s.title, caption: s.caption, narration: s.narration, drawing: s.drawing }
+  );
+}
+
+/**
+ * The review step before a whiteboard or motion build: every scene's words
+ * are editable, along with the voice, music and narration instructions.
+ */
+function ScriptEditor({
+  artifactId,
+  content,
+  variant,
+  rendered,
+  onCancel,
+  onRefresh,
+}: {
+  artifactId: string;
+  content: VideoContent;
+  variant: "whiteboard" | "motion";
+  rendered: boolean;
+  onCancel?: () => void;
+  onRefresh: () => Promise<void> | void;
+}) {
+  const [draft, setDraft] = useState<ScriptDraft>(() => toScriptDraft(content, variant));
+  const [dirty, setDirty] = useState(false);
+  const [busy, setBusy] = useState<"save" | "render" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const stored = JSON.stringify([content.plan, content.voice, content.musicChoice, content.narration]);
+  useEffect(() => {
+    if (!dirtyRef.current) setDraft(toScriptDraft(content, variant));
+    // `stored` captures every field toScriptDraft reads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stored]);
+
+  const edit = (patch: Partial<ScriptDraft>) => {
+    setDraft((d) => ({ ...d, ...patch }));
+    setDirty(true);
+  };
+  const editScene = (i: number, patch: Partial<EditScene>) =>
+    edit({ scenes: draft.scenes.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
+  const moveScene = (i: number, by: -1 | 1) => {
+    const next = [...draft.scenes];
+    const j = i + by;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j]!, next[i]!];
+    edit({ scenes: next });
+  };
+
+  const save = async () => {
+    const res = await fetch(`/api/video/${artifactId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: draft.title,
+        scenes: fromScriptDraft(draft, variant),
+        voice: draft.voice,
+        music: draft.music,
+        narration: {
+          instructions: draft.narration.instructions,
+          replacements: draft.narration.replacements.filter((r) => r.from.trim()),
+        },
+      }),
+    });
+    const j = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) throw new Error(j.error || "Could not save the script.");
+    setDirty(false);
+    await onRefresh();
+  };
+
+  const run = async (what: "save" | "render") => {
+    setBusy(what);
+    setError(null);
+    try {
+      if (dirty) await save();
+      if (what === "render") {
+        const res = await fetch(`/api/video/${artifactId}/render`, { method: "POST" });
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        if (!res.ok) throw new Error(j.error || "Could not start the render.");
+        await onRefresh();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const minScenes = variant === "motion" ? 3 : 2;
+  const words = draft.scenes.reduce((n, s) => n + (s.narration.match(/\S+/g)?.length ?? 0), 0);
+  const minutes = words / WORDS_PER_MINUTE;
+  const locked = busy !== null;
+  const voices = [...MULTITALKER_SPEAKERS.female, ...MULTITALKER_SPEAKERS.male];
+
+  return (
+    <div className="space-y-5">
+      <p className="rounded-xl border border-[var(--border)] bg-[#0e1116] px-4 py-3 text-[12px] leading-relaxed text-[var(--muted)]">
+        {rendered
+          ? "Edit the script, then render again. Rendering redraws the artwork and re-records the narration."
+          : "Review the script below — change any wording or remove scenes. Nothing is drawn or recorded until you press "}
+        {!rendered && <span className="text-[var(--fg)]">Render video</span>}
+        {!rendered && "."}
+      </p>
+
+      {error && (
+        <p className="rounded-xl border border-red-900/50 bg-red-950/20 px-4 py-3 text-[13px] text-red-200">
+          {error}
+        </p>
+      )}
+
+      <section className="space-y-2 rounded-2xl border border-[var(--border)] p-4">
+        <h3 className="text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
+          Voice &amp; sound
+        </h3>
+        <div className="flex items-center gap-2">
+          <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+            Voice
+          </span>
+          <select
+            aria-label="Narrator voice"
+            className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+            value={draft.voice}
+            disabled={locked}
+            onChange={(e) => edit({ voice: e.target.value })}
+          >
+            {voices.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </div>
+        <MusicPicker value={draft.music} onChange={(music) => edit({ music })} disabled={locked} />
+        <NarrationOptions
+          value={draft.narration}
+          onChange={(narration) => edit({ narration })}
+          disabled={locked}
+        />
+        <p className="text-[10px] leading-snug text-[var(--muted)]">
+          Instructions shape newly written scripts; the replacement list is
+          applied to this script when you save and when it renders.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-baseline gap-3">
+          <h3 className="text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
+            Script
+          </h3>
+          <span className="text-[11px] text-[var(--muted)] tabular-nums">
+            {draft.scenes.length} scenes · {words.toLocaleString()} words · about{" "}
+            {minutes.toFixed(1)} min of narration
+          </span>
+        </div>
+        <input
+          className={`${inputCls} text-[15px] font-semibold`}
+          aria-label="Title"
+          value={draft.title}
+          disabled={locked}
+          onChange={(e) => edit({ title: e.target.value })}
+        />
+
+        <ol className="space-y-3">
+          {draft.scenes.map((s, i) => {
+            const beat = variant === "motion" ? String(s.rest.beat ?? "") : "";
+            return (
+              <li key={i} className="rounded-xl border border-[var(--border)] p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="w-5 shrink-0 text-center text-[10px] font-semibold text-[var(--muted)]">
+                    {i + 1}
+                  </span>
+                  {beat && (
+                    <span className="shrink-0 text-[10px] font-semibold tracking-widest text-[var(--accent)] uppercase">
+                      {BEAT_LABELS[beat] ?? beat}
+                    </span>
+                  )}
+                  <input
+                    className={`${inputCls} font-medium`}
+                    aria-label={`Scene ${i + 1} ${variant === "motion" ? "headline" : "title"}`}
+                    placeholder={variant === "motion" ? "Headline" : "Title"}
+                    value={s.title}
+                    disabled={locked}
+                    onChange={(e) => editScene(i, { title: e.target.value })}
+                  />
+                  <button
+                    className="btn !px-2 !py-1 !text-xs"
+                    aria-label="Move up"
+                    disabled={locked || i === 0}
+                    onClick={() => moveScene(i, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className="btn !px-2 !py-1 !text-xs"
+                    aria-label="Move down"
+                    disabled={locked || i === draft.scenes.length - 1}
+                    onClick={() => moveScene(i, 1)}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    className="btn !px-2 !py-1 !text-xs hover:text-red-300"
+                    aria-label="Remove scene"
+                    disabled={locked || draft.scenes.length <= minScenes}
+                    onClick={() => edit({ scenes: draft.scenes.filter((_, j) => j !== i) })}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="grid gap-2 pl-7">
+                  <label className="block">
+                    <span className={labelCls}>
+                      {variant === "motion" ? "Subline on screen" : "Caption on screen"}
+                    </span>
+                    <input
+                      className={inputCls}
+                      value={s.caption}
+                      disabled={locked}
+                      onChange={(e) => editScene(i, { caption: e.target.value })}
+                    />
+                  </label>
+                  {variant === "motion" && (
+                    <label className="block">
+                      <span className={labelCls}>Callout chips · comma separated</span>
+                      <input
+                        className={inputCls}
+                        value={s.callouts ?? ""}
+                        disabled={locked}
+                        onChange={(e) => editScene(i, { callouts: e.target.value })}
+                      />
+                    </label>
+                  )}
+                  {variant === "whiteboard" && (
+                    <label className="block">
+                      <span className={labelCls}>What gets drawn</span>
+                      <textarea
+                        className={`${inputCls} min-h-[3rem] leading-relaxed`}
+                        value={s.drawing ?? ""}
+                        disabled={locked}
+                        onChange={(e) => editScene(i, { drawing: e.target.value })}
+                      />
+                    </label>
+                  )}
+                  <label className="block">
+                    <span className={labelCls}>Narration · spoken exactly as written</span>
+                    <textarea
+                      className={`${inputCls} min-h-[5rem] leading-relaxed`}
+                      value={s.narration}
+                      disabled={locked}
+                      onChange={(e) => editScene(i, { narration: e.target.value })}
+                    />
+                  </label>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
+
+      <div className="sticky -bottom-6 -mx-1 flex flex-wrap items-center gap-2 border-t border-[var(--border)] bg-[var(--panel)] px-1 pt-3 pb-9">
+        <p className="mr-auto text-[11px] leading-snug text-[var(--muted)]">
+          Rendering takes several minutes and uses the image and speech models.
+        </p>
+        {onCancel && (
+          <button className="btn !text-xs" disabled={locked} onClick={onCancel}>
+            Cancel
+          </button>
+        )}
+        <button
+          className="btn !text-xs"
+          disabled={!dirty || locked}
+          onClick={() => void run("save")}
+        >
+          {busy === "save" ? "Saving…" : dirty ? "Save changes" : "Saved"}
+        </button>
+        <button
+          className="btn btn-primary !text-xs"
+          disabled={locked || words === 0 || draft.scenes.length < minScenes}
+          onClick={() => void run("render")}
+        >
+          {busy === "render" ? "Starting…" : rendered ? "Render again" : "Render video"}
+        </button>
+      </div>
+    </div>
   );
 }
