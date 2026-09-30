@@ -44,6 +44,11 @@ export function voiceDir(): string {
   return path.join(dataDir(), "voices");
 }
 
+/** Background music uploaded through the app. */
+export function musicDir(): string {
+  return path.join(dataDir(), "music");
+}
+
 export function videoDir(): string {
   return path.join(dataDir(), "video");
 }

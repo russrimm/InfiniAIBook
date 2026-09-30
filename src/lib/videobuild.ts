@@ -1,7 +1,8 @@
-import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { db } from "./db";
+import { runPythonRenderer } from "./python";
+import { mixMusicInto } from "./music";
 import { generateImage } from "./ai";
 import { synthesizeRawSsml } from "./speech";
 import { addBreaths } from "./prosody";
@@ -9,6 +10,7 @@ import { videoDir, videoPath, videoWorkDir } from "./paths";
 import { HAND_PROMPT, scenePrompt, type Scene, type ScenePlan } from "./whiteboard";
 
 export type VideoStage =
+  | "script"
   | "planning"
   | "artwork"
   | "narration"
@@ -85,6 +87,8 @@ function reconcileRow(r: VideoRow): boolean {
   }
   const progress = content.progress as VideoProgress | undefined;
   if (!progress || progress.stage === "done" || progress.stage === "failed") return false;
+  // Waiting for the user to review the script: nothing is running to stall.
+  if (progress.stage === "script") return false;
 
   // Rows written before heartbeats existed fall back to their creation time,
   // which is the only evidence available for them.
@@ -182,29 +186,8 @@ export async function pool<T>(items: T[], n: number, work: (item: T, i: number) 
   );
 }
 
-/** Run a renderer under scripts/ with a config file, rejecting with its stderr tail. */
-export function runPythonRenderer(scriptPath: string[], configPath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const script = path.join(process.cwd(), "scripts", ...scriptPath);
-    const py = process.env.PYTHON_BIN || "python";
-    const child = spawn(py, [script, configPath], { cwd: process.cwd() });
-
-    let err = "";
-    child.stderr.on("data", (d) => (err += String(d)));
-    child.on("error", (e) =>
-      reject(
-        new Error(
-          `Could not start Python ("${py}"). The renderer needs Python with numpy, Pillow and imageio-ffmpeg. ${e.message}`
-        )
-      )
-    );
-    child.on("close", (code) =>
-      code === 0
-        ? resolve()
-        : reject(new Error(`The renderer failed (exit ${code}). ${err.slice(-400)}`))
-    );
-  });
-}
+/** Run a renderer under scripts/ with a config file. Kept here for existing imports. */
+export { runPythonRenderer };
 
 /**
  * Build the video. Runs detached from the request: artwork alone takes minutes,
@@ -214,7 +197,8 @@ export function runPythonRenderer(scriptPath: string[], configPath: string): Pro
 export async function buildVideo(
   id: string,
   plan: ScenePlan,
-  voice: string
+  voice: string,
+  opts: { music?: { file: string; gain: number } | null } = {}
 ): Promise<void> {
   const work = videoWorkDir(id);
   fs.mkdirSync(work, { recursive: true });
@@ -224,7 +208,7 @@ export async function buildVideo(
   const beat = setInterval(() => touch(id), HEARTBEAT_MS);
 
   try {
-    await runBuild(id, plan, voice, work);
+    await runBuild(id, plan, voice, work, opts.music ?? null);
   } finally {
     clearInterval(beat);
   }
@@ -234,7 +218,8 @@ async function runBuild(
   id: string,
   plan: ScenePlan,
   voice: string,
-  work: string
+  work: string,
+  music: { file: string; gain: number } | null
 ): Promise<void> {
   const scenes = plan.scenes;
   const images: string[] = new Array(scenes.length);
@@ -284,7 +269,9 @@ async function runBuild(
     progress: { stage: "rendering", done: 0, total: 1 } satisfies VideoProgress,
   });
 
-  const out = videoPath(id);
+  // Rendered into scratch and moved into place only once complete, so a
+  // failed re-render leaves the previous video intact.
+  const out = path.join(work, "render.mp4");
   const config = {
     output: out.replace(/\\/g, "/"),
     hand: hand.replace(/\\/g, "/"),
@@ -313,10 +300,27 @@ async function runBuild(
     /* already cleaned up by the renderer */
   }
 
+  let withMusic = false;
+  if (music && fs.existsSync(music.file)) {
+    try {
+      await mixMusicInto(out, music, "video");
+      withMusic = true;
+    } catch (e) {
+      // The narrated video is still worth keeping without its music bed.
+      console.warn("[video] music mix failed, keeping the video without it", e);
+    }
+  }
+
+  const final = videoPath(id);
+  fs.mkdirSync(videoDir(), { recursive: true });
+  fs.renameSync(out, final);
+
   setProgress(id, {
     progress: { stage: "done", done: 1, total: 1 } satisfies VideoProgress,
-    videoUrl: `/api/video/${id}`,
-    bytes: fs.statSync(out).size,
+    videoUrl: `/api/video/${id}?v=${Date.now()}`,
+    bytes: fs.statSync(final).size,
+    music: withMusic,
+    editedSinceRender: false,
   });
 
   // Scene artwork and narration clips are only inputs to the render. Keeping

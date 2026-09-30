@@ -40,7 +40,7 @@ Two checks apply whether or not a password is set:
 | GET | `/api/notebooks` | — | All notebooks with counts |
 | POST | `/api/notebooks` | `{ title }` | The new notebook |
 | GET | `/api/notebooks/{id}` | — | Notebook, `sources`, `artifacts` (summaries), `sessions`, `notes`, and `messages` of the latest session |
-| PATCH | `/api/notebooks/{id}` | `{ title }` | Rename |
+| PATCH | `/api/notebooks/{id}` | `{ title?, narration? }` | Rename, or save the notebook's default narration instructions and replacements |
 | DELETE | `/api/notebooks/{id}` | — | Deletes it and everything in it |
 | POST/GET | `/api/notebooks/{id}/check-sources` | — | Re-check linked sources for changes |
 | POST/GET | `/api/notebooks/{id}/reembed` | — | Re-embed chunks after changing embedding model |
@@ -140,16 +140,30 @@ and cannot be edited or deleted.
 
 | Method | Path | Body |
 |---|---|---|
-| POST | `/api/generate` | `{ notebookId, type, topic?, sourceIds?, style?, difficulty?, length? }` |
-| POST | `/api/podcast` | `{ notebookId, topic?, sourceIds?, preset?, speakers?: [{ voice?, name?, role? }] (1–4), rate?, breath?, length? }` |
-| POST | `/api/video` | Whiteboard video; poll `GET /api/video/{id}` |
-| POST | `/api/motion` | `{ notebookId, topic?, sourceIds?, voice?, music?, length?, tone?, audience?, visual?, palette?, customPalette?, character?, characterDescription?, closing?, resolution? }` → motion explainer; poll `GET /api/artifacts/{id}`, play `GET /api/video/{id}`. Customization values are in [Motion explainers](motion-explainers.md#customizing-a-video); unknown values fall back to the defaults |
-| GET | `/api/motion` | `{ music }`: whether `MOTION_MUSIC_DIR` has tracks |
-| POST | `/api/training` | `{ notebookId, topic?, sourceIds?, presenter?, voice?, background?, length? }` → training transcript artifact |
-| PATCH | `/api/training/{id}` | Edit `title`, `description`, `objectives`, `sections`, `presenter`, `voice`, `background`; 409 while rendering |
+| POST | `/api/generate` | `{ notebookId, type, topic?, sourceIds?, style?, theme?, difficulty?, length? }` (`theme` applies to `type: "slides"`) |
+| POST | `/api/podcast` | `{ notebookId, topic?, sourceIds?, preset?, speakers?: [{ voice?, name?, role? }] (1–4), rate?, breath?, length?, narration?, music? }` → audio-overview **script** (`stage: "script"`), not yet narrated |
+| PATCH | `/api/podcast/{id}` | Edit `title`, `description`, `script: { segments: [{ title, turns: [{ speaker, text }] }] }`, `voices`, `rate`, `music`, `narration`; 409 while narrating |
+| POST | `/api/podcast/{id}/narrate` | Synthesize the script (and mix any music); returns the artifact with `audioUrl` and timed `turns` |
+| POST | `/api/video` | `{ notebookId, topic?, sourceIds?, voice?, narration?, music? }` → whiteboard scene plan (`progress.stage: "script"`) |
+| POST | `/api/motion` | `{ notebookId, topic?, sourceIds?, voice?, music?, narration?, length?, tone?, audience?, visual?, palette?, customPalette?, character?, characterDescription?, closing?, resolution? }` → motion scene plan (`progress.stage: "script"`). Customization values are in [Motion explainers](motion-explainers.md#customizing-a-video); unknown values fall back to the defaults |
+| PATCH | `/api/video/{id}` | Edit a whiteboard or motion script: `title`, `description`, `scenes`, `voice`, `music`, `narration`; 409 while building |
+| POST | `/api/video/{id}/render` | Build the reviewed script; poll `GET /api/artifacts/{id}` for `progress.stage`, play `GET /api/video/{id}` |
+| GET | `/api/motion` | `{ music }`: whether any background-music track is available |
+| POST | `/api/training` | `{ notebookId, topic?, sourceIds?, presenter?, voice?, background?, length?, narration?, music? }` → training transcript artifact |
+| PATCH | `/api/training/{id}` | Edit `title`, `description`, `objectives`, `sections`, `presenter`, `voice`, `background`, `music`, `narration`; 409 while rendering |
 | POST | `/api/training/{id}/render` | Start the avatar render; poll `GET /api/artifacts/{id}` for `progress.stage` |
+| GET/POST | `/api/music` | List the music library / upload a track (multipart field `file`; MP3, M4A, AAC, WAV, OGG or FLAC, up to 50 MB) |
+| GET/DELETE | `/api/music/{id}` | Stream a track / delete an uploaded one (tracks from `MOTION_MUSIC_DIR` cannot be deleted) |
 | GET/DELETE | `/api/artifacts/{id}` | A saved artifact |
 | GET | `/api/audio/{id}`, `/api/image/{id}`, `/api/voice-preview/{name}` | Binary media |
+
+Spoken formats take two optional fields. `narration` is
+`{ instructions?: string, replacements?: [{ from, to }] }`: the instructions go
+into the script prompt, and every `from` term is replaced with `to` (or removed
+when `to` is empty) in the finished script and again right before speech. When
+omitted, the notebook's saved defaults are used. `music` is
+`{ track: "random" | trackId, volume?: "low" | "medium" | "high" }`, or `null`
+for none.
 
 ## Other
 

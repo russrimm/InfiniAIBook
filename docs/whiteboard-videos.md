@@ -1,8 +1,12 @@
 # Whiteboard videos
 
-The 🎬 button plans six scenes from your sources, draws each one, narrates it and
-renders an MP4 — a hand moving across the board, drawing the lines as they
-appear, with a caption band underneath.
+The 🎬 button plans six scenes from your sources and opens the plan for review.
+Press **Render video** and it draws each scene, narrates it and renders an MP4 —
+a hand moving across the board, drawing the lines as they appear, with a
+caption band underneath. The editor lets you change each scene's title,
+caption, drawing description and narration, and pick the voice, background
+music and narration instructions; see
+[Spoken formats](studio.md#spoken-formats-script-review-instructions-and-music).
 
 The **focus box** at the top of the Studio panel steers it, so the same notebook
 can produce a video about whichever part of the material you want.
@@ -35,9 +39,11 @@ half a minute of narration, and 2.5 minutes of rendering, for a 3.6 MB file at
 concurrent calls collide on a small image deployment's per-minute limit and
 spend the retry budget racing each other rather than waiting.
 
-Nothing blocks on it. The scene plan is written first and the artifact is saved
-immediately; the build carries on in the background, writing its stage onto the
-row, and the player shows the progress. Close it, keep working, come back.
+Nothing blocks on it. The scene plan is saved for review first; once you press
+**Render video** the build carries on in the background, writing its stage onto
+the row, and the player shows the progress. Close it, keep working, come back.
+If background music was chosen, it is mixed in after the render and ducked
+under the narration.
 
 ## Two renderer details worth knowing
 

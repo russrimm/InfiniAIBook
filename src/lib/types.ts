@@ -1,4 +1,18 @@
-import type { MotionOptions } from "./motion";
+import type { MotionOptions, MotionPlan } from "./motion";
+import type { MusicChoice } from "./musicchoice";
+import type { NarrationSettings } from "./narration";
+import type { PodcastScript } from "./podcastscript";
+import type { ScenePlan } from "./whiteboard";
+
+/** Steering and music every spoken format carries. */
+export type SpokenExtras = {
+  /** Instructions and word replacements the script was written with. */
+  narration?: NarrationSettings;
+  /** The music bed to mix in on the next render; null for none. */
+  musicChoice?: MusicChoice | null;
+  /** Whether the last render actually had music mixed in. */
+  music?: boolean;
+};
 
 export type ArtifactType =
   | "report"
@@ -9,6 +23,7 @@ export type ArtifactType =
   | "flashcards"
   | "mindmap"
   | "timeline"
+  | "slides"
   | "infographic"
   | "video"
   | "motion"
@@ -68,6 +83,22 @@ export type TimelineContent = {
   items: { date: string; title: string; text: string }[];
 };
 
+export type SlideTheme = "midnight" | "light" | "ocean" | "sunset";
+export type SlideLayout = "title" | "agenda" | "section" | "bullets" | "closing" | "sources";
+export type Slide = {
+  layout: SlideLayout;
+  title: string;
+  subtitle?: string;
+  bullets?: string[];
+  notes?: string;
+};
+export type SlidesContent = {
+  title: string;
+  subtitle?: string;
+  theme: SlideTheme;
+  slides: Slide[];
+};
+
 export type InfographicContent = {
   title: string;
   subtitle?: string;
@@ -125,23 +156,40 @@ export type PodcastSpeaker = {
   role?: string;
 };
 
-export type PodcastContent = {
+export type PodcastContent = SpokenExtras & {
   title: string;
   description?: string;
+  /**
+   * "script" while the transcript awaits review, "narrating" while speech is
+   * being synthesized, "done" once there is audio. Absent on older overviews,
+   * which always have audio.
+   */
+  stage?: "script" | "narrating" | "done";
+  /** The editable script. Older overviews rebuild it from `turns`. */
+  script?: PodcastScript;
   turns: PodcastTurn[];
-  audioUrl: string;
+  audioUrl?: string;
   durationSec: number;
-  voices: { a: string; b: string } & Partial<Record<PodcastSpeakerId, string>>;
+  voices: Partial<Record<PodcastSpeakerId, string>>;
   /** Speaker display names and roles used to write the episode. */
   speakers?: PodcastSpeaker[];
+  settings?: { preset?: string; rate?: number; breath?: number };
+  /** Older overviews stored the speed here, not in `settings`. */
+  rate?: number;
+  /** When the current narration started, while `stage` is "narrating". */
+  narratingAt?: number;
   /** Requested running time, so the result can be compared with the target. */
   length?: string;
   targetMinutes?: number;
   /** Named sections with their start offset, for jumping around the audio. */
   chapters?: { title: string; at: number }[];
+  /** Set when the script changed after the last narration. */
+  editedSinceNarration?: boolean;
+  /** Last narration problem, shown above the editor. */
+  note?: string;
 };
 
-export type VideoContent = {
+export type VideoContent = SpokenExtras & {
   title: string;
   description?: string;
   scenes: {
@@ -152,14 +200,16 @@ export type VideoContent = {
     /** Story beat of a motion explainer scene: problem, solution, how, benefits, cta. */
     beat?: string;
   }[];
+  /** The full editable plan; absent on videos made before scripts were editable. */
+  plan?: ScenePlan | MotionPlan;
   videoUrl?: string;
   bytes?: number;
   voice?: string;
-  /** Motion explainers record whether a music bed was mixed in. */
-  music?: boolean;
   /** Motion explainers record the customization they were made with. */
   options?: MotionOptions;
   progress?: { stage: string; done: number; total: number; note?: string };
+  /** Set when the script changed after the last render. */
+  editedSinceRender?: boolean;
 };
 
 export type TrainingStage =
@@ -174,7 +224,7 @@ export type TrainingStage =
 
 export type TrainingSection = { title: string; text: string };
 
-export type TrainingContent = {
+export type TrainingContent = SpokenExtras & {
   title: string;
   description?: string;
   objectives: string[];
@@ -213,6 +263,7 @@ export type ArtifactContent =
   | FlashcardsContent
   | MindMapContent
   | TimelineContent
+  | SlidesContent
   | InfographicContent
   | VideoContent
   | PodcastContent;
@@ -257,6 +308,8 @@ export type Notebook = {
   emoji: string;
   createdAt: number;
   sourceCount?: number;
+  /** Saved narration defaults for the spoken Studio formats (detail view only). */
+  narration?: NarrationSettings;
 };
 
 export type Message = {

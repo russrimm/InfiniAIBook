@@ -123,6 +123,8 @@ export type TimelineOptions = {
   height?: number;
   fps?: number;
   music?: string | null;
+  /** Music gain before ducking. */
+  musicVolume?: number;
 };
 
 const round = (n: number) => Math.round(n * 1000) / 1000;
@@ -321,7 +323,7 @@ export function compileTimeline(
     fadeOut: FADE_OUT,
     scenes,
     narration,
-    music: opts.music ? { src: opts.music, volume: 0.35 } : null,
+    music: opts.music ? { src: opts.music, volume: opts.musicVolume ?? 0.35 } : null,
   };
 }
 

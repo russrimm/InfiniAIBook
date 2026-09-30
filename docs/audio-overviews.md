@@ -1,7 +1,11 @@
 # Audio overviews
 
-The 🎧 button writes a dialogue grounded in your sources, then narrates it with
-Azure Speech and stores an MP3 under `.data/audio/`.
+The 🎧 button writes a dialogue grounded in your sources and opens it in a
+script editor. Once you have reviewed it, **Narrate** voices it with Azure
+Speech and stores an MP3 under `.data/audio/`. You can edit the script and
+narrate again at any time, add background music, and steer the wording with
+instructions and a replacement list; see
+[Spoken formats](studio.md#spoken-formats-script-review-instructions-and-music).
 
 Audio overview supports solo explainers, two-host deep dives, three-speaker
 expert panels, and four-speaker debates. Each speaker can have a custom voice,

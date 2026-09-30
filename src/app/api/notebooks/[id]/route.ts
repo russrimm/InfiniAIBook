@@ -3,9 +3,12 @@ import { ok, fail } from "@/lib/http";
 import { removeAudio, removeImage, removeVideo } from "@/lib/paths";
 import { reconcileStalledVideos } from "@/lib/videobuild";
 import { forgetTraining, resumeStalledTrainings } from "@/lib/trainingbuild";
+import { reconcileStalledPodcasts } from "@/lib/podcaststore";
 import { listSessions, sessionMessages } from "@/lib/sessions";
 import { listNotes } from "@/lib/notes";
 import { MAX_UPLOAD_BYTES } from "@/lib/limits";
+import { readNarration } from "@/lib/narration";
+import { notebookNarration, saveNotebookNarration } from "@/lib/narrationstore";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -48,6 +51,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     // run forever.
     reconcileStalledVideos(id);
     resumeStalledTrainings(id);
+    reconcileStalledPodcasts(id);
 
     const sourceRows = db
       .prepare(
@@ -74,6 +78,7 @@ export async function GET(_req: Request, { params }: Ctx) {
         title: nb.title,
         emoji: nb.emoji,
         createdAt: nb.created_at,
+        narration: notebookNarration(nb.id),
       },
       sources: sourceRows.map((s) => ({
         id: s.id,
@@ -104,12 +109,17 @@ export async function GET(_req: Request, { params }: Ctx) {
 export async function PATCH(req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
-    const body = (await req.json()) as { title?: string };
+    const body = (await req.json()) as { title?: string; narration?: unknown };
     if (body.title?.trim()) {
       db.prepare("UPDATE notebooks SET title = ? WHERE id = ?").run(
         body.title.trim(),
         id
       );
+    }
+    if (body.narration !== undefined) {
+      const narration = readNarration(body.narration);
+      saveNotebookNarration(id, narration);
+      return ok({ ok: true, narration });
     }
     return ok({ ok: true });
   } catch (e) {

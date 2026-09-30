@@ -8,6 +8,7 @@ import { imageDir } from "@/lib/paths";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES, STUDIO } from "@/lib/studio";
 import { DEFAULT_STYLE, buildImagePrompt, isImageStyle, styleDef } from "@/lib/infographic";
+import { normalizeSlides } from "@/lib/slides";
 import type { ArtifactType, StudyDifficulty, StudyLength, StudyOptions } from "@/lib/types";
 import { NextResponse } from "next/server";
 
@@ -306,6 +307,7 @@ function isEmpty(type: ArtifactType, c: Loose): boolean {
   if (type === "flashcards") return (c.cards as unknown[]).length === 0;
   if (type === "faq") return (c.items as unknown[]).length === 0;
   if (type === "timeline") return (c.items as unknown[]).length === 0;
+  if (type === "slides") return (c.slides as unknown[]).length < 3;
   if (type === "infographic") {
     // Checklist, comparison and illustrated styles legitimately carry little
     // or no "sections", so the body can live in any of these.
@@ -323,13 +325,14 @@ function isEmpty(type: ArtifactType, c: Loose): boolean {
 
 export async function POST(req: Request) {
   try {
-    const { notebookId, type, topic, sourceIds, style, difficulty, length } =
+    const { notebookId, type, topic, sourceIds, style, theme, difficulty, length } =
       (await req.json()) as {
         notebookId: string;
         type: ArtifactType;
         topic?: string;
         sourceIds?: string[];
         style?: string;
+        theme?: string;
         difficulty?: StudyDifficulty;
         length?: StudyLength;
       };
@@ -341,20 +344,25 @@ export async function POST(req: Request) {
 
     // Reject unknown values rather than passing them into the prompt, where
     // they would silently become instructions.
+    const safeLength = (["short", "standard", "long"] as const).includes(
+      length as StudyLength
+    )
+      ? length
+      : "standard";
+    const safeDifficulty = (["easy", "medium", "hard"] as const).includes(
+      difficulty as StudyDifficulty
+    )
+      ? difficulty
+      : "medium";
+
     const studyOpts: StudyOptions | undefined = spec.study
       ? {
-          difficulty: (["easy", "medium", "hard"] as const).includes(
-            difficulty as StudyDifficulty
-          )
-            ? difficulty
-            : "medium",
-          length: (["short", "standard", "long"] as const).includes(
-            length as StudyLength
-          )
-            ? length
-            : "standard",
+          difficulty: safeDifficulty,
+          length: safeLength,
         }
       : undefined;
+    const instructionOpts: StudyOptions | undefined =
+      type === "slides" ? { length: safeLength } : studyOpts;
 
     // Infographic styles change the content shape, not just the palette.
     // Resolve once: the same key must drive both the prompt and what is
@@ -397,7 +405,7 @@ export async function POST(req: Request) {
       const messages: ChatMsg[] = [
         {
           role: "system",
-          content: `${GROUNDING_RULES}\n\n${spec.instruction(topic?.trim() ?? "", studyOpts)}${styleHint}`,
+          content: `${GROUNDING_RULES}\n\n${spec.instruction(topic?.trim() ?? "", instructionOpts)}${styleHint}`,
         },
         {
           role: "user",
@@ -424,7 +432,14 @@ export async function POST(req: Request) {
     if (!raw) throw lastError;
 
     const citations = citationList(passages);
-    const content = normalize(type, raw);
+    const content =
+      type === "slides" ? normalizeSlides(raw, theme, citations) : normalize(type, raw);
+    if (!content) {
+      return NextResponse.json(
+        { error: "The model did not return a usable slide deck. Try again." },
+        { status: 502 }
+      );
+    }
     if (isEmpty(type, content)) {
       return NextResponse.json(
         { error: "The model returned an empty result. Try again or narrow the focus." },

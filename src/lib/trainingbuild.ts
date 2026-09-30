@@ -12,6 +12,9 @@ import { presenter, presenterVoice, backgroundColour, MAX_AVATAR_MINUTES } from 
 import { buildTrainingSsml, countWords } from "./training";
 import { WORDS_PER_MINUTE } from "./voices";
 import type { TrainingContent, TrainingStage } from "./types";
+import { applyReplacements, readNarration } from "./narration";
+import { mixMusicInto, resolveMusic } from "./music";
+import { normalizeMusicChoice } from "./musicchoice";
 
 /**
  * The render lifecycle for training videos.
@@ -99,7 +102,12 @@ export async function startTrainingRender(id: string): Promise<void> {
 
   const { preset } = presenter(c.presenter);
   const voice = presenterVoice(c.voice, preset.voice);
-  const ssml = buildTrainingSsml(c.sections, voice);
+  const { replacements } = readNarration(c.narration);
+  const spoken = c.sections.map((s) => ({
+    ...s,
+    text: applyReplacements(s.text, replacements),
+  }));
+  const ssml = buildTrainingSsml(spoken, voice);
   if (Buffer.byteLength(ssml) > 450_000) {
     throw userError("The transcript is too long for a single avatar job. Shorten it first.");
   }
@@ -183,13 +191,26 @@ async function poll(id: string): Promise<void> {
       writeTraining(id, { progress: { stage: "downloading", synthesisId } });
       fs.mkdirSync(videoDir(), { recursive: true });
       const bytes = await downloadAvatarResult(result, videoPath(id));
+      let withMusic = false;
+      let note: string | undefined;
+      const music = resolveMusic(normalizeMusicChoice(c.musicChoice));
+      if (music) {
+        try {
+          await mixMusicInto(videoPath(id), music, "video");
+          withMusic = true;
+        } catch (e) {
+          console.warn("[training] music mix failed, keeping the video without it", e);
+          note = "The music could not be mixed in, so the video was saved without it.";
+        }
+      }
       const ms = job.properties?.durationInMilliseconds;
       const renderedAt = Date.now();
       writeTraining(id, {
-        progress: { stage: "done", synthesisId, note: undefined },
+        progress: { stage: "done", synthesisId, note },
         // Cache-busted so a re-render is not served from the browser's copy.
         videoUrl: `/api/video/${id}?v=${renderedAt}`,
-        bytes,
+        bytes: withMusic ? fs.statSync(videoPath(id)).size : bytes,
+        music: withMusic,
         durationSec: ms ? Math.round(ms / 100) / 10 : undefined,
         billedSeconds: job.properties?.billingDetails?.talkingAvatarDurationSeconds,
         renderedAt,

@@ -9,6 +9,10 @@ import {
   MAX_AVATAR_MINUTES,
   PRESENTER_VOICES,
 } from "@/lib/avatars";
+import { EMPTY_NARRATION, readNarration, type NarrationSettings } from "@/lib/narration";
+import { normalizeMusicChoice, type MusicChoice } from "@/lib/musicchoice";
+import MusicPicker from "./MusicPicker";
+import NarrationOptions from "./NarrationOptions";
 
 const STAGES: { key: string; label: string }[] = [
   { key: "submitting", label: "Sending the transcript to Azure" },
@@ -26,6 +30,8 @@ type Draft = {
   presenter: string;
   voice: string;
   background: string;
+  music: MusicChoice | null;
+  narration: NarrationSettings;
 };
 
 const toDraft = (c: TrainingContent): Draft => ({
@@ -35,6 +41,8 @@ const toDraft = (c: TrainingContent): Draft => ({
   presenter: c.presenter,
   voice: c.voice,
   background: c.background,
+  music: normalizeMusicChoice(c.musicChoice),
+  narration: c.narration ? readNarration(c.narration) : EMPTY_NARRATION,
 });
 
 const words = (sections: TrainingSection[]) =>
@@ -77,6 +85,8 @@ export default function TrainingVideo({
     content.presenter,
     content.voice,
     content.background,
+    content.musicChoice,
+    content.narration,
   ]);
   useEffect(() => {
     if (!dirtyRef.current) setDraft(toDraft(content));
@@ -126,6 +136,11 @@ export default function TrainingVideo({
         presenter: draft.presenter,
         voice: draft.voice,
         background: draft.background,
+        music: draft.music,
+        narration: {
+          instructions: draft.narration.instructions,
+          replacements: draft.narration.replacements.filter((r) => r.from.trim()),
+        },
       }),
     });
     const j = (await res.json().catch(() => ({}))) as { error?: string };
@@ -176,6 +191,7 @@ export default function TrainingVideo({
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--muted)]">
             {content.durationSec ? <span>{fmt(content.durationSec)}</span> : null}
             {content.bytes ? <span>{(content.bytes / 1_048_576).toFixed(1)} MB</span> : null}
+            {content.music ? <span>With background music</span> : null}
             {content.billedSeconds ? (
               <span>{Math.round(content.billedSeconds)} s of avatar time billed</span>
             ) : null}
@@ -300,6 +316,18 @@ export default function TrainingVideo({
             className="h-6 w-6 rounded-md border border-[var(--border)]"
             style={{ background: draft.background }}
           />
+        </div>
+        <div className="mt-3 space-y-2">
+          <MusicPicker value={draft.music} onChange={(music) => edit({ music })} disabled={locked} />
+          <NarrationOptions
+            value={draft.narration}
+            onChange={(narration) => edit({ narration })}
+            disabled={locked}
+          />
+          <p className="text-[10px] leading-snug text-[var(--muted)]">
+            Instructions shape newly written transcripts; the replacement list
+            is applied to this transcript every time it renders.
+          </p>
         </div>
       </section>
 

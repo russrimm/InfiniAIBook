@@ -137,7 +137,7 @@ commentary. Only a model provider is required.
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | YouTube transcripts via Gemini |
 | `YOUTUBE_API_KEY`, `YOUTUBE_COOKIE`, `YOUTUBE_CAPTION_LANG` | YouTube metadata and transcript fallbacks |
 | `PYTHON_BIN` | Python interpreter for the whiteboard and motion renderers (default `python`) |
-| `MOTION_MUSIC_DIR` | Folder of music tracks for motion explainers; unset means no music ([Motion explainers](motion-explainers.md)) |
+| `MOTION_MUSIC_DIR` | Optional folder of music tracks, listed read-only in the music picker alongside tracks uploaded in the app ([Background music](studio.md#background-music)) |
 | `ALLOW_PRIVATE_NETWORK_FETCH` | Allow fetching private/loopback addresses (default off; see [SECURITY.md](../SECURITY.md)) |
 | `MAX_FETCH_BYTES`, `FETCH_MAX_REDIRECTS`, `FETCH_TIMEOUT_MS` | Limits on fetched pages and files |
 | `MAX_UPLOAD_BYTES` | Largest uploaded file or request body when adding sources (default 50 MB; larger requests get a 413) |

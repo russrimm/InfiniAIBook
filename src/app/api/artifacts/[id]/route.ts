@@ -3,6 +3,7 @@ import { ok, fail } from "@/lib/http";
 import { removeAudio, removeImage, removeVideo } from "@/lib/paths";
 import { reconcileStalledVideo } from "@/lib/videobuild";
 import { forgetTraining, resumeStalledTraining } from "@/lib/trainingbuild";
+import { reconcileStalledPodcast } from "@/lib/podcaststore";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -28,6 +29,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     // A training render runs in Azure, so one whose watcher died with the
     // process is picked up again here rather than failed.
     resumeStalledTraining(id);
+    reconcileStalledPodcast(id);
 
     const row = db
       .prepare(

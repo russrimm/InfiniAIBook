@@ -15,6 +15,13 @@ import {
 import { backgroundColour, presenter, presenterVoice } from "@/lib/avatars";
 import { AUDIO_LENGTHS, WORDS_PER_MINUTE, audioLength } from "@/lib/voices";
 import type { TrainingContent } from "@/lib/types";
+import {
+  applyReplacements,
+  narrationPromptBlock,
+  readNarration,
+} from "@/lib/narration";
+import { notebookNarration } from "@/lib/narrationstore";
+import { normalizeMusicChoice } from "@/lib/musicchoice";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,10 +47,14 @@ export async function POST(req: Request) {
       voice?: string;
       background?: string;
       length?: string;
+      narration?: unknown;
+      music?: unknown;
     };
     const { notebookId, sourceIds } = body;
     const none = noSourcesSelected(sourceIds);
     if (none) return none;
+    const narration =
+      body.narration === undefined ? notebookNarration(notebookId) : readNarration(body.narration);
     const topic = body.topic?.trim() ?? "";
     const wanted = audioLength(body.length);
     const { key: presenterKey, preset } = presenter(body.presenter);
@@ -59,7 +70,9 @@ export async function POST(req: Request) {
     }
 
     const system = (note = "") =>
-      `${GROUNDING_RULES}\n\n${TRAINING_INSTRUCTION(topic, wanted)}${note}`;
+      `${GROUNDING_RULES}\n\n${TRAINING_INSTRUCTION(topic, wanted)}${narrationPromptBlock(
+        narration
+      )}${note}`;
     const user = () => `RESEARCH (source excerpts and notes)
 =====================================
 ${buildContext(passages)}`;
@@ -131,17 +144,20 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"}, keeping the same structure. ${
 
     const price = Number(process.env.AZURE_AVATAR_PRICE_PER_MINUTE);
     const id = nanoid(12);
+    const replace = (s: string) => applyReplacements(s, narration.replacements);
     const content: TrainingContent & { citations: ReturnType<typeof citationList> } = {
-      title: script.title,
-      description: script.description,
-      objectives: script.objectives,
-      sections: script.sections,
+      title: replace(script.title),
+      description: replace(script.description ?? ""),
+      objectives: script.objectives.map(replace),
+      sections: script.sections.map((s) => ({ title: replace(s.title), text: replace(s.text) })),
       presenter: presenterKey,
       voice,
       background: backgroundColour(body.background),
       length: wanted,
       targetMinutes: AUDIO_LENGTHS[wanted].minutes,
       ...(Number.isFinite(price) && price > 0 ? { pricePerMinute: price } : {}),
+      narration,
+      musicChoice: normalizeMusicChoice(body.music),
       progress: { stage: "transcript" },
       citations: citationList(passages),
     };

@@ -46,6 +46,28 @@ const nextConfig: NextConfig = {
   // These rely on Node built-ins / dynamic requires and must not be bundled.
   serverExternalPackages: ["unpdf", "mammoth", "cheerio"],
   poweredByHeader: false,
+  webpack(config, { isServer, webpack }) {
+    // pptxgenjs builds decks in the browser. Its ES build still names Node's
+    // fs and https (for server use) with the node: scheme, which webpack
+    // rejects before it reads the package's "browser" field mapping them to
+    // nothing. Dropping the scheme lets that mapping apply.
+    if (!isServer) {
+      config.plugins.push(
+        new webpack.NormalModuleReplacementPlugin(/^node:(fs|https)$/, (resource: { request: string }) => {
+          resource.request = resource.request.replace(/^node:/, "");
+        })
+      );
+      config.resolve.fallback = { ...config.resolve.fallback, fs: false, https: false };
+    }
+    return config;
+  },
+  experimental: {
+    // Requests pass through middleware, which buffers at most 10 MB by default
+    // and silently truncates anything larger. Allow the largest upload the app
+    // accepts (sources and music tracks), plus room for multipart overhead.
+    middlewareClientMaxBodySize:
+      Number(process.env.MAX_UPLOAD_BYTES || 50 * 1024 * 1024) + 1024 * 1024,
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
