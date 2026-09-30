@@ -184,6 +184,7 @@ describe("asset prompts", () => {
     const plan = normalizeMotionPlan(raw([scene(), scene(), scene()]), opts)!;
     expect(opts.detail).toBe("standard");
     expect(styleBase(plan.style)).not.toContain("Richly detailed editorial illustration");
+    expect(backgroundPrompt(plan.scenes[0], plan.style)).not.toContain("Include visual depth");
     expect(MOTION_DETAILS.rich.label).toBe("Rich and detailed");
   });
 });

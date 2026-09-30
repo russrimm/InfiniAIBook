@@ -639,7 +639,7 @@ export function styleBase(style: MotionStyle): string {
   const look = (MOTION_VISUALS[style.visual] ?? MOTION_VISUALS.flat).look;
   const detail =
     style.detail === "rich"
-      ? " Richly detailed editorial illustration with layered composition, carefully rendered material and environmental details, subtle depth and nuanced lighting. Keep a strong focal point, readable silhouettes and clean negative space; preserve the chosen medium and do not become photorealistic."
+      ? " Richly detailed editorial illustration with layered composition and finely rendered contextual details. Use deliberate visual hierarchy, subtle depth, a strong focal point, readable silhouettes and clean negative space; preserve the chosen medium and do not become photorealistic."
       : "";
   return (
     `${look}${detail} Limited palette built from ${paletteWords(style.palette)}. ` +
@@ -648,13 +648,16 @@ export function styleBase(style: MotionStyle): string {
 }
 
 export function backgroundPrompt(scene: MotionScene, style: MotionStyle): string {
+  const detail =
+    style.detail === "rich"
+      ? " Include visual depth and small contextual details without crowding the focal area."
+      : "";
   return (
     `${styleBase(style)} Wide landscape background plate for an animated scene: ` +
     `${scene.background || "a simple, softly lit abstract space"}. Environment only, ` +
     "with no people, no characters and no animals. Keep the lower half open and " +
     "uncluttered and the top quarter plain, so characters and titles can be placed " +
-    "over it. Include visual depth and small contextual details without crowding " +
-    "the focal area. Slightly muted, low-contrast colors so foreground elements stand out."
+    `over it.${detail} Slightly muted, low-contrast colors so foreground elements stand out.`
   );
 }
 
