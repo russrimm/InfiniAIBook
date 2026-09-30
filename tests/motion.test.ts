@@ -9,6 +9,7 @@ import {
   MAX_PROPS,
   MAX_SCENES,
   MOTION_AUDIENCES,
+  MOTION_DETAILS,
   MOTION_PALETTES,
   MOTION_PLAN_INSTRUCTION,
   MOTION_RESOLUTIONS,
@@ -173,8 +174,17 @@ describe("asset prompts", () => {
     const opts = normalizeMotionOptions({ visual: "papercut" });
     const plan = normalizeMotionPlan(raw([scene(), scene(), scene()]), opts)!;
     expect(styleBase(plan.style)).toContain(MOTION_VISUALS.papercut.look);
+    expect(styleBase(plan.style)).toContain("Richly detailed editorial illustration");
     expect(heroPrompt(plan.style)).toMatch(/paper-cutout/);
     expect(backgroundPrompt(plan.scenes[0], plan.style)).toMatch(/No text/);
+  });
+
+  it("keeps standard image prompts restrained and accepts detail levels", () => {
+    const opts = normalizeMotionOptions({ detail: "standard" });
+    const plan = normalizeMotionPlan(raw([scene(), scene(), scene()]), opts)!;
+    expect(opts.detail).toBe("standard");
+    expect(styleBase(plan.style)).not.toContain("Richly detailed editorial illustration");
+    expect(MOTION_DETAILS.rich.label).toBe("Rich and detailed");
   });
 });
 
@@ -221,6 +231,9 @@ describe("normalizeMotionOptions", () => {
     expect(
       describeMotionOptions(normalizeMotionOptions({ length: "short", palette: "berry", resolution: "1080p" }))
     ).toEqual(["Short", "Berry colors", "1080p"]);
+    expect(describeMotionOptions(normalizeMotionOptions({ detail: "standard" }))).toEqual([
+      "Standard",
+    ]);
   });
 });
 
@@ -246,7 +259,7 @@ describe("customized plans", () => {
     expect(plan.scenes.flatMap((s) => s.actors).every((a) => a.kind === "prop")).toBe(true);
   });
 
-  it("asks the planner for the chosen length, tone, audience and closing", () => {
+  it("asks the planner for the chosen length, tone, audience, detail and closing", () => {
     const opts = normalizeMotionOptions({
       length: "short",
       tone: "professional",
@@ -259,9 +272,14 @@ describe("customized plans", () => {
     expect(prompt).toContain("3. how — the single most important");
     expect(prompt).toContain(MOTION_TONES.professional.rule);
     expect(prompt).toContain(MOTION_AUDIENCES.executives.rule);
+    expect(prompt).toContain("Three or four concise sentences per scene");
+    expect(prompt).toContain("several specific, source-relevant visual details");
     expect(prompt).toContain('"Book a demo at example.com"');
     expect(prompt).toContain("There is no recurring character");
     expect(MOTION_PLAN_INSTRUCTION("")).toContain("Plan a 7-scene video");
+    expect(
+      MOTION_PLAN_INSTRUCTION("", normalizeMotionOptions({ detail: "standard" }))
+    ).toContain("Two or three sentences per scene");
     expect(MOTION_PLAN_INSTRUCTION("", normalizeMotionOptions({ length: "long" }))).toContain(
       "3-7. how"
     );

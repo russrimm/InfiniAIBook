@@ -7,6 +7,7 @@ import {
   MAX_CHARACTER_CHARS,
   MAX_CLOSING_CHARS,
   MOTION_AUDIENCES,
+  MOTION_DETAILS,
   MOTION_LENGTHS,
   MOTION_PALETTES,
   MOTION_RESOLUTIONS,
@@ -42,6 +43,7 @@ export function motionRequest(f: MotionForm): Record<string, unknown> {
     length: f.length,
     tone: f.tone,
     audience: f.audience,
+    detail: f.detail,
     visual: f.visual,
     palette: f.palette,
     ...(f.palette === "custom" ? { customPalette: f.customPalette } : {}),
@@ -169,6 +171,20 @@ export default function MotionCustomize({
               onChange={(e) => set("audience", e.target.value as MotionForm["audience"])}
             >
               {Object.entries(MOTION_AUDIENCES).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          </Row>
+
+          <Row label="Detail">
+            <select
+              className={SELECT}
+              value={value.detail}
+              onChange={(e) => set("detail", e.target.value as MotionForm["detail"])}
+            >
+              {Object.entries(MOTION_DETAILS).map(([k, v]) => (
                 <option key={k} value={k}>
                   {v.label}
                 </option>

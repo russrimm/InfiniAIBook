@@ -38,6 +38,7 @@ export async function POST(req: Request) {
       length?: string;
       tone?: string;
       audience?: string;
+      detail?: string;
       visual?: string;
       palette?: string | Record<string, string>;
       customPalette?: Record<string, string>;

@@ -57,6 +57,7 @@ back.
 | **Length** | Short (5 scenes, about 1 min) · Standard (7, about 1.5–2 min) · Long (9, about 2.5 min) | Standard | How many "how" scenes the story gets, and so the running time, picture count and build time |
 | **Tone** | Friendly · Professional · Energetic · Calm · Playful | Friendly | How the narration and headlines are written |
 | **Audience** | General · Beginners · Executives · Technical | General | Depth and framing: beginners get defined terms and an analogy, executives get outcomes and risks, technical viewers get mechanisms and trade-offs |
+| **Detail** | Standard · Rich and detailed | Rich and detailed | How much context the narration gives and how much visual detail the generated illustrations include. Rich takes longer to narrate and generate |
 | **Look** | Flat vector · Isometric · Paper cutout · Hand-drawn · Soft 3D clay · Minimal line art | Flat vector | The illustration style sent with every picture, so backgrounds, character and props match |
 | **Colors** | Auto · Ocean · Sunset · Forest · Berry · Corporate · Monochrome · Custom | Auto | The five-color palette used by the pictures, text panels, chips, stat cards and closing card. Auto lets the planner pick colors to suit the subject; Custom shows five color pickers (text, primary, accent, highlight, background) |
 | **Character** | Designed to suit the subject · Describe my own · No character | Designed | The recurring character. Describe your own (for example "a nurse in blue scrubs with a stethoscope") to fix its look, or choose none for a video told with objects and settings only |
@@ -80,6 +81,7 @@ Through the API, send the same choices to `POST /api/motion` (see
   "length": "short",
   "tone": "energetic",
   "audience": "beginners",
+  "detail": "rich",
   "visual": "papercut",
   "palette": "forest",
   "character": "none",
@@ -87,6 +89,11 @@ Through the API, send the same choices to `POST /api/motion` (see
   "resolution": "1080p"
 }
 ```
+
+`detail` accepts `"standard"` or `"rich"`; omitted or unknown values use the
+default, `"rich"`. Rich detail adds source-grounded context to the narration and
+more layered, carefully rendered image prompts without changing the selected
+illustration medium.
 
 `palette` also accepts `"custom"` with a `customPalette` object, or a palette
 object directly: `{ "dark", "primary", "accent", "pop", "light" }`, each

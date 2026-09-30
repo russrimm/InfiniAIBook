@@ -143,7 +143,7 @@ and cannot be edited or deleted.
 | POST | `/api/generate` | `{ notebookId, type, topic?, sourceIds?, style?, difficulty?, length? }` |
 | POST | `/api/podcast` | `{ notebookId, topic?, sourceIds?, preset?, speakers?: [{ voice?, name?, role? }] (1–4), rate?, breath?, length? }` |
 | POST | `/api/video` | Whiteboard video; poll `GET /api/video/{id}` |
-| POST | `/api/motion` | `{ notebookId, topic?, sourceIds?, voice?, music?, length?, tone?, audience?, visual?, palette?, customPalette?, character?, characterDescription?, closing?, resolution? }` → motion explainer; poll `GET /api/artifacts/{id}`, play `GET /api/video/{id}`. Customization values are in [Motion explainers](motion-explainers.md#customizing-a-video); unknown values fall back to the defaults |
+| POST | `/api/motion` | `{ notebookId, topic?, sourceIds?, voice?, music?, length?, tone?, audience?, detail?, visual?, palette?, customPalette?, character?, characterDescription?, closing?, resolution? }` → motion explainer; poll `GET /api/artifacts/{id}`, play `GET /api/video/{id}`. Customization values are in [Motion explainers](motion-explainers.md#customizing-a-video); unknown values fall back to the defaults |
 | GET | `/api/motion` | `{ music }`: whether `MOTION_MUSIC_DIR` has tracks |
 | POST | `/api/training` | `{ notebookId, topic?, sourceIds?, presenter?, voice?, background?, length? }` → training transcript artifact |
 | PATCH | `/api/training/{id}` | Edit `title`, `description`, `objectives`, `sections`, `presenter`, `voice`, `background`; 409 while rendering |

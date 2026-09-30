@@ -3,7 +3,7 @@
  * from generated layers (background plates, an optional recurring character
  * and props) and animated by scripts/motion/render.py. Length, tone, audience,
  * look, colors, character, closing message and resolution can be customized
- * (MotionOptions); the defaults give a flat-vector video at 720p.
+ * (MotionOptions); the defaults give a richly detailed flat-vector video at 720p.
  *
  * The image model draws pictures only. Every word on screen is set by the
  * renderer in a real font, because image models misspell lettering.
