@@ -492,6 +492,25 @@ like a document being narrated is almost entirely in the writing.
   },
 };
 
+const studioSpec = (type: string): Spec | undefined =>
+  Object.hasOwn(STUDIO, type) ? STUDIO[type as ArtifactType] : undefined;
+
+/**
+ * Display label for an artifact type. A database can hold types this build does
+ * not know (written by a newer version), so fall back to a readable name rather
+ * than rendering "undefined".
+ */
+export function studioLabel(type: string): string {
+  const known = studioSpec(type)?.label;
+  if (known) return known;
+  const words = (type || "creation").replace(/[_-]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+export function studioIcon(type: string): string {
+  return studioSpec(type)?.icon ?? "📄";
+}
+
 export const STUDIO_SECTIONS: { key: string; label: string; types: ArtifactType[] }[] = [
   {
     key: "documents",
