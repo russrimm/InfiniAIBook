@@ -185,7 +185,7 @@ export default function SourceModal({
         )}
 
         {src?.summary && (
-          <div className="shrink-0 border-b border-[var(--border)] bg-[#0e1116] px-5 py-3 text-[13px] leading-relaxed text-[var(--muted)]">
+          <div className="shrink-0 border-b border-[var(--border)] bg-well px-5 py-3 text-[13px] leading-relaxed text-[var(--muted)]">
             {src.summary}
           </div>
         )}
@@ -195,17 +195,17 @@ export default function SourceModal({
             <p className="text-[13px] text-[var(--muted)]">{loadError}</p>
           )}
           {cited && (
-            <div className="mb-4 rounded-xl border border-[#2f3846] bg-[#141922] px-4 py-3">
+            <div className="mb-4 rounded-xl border border-line-strong bg-[#141922] px-4 py-3">
               <p className="mb-1 text-[11px] font-medium text-[var(--muted)]">
                 Cited passage · part {highlight?.part} (its exact place in the current text
                 could not be found)
               </p>
-              <p className="text-[13px] leading-relaxed whitespace-pre-wrap text-[#c9d2dd]">
+              <p className="text-[13px] leading-relaxed whitespace-pre-wrap text-prose-soft">
                 {cited}
               </p>
             </div>
           )}
-          <pre className="font-sans text-[13px] leading-relaxed whitespace-pre-wrap text-[#c9d2dd]">
+          <pre className="font-sans text-[13px] leading-relaxed whitespace-pre-wrap text-prose-soft">
             {src && range ? (
               <>
                 {src.text.slice(0, range[0])}

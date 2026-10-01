@@ -201,8 +201,8 @@ export default function DiscoverModal({
                         r.added
                           ? "cursor-default border-[var(--border)] opacity-45"
                           : isChosen
-                            ? "border-[var(--accent)] bg-[#1b2030]"
-                            : "border-[var(--border)] hover:border-[#39424f] hover:bg-[#171b21]"
+                            ? "border-[var(--accent)] bg-selected"
+                            : "border-[var(--border)] hover:border-line-hover hover:bg-panel2"
                       }`}
                     >
                       <input
@@ -217,11 +217,11 @@ export default function DiscoverModal({
                           {r.title}
                         </span>
                         <span className="mt-0.5 flex items-center gap-1.5">
-                          <span className="truncate text-[11px] text-[#8f9dff]">
+                          <span className="truncate text-[11px] text-link">
                             {r.host}
                           </span>
                           {r.added && (
-                            <span className="rounded bg-[#1e2430] px-1.5 py-0.5 text-[10px] text-[var(--muted)]">
+                            <span className="rounded bg-hover px-1.5 py-0.5 text-[10px] text-[var(--muted)]">
                               already added
                             </span>
                           )}
@@ -245,7 +245,7 @@ export default function DiscoverModal({
                         target="_blank"
                         rel="noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="h-fit shrink-0 rounded px-1.5 py-0.5 text-[11px] text-[var(--muted)] transition hover:bg-[#1e2430] hover:text-[var(--fg)]"
+                        className="h-fit shrink-0 rounded px-1.5 py-0.5 text-[11px] text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
                         title="Open in a new tab"
                       >
                         ↗

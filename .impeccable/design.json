@@ -624,7 +624,7 @@
       }
     ],
     "dos": [
-      "**Do** reach for the CSS variables (`--bg`, `--panel`, `--panel-2`, `--border`, `--fg`, `--muted`, `--accent`) and their Tailwind aliases before writing a hex literal. Well Black (#0e1116) and Hover Slate (#1e2430) are currently repeated as raw literals across components.",
+      "**Do** reach for the CSS variables and their Tailwind aliases before writing a hex literal: `--bg` (`bg-bg`), `--panel` (`bg-panel`), `--panel-2` (`bg-panel2`), `--hover` (`bg-hover`, Hover Slate), `--selected` (`bg-selected`), `--well` (`bg-well`, Well Black), `--user-bubble` (`bg-user-bubble`), `--border` (`border-line`), `--border-strong` (`border-line-strong`), `--border-hover` (`border-line-hover`), `--focus` (`focus:border-focus`, Focus Steel), `--fg` (`text-fg`), `--heading` (`text-heading`), `--prose` (`text-prose`), `--prose-soft` (`text-prose-soft`, #c9d2dd for secondary reading text such as flashcard backs, transcripts and source text), `--muted` (`text-muted`), `--dim` (`text-dim`), `--faint` (`placeholder:text-faint`), `--accent` (`text-accent`), `--accent-top`, `--accent-deep`, `--on-accent`, `--link` (`text-link`) and `--cite-ink`.",
       "**Do** separate in-flow surfaces with a 1px Hairline and a tonal step (The Border, Not Shadow Rule).",
       "**Do** keep chrome in the 10–13px register and reading content at 15px with 1.7 leading (The Two Registers Rule).",
       "**Do** title panel sections with 11px uppercase, widely tracked Fog labels.",

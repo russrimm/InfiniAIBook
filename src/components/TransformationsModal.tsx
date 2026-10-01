@@ -121,7 +121,7 @@ export default function TransformationsModal({ onClose }: { onClose: () => void 
                     <div className="flex items-center gap-2">
                       <span className="text-[13px] font-medium">{t.name}</span>
                       {t.builtin && (
-                        <span className="rounded bg-[#1e2430] px-1.5 py-0.5 text-[10px] text-[var(--muted)]">
+                        <span className="rounded bg-hover px-1.5 py-0.5 text-[10px] text-[var(--muted)]">
                           built-in
                         </span>
                       )}

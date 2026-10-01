@@ -138,7 +138,7 @@ export default function VideoPlayer({
     const idx = stages.findIndex((s) => s.key === stage);
     return (
       <div>
-        <div className="rounded-2xl border border-[var(--border)] bg-[#0e1116] p-6">
+        <div className="rounded-2xl border border-[var(--border)] bg-well p-6">
           <div className="flex items-center gap-2">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
             <span className="text-[13px] font-medium">
@@ -254,7 +254,7 @@ function SceneList({ content }: { content: VideoContent }) {
                 </div>
               )}
               <div className="text-[12px] font-semibold tracking-wide">{s.title}</div>
-              <div className="text-[12px] text-[#c9d2dd]">{s.caption}</div>
+              <div className="text-[12px] text-prose-soft">{s.caption}</div>
               <div className="mt-1 text-[11px] leading-relaxed text-[var(--muted)]">
                 {s.narration}
               </div>
@@ -267,7 +267,7 @@ function SceneList({ content }: { content: VideoContent }) {
 }
 
 const inputCls =
-  "w-full rounded-md border border-[var(--border)] bg-[#0e1116] px-2.5 py-1.5 text-[13px] text-[var(--fg)] outline-none placeholder:text-[#53606f] focus:border-[#4d5a7a] disabled:opacity-60";
+  "w-full rounded-md border border-[var(--border)] bg-well px-2.5 py-1.5 text-[13px] text-[var(--fg)] outline-none placeholder:text-faint focus:border-focus disabled:opacity-60";
 const labelCls = "mb-1 block text-[10px] tracking-wide text-[var(--muted)] uppercase";
 
 type EditScene = {
@@ -440,7 +440,7 @@ function ScriptEditor({
 
   return (
     <div className="space-y-5">
-      <p className="rounded-xl border border-[var(--border)] bg-[#0e1116] px-4 py-3 text-[12px] leading-relaxed text-[var(--muted)]">
+      <p className="rounded-xl border border-[var(--border)] bg-well px-4 py-3 text-[12px] leading-relaxed text-[var(--muted)]">
         {rendered
           ? "Edit the script, then render again. Rendering redraws the artwork and re-records the narration."
           : "Review the script below — change any wording or remove scenes. Nothing is drawn or recorded until you press "}
@@ -464,7 +464,7 @@ function ScriptEditor({
           </span>
           <select
             aria-label="Narrator voice"
-            className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+            className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
             value={draft.voice}
             disabled={locked}
             onChange={(e) => edit({ voice: e.target.value })}
@@ -483,7 +483,7 @@ function ScriptEditor({
             </span>
             <select
               aria-label="Character motion"
-              className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+              className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
               value={draft.movement}
               disabled={locked}
               onChange={(e) => edit({ movement: e.target.value as MotionMovement })}

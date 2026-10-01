@@ -477,7 +477,7 @@ function Body({
                 <span className="mr-2 hidden text-[var(--muted)] group-open:inline">▾</span>
                 {it.q}
               </summary>
-              <p className="mt-2.5 pl-5 text-[14px] leading-relaxed text-[#c9d2dd]">
+              <p className="mt-2.5 pl-5 text-[14px] leading-relaxed text-prose-soft">
                 <InlineCited text={it.a} citations={citations} />
               </p>
             </details>
@@ -496,7 +496,7 @@ function Body({
                 {it.date}
               </div>
               <h3 className="mt-0.5 text-[15px] font-medium">{it.title}</h3>
-              <p className="mt-1 text-[14px] leading-relaxed text-[#c9d2dd]">
+              <p className="mt-1 text-[14px] leading-relaxed text-prose-soft">
                 <InlineCited text={it.text} citations={citations} />
               </p>
             </li>

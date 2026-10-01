@@ -10,7 +10,7 @@ import {
 } from "@/lib/narration";
 
 const fieldCls =
-  "min-w-0 rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-[#53606f] focus:border-[#4d5a7a] disabled:opacity-60";
+  "min-w-0 rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-faint focus:border-focus disabled:opacity-60";
 
 const same = (a: NarrationSettings, b: NarrationSettings) =>
   a.instructions.trim() === b.instructions.trim() &&

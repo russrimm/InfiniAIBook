@@ -110,7 +110,7 @@ export default function SearchView({
       <header className="mb-6 flex items-center gap-3">
         <Link
           href={notebookId ? `/notebook/${notebookId}` : "/"}
-          className="rounded-lg px-2 py-1 text-sm text-[var(--muted)] transition hover:bg-[#1e2430] hover:text-[var(--fg)]"
+          className="rounded-lg px-2 py-1 text-sm text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
         >
           ←
         </Link>
@@ -207,7 +207,7 @@ export default function SearchView({
                   >
                     {c.sourceTitle}
                   </Link>
-                  <span className="shrink-0 text-[11px] text-[#6b7482]">
+                  <span className="shrink-0 text-[11px] text-dim">
                     {c.notebookTitle} · part {c.part}
                   </span>
                 </li>
@@ -238,7 +238,7 @@ export default function SearchView({
                       <Link className="font-medium hover:underline" href={`/notebook/${n.notebookId}`}>
                         {n.title}
                       </Link>
-                      <span className="text-[11px] text-[#6b7482]">{n.notebookTitle}</span>
+                      <span className="text-[11px] text-dim">{n.notebookTitle}</span>
                     </div>
                     <p className="mt-1 line-clamp-3 text-[12px] text-[var(--muted)]">{n.snippet}</p>
                   </li>
@@ -263,7 +263,7 @@ export default function SearchView({
                       >
                         {h.sourceTitle}
                       </Link>
-                      <span className="text-[11px] text-[#6b7482]">
+                      <span className="text-[11px] text-dim">
                         {h.notebookTitle} · part {h.part}
                       </span>
                     </div>

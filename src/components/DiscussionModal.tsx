@@ -85,7 +85,7 @@ function Transcript({
   const noticesAfter = (id: string | null) => state.notices.filter((n) => n.afterTurnId === id);
   const pill = (text: string, key: string) => (
     <li key={key} className="flex justify-center">
-      <span className="rounded-full bg-[#1e2430] px-3 py-1 text-[11px] text-[var(--muted)]">{text}</span>
+      <span className="rounded-full bg-hover px-3 py-1 text-[11px] text-[var(--muted)]">{text}</span>
     </li>
   );
 
@@ -433,7 +433,7 @@ export default function DiscussionModal({
                   {statusLine}
                 </div>
               </div>
-              {score && <div className="rounded-full bg-[#1e2430] px-3 py-1 text-[12px]">Score {score}</div>}
+              {score && <div className="rounded-full bg-hover px-3 py-1 text-[12px]">Score {score}</div>}
 
               {status !== "ended" ? (
                 <>
@@ -447,7 +447,7 @@ export default function DiscussionModal({
                       className={`relative grid h-12 w-12 place-items-center rounded-full border transition disabled:opacity-40 ${
                         call.muted
                           ? "border-white bg-white text-black"
-                          : "border-[var(--border)] bg-[#1e2430] hover:bg-[#262d3a]"
+                          : "border-[var(--border)] bg-hover hover:bg-[#262d3a]"
                       }`}
                     >
                       {call.muted ? "🔇" : "🎙️"}

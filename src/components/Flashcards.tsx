@@ -152,7 +152,7 @@ export default function Flashcards({
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[14px] font-medium">{stripMarkers(c.front)}</p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-[#c9d2dd]">
+                  <p className="mt-1 text-[13px] leading-relaxed text-prose-soft">
                     <InlineCited text={c.back} citations={citations} />
                   </p>
                 </div>
@@ -185,7 +185,7 @@ export default function Flashcards({
           graded={graded}
         />
         <div className="flex flex-1 items-center justify-center pb-4">
-          <div className="w-full rounded-2xl border border-[var(--border)] bg-[#0e1116] p-8 text-center">
+          <div className="w-full rounded-2xl border border-[var(--border)] bg-well p-8 text-center">
             <div className="text-4xl font-semibold">
               {correct}
               <span className="text-[var(--muted)]">/{reviewed}</span>
@@ -247,7 +247,7 @@ export default function Flashcards({
         <button
           onClick={() => setFlipped((f) => !f)}
           aria-label={flipped ? "Show prompt" : "Reveal answer"}
-          className="group relative flex min-h-[16rem] w-full cursor-pointer flex-col items-center justify-center rounded-2xl border border-[var(--border)] bg-[#0e1116] px-6 py-12 text-center transition hover:border-[#39424f] sm:min-h-[22rem]"
+          className="group relative flex min-h-[16rem] w-full cursor-pointer flex-col items-center justify-center rounded-2xl border border-[var(--border)] bg-well px-6 py-12 text-center transition hover:border-line-hover sm:min-h-[22rem]"
         >
           <span className="absolute top-3 left-4 text-[10px] tracking-wide text-[var(--muted)] uppercase">
             {flipped ? "Answer" : "Prompt"}

@@ -136,7 +136,7 @@ export default function LibraryModal({
                           onChange={() => toggle(s.id)}
                         />
                         <span className="min-w-0 flex-1 truncate">{s.title}</span>
-                        <span className="shrink-0 text-[10px] text-[#6b7482]">{s.kind}</span>
+                        <span className="shrink-0 text-[10px] text-dim">{s.kind}</span>
                       </label>
                     </li>
                   ))}
