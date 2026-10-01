@@ -3,6 +3,7 @@ node_modules
 .data
 .git
 .github
+apps
 skills
 .env*
 !.env.example

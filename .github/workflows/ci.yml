@@ -15,8 +15,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Lockfile uses the public npm registry
         run: |
-          if grep -nE '"resolved": "https?://' package-lock.json | grep -v '"https://registry.npmjs.org/'; then
-            echo "::error file=package-lock.json::Every resolved URL must be on https://registry.npmjs.org/. Regenerate the lockfile against the public registry, or a mirror configured with replace-registry-host=npmjs."
+          if grep -nE '"resolved": "https?://' package-lock.json apps/*/package-lock.json | grep -v '"https://registry.npmjs.org/'; then
+            echo "::error::Every resolved URL must be on https://registry.npmjs.org/. Regenerate the lockfile against the public registry, or a mirror configured with replace-registry-host=npmjs."
             exit 1
           fi
       - uses: actions/setup-node@v4
@@ -32,6 +32,30 @@ jobs:
         run: npm test
       - name: URL-fetch safety tests
         run: npm run check:ssrf
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+  lingua:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/lingua
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/lingua/package-lock.json
+      - run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
       - name: Build
         run: npm run build
         env:

@@ -120,6 +120,12 @@ Full documentation is in [docs/](docs/README.md), including
 [how grounding works](docs/grounding.md), the [architecture](docs/architecture.md)
 and the [REST API](docs/API.md).
 
+## Other apps in this repo
+
+- [**Lingua**](apps/lingua/README.md): a standalone realtime voice tutor. Talk out loud
+  with a partner in any of 11 languages, who switches to your own language when you
+  need it. It has its own `package.json` and runs separately from InfiniAIBook.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and the checks to
