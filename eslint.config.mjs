@@ -18,8 +18,6 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
-      // Separate apps with their own lint config and CI job.
-      "apps/**",
     ],
   },
 ];
