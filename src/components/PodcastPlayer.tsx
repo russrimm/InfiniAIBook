@@ -11,6 +11,7 @@ import {
 import { EMPTY_NARRATION, readNarration, type NarrationSettings } from "@/lib/narration";
 import { normalizeMusicChoice, type MusicChoice } from "@/lib/musicchoice";
 import { MULTITALKER_SPEAKERS, RATE_CHOICES, WORDS_PER_MINUTE } from "@/lib/voices";
+import { scrollBehavior } from "@/lib/reducedMotion";
 import MusicPicker from "./MusicPicker";
 import NarrationOptions from "./NarrationOptions";
 
@@ -55,7 +56,7 @@ function Player({ content }: { content: PodcastContent & { audioUrl: string } })
 
   useEffect(() => {
     if (!follow || active < 0) return;
-    activeRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    activeRef.current?.scrollIntoView({ block: "center", behavior: scrollBehavior() });
   }, [active, follow]);
 
   const seek = (to: number) => {

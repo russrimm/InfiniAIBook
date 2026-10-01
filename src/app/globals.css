@@ -360,14 +360,6 @@ mark.cited-passage {
   animation: mmIn 0.28s ease both;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .mm-node,
-  .mm-link {
-    transition: none;
-    animation: none;
-  }
-}
-
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -404,4 +396,85 @@ mark.cited-passage {
     transparent
   );
   animation: shimmer 1.4s infinite;
+}
+
+/*
+ * Reduced motion (The Still Room Rule). Nothing slides, rises, spins, sweeps,
+ * flips or glides; busy states stay visible as slow opacity changes so
+ * "working…" never disappears. Hover/focus color and opacity transitions
+ * (150ms) are kept, since they change tone without moving anything.
+ * Component-level spatial transitions use Tailwind's `motion-reduce:` variant,
+ * and script-driven smooth scrolling goes through src/lib/reducedMotion.ts.
+ */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes typingDotFade {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+@keyframes busyFade {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+@keyframes shimmerFade {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Entrances: a pure opacity fade, no rise. */
+  .fade-up {
+    animation-name: fadeIn;
+  }
+
+  /* Typing dots: the staggered pulse stays (inline delays still apply), but
+     only opacity changes, so they still read as "answer streaming". */
+  .typing-dot {
+    animation-name: typingDotFade;
+    animation-timing-function: ease-in-out;
+  }
+
+  /* Mind map: nodes and links jump to their new positions. */
+  .mm-node,
+  .mm-link {
+    transition: none;
+    animation: none;
+  }
+
+  /* Spinner: a still ring that breathes instead of rotating. */
+  .spinner {
+    animation: busyFade 1.6s ease-in-out infinite;
+  }
+
+  /* Shimmer: the glow fades in place instead of sweeping across. */
+  .shimmer::after {
+    transform: none;
+    animation: shimmerFade 2s ease-in-out infinite;
+  }
+
+  /* Buttons keep their tone fade but never animate geometry. */
+  .btn {
+    transition-property: color, background-color, border-color, opacity, box-shadow;
+  }
 }

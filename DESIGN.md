@@ -334,7 +334,13 @@ User messages are User Bubble pills with Sheet corners and a 6px tail corner, ri
 - **State changes:** 150ms transitions.
 - **Mind map:** nodes and links glide on `cubic-bezier(0.22, 1, 0.36, 1)` over 280ms.
 - **Busy states:** a 0.7s linear spinner (Lamplight arc on a Hairline Strong track) and a 1.4s shimmer sweep.
-- **Reduced motion:** only the mind map honors `prefers-reduced-motion` today.
+- **Reduced motion:** under `prefers-reduced-motion: reduce`, spatial and decorative motion stops while state stays communicated:
+  - **Removed:** the fade-up rise (entrances become a 250ms opacity-only fade), the shimmer sweep, the mind-map glide (nodes and links jump into place), smooth scrolling from script (it jumps instead), the flashcard reveal rise (the answer fades in place), disclosure-chevron rotation easing, and progress-bar width easing.
+  - **Busy indicators stay visible:** the spinner stops rotating and becomes a still ring that breathes between full and 45% opacity every 1.6s. The shimmer glow fades in and out in place over 2s. The three typing dots keep their staggered pulse as an opacity-only fade, so they still read as "answer streaming". Tailwind `animate-pulse` status dots already change only opacity and are unchanged.
+  - **Kept:** 150ms color and opacity transitions on hover and focus, because they change tone without moving anything. Buttons are limited to color, border, opacity, and shadow transitions so they can't animate geometry.
+  - **Real-time visuals:** the discussion host orb still scales with the live voice level, and media and progress bars still track playback, but without smoothing transitions. The ping ring around a speaking host is already motion-safe only, so it rests as a static ring.
+
+**The Still Room Rule.** When the user asks for less motion, nothing slides, rises, spins, sweeps, flips, or glides, but nothing goes silent either. Every busy state keeps a visible, non-spatial signal, such as a slow opacity breath, so "working…" never disappears.
 
 ## Do's and Don'ts
 
@@ -345,6 +351,7 @@ User messages are User Bubble pills with Sheet corners and a 6px tail corner, ri
 - **Do** title panel sections with 11px uppercase, widely tracked Fog labels.
 - **Do** use an emoji as the leading mark for notebooks, source types, and Studio tools.
 - **Do** show work in progress with Lamplight: the spinner arc, the "Processing…" text, the shimmer with a lit border.
+- **Do** give every new animation a `prefers-reduced-motion` fallback that removes movement but keeps busy states visible (The Still Room Rule). Use the reduced-motion block in `globals.css`, Tailwind's `motion-reduce:` variant, or `scrollBehavior()` from `src/lib/reducedMotion.ts` for scripted scrolling.
 - **Do** express warnings and errors as Status Washes: a tinted 950 background, a translucent 900 border, and 200/300 text.
 
 ### Don't:

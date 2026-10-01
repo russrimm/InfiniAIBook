@@ -12,6 +12,7 @@ import {
   type ReplyStatus,
   type Trigger,
 } from "@/lib/screenhelp";
+import { scrollBehavior } from "@/lib/reducedMotion";
 import type { Note } from "@/lib/types";
 
 type Turn = {
@@ -140,7 +141,7 @@ export default function ScreenHelperModal({
   }, [capture.stream, selectedId]);
 
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: scrollBehavior() });
   }, [turns, busy]);
 
   const announce = useCallback(

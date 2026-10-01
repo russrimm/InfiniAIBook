@@ -14,6 +14,7 @@ import {
   type DiscussionVoice,
 } from "@/lib/discussion";
 import { savedTurns, usedCitations, type DiscussionState } from "@/lib/discussionState";
+import { scrollBehavior } from "@/lib/reducedMotion";
 import type { Note } from "@/lib/types";
 import { InlineCited } from "./Markdown";
 import { useDiscussion } from "./useDiscussion";
@@ -52,7 +53,7 @@ function HostOrb({ name, level, speaking, size = 132 }: { name: string; level: n
         />
       )}
       <div
-        className="grid place-items-center rounded-full text-3xl font-semibold text-white transition-transform duration-75"
+        className="grid place-items-center rounded-full text-3xl font-semibold text-white transition-transform duration-75 motion-reduce:transition-none"
         style={{
           width: size,
           height: size,
@@ -79,7 +80,7 @@ function Transcript({
   const endRef = useRef<HTMLLIElement>(null);
   const last = state.turns.at(-1);
   useEffect(() => {
-    if (follow) endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+    if (follow) endRef.current?.scrollIntoView({ block: "end", behavior: scrollBehavior() });
   }, [follow, state.turns.length, last?.text, state.notices.length]);
 
   const noticesAfter = (id: string | null) => state.notices.filter((n) => n.afterTurnId === id);

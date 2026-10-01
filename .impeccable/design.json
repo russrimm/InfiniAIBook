@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-01T14:03:27.437Z",
+  "generatedAt": "2026-10-01T16:11:26.395Z",
   "title": "Design System: InfiniAIBook",
   "extensions": {
     "colorMeta": {
@@ -480,6 +480,11 @@
         "name": "shimmer",
         "value": "1400ms infinite, 5% white sweep",
         "purpose": "Loading placeholders and generating Studio tiles."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce → opacity-only fades; spinner 1.6s opacity breath (1 ↔ 0.45); shimmer 2s in-place fade",
+        "purpose": "The Still Room Rule: removes rise, sweep, spin, glide, smooth scroll and spatial easing; keeps busy states visible and 150ms color transitions."
       }
     ],
     "breakpoints": [
@@ -630,6 +635,7 @@
       "**Do** title panel sections with 11px uppercase, widely tracked Fog labels.",
       "**Do** use an emoji as the leading mark for notebooks, source types, and Studio tools.",
       "**Do** show work in progress with Lamplight: the spinner arc, the \"Processing…\" text, the shimmer with a lit border.",
+      "**Do** give every new animation a `prefers-reduced-motion` fallback that removes movement but keeps busy states visible (The Still Room Rule). Use the reduced-motion block in `globals.css`, Tailwind's `motion-reduce:` variant, or `scrollBehavior()` from `src/lib/reducedMotion.ts` for scripted scrolling.",
       "**Do** express warnings and errors as Status Washes: a tinted 950 background, a translucent 900 border, and 200/300 text."
     ],
     "donts": [
