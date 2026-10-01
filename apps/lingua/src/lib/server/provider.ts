@@ -119,7 +119,7 @@ export function describeProviderError(status: number, body: string): string {
   }
   if (status === 400 && /OpperationNotSupported|OperationNotSupported|does not work with the specified model/i.test(body)) {
     const name = process.env.AZURE_OPENAI_REALTIME_DEPLOYMENT?.trim() ?? "";
-    return `There is no realtime model deployment named "${name}" on this resource. Deploy a realtime model (for example gpt-realtime-2.1) in Microsoft Foundry and set AZURE_OPENAI_REALTIME_DEPLOYMENT to its deployment name.`;
+    return `The realtime model "${name}" isn't available on this resource. If you just deployed it, wait about five minutes for it to come online and try again. Otherwise, deploy a realtime model (for example gpt-realtime-2.1) in Microsoft Foundry and set AZURE_OPENAI_REALTIME_DEPLOYMENT to its deployment name.`;
   }
   if (status === 429) return `The model is rate-limited (429). Wait a moment and try again. ${detail}`;
   return `The model provider returned ${status}. ${detail}`;

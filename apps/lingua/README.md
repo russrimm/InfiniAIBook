@@ -77,7 +77,9 @@ Requirements:
 - Node.js 22.13 or later.
 - A realtime model deployment (`gpt-realtime`, `gpt-realtime-2.1`,
   `gpt-realtime-mini`, …) in a region that offers it. Global deployments are
-  available in East US 2 and Sweden Central.
+  available in East US 2 and Sweden Central. A new deployment can take about
+  five minutes before realtime calls accept it. Until then, Azure returns
+  `OperationNotSupported`.
 
 ```bash
 cd apps/lingua

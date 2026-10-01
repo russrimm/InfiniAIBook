@@ -99,7 +99,7 @@ describe("startCall", () => {
         )
     );
     vi.stubGlobal("fetch", fetchMock);
-    await expect(startCall(s, OFFER)).rejects.toThrow(/no realtime model deployment named "gpt-realtime-2.1"/);
+    await expect(startCall(s, OFFER)).rejects.toThrow(/realtime model "gpt-realtime-2.1" isn't available.*wait about five minutes/);
     expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe(
       "https://russ.openai.azure.com/openai/v1/realtime/client_secrets"
     );
