@@ -4,9 +4,10 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A self-hosted Agentic Powered Notebook research studio. Upload your own sources, chat with
-them, and turn them into **reports, briefings, PowerPoint decks, infographics,
-mind maps, quizzes, study guides, FAQs, timelines, audio overviews and avatar
-training videos**. Every claim is cited back to the document it came from.
+them, talk them through out loud, and turn them into **reports, briefings,
+PowerPoint decks, infographics, mind maps, quizzes, flashcards, study guides,
+FAQs, timelines, audio overviews, whiteboard videos, motion explainers and
+avatar training videos**. Every claim is cited back to the document it came from.
 
 Built with Next.js 15, TypeScript and SQLite. Runs against Azure OpenAI, a dozen
 named providers (OpenAI, Anthropic, Gemini, Groq, Mistral, DeepSeek, OpenRouter,
@@ -44,13 +45,16 @@ How it works, setup and costs: [Training videos](docs/training-videos.md).
 ## Features
 
 - **Sources** — PDF, DOCX, TXT, MD, CSV, JSON, HTML, images, audio/video, pasted
-  text, URLs, YouTube links and RSS/Atom feeds; discover sources from a topic or
-  browse the web in-app. Linked sources are re-checked for changes.
+  text, URLs, YouTube links and RSS/Atom feeds; discover sources from a topic,
+  browse the web in-app, or reuse a source from another notebook. Uploads are
+  processed in the background, and linked sources are re-checked for changes.
   [More](docs/sources.md)
 - **Grounded chat** — streaming answers built only from your selected sources,
-  with inline citations and multiple chat sessions per notebook.
-- **Notes and transformations** — Markdown notes, saved chat answers and
-  reusable prompts run on a source. [More](docs/notes-and-search.md)
+  with clickable inline citations that open the highlighted passage, **Stop**
+  that keeps the partial answer, and multiple chat sessions per notebook.
+- **Notes and transformations** — Markdown notes, saved chat answers (citations
+  kept), notes turned into sources, and reusable prompts run on a source.
+  [More](docs/notes-and-search.md)
 - **Live discussions** — talk through your sources out loud: discuss, debate,
   Q&A, interview an expert, get interviewed, an oral quiz or a Socratic tutor.
   The AI answers in real time, lets you interrupt, looks things up in your
@@ -82,7 +86,15 @@ How it works, setup and costs: [Training videos](docs/training-videos.md).
   different register), and can add **background music** you upload.
   [More](docs/studio.md#spoken-formats-script-review-instructions-and-music)
 
-- **Exports**: Markdown, PPTX, MP3, MP4, PNG and Anki/Quizlet CSV. [More](docs/studio.md#exporting)
+- **Exports** — Markdown, PPTX, MP3, MP4, PNG and Anki/Quizlet CSV. [More](docs/studio.md#exporting)
+- **Model picker** — switch the chat, embedding, image and vision models from
+  the workspace header; a saved choice overrides the environment until reset.
+  [More](docs/configuration.md#models-and-what-theyre-used-for)
+- **Undo deletes** — deleted sources, notes, chats, artifacts and notebooks can
+  be restored for 8 seconds.
+- **Reduced motion** — honors the OS or browser `prefers-reduced-motion`
+  setting: entrances fade instead of moving, spinners and mind maps stop
+  animating, and scrolling jumps instead of gliding.
 - **Everything is local** — sources, embeddings, chat history, artifacts and
   media live under `.data/`. Password protection and a Docker image included.
 
@@ -115,8 +127,9 @@ defaults and what happens without each one.
 | Studio script | `AI_STUDIO_MODEL` (optional, defaults to chat) | Audio-overview scripts, whiteboard and motion scene plans, training transcripts |
 | Embeddings | `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` or `AI_EMBEDDING_MODEL` | Semantic retrieval and search; keyword ranking without it |
 | Image | `AZURE_OPENAI_IMAGE_DEPLOYMENT` or `AI_IMAGE_MODEL` | AI-image infographics, whiteboard videos and motion explainers |
-| Vision | `AZURE_OPENAI_VISION_DEPLOYMENT` or `AI_VISION_MODEL` | Reading uploaded images (defaults to chat) |
+| Vision | `AZURE_OPENAI_VISION_DEPLOYMENT` or `AI_VISION_MODEL` | Reading uploaded images and the screen helper (defaults to chat) |
 | Transcription | `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT` or `AI_TRANSCRIPTION_MODEL` | Audio and video sources |
+| Realtime voice | `AZURE_OPENAI_REALTIME_DEPLOYMENT` or `AI_REALTIME_MODEL` | Live discussions |
 | Azure Speech | `AZURE_SPEECH_REGION` + `AZURE_SPEECH_RESOURCE_ID` (or `AZURE_SPEECH_KEY`) | Every voice: audio overviews, video narration, training-video avatars |
 | Gemini | `GEMINI_API_KEY` | YouTube transcripts |
 
