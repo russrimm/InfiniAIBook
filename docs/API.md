@@ -165,6 +165,21 @@ omitted, the notebook's saved defaults are used. `music` is
 `{ track: "random" | trackId, volume?: "low" | "medium" | "high" }`, or `null`
 for none.
 
+## Live discussions
+
+See [Live discussions](discussions.md#how-it-works) for the flow.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/api/discussion` | — | `{ ready, model }`, or `{ ready: false, problem }` explaining what to configure |
+| POST | `/api/discussion` | `{ notebookId, sourceIds?, setup: { mode, voice?, focus?, stance? }, sdp }` | `{ answer, citations }`: the SDP answer for the browser's WebRTC offer, and the numbered opening excerpts. The client secret stays on the server |
+| POST | `/api/discussion/search` | `{ notebookId, sourceIds?, query, start, known?: [{ passageId, n }] }` | `{ output, citations }`: the tool output for the AI and the new excerpts, numbered from `start` |
+| POST | `/api/discussion/save` | `{ notebookId, setup, turns: [{ role, text, cites }], citations, results?, durationSec }` | `201 { note, warning? }`: the discussion saved as a note with takeaways |
+
+`mode` is one of `discussion`, `debate`, `qa`, `expert`, `interview`,
+`quiz` or `tutor`. `voice` is a realtime voice: `marin` (default), `cedar`,
+`coral`, `sage`, `ash`, `ballad`, `verse`, `shimmer`, `echo` or `alloy`.
+
 ## Other
 
 | Method | Path | Notes |

@@ -51,6 +51,11 @@ How it works, setup and costs: [Training videos](docs/training-videos.md).
   with inline citations and multiple chat sessions per notebook.
 - **Notes and transformations** — Markdown notes, saved chat answers and
   reusable prompts run on a source. [More](docs/notes-and-search.md)
+- **Live discussions** — talk through your sources out loud: discuss, debate,
+  Q&A, interview an expert, get interviewed, an oral quiz or a Socratic tutor.
+  The AI answers in real time, lets you interrupt, looks things up in your
+  sources mid-conversation and shows clickable citations. Save the call as a
+  note with takeaways. [More](docs/discussions.md)
 - **Search everything** — keyword or semantic search, and a grounded **Ask**,
   across every notebook. [More](docs/notes-and-search.md#search-and-ask)
 - **Studio** — fourteen generators, each producing a structured, interactive artifact:

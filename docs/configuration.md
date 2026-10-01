@@ -97,7 +97,9 @@ other provider it is a model id.
 | **Embeddings** | `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | `AI_EMBEDDING_MODEL` (or `AI_EMBEDDING_PROVIDER`) | `text-embedding-3-small` | Semantic retrieval for chat and Studio, semantic search, and matching the Studio focus box | Retrieval falls back to keyword ranking |
 | **Image** | `AZURE_OPENAI_IMAGE_DEPLOYMENT` (`AZURE_OPENAI_IMAGE_API_VERSION` for its API version) | `AI_IMAGE_MODEL` | `gpt-image-2.5-sunburst` | The "AI image" infographic style, whiteboard-video scenes and the drawing hand, and motion-explainer backgrounds, character and props | Those three features fail unless a deployment with the default name exists |
 | **Vision** | `AZURE_OPENAI_VISION_DEPLOYMENT` | `AI_VISION_MODEL` | the chat model | Reading uploaded images so they can be indexed as sources | Uses the chat model, which must then support images |
-| **Transcription** | `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT` | `AI_TRANSCRIPTION_MODEL` (or `AI_TRANSCRIPTION_PROVIDER`) | the preset's, if any | Audio and video file sources | Audio and video uploads fail with a message saying what to set |
+| **Transcription** | `AZURE_OPENAI_REALTIME_DEPLOYMENT`, `AI_REALTIME_MODEL`, `AI_REALTIME_TRANSCRIPTION_MODEL`, `DISCUSSION_CONTEXT_CHARS` | Realtime voice model, transcription and starting context for [live discussions](discussions.md#setup) |
+| `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT` | `AI_TRANSCRIPTION_MODEL` (or `AI_TRANSCRIPTION_PROVIDER`) | the preset's, if any | Audio and video file sources | Audio and video uploads fail with a message saying what to set |
+| **Realtime voice** | `AZURE_OPENAI_REALTIME_DEPLOYMENT` | `AI_REALTIME_MODEL` (OpenAI only) | none (`gpt-realtime` with OpenAI) | [Live discussions](discussions.md): the spoken conversation itself, with `AI_REALTIME_TRANSCRIPTION_MODEL` (default `gpt-4o-mini-transcribe`) for what you say | The Live discussion card explains what to set |
 | **Speech** (Azure AI Speech, not a deployment) | `AZURE_SPEECH_REGION` + `AZURE_SPEECH_RESOURCE_ID`, or `AZURE_SPEECH_KEY` | same | `en-Multitalker:DragonHDLatestNeural` and the standalone neural voices | Audio overviews, voice previews, whiteboard and motion narration, and training-video avatars (`AZURE_SPEECH_ENDPOINT` for the avatar service) | Those features are unavailable |
 | **Gemini** | `GEMINI_API_KEY`, `GEMINI_MODEL` | same | `gemini-2.5-flash` | YouTube transcripts, fetched by Gemini on Google's side | The app tries YouTube's own captions, then falls back to the video description, clearly labeled |
 
@@ -125,6 +127,7 @@ commentary. Only a model provider is required.
 | `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | Chat and embedding deployment names |
 | `AZURE_OPENAI_IMAGE_DEPLOYMENT`, `AZURE_OPENAI_IMAGE_API_VERSION` | Optional image model for AI-image infographics and videos |
 | `AZURE_OPENAI_VISION_DEPLOYMENT` | Optional vision model for image sources; defaults to the chat deployment |
+| `AZURE_OPENAI_REALTIME_DEPLOYMENT`, `AI_REALTIME_MODEL`, `AI_REALTIME_TRANSCRIPTION_MODEL`, `DISCUSSION_CONTEXT_CHARS` | Realtime voice model, transcription and starting context for [live discussions](discussions.md#setup) |
 | `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT` | Optional Whisper / gpt-4o-transcribe deployment for audio/video sources |
 | `AZURE_OPENAI_API_KEY` | Legacy key auth; takes precedence over Entra when set |
 | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | Service principal or user-assigned identity for Entra auth |

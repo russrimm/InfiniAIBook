@@ -15,6 +15,7 @@ import NotesPanel from "./NotesPanel";
 import TransformationsModal from "./TransformationsModal";
 import LibraryModal from "./LibraryModal";
 import AboutModal from "./AboutModal";
+import DiscussionModal from "./DiscussionModal";
 import { CitationContext } from "./CitationContext";
 import { useDeferredDelete } from "./UndoToast";
 import type { SourceHighlight } from "./SourceModal";
@@ -62,6 +63,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [browsing, setBrowsing] = useState(false);
   const [pickingModel, setPickingModel] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  /** Open live discussion, with the focus it started from. */
+  const [discussing, setDiscussing] = useState<{ focus: string } | null>(null);
   const [model, setModel] = useState("");
   const [tab, setTab] = useState<Tab>("chat");
   /** Which panel fills the right-hand column on wide screens. */
@@ -521,6 +524,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
                 setData((d) => (d ? { ...d, notebook: { ...d.notebook, narration: saved } } : d));
                 return saved;
               }}
+              onDiscuss={(focus) => setDiscussing({ focus })}
             />
           </div>
           <div
@@ -541,6 +545,21 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         </div>
       </div>
 
+      {/* Before the source viewer, so a citation opened mid-call shows on top. */}
+      {discussing && (
+        <DiscussionModal
+          notebookId={notebookId}
+          sourceIds={selectedIds}
+          initialFocus={discussing.focus}
+          onClose={() => setDiscussing(null)}
+          onSaved={async (note) => {
+            await load();
+            setRight("notes");
+            setTab("notes");
+            setOpenNoteId(note.id);
+          }}
+        />
+      )}
       {openArtifact && (
         <ArtifactModal
           artifact={openArtifact}

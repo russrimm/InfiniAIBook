@@ -131,6 +131,7 @@ export default function StudioPanel({
   onChanged,
   narrationDefaults,
   onSaveNarration,
+  onDiscuss,
 }: {
   notebookId: string;
   hasSources: boolean;
@@ -145,6 +146,8 @@ export default function StudioPanel({
   /** The notebook's saved narration instructions, pre-filled on each spoken card. */
   narrationDefaults?: NarrationSettings;
   onSaveNarration?: (n: NarrationSettings) => Promise<NarrationSettings>;
+  /** Open a live spoken discussion, starting from the focus box. */
+  onDiscuss?: (focus: string) => void;
 }) {
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState<InfographicStyle>(DEFAULT_STYLE);
@@ -385,6 +388,28 @@ export default function StudioPanel({
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
         />
+
+        {onDiscuss && (
+          <>
+            <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
+              Live
+            </h3>
+            <button
+              type="button"
+              disabled={blocked}
+              onClick={() => onDiscuss(topic)}
+              className="card mb-4 flex w-full items-center gap-3 px-3 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <span className="text-xl">🎙️</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] font-medium">Live discussion</span>
+                <span className="block text-[10px] leading-snug text-[var(--muted)]">
+                  Talk it through out loud: discuss, debate, Q&amp;A, interview or quiz, with cited answers
+                </span>
+              </span>
+            </button>
+          </>
+        )}
 
         <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
           Audio &amp; video

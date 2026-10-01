@@ -23,6 +23,7 @@ src/
       browse/                      in-app browser: frameability check + reader view
       sources/[id]/                read full text, re-index / keep, delete
       chat/                        NDJSON streaming, grounded answers
+      discussion/                  live discussions: start a realtime call (SDP exchange); search/ for the AI's lookups; save/ as a note
       generate/                    studio artifact generation
       podcast/                     write a dialogue script; [id] edits it, [id]/narrate voices it
       video/                       plan a whiteboard video; video/[id] edits a whiteboard or motion script, [id]/render builds it
@@ -39,6 +40,7 @@ src/
     ArtifactModal  SourceModal  DiscoverModal  BrowserModal  SourceUpdates
     MindMap  Quiz  Flashcards  Infographic  Metaphors
     PodcastPlayer  VideoPlayer  MotionCustomize  Markdown
+    DiscussionModal  useDiscussion (WebRTC call, tool calls, cancellation)
     MusicPicker  NarrationOptions  SlideDeck  AboutModal
   lib/
     db.ts        SQLite schema (node:sqlite, no native build step)
@@ -49,6 +51,10 @@ src/
     settings.ts  runtime settings (active models) that override the environment
     infographic.ts  style registry: themes + per-style content guidance
     metaphors.ts vocabulary of visual metaphors for the illustrated style
+    discussion.ts      live-discussion modes, instructions, tools, saved-note format (client-safe)
+    discussionState.ts reducer folding realtime events into the live transcript and citations
+    discussionServer.ts opening excerpts, session config and mid-call search
+    realtime.ts  realtime provider resolution, client-secret minting and SDP exchange
     speech.ts    Azure Speech dialogue synthesis
     voices.ts    voice list shared by the API and the UI
     prosody.ts   pause shaping; documents which SSML tags measurably work

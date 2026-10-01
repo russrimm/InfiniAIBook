@@ -16,6 +16,8 @@
   YouTube transcripts, and keeping linked sources current
 - [Notes, sessions and search](notes-and-search.md) — chat sessions, notes,
   transformations, cross-notebook search and source reuse
+- [Live discussions](discussions.md) — spoken, realtime discussion, debate,
+  Q&A, interviews, oral quizzes and tutoring over your sources, with citations
 - [Infographic styles](infographics.md) — all 20 styles, with a gallery
 - [Audio overviews](audio-overviews.md) — multi-speaker podcasts, voices and pacing
 - [Whiteboard videos](whiteboard-videos.md) — narrated, hand-drawn explainer videos
