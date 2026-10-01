@@ -58,4 +58,5 @@ next-env.d.ts
 !.github/dependabot.yml
 !.github/ISSUE_TEMPLATE/
 skills/
+skills-lock.json
 
