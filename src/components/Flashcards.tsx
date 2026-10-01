@@ -232,7 +232,7 @@ export default function Flashcards({
       <div className="mb-3 flex items-center gap-3">
         <div className="h-1 flex-1 overflow-hidden rounded-full bg-[#1b2027]">
           <div
-            className="h-full rounded-full bg-[var(--accent)] transition-all"
+            className="h-full rounded-full bg-[var(--accent)] transition-all motion-reduce:transition-none"
             style={{ width: `${(pos / order.length) * 100}%` }}
           />
         </div>
