@@ -20,11 +20,10 @@ import ScreenHelperModal from "./ScreenHelperModal";
 import { CitationContext } from "./CitationContext";
 import { useDeferredDelete } from "./UndoToast";
 import type { SourceHighlight } from "./SourceModal";
-import { STUDIO } from "@/lib/studio";
+import { studioIcon, studioLabel } from "@/lib/studio";
 import type {
   Artifact,
   ArtifactSummary,
-  ArtifactType,
   ChatSession,
   Citation,
   Message,
@@ -684,11 +683,11 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         <div className="fade-up fixed bottom-4 left-1/2 z-[60] -translate-x-1/2">
           <div className="flex items-center gap-3 rounded-full border border-[var(--border)] bg-[var(--panel)] py-2 pr-2 pl-4 shadow-xl">
             <span className="text-base">
-              {STUDIO[readyArtifact.type as ArtifactType]?.icon ?? "📄"}
+              {studioIcon(readyArtifact.type)}
             </span>
             <span className="max-w-[16rem] truncate text-[12px]">
               <span className="text-[var(--muted)]">
-                {STUDIO[readyArtifact.type as ArtifactType]?.label} ready ·{" "}
+                {studioLabel(readyArtifact.type)} ready ·{" "}
               </span>
               {readyArtifact.title}
             </span>

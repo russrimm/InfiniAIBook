@@ -8,7 +8,7 @@ import MotionCustomize, {
 } from "@/components/MotionCustomize";
 import MusicPicker from "@/components/MusicPicker";
 import NarrationOptions from "@/components/NarrationOptions";
-import { STUDIO, STUDIO_SECTIONS } from "@/lib/studio";
+import { STUDIO, STUDIO_SECTIONS, studioIcon, studioLabel } from "@/lib/studio";
 import { DEFAULT_SLIDE_THEME, SLIDE_THEMES } from "@/lib/slides";
 import { EMPTY_NARRATION, type NarrationSettings } from "@/lib/narration";
 import type { MusicChoice } from "@/lib/musicchoice";
@@ -983,7 +983,7 @@ export default function StudioPanel({
         {Object.entries(errors).map(([type, message]) => (
           <p key={type} className="mt-3 text-xs text-red-400">
             <span className="font-medium">
-              {STUDIO[type as ArtifactType]?.label ?? type}:
+              {studioLabel(type)}:
             </span>{" "}
             {message}
           </p>
@@ -994,7 +994,7 @@ export default function StudioPanel({
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
             Generating{" "}
             {[...running]
-              .map((t) => STUDIO[t]?.label.toLowerCase() ?? t)
+              .map((t) => studioLabel(t).toLowerCase())
               .join(", ")}{" "}
             in the background — carry on using the rest of the notebook.
           </p>
@@ -1016,7 +1016,7 @@ export default function StudioPanel({
                   className="group flex items-center gap-2 rounded-xl border border-transparent px-2 py-2 transition hover:border-[var(--border)] hover:bg-panel2"
                 >
                   <span className="text-base">
-                    {STUDIO[a.type as ArtifactType]?.icon ?? "📄"}
+                    {studioIcon(a.type)}
                   </span>
                   <button
                     className="min-w-0 flex-1 text-left disabled:opacity-60"
@@ -1027,7 +1027,7 @@ export default function StudioPanel({
                     <div className="text-[10px] text-dim">
                       {openingId === a.id
                         ? "Opening…"
-                        : `${STUDIO[a.type as ArtifactType]?.label} · ${new Date(
+                        : `${studioLabel(a.type)} · ${new Date(
                             a.createdAt
                           ).toLocaleString()}`}
                     </div>
