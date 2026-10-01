@@ -18,6 +18,8 @@
   transformations, cross-notebook search and source reuse
 - [Live discussions](discussions.md) — spoken, realtime discussion, debate,
   Q&A, interviews, oral quizzes and tutoring over your sources, with citations
+- [Screen helper](screen-helper.md) — share any app's window and get coached
+  through it step by step, with the next control highlighted
 - [Infographic styles](infographics.md) — all 20 styles, with a gallery
 - [Audio overviews](audio-overviews.md) — multi-speaker podcasts, voices and pacing
 - [Whiteboard videos](whiteboard-videos.md) — narrated, hand-drawn explainer videos

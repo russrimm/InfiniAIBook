@@ -23,6 +23,7 @@
     "start:lan": "next start -H 0.0.0.0",
     "lint": "eslint",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "check:ai": "tsx --env-file-if-exists=.env.local scripts/check-ai.ts",
     "check:ssrf": "tsx scripts/check-ssrf.ts",
     "check:motion": "tsx scripts/check-motion.ts"
@@ -45,6 +46,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.13.4",
     "@types/react": "^19",

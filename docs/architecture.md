@@ -24,6 +24,7 @@ src/
       sources/[id]/                read full text, re-index / keep, delete
       chat/                        NDJSON streaming, grounded answers
       discussion/                  live discussions: start a realtime call (SDP exchange); search/ for the AI's lookups; save/ as a note
+      screen-help/                 screen helper: one coaching turn on a shared-screen frame
       generate/                    studio artifact generation
       podcast/                     write a dialogue script; [id] edits it, [id]/narrate voices it
       video/                       plan a whiteboard video; video/[id] edits a whiteboard or motion script, [id]/render builds it
@@ -41,6 +42,7 @@ src/
     MindMap  Quiz  Flashcards  Infographic  Metaphors
     PodcastPlayer  VideoPlayer  MotionCustomize  Markdown
     DiscussionModal  useDiscussion (WebRTC call, tool calls, cancellation)
+    ScreenHelperModal  useScreenCapture (getDisplayMedia frames, auto-watch)
     MusicPicker  NarrationOptions  SlideDeck  AboutModal
   lib/
     db.ts        SQLite schema (node:sqlite, no native build step)
@@ -66,7 +68,8 @@ src/
     retrieve.ts  hybrid retrieval, corpus sampling, citation building
     studio.ts    per-format prompts and schemas
     refresh.ts   re-fetch, word-level change detection, bot-wall guard, re-indexing
-    vision.ts    image description, with a guard against blind models inventing one
+    vision.ts    image description, with a guard against blind models inventing one; vision probe for the screen helper
+    screenhelp.ts screen-helper prompt, schemas, box normalization, change detection and note format (client-safe)
     whiteboard.ts scene planning for videos; videobuild.ts runs the pipeline
     motion.ts    motion explainer planning and customization options; motiontimeline.ts compiles the render config; motionbuild.ts runs the pipeline
     videoscript.ts  podcastscript.ts  podcaststore.ts   script editing for videos and audio overviews

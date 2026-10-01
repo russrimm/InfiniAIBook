@@ -1,4 +1,4 @@
-import { getClient, visionModel, describeAuthError } from "./ai";
+import { getClient, visionModel, visionChat, describeAuthError } from "./ai";
 
 /** Formats the vision endpoint accepts, keyed by extension. */
 export const IMAGE_TYPES: Record<string, string> = {
@@ -32,6 +32,58 @@ function minPromptTokens(): number {
 }
 
 export class ImageNotReadError extends Error {}
+
+/**
+ * Models already probed for vision, so the probe runs once per model per
+ * process rather than on every screen-helper turn.
+ */
+const readsImages = new Map<string, boolean>();
+
+/** Below this, a one-word prompt plus a low-detail image was not seen at all. */
+const PROBE_MIN_TOKENS = 60;
+
+/**
+ * Confirm the vision model reads images, with a tiny, low-detail probe.
+ *
+ * A long conversation makes the token floor used by `describeImage` unreliable,
+ * because text alone can outweigh the image. A probe with almost no text makes
+ * the image the bulk of the prompt: a low-detail image is at least 85 tokens on
+ * OpenAI models and 258 on Gemini, while a blind model bills about 15.
+ */
+export async function assertReadsImages(dataUrl: string): Promise<void> {
+  const model = visionModel();
+  if (readsImages.get(model)) return;
+
+  let promptTokens = 0;
+  try {
+    ({ promptTokens } = await visionChat([
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Reply OK." },
+          { type: "image_url", image_url: { url: dataUrl, detail: "low" } },
+        ],
+      },
+    ]));
+  } catch (e) {
+    const status = (e as { status?: number })?.status;
+    if (status === 400) {
+      const detail = describeAuthError(e) ?? (e instanceof Error ? e.message : "");
+      throw new ImageNotReadError(
+        `"${model}" rejected the screenshot. It is probably not a vision model — choose one under Models → Image reading. ${detail}`.trim()
+      );
+    }
+    throw e;
+  }
+
+  // Some local servers report no usage at all; nothing can be concluded then.
+  if (promptTokens > 0 && promptTokens < PROBE_MIN_TOKENS) {
+    throw new ImageNotReadError(
+      `"${model}" did not actually read the screenshot — it billed only ${promptTokens} prompt tokens for an image. Choose a vision-capable model under Models → Image reading.`
+    );
+  }
+  readsImages.set(model, true);
+}
 
 const INSTRUCTION = `You are describing an image so that its content can be searched and cited later.
 

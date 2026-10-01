@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Notebook } from "@/lib/types";
 import AboutModal from "@/components/AboutModal";
+import ScreenHelperModal from "@/components/ScreenHelperModal";
 import { useDeferredDelete } from "@/components/UndoToast";
 
 export default function Home() {
@@ -12,6 +13,7 @@ export default function Home() {
   const [creating, setCreating] = useState(false);
   const [authOn, setAuthOn] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [helperOpen, setHelperOpen] = useState(false);
   const deferDelete = useDeferredDelete();
   /** Notebooks deleted but still within their undo window. */
   const [hiddenNb, setHiddenNb] = useState<Set<string>>(new Set());
@@ -85,6 +87,13 @@ export default function Home() {
             🔎 Search all
           </button>
           <button
+            className="btn"
+            onClick={() => setHelperOpen(true)}
+            title="Share an app and get coached through it step by step"
+          >
+            🖥️ Screen helper
+          </button>
+          <button
             aria-label="About InfiniAIBook"
             title="About"
             className="btn"
@@ -150,6 +159,7 @@ export default function Home() {
         </div>
       )}
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+      {helperOpen && <ScreenHelperModal onClose={() => setHelperOpen(false)} />}
     </main>
   );
 }

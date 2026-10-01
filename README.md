@@ -58,6 +58,10 @@ How it works, setup and costs: [Training videos](docs/training-videos.md).
   note with takeaways. [More](docs/discussions.md)
 - **Search everything** — keyword or semantic search, and a grounded **Ask**,
   across every notebook. [More](docs/notes-and-search.md#search-and-ask)
+- **Screen helper** — share any app's window, type what you need help with,
+  and get coached one step at a time, with the next control highlighted on a
+  screenshot. Auto-watch notices when you have done a step and suggests the
+  next. [More](docs/screen-helper.md)
 - **Studio** — fourteen generators, each producing a structured, interactive artifact:
 
   | Format | Output |
