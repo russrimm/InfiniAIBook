@@ -23,7 +23,7 @@ async function post(url: string, init: RequestInit): Promise<Response> {
 }
 
 export async function mintClientSecret(s: ResolvedSetup): Promise<string> {
-  const { baseUrl } = provider();
+  const baseUrl = provider().realtimeBaseUrl;
   const session = buildSessionConfig(s, {
     model: realtimeModel(),
     transcriptionModel: transcriptionModel(),
@@ -43,7 +43,7 @@ export async function mintClientSecret(s: ResolvedSetup): Promise<string> {
 }
 
 export async function negotiateCall(secret: string, offerSdp: string): Promise<string> {
-  const { baseUrl } = provider();
+  const baseUrl = provider().realtimeBaseUrl;
   const res = await post(`${baseUrl}/realtime/calls`, {
     method: "POST",
     headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/sdp" },

@@ -41,6 +41,16 @@ describe("provider", () => {
     expect(provider().baseUrl).toBe("https://res.openai.azure.com/openai/v1");
   });
 
+  it("sends realtime calls to the openai.azure.com host of a Foundry resource", () => {
+    process.env.AZURE_OPENAI_ENDPOINT = "https://russ.services.ai.azure.com";
+    expect(provider().baseUrl).toBe("https://russ.services.ai.azure.com/openai/v1");
+    expect(provider().realtimeBaseUrl).toBe("https://russ.openai.azure.com/openai/v1");
+    process.env.AZURE_OPENAI_ENDPOINT = "https://russ.cognitiveservices.azure.com/";
+    expect(provider().realtimeBaseUrl).toBe("https://russ.openai.azure.com/openai/v1");
+    process.env.AZURE_OPENAI_ENDPOINT = "https://gw.example.com";
+    expect(provider().realtimeBaseUrl).toBe("https://gw.example.com/openai/v1");
+  });
+
   it("refuses plain http", () => {
     process.env.AZURE_OPENAI_ENDPOINT = "http://res.openai.azure.com";
     expect(() => provider()).toThrow(/https/);
@@ -75,6 +85,24 @@ describe("startCall", () => {
     expect(body.session.audio.output.voice).toBe("shimmer");
     expect(body.session.audio.input.transcription.model).toBe("gpt-4o-mini-transcribe");
     expect(body.session.instructions).toContain("French");
+  });
+
+  it("names the missing realtime deployment", async () => {
+    process.env.AZURE_OPENAI_ENDPOINT = "https://russ.services.ai.azure.com";
+    process.env.AZURE_OPENAI_API_KEY = "k";
+    process.env.AZURE_OPENAI_REALTIME_DEPLOYMENT = "gpt-realtime-2.1";
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ error: { code: "OpperationNotSupported", message: "The realtime operation does not work with the specified model." } }),
+          { status: 400 }
+        )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(startCall(s, OFFER)).rejects.toThrow(/no realtime model deployment named "gpt-realtime-2.1"/);
+    expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe(
+      "https://russ.openai.azure.com/openai/v1/realtime/client_secrets"
+    );
   });
 
   it("explains a credential failure", async () => {

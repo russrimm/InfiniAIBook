@@ -18,7 +18,19 @@ export type Provider = {
   kind: "azure" | "openai";
   /** Base URL of the v1 API, without a trailing slash. */
   baseUrl: string;
+  /** Base URL for realtime calls, which Azure serves only on the openai.azure.com host. */
+  realtimeBaseUrl: string;
 };
+
+/**
+ * Foundry (AIServices) resources answer on several hosts, but list the
+ * realtime API only under <name>.openai.azure.com. Map the other two there so
+ * the endpoint copied from the Foundry portal works as is.
+ */
+export function azureRealtimeOrigin(origin: string): string {
+  const m = origin.match(/^https:\/\/([a-z0-9-]+)\.(?:services\.ai|cognitiveservices)\.azure\.com$/i);
+  return m ? `https://${m[1]}.openai.azure.com` : origin;
+}
 
 export function provider(): Provider {
   const azure = process.env.AZURE_OPENAI_ENDPOINT?.trim();
@@ -32,10 +44,14 @@ export function provider(): Provider {
     if (url.protocol !== "https:") {
       throw new NotConfiguredError("AZURE_OPENAI_ENDPOINT must use https.");
     }
-    return { kind: "azure", baseUrl: `${url.origin}/openai/v1` };
+    return {
+      kind: "azure",
+      baseUrl: `${url.origin}/openai/v1`,
+      realtimeBaseUrl: `${azureRealtimeOrigin(url.origin)}/openai/v1`,
+    };
   }
   if (process.env.OPENAI_API_KEY?.trim()) {
-    return { kind: "openai", baseUrl: "https://api.openai.com/v1" };
+    return { kind: "openai", baseUrl: "https://api.openai.com/v1", realtimeBaseUrl: "https://api.openai.com/v1" };
   }
   throw new NotConfiguredError(
     "No model provider configured. Set AZURE_OPENAI_ENDPOINT (Entra ID or AZURE_OPENAI_API_KEY) or OPENAI_API_KEY. See .env.example."
@@ -100,6 +116,10 @@ export function describeProviderError(status: number, body: string): string {
   }
   if (status === 404) {
     return `The model provider returned 404. Check that the deployment name exists and the resource is in a region that offers realtime models. ${detail}`;
+  }
+  if (status === 400 && /OpperationNotSupported|OperationNotSupported|does not work with the specified model/i.test(body)) {
+    const name = process.env.AZURE_OPENAI_REALTIME_DEPLOYMENT?.trim() ?? "";
+    return `There is no realtime model deployment named "${name}" on this resource. Deploy a realtime model (for example gpt-realtime-2.1) in Microsoft Foundry and set AZURE_OPENAI_REALTIME_DEPLOYMENT to its deployment name.`;
   }
   if (status === 429) return `The model is rate-limited (429). Wait a moment and try again. ${detail}`;
   return `The model provider returned ${status}. ${detail}`;

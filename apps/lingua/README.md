@@ -86,6 +86,12 @@ cp .env.example .env.local   # then edit it
 npm run dev                  # http://localhost:3100
 ```
 
+Lingua reads only `apps/lingua/.env.local`. It does not read InfiniAIBook's
+`.env.local` at the repository root. The endpoint can be any host of a Foundry
+resource (`*.services.ai.azure.com`, `*.cognitiveservices.azure.com` or
+`*.openai.azure.com`). Realtime calls always go to the resource's
+`*.openai.azure.com` host, where Azure serves the realtime API.
+
 Required settings in `.env.local`:
 
 ```bash
