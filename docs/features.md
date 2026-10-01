@@ -6,6 +6,7 @@
 | **Grounded chat** | Streaming answers built only from the sources you have selected, with inline citations `[1]`. Click (or tab to) a citation to open its source with the cited passage highlighted. **Stop** ends an answer early and keeps what was written. Keep any number of separate **chat sessions** per notebook. |
 | **Notes** | Write your own Markdown notes, save any chat answer as a note (citations kept), and turn a note into a source. |
 | **Transformations** | Reusable prompts — built-in (dense summary, key insights, analyze paper, glossary…) or your own — run on one source and saved as a note. |
+| **Live discussions** | Talk through your sources out loud with a realtime voice AI: discussion, debate, Q&A, interview an expert, get interviewed, oral quiz or Socratic tutor. Interrupt any time; it searches your sources mid-conversation and shows clickable citations. Save a call as a note with takeaways and the cited transcript. See [Live discussions](discussions.md). |
 | **Search everything** | Keyword or semantic search across every notebook's sources and notes, plus a one-shot grounded **Ask** over the whole library. |
 | **Studio** | Fourteen generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
 | **About** | The ⓘ button in the home and workspace headers opens app, author, source and MIT license details. |
