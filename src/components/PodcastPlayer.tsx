@@ -101,7 +101,7 @@ function Player({ content }: { content: PodcastContent & { audioUrl: string } })
         onError={() => setError("The audio file could not be loaded.")}
       />
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[#0e1116] p-5">
+      <div className="rounded-2xl border border-[var(--border)] bg-well p-5">
         {content.description && (
           <p className="mb-4 text-[13px] leading-relaxed text-[var(--muted)]">
             {content.description}
@@ -109,7 +109,7 @@ function Player({ content }: { content: PodcastContent & { audioUrl: string } })
         )}
 
         <div
-          className="group relative h-2 cursor-pointer rounded-full bg-[#1e2430]"
+          className="group relative h-2 cursor-pointer rounded-full bg-hover"
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
             seek(((e.clientX - r.left) / r.width) * (duration || 0));
@@ -123,7 +123,7 @@ function Player({ content }: { content: PodcastContent & { audioUrl: string } })
             <span
               key={i}
               aria-hidden
-              className="absolute top-1/2 h-2 w-px -translate-y-1/2 bg-[#39424f]"
+              className="absolute top-1/2 h-2 w-px -translate-y-1/2 bg-line-hover"
               style={{ left: `${duration ? (t.at / duration) * 100 : 0}%` }}
             />
           ))}
@@ -134,7 +134,7 @@ function Player({ content }: { content: PodcastContent & { audioUrl: string } })
               key={`c${i}`}
               aria-hidden
               title={c.title}
-              className="absolute top-1/2 h-3.5 w-[2px] -translate-y-1/2 rounded-full bg-[#8f9dff]"
+              className="absolute top-1/2 h-3.5 w-[2px] -translate-y-1/2 rounded-full bg-link"
               style={{ left: `${duration ? (c.at / duration) * 100 : 0}%` }}
             />
           ))}
@@ -193,7 +193,7 @@ function Player({ content }: { content: PodcastContent & { audioUrl: string } })
                 Topics
               </span>
               <select
-                className="ml-auto min-w-0 max-w-[60%] cursor-pointer rounded-md border border-[var(--border)] bg-[#12151a] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                className="ml-auto min-w-0 max-w-[60%] cursor-pointer rounded-md border border-[var(--border)] bg-panel px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                 value={activeChapter >= 0 ? activeChapter : ""}
                 onChange={(e) => {
                   const i = Number(e.target.value);
@@ -216,8 +216,8 @@ function Player({ content }: { content: PodcastContent & { audioUrl: string } })
                   onClick={() => seek(c.at)}
                   className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
                     i === activeChapter
-                      ? "border-[var(--accent)] bg-[#1b2030] text-[var(--fg)]"
-                      : "border-[var(--border)] text-[var(--muted)] hover:border-[#39424f] hover:text-[var(--fg)]"
+                      ? "border-[var(--accent)] bg-selected text-[var(--fg)]"
+                      : "border-[var(--border)] text-[var(--muted)] hover:border-line-hover hover:text-[var(--fg)]"
                   }`}
                 >
                   <span className="font-mono tabular-nums opacity-70">{clock(c.at)}</span>{" "}
@@ -252,7 +252,7 @@ function Player({ content }: { content: PodcastContent & { audioUrl: string } })
               key={i}
               ref={isActive ? activeRef : null}
               className={`flex cursor-pointer gap-3 rounded-xl px-3 py-2.5 transition ${
-                isActive ? "bg-[#1b2030]" : "hover:bg-[#151a21]"
+                isActive ? "bg-selected" : "hover:bg-[#151a21]"
               }`}
               onClick={() => seek(t.at)}
             >
@@ -266,12 +266,12 @@ function Player({ content }: { content: PodcastContent & { audioUrl: string } })
               </span>
               <p
                 className={`flex-1 text-[14px] leading-relaxed ${
-                  isActive ? "text-[#f2f5f9]" : "text-[#c9d2dd]"
+                  isActive ? "text-heading" : "text-prose-soft"
                 }`}
               >
                 {t.text}
               </p>
-              <span className="mt-0.5 shrink-0 font-mono text-[10px] text-[#6b7482] tabular-nums">
+              <span className="mt-0.5 shrink-0 font-mono text-[10px] text-dim tabular-nums">
                 {clock(t.at)}
               </span>
             </li>
@@ -283,9 +283,9 @@ function Player({ content }: { content: PodcastContent & { audioUrl: string } })
 }
 
 const inputCls =
-  "w-full rounded-md border border-[var(--border)] bg-[#0e1116] px-2.5 py-1.5 text-[13px] text-[var(--fg)] outline-none placeholder:text-[#53606f] focus:border-[#4d5a7a] disabled:opacity-60";
+  "w-full rounded-md border border-[var(--border)] bg-well px-2.5 py-1.5 text-[13px] text-[var(--fg)] outline-none placeholder:text-faint focus:border-focus disabled:opacity-60";
 const smallSelect =
-  "cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a] disabled:opacity-60";
+  "cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:opacity-60";
 
 type Draft = {
   title: string;
@@ -475,7 +475,7 @@ export default function PodcastPlayer({
       )}
 
       {narrating && (
-        <div className="rounded-2xl border border-[var(--border)] bg-[#0e1116] p-5">
+        <div className="rounded-2xl border border-[var(--border)] bg-well p-5">
           <div className="flex items-center gap-2">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
             <span className="text-[13px] font-medium">Narrating the script</span>
@@ -504,7 +504,7 @@ export default function PodcastPlayer({
       {editing && (
         <>
           {!narrated && (
-            <p className="rounded-xl border border-[var(--border)] bg-[#0e1116] px-4 py-3 text-[12px] leading-relaxed text-[var(--muted)]">
+            <p className="rounded-xl border border-[var(--border)] bg-well px-4 py-3 text-[12px] leading-relaxed text-[var(--muted)]">
               Review the script below — change any wording, reassign lines, or
               remove what you don&apos;t want said. Nothing is narrated until you
               press <span className="text-[var(--fg)]">Narrate</span>.

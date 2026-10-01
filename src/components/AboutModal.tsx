@@ -53,7 +53,7 @@ export default function AboutModal({ onClose }: { onClose: () => void }) {
           <section className="mt-5">
             <h3 className="text-[13px] font-semibold">License</h3>
             <p className="mt-1 text-[12px] text-[var(--muted)]">MIT License</p>
-            <pre className="mt-2 max-h-80 overflow-auto rounded-xl border border-[var(--border)] bg-[#0b0d12] p-3 text-[11px] leading-relaxed whitespace-pre-wrap text-[#c9d2dd]">
+            <pre className="mt-2 max-h-80 overflow-auto rounded-xl border border-[var(--border)] bg-[#0b0d12] p-3 text-[11px] leading-relaxed whitespace-pre-wrap text-prose-soft">
               {MIT_LICENSE}
             </pre>
           </section>

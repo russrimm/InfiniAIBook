@@ -260,7 +260,7 @@ export default function SourcesPanel({
           className={`cursor-pointer rounded-xl border border-dashed px-4 py-5 text-center transition ${
             dragging
               ? "border-[var(--accent)] bg-[rgba(124,140,255,0.06)]"
-              : "border-[var(--border)] hover:border-[#39424f] hover:bg-[#161a21]"
+              : "border-[var(--border)] hover:border-line-hover hover:bg-[#161a21]"
           }`}
         >
           <div className="mb-1 text-lg">📎</div>
@@ -418,7 +418,7 @@ export default function SourcesPanel({
                 key={s.id}
                 className={`group flex gap-2.5 rounded-xl border px-2.5 py-2.5 transition ${
                   selected.has(s.id)
-                    ? "border-[#2f3846] bg-[#171b21]"
+                    ? "border-line-strong bg-panel2"
                     : "border-transparent opacity-55 hover:opacity-90"
                 }`}
               >
@@ -440,7 +440,7 @@ export default function SourcesPanel({
                       {s.summary}
                     </p>
                   )}
-                  <p className="mt-1 text-[10px] text-[#6b7482]">{bytes(s.chars)}</p>
+                  <p className="mt-1 text-[10px] text-dim">{bytes(s.chars)}</p>
                 </button>
                 <button
                   aria-label={`Remove source ${s.title}`}

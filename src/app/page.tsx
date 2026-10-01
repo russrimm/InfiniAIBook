@@ -135,7 +135,7 @@ export default function Home() {
           {visible.map((n) => (
             <div
               key={n.id}
-              className="card fade-up group relative cursor-pointer p-5 transition hover:border-[#39424f]"
+              className="card fade-up group relative cursor-pointer p-5 transition hover:border-line-hover"
               onClick={() => router.push(`/notebook/${n.id}`)}
             >
               <div className="mb-4 text-3xl">{n.emoji}</div>
@@ -146,7 +146,7 @@ export default function Home() {
               </p>
               <button
                 aria-label={`Delete notebook ${n.title}`}
-                className="reveal absolute top-3 right-3 rounded-lg px-2 py-1 text-xs text-[var(--muted)] transition hover:bg-[#1e2430] hover:text-red-400"
+                className="reveal absolute top-3 right-3 rounded-lg px-2 py-1 text-xs text-[var(--muted)] transition hover:bg-hover hover:text-red-400"
                 onClick={(e) => {
                   e.stopPropagation();
                   remove(n.id, n.title);
