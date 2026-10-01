@@ -145,8 +145,8 @@ and cannot be edited or deleted.
 | PATCH | `/api/podcast/{id}` | Edit `title`, `description`, `script: { segments: [{ title, turns: [{ speaker, text }] }] }`, `voices`, `rate`, `music`, `narration`; 409 while narrating |
 | POST | `/api/podcast/{id}/narrate` | Synthesize the script (and mix any music); returns the artifact with `audioUrl` and timed `turns` |
 | POST | `/api/video` | `{ notebookId, topic?, sourceIds?, voice?, narration?, music? }` → whiteboard scene plan (`progress.stage: "script"`) |
-| POST | `/api/motion` | `{ notebookId, topic?, sourceIds?, voice?, music?, narration?, length?, tone?, audience?, visual?, palette?, customPalette?, character?, characterDescription?, closing?, resolution? }` → motion scene plan (`progress.stage: "script"`). Customization values are in [Motion explainers](motion-explainers.md#customizing-a-video); unknown values fall back to the defaults |
-| PATCH | `/api/video/{id}` | Edit a whiteboard or motion script: `title`, `description`, `scenes`, `voice`, `music`, `narration`; 409 while building |
+| POST | `/api/motion` | `{ notebookId, topic?, sourceIds?, voice?, music?, narration?, length?, tone?, audience?, visual?, palette?, customPalette?, character?, characterDescription?, closing?, resolution?, movement? }` → motion scene plan (`progress.stage: "script"`). Customization values are in [Motion explainers](motion-explainers.md#customizing-a-video); unknown values fall back to the defaults |
+| PATCH | `/api/video/{id}` | Edit a whiteboard or motion script: `title`, `description`, `scenes`, `voice`, `music`, `narration`, and `movement` for motion; 409 while building |
 | POST | `/api/video/{id}/render` | Build the reviewed script; poll `GET /api/artifacts/{id}` for `progress.stage`, play `GET /api/video/{id}` |
 | GET | `/api/motion` | `{ music }`: whether any background-music track is available |
 | POST | `/api/training` | `{ notebookId, topic?, sourceIds?, presenter?, voice?, background?, length?, narration?, music? }` → training transcript artifact |
