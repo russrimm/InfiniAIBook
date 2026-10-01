@@ -8,6 +8,7 @@
 | **Transformations** | Reusable prompts — built-in (dense summary, key insights, analyze paper, glossary…) or your own — run on one source and saved as a note. |
 | **Live discussions** | Talk through your sources out loud with a realtime voice AI: discussion, debate, Q&A, interview an expert, get interviewed, oral quiz or Socratic tutor. Interrupt any time; it searches your sources mid-conversation and shows clickable citations. Save a call as a note with takeaways and the cited transcript. See [Live discussions](discussions.md). |
 | **Search everything** | Keyword or semantic search across every notebook's sources and notes, plus a one-shot grounded **Ask** over the whole library. |
+| **Screen helper** | Share any app's window, say what you are trying to do, and a vision model coaches you one step at a time, with a numbered box on a screenshot showing where to click. **Auto-watch** notices when you have taken a step and suggests the next one. Inside a notebook, save the session as a note. See [Screen helper](screen-helper.md). |
 | **Studio** | Fourteen generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
 | **About** | The ⓘ button in the home and workspace headers opens app, author, source and MIT license details. |
 | **Everything is local** | Sources, chunks, embeddings, chat history, artifacts, generated audio, voice samples and images live under `.data/`. |

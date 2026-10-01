@@ -16,6 +16,7 @@ import TransformationsModal from "./TransformationsModal";
 import LibraryModal from "./LibraryModal";
 import AboutModal from "./AboutModal";
 import DiscussionModal from "./DiscussionModal";
+import ScreenHelperModal from "./ScreenHelperModal";
 import { CitationContext } from "./CitationContext";
 import { useDeferredDelete } from "./UndoToast";
 import type { SourceHighlight } from "./SourceModal";
@@ -63,6 +64,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [browsing, setBrowsing] = useState(false);
   const [pickingModel, setPickingModel] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [helperOpen, setHelperOpen] = useState(false);
   /** Open live discussion, with the focus it started from. */
   const [discussing, setDiscussing] = useState<{ focus: string } | null>(null);
   const [model, setModel] = useState("");
@@ -378,6 +380,14 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         </Link>
         <button
           className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
+          onClick={() => setHelperOpen(true)}
+          title="Share an app and get coached through it step by step"
+          aria-label="Screen helper"
+        >
+          🖥️ <span className="hidden md:inline">Screen helper</span>
+        </button>
+        <button
+          className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
           onClick={() => setPickingModel(true)}
           title="Choose which models to use"
         >
@@ -626,6 +636,18 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         />
       )}
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+      {helperOpen && (
+        <ScreenHelperModal
+          notebookId={notebookId}
+          onClose={() => setHelperOpen(false)}
+          onSaved={async (note) => {
+            await load();
+            setRight("notes");
+            setTab("notes");
+            setOpenNoteId(note.id);
+          }}
+        />
+      )}
       {showUpdates && (
         <SourceUpdates
           updates={pendingUpdates}

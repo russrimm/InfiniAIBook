@@ -180,6 +180,20 @@ See [Live discussions](discussions.md#how-it-works) for the flow.
 `quiz` or `tutor`. `voice` is a realtime voice: `marin` (default), `cedar`,
 `coral`, `sage`, `ash`, `ballad`, `verse`, `shimmer`, `echo` or `alloy`.
 
+## Screen helper
+
+See [Screen helper](screen-helper.md) for the flow.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| POST | `/api/screen-help` | `{ goal, message?, trigger: "ask" \| "watch", history?: [{ role, text }], frame, width, height }` | `{ status, say, step, target, model }` |
+
+`frame` is a JPEG, PNG or WebP data URL of the shared screen (up to about
+3 MB), and `width`/`height` are its pixel size. `status` is `next_step`,
+`answer`, `done`, `cannot_see` or `unchanged` (auto-watch only). `target` is
+`{ x, y, w, h, label }` as fractions of the frame, or `null`. Nothing is
+stored. A model that cannot read images returns `400` with `code: "vision"`.
+
 ## Other
 
 | Method | Path | Notes |

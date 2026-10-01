@@ -529,6 +529,48 @@ export async function chatStream(
   }>;
 }
 
+/** A chat message whose user content may carry images, for the vision model. */
+export type VisionMsg =
+  | { role: "system" | "assistant"; content: string }
+  | {
+      role: "user";
+      content:
+        | string
+        | (
+            | { type: "text"; text: string }
+            | { type: "image_url"; image_url: { url: string; detail?: "low" | "high" | "auto" } }
+          )[];
+    };
+
+/**
+ * One call to the vision model. Returns the raw text and the billed prompt
+ * tokens, which callers use to tell whether the image was actually read.
+ */
+export async function visionChat(
+  messages: VisionMsg[],
+  opts: { temperature?: number; json?: boolean; signal?: AbortSignal } = {}
+): Promise<{ text: string; promptTokens: number; model: string }> {
+  const model = visionModel();
+  const res = await createChat(
+    {
+      model,
+      temperature: opts.temperature ?? 0.2,
+      ...(opts.json ? { response_format: { type: "json_object" as const } } : {}),
+      messages: messages as ChatParams["messages"],
+    },
+    { signal: opts.signal }
+  );
+  const r = res as {
+    choices?: { message?: { content?: string } }[];
+    usage?: { prompt_tokens?: number };
+  };
+  return {
+    text: r.choices?.[0]?.message?.content?.trim() ?? "",
+    promptTokens: r.usage?.prompt_tokens ?? 0,
+    model,
+  };
+}
+
 /** Ask the model for a JSON object and parse it defensively. */
 export async function chatJSON<T>(messages: ChatMsg[], temperature = 0.4): Promise<T> {
   return jsonChat<T>(getClient(), chatModel(), messages, temperature);
