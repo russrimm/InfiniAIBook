@@ -213,7 +213,7 @@ export default function MindMap({ root, title }: { root: MindNode; title: string
 
       <div
         ref={viewRef}
-        className="grid min-h-0 flex-1 place-items-center overflow-auto rounded-xl border border-[var(--border)] bg-[#0e1116] p-3"
+        className="grid min-h-0 flex-1 place-items-center overflow-auto rounded-xl border border-[var(--border)] bg-well p-3"
       >
         <svg
           width={width * zoom}

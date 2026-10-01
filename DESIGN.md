@@ -1,0 +1,363 @@
+---
+name: InfiniAIBook
+description: Grounded research studio. A dark, dense, three-panel workspace where cited sources come first.
+colors:
+  night-ink: "#0b0d10"
+  slate-panel: "#12151a"
+  raised-slate: "#171b21"
+  hover-slate: "#1e2430"
+  well-black: "#0e1116"
+  hairline: "#242a33"
+  hairline-strong: "#2f3846"
+  hairline-hover: "#39424f"
+  focus-steel: "#4d5a7a"
+  user-bubble: "#232a36"
+  paper-white: "#e7ebf0"
+  heading-white: "#f2f5f9"
+  prose-mist: "#d7dde6"
+  fog: "#8b95a5"
+  dim-fog: "#6b7482"
+  faint-fog: "#53606f"
+  lamplight: "#7c8cff"
+  lamplight-top: "#6f7dff"
+  lamplight-deep: "#5a68ee"
+  lamplight-link: "#8f9dff"
+  cite-ink: "#a7b2ff"
+  cite-wash: "rgba(124, 140, 255, 0.16)"
+  on-lamplight: "#ffffff"
+  warning-text: "oklch(92.4% 0.12 95.746)"
+  error-text: "oklch(80.8% 0.114 19.571)"
+  success-text: "oklch(84.5% 0.143 164.978)"
+typography:
+  display:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "2.25rem"
+    fontWeight: 600
+    lineHeight: 1.1
+    letterSpacing: "-0.025em"
+  headline:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1.5rem"
+    fontWeight: 650
+    lineHeight: 1.3
+  title:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "15px"
+    fontWeight: 500
+    lineHeight: 1.4
+  body:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "0.9375rem"
+    fontWeight: 400
+    lineHeight: 1.7
+  body-ui:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 500
+    lineHeight: 1.375
+  meta:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "11px"
+    fontWeight: 400
+    lineHeight: 1.375
+  label:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "11px"
+    fontWeight: 600
+    letterSpacing: "0.1em"
+  micro:
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "10px"
+    fontWeight: 400
+    lineHeight: 1.375
+  mono:
+    fontFamily: "Geist Mono, ui-monospace, monospace"
+    fontSize: "0.85em"
+rounded:
+  xs: "4px"
+  sm: "6px"
+  md: "8px"
+  control: "10px"
+  tile: "12px"
+  card: "14px"
+  sheet: "16px"
+  pill: "999px"
+spacing:
+  xs: "4px"
+  sm: "8px"
+  md: "12px"
+  lg: "16px"
+  xl: "20px"
+  2xl: "24px"
+  page: "56px"
+components:
+  button:
+    backgroundColor: "{colors.raised-slate}"
+    textColor: "{colors.paper-white}"
+    typography: "{typography.body-ui}"
+    rounded: "{rounded.control}"
+    padding: "8px 13.6px"
+  button-hover:
+    backgroundColor: "{colors.hover-slate}"
+  button-compact:
+    backgroundColor: "{colors.raised-slate}"
+    textColor: "{colors.paper-white}"
+    typography: "{typography.meta}"
+    rounded: "{rounded.control}"
+    padding: "4px 10px"
+  button-primary:
+    backgroundColor: "{colors.lamplight-top}"
+    textColor: "{colors.on-lamplight}"
+    typography: "{typography.body-ui}"
+    rounded: "{rounded.control}"
+    padding: "8px 13.6px"
+  button-primary-hover:
+    backgroundColor: "{colors.lamplight}"
+  button-ghost:
+    backgroundColor: "transparent"
+    textColor: "{colors.fog}"
+    rounded: "{rounded.md}"
+    padding: "4px 8px"
+  button-ghost-hover:
+    backgroundColor: "{colors.hover-slate}"
+    textColor: "{colors.paper-white}"
+  input:
+    backgroundColor: "{colors.well-black}"
+    textColor: "{colors.paper-white}"
+    typography: "{typography.body-ui}"
+    rounded: "{rounded.control}"
+    padding: "9.6px 12.8px"
+  input-compact:
+    backgroundColor: "{colors.well-black}"
+    textColor: "{colors.paper-white}"
+    typography: "{typography.meta}"
+    rounded: "{rounded.sm}"
+    padding: "4px 8px"
+  card:
+    backgroundColor: "{colors.slate-panel}"
+    rounded: "{rounded.card}"
+    padding: "20px"
+  studio-tile:
+    backgroundColor: "{colors.slate-panel}"
+    textColor: "{colors.paper-white}"
+    typography: "{typography.body-ui}"
+    rounded: "{rounded.card}"
+    padding: "12px"
+  source-row-selected:
+    backgroundColor: "{colors.raised-slate}"
+    typography: "{typography.body-ui}"
+    rounded: "{rounded.tile}"
+    padding: "10px"
+  tab:
+    backgroundColor: "transparent"
+    textColor: "{colors.fog}"
+    rounded: "{rounded.md}"
+    padding: "6px 12px"
+  tab-active:
+    backgroundColor: "{colors.hover-slate}"
+    textColor: "{colors.paper-white}"
+  citation-chip:
+    backgroundColor: "{colors.cite-wash}"
+    textColor: "{colors.cite-ink}"
+    rounded: "{rounded.pill}"
+    height: "1.15rem"
+    padding: "0 4.5px"
+  chat-bubble-user:
+    backgroundColor: "{colors.user-bubble}"
+    textColor: "{colors.paper-white}"
+    typography: "{typography.body}"
+    rounded: "{rounded.sheet}"
+    padding: "10px 16px"
+  modal:
+    backgroundColor: "{colors.slate-panel}"
+    rounded: "{rounded.sheet}"
+  toast:
+    backgroundColor: "{colors.slate-panel}"
+    typography: "{typography.meta}"
+    rounded: "{rounded.pill}"
+    padding: "8px 8px 8px 16px"
+---
+
+# Design System: InfiniAIBook
+
+<!-- Generated by /impeccable document from src/app/globals.css and src/components/**. The North Star name and color names were chosen while the owner was unavailable; treat them as provisional until confirmed. Token values are extracted, not invented. -->
+
+## Overview
+
+**Creative North Star: "The Night Reading Room"**
+
+InfiniAIBook is a quiet dark workroom. The user's sources fill the shelves and one lamp is lit. The interface is cool blue-black ink with slate panels layered on it. A single periwinkle accent, Lamplight, marks what matters right now: a citation, the primary action, work in progress, the current selection. Everything else is fog-gray text on slate, sized small, so the sources, answers, and generated artifacts fill the room.
+
+The workspace is dense, like a working tool. Three panels sit side by side (Sources, Chat, and Studio/Notes) with hairline borders between them. Chrome type runs from 10 to 13px; answers and notes switch to a comfortable 15px reading measure at 1.7 line height. Surfaces are flat. Depth comes from tonal steps and 1px hairlines, not shadows. Emoji serve as the icon set and give each notebook, source type, and Studio tool a friendly, recognizable mark without an icon library.
+
+Generated artifacts (infographics in 20 styles, mind maps, slide decks, videos) are content, not chrome. Their styles sit inside the room, and they don't redefine the room's palette.
+
+**Key Characteristics:**
+- Dark-only. There is no light theme.
+- Cool blue-tinted neutrals stepped from Night Ink to Raised Slate.
+- One accent hue, Lamplight periwinkle, used sparingly.
+- Flat surfaces with 1px hairline borders. Shadows appear only on floating layers.
+- Small, dense UI type with uppercase tracked section labels. Reading text is larger and roomier.
+- Emoji as iconography.
+- Citations as pill chips are the signature element.
+
+## Colors
+
+A cool blue-black ink scale with one periwinkle lamp. Status colors appear only as tinted washes.
+
+### Primary
+- **Lamplight** (`lamplight`): The single accent. Used for the processing state ("Processing…" text, spinner arc, typing dots), the checkbox accent on selected sources, the hover border on Studio tiles, the focus outline on citation chips, and the dot beside the home eyebrow label.
+- **Lamplight Top → Lamplight Deep** (`lamplight-top` → `lamplight-deep`): The vertical gradient on primary buttons. On hover it lifts one step toward Lamplight.
+- **Lamplight Link** (`lamplight-link`): Underlined links inside rendered Markdown.
+- **Cite Ink on Cite Wash** (`cite-ink`, `cite-wash`): Citation chips, and the passage highlight (the same hue at 22%) when a citation is opened.
+
+### Neutral
+- **Night Ink** (`night-ink`): The page background behind everything.
+- **Slate Panel** (`slate-panel`): Cards, modals, toasts, and Studio tiles.
+- **Raised Slate** (`raised-slate`): Default button fill, selected source rows, table headers.
+- **Hover Slate** (`hover-slate`): Hover fill for buttons and ghost controls, and the fill of the active tab.
+- **Well Black** (`well-black`): Sunken surfaces such as inputs, selects, code blocks, and the notebook title while editing. It sits darker than the panel it's set into.
+- **Hairline** (`hairline`): Every border by default: panel dividers, card edges, inputs, table cells, horizontal rules.
+- **Hairline Strong / Hairline Hover** (`hairline-strong`, `hairline-hover`): Selected source rows and spinner tracks; hover borders on notebook cards and buttons.
+- **Focus Steel** (`focus-steel`): The input border on focus, paired with a 3px Lamplight halo at 12% opacity.
+- **User Bubble** (`user-bubble`): The user's own chat messages.
+- **Paper White** (`paper-white`): Primary text.
+- **Heading White** (`heading-white`): Headings and table header text in rendered prose. Bold text in prose goes to pure white.
+- **Prose Mist** (`prose-mist`): Body text in rendered answers and notes. It's slightly softer than Paper White for long reading.
+- **Fog** (`fog`): Secondary text, including summaries, metadata, section labels, and inactive tabs. It's the most-used text color in the app.
+- **Dim Fog / Faint Fog** (`dim-fog`, `faint-fog`): Placeholders, list markers, and tertiary hints.
+
+### Status
+Status colors use Tailwind's amber, red, emerald, and rose families. They're never solid fills.
+- **Warning:** an amber-950 wash at 20–30%, an amber-900 border at 50–60%, and `warning-text` (amber-200 at about 90%). Used for source-update banners, failed jobs, and grounding caveats.
+- **Error:** a red-950 wash at 30–40%, a red-900 border at 50–60%, and `error-text` (red-300).
+- **Success:** `success-text` (emerald-300), sometimes with an emerald-950 wash.
+
+### Named Rules
+**The One Lamp Rule.** Lamplight is the only accent hue. It marks citations, the primary action, work in progress, selection, and focus, and nothing else. If a screen has more than a few Lamplight elements, one of them is wrong.
+
+**The Status Wash Rule.** Warnings and errors appear as a dark tinted wash with a matching translucent border and light-tinted text, never as a saturated solid block. Even when something has gone wrong, the room stays dark.
+
+**The Cool Ink Rule.** Every neutral leans blue (for example, Night Ink and Slate Panel). Don't use pure grays or warm grays.
+
+## Typography
+
+**Body Font:** Geist (with ui-sans-serif, system-ui, sans-serif), loaded through `next/font`.
+**Mono Font:** Geist Mono (with monospace), used for inline code and code blocks.
+
+**Character:** A single neutral, modern grotesque does every job. Hierarchy comes from size, weight (400/500/600, and 650 for prose headings), and color, not from a second typeface.
+
+### Hierarchy
+- **Display** (`display`): The "InfiniAIBook" wordmark on the notebook list. It's the only large type in the app.
+- **Headline** (`headline`): Rendered-prose H1. Prose H2 is 1.2rem with a hairline underline; H3 is 1.03rem.
+- **Title** (`title`): The notebook title in the workspace header, and modal titles.
+- **Body** (`body`): Chat answers, notes, and artifact prose, in Prose Mist. Tables inside prose drop to 14px.
+- **Body UI** (`body-ui`): Source titles, Studio tool names, job labels, button text.
+- **Meta** (`meta`): Summaries, status lines, compact buttons in the header, toasts.
+- **Label** (`label`): Section headings in panels ("Live", "Audio & video", and so on). Uppercase, Fog color.
+- **Micro** (`micro`): Studio tile descriptions and inline field labels, which are uppercase with wide tracking.
+
+### Named Rules
+**The Two Registers Rule.** UI chrome speaks small (10–13px, snug leading). Content the user reads speaks large (15px, 1.7 leading). Never set chrome at reading size or a long answer at chrome size.
+
+**The Quiet Label Rule.** Panel section headings are 11px uppercase with wide tracking in Fog. They organize the panel without competing with the content beneath them.
+
+## Layout
+
+- **Notebook list:** a centered column up to 72rem wide, with 24px side padding and 56px of vertical padding. Below the header is a responsive grid of notebook cards (one column, two at `sm`, three at `lg`) with 16px gaps.
+- **Workspace:** fills the full viewport height. A 1px-bordered header (16px × 12px padding) sits above a three-column grid at `lg` and up: Sources (320px) | Chat (flexible) | Studio/Notes (380px). The columns are separated by hairline borders, not gutters. Studio and Notes share the right column through a small segmented tab bar.
+- **Below `lg`:** the three panels collapse into a single column switched by a full-width tab bar. Header button labels collapse to emoji below `md`.
+- **Modals:** fill the viewport on small screens. From `sm` up they float with 24px of inset and Sheet corners.
+- **Rhythm:** a 4px base. Dense UI uses 8px gaps (`gap-2` is by far the most common) and 12px between groups. Cards use 20px of internal padding. Lists stack at 8px.
+
+## Elevation & Depth
+
+The surfaces are flat and use tonal layering. Depth is built by stepping up the ink scale (Night Ink → Slate Panel → Raised Slate → Hover Slate) and wrapping each layer in a 1px Hairline. Sunken controls step down to Well Black. Shadows appear only on layers that float above the workspace.
+
+### Shadow Vocabulary
+- **Floating toast** (Tailwind `shadow-xl`): undo and error toasts pinned to the bottom center.
+- **Modal scrim** (black at 65% with a small backdrop blur): behind every modal. The modal itself is a flat Slate Panel with a Hairline border.
+- **Focus halo** (`box-shadow: 0 0 0 3px rgba(124, 140, 255, 0.12)`): focused inputs.
+- **Cited passage** (`box-shadow: 0 0 0 2px rgba(124, 140, 255, 0.22)`): the highlighted excerpt behind an opened citation.
+
+### Named Rules
+**The Border, Not Shadow Rule.** Elements that sit in the page flow (cards, tiles, rows, panels) separate with a 1px Hairline and a tonal step. A drop shadow means "this floats above the workspace," so use it only for toasts and modals.
+
+## Shapes
+
+Gently rounded, and the radius grows with the size of the element. Inline code uses Small (6px). Images and ghost controls use Medium (8px). Buttons and inputs use Control (10px). Source rows and banners use Tile (12px). Cards use Card (14px). Modals and chat bubbles use Sheet (16px). Citations, toasts, status dots, and spinners are full pills. The user's chat bubble has a tightened bottom-right corner (6px) that acts as its tail. Dashed hairlines mark drop zones and blocked images.
+
+## Components
+
+### Buttons
+Quiet, tactile slate buttons. Only one per view is lit.
+- **Shape:** Control corners (10px), 1px Hairline border, 14px Body UI text.
+- **Default:** Raised Slate fill. On hover it steps to Hover Slate with a Hairline Hover border, over a 150ms ease.
+- **Primary:** the Lamplight Top → Lamplight Deep gradient with a matching border and white text. It's used for the main creation action ("New notebook", Undo).
+- **Compact:** the same button with tighter padding and 11px text. Used in the workspace header and in toasts.
+- **Ghost:** no fill or border, Fog text, Medium corners. On hover it gets a Hover Slate fill with Paper White text. Destructive ghost actions turn red-400 on hover.
+- **Disabled:** 45% opacity with a not-allowed cursor.
+
+### Inputs / Fields
+- **Style:** a Well Black fill sunk below its panel, a Hairline border, and Control corners. Placeholder text is Dim Fog.
+- **Focus:** the border shifts to Focus Steel and a 3px Lamplight halo at 12% appears. There's no glow beyond that.
+- **Compact:** inline selects and text fields inside Studio tools use Small corners and 11px text with the same well-and-focus treatment.
+
+### Cards / Containers
+- **Corner Style:** Card (14px).
+- **Background:** Slate Panel.
+- **Shadow Strategy:** none. See Elevation & Depth.
+- **Border:** Hairline. On interactive cards it becomes Hairline Hover on hover.
+- **Internal Padding:** 20px. Loading placeholders are cards with a 5%-white shimmer sweep.
+
+### Tabs
+- **Style:** a segmented row of text tabs in a hairline-bordered strip. Inactive tabs are Fog text; the active tab gets a Hover Slate fill with Paper White text and Medium corners.
+
+### Citation Chip (signature)
+A small pill sitting just above the baseline after a claim: Cite Wash fill, a Lamplight border at 32%, Cite Ink numerals at 10.9px semibold. On hover the fill deepens; on keyboard focus it gets a 2px Lamplight outline. Opening a chip highlights the source passage in the same hue. This chip is the visual proof behind "grounded or silent."
+
+### Studio Tile (signature)
+A Card-styled button with an emoji at 20px, a Body UI tool name, and a one-line Micro description in Fog. On hover the border lights to Lamplight. While generating, the tile gets a shimmer and a persistent Lamplight border. Disabled tiles drop to 40% opacity.
+
+### Source Row (signature)
+A checkbox, an emoji for the source type, a 13px title clamped to two lines, and an 11px Fog summary. Selected rows sit on Raised Slate with a Hairline Strong border. Unselected rows have no border and are dimmed to 55% opacity, brightening on hover. The selection you're grounding on is visibly "in the light."
+
+### Chat Messages
+User messages are User Bubble pills with Sheet corners and a 6px tail corner, right-aligned at up to 85% width. Assistant answers are unboxed prose (the Body register) with inline citation chips. Three Lamplight typing dots pulse while the answer streams.
+
+### Banners and Toasts
+- **Banners:** full-width strips or Tile-cornered boxes that use the Status Wash. The source-update banner runs under the header at 12px with an underlined "Review" action.
+- **Toasts:** pill-shaped, floating bottom-center, Slate Panel (or a red wash for errors), `shadow-xl`, 12px text with a compact action button.
+
+### Motion
+- **Entrance:** elements fade up over 250ms (6px rise, ease).
+- **State changes:** 150ms transitions.
+- **Mind map:** nodes and links glide on `cubic-bezier(0.22, 1, 0.36, 1)` over 280ms.
+- **Busy states:** a 0.7s linear spinner (Lamplight arc on a Hairline Strong track) and a 1.4s shimmer sweep.
+- **Reduced motion:** under `prefers-reduced-motion: reduce`, spatial and decorative motion stops while state stays communicated:
+  - **Removed:** the fade-up rise (entrances become a 250ms opacity-only fade), the shimmer sweep, the mind-map glide (nodes and links jump into place), smooth scrolling from script (it jumps instead), the flashcard reveal rise (the answer fades in place), disclosure-chevron rotation easing, and progress-bar width easing.
+  - **Busy indicators stay visible:** the spinner stops rotating and becomes a still ring that breathes between full and 45% opacity every 1.6s. The shimmer glow fades in and out in place over 2s. The three typing dots keep their staggered pulse as an opacity-only fade, so they still read as "answer streaming". Tailwind `animate-pulse` status dots already change only opacity and are unchanged.
+  - **Kept:** 150ms color and opacity transitions on hover and focus, because they change tone without moving anything. Buttons are limited to color, border, opacity, and shadow transitions so they can't animate geometry.
+  - **Real-time visuals:** the discussion host orb still scales with the live voice level, and media and progress bars still track playback, but without smoothing transitions. The ping ring around a speaking host is already motion-safe only, so it rests as a static ring.
+
+**The Still Room Rule.** When the user asks for less motion, nothing slides, rises, spins, sweeps, flips, or glides, but nothing goes silent either. Every busy state keeps a visible, non-spatial signal, such as a slow opacity breath, so "working…" never disappears.
+
+## Do's and Don'ts
+
+### Do:
+- **Do** reach for the CSS variables and their Tailwind aliases before writing a hex literal: `--bg` (`bg-bg`), `--panel` (`bg-panel`), `--panel-2` (`bg-panel2`), `--hover` (`bg-hover`, Hover Slate), `--selected` (`bg-selected`), `--well` (`bg-well`, Well Black), `--user-bubble` (`bg-user-bubble`), `--border` (`border-line`), `--border-strong` (`border-line-strong`), `--border-hover` (`border-line-hover`), `--focus` (`focus:border-focus`, Focus Steel), `--fg` (`text-fg`), `--heading` (`text-heading`), `--prose` (`text-prose`), `--prose-soft` (`text-prose-soft`, #c9d2dd for secondary reading text such as flashcard backs, transcripts and source text), `--muted` (`text-muted`), `--dim` (`text-dim`), `--faint` (`placeholder:text-faint`), `--accent` (`text-accent`), `--accent-top`, `--accent-deep`, `--on-accent`, `--link` (`text-link`) and `--cite-ink`.
+- **Do** separate in-flow surfaces with a 1px Hairline and a tonal step (The Border, Not Shadow Rule).
+- **Do** keep chrome in the 10–13px register and reading content at 15px with 1.7 leading (The Two Registers Rule).
+- **Do** title panel sections with 11px uppercase, widely tracked Fog labels.
+- **Do** use an emoji as the leading mark for notebooks, source types, and Studio tools.
+- **Do** show work in progress with Lamplight: the spinner arc, the "Processing…" text, the shimmer with a lit border.
+- **Do** give every new animation a `prefers-reduced-motion` fallback that removes movement but keeps busy states visible (The Still Room Rule). Use the reduced-motion block in `globals.css`, Tailwind's `motion-reduce:` variant, or `scrollBehavior()` from `src/lib/reducedMotion.ts` for scripted scrolling.
+- **Do** express warnings and errors as Status Washes: a tinted 950 background, a translucent 900 border, and 200/300 text.
+
+### Don't:
+- **Don't** introduce a second accent hue or use Lamplight for decoration (The One Lamp Rule).
+- **Don't** add drop shadows to cards, tiles, rows, or panels. Shadows are for floating layers only.
+- **Don't** use solid saturated fills for status, or pure or warm grays for neutrals.
+- **Don't** add a light theme or light surfaces to the workspace chrome. The room is dark-only.
+- **Don't** let a generated artifact's style (infographic themes, mind map palettes) leak into the workspace chrome.
+- **Don't** hide hover-revealed actions from keyboard or touch users. Use the existing `.reveal` pattern, which reveals actions on focus-within and on `hover: none` devices.

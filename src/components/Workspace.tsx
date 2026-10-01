@@ -346,13 +346,13 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-4 py-3">
         <Link
           href="/"
-          className="rounded-lg px-2 py-1 text-sm text-[var(--muted)] transition hover:bg-[#1e2430] hover:text-[var(--fg)]"
+          className="rounded-lg px-2 py-1 text-sm text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
         >
           ←
         </Link>
         <span className="text-xl">{data.notebook.emoji}</span>
         <input
-          className="min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-medium outline-none transition hover:border-[var(--border)] focus:border-[var(--border)] focus:bg-[#0e1116]"
+          className="min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-medium outline-none transition hover:border-[var(--border)] focus:border-[var(--border)] focus:bg-well"
           value={titleDraft ?? data.notebook.title}
           aria-label="Notebook title"
           onChange={(e) => editTitle(e.target.value)}
@@ -425,7 +425,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             onClick={() => setTab(t)}
             className={`flex-1 rounded-lg px-3 py-1.5 text-sm capitalize transition ${
               tab === t
-                ? "bg-[#1e2430] text-[var(--fg)]"
+                ? "bg-hover text-[var(--fg)]"
                 : "text-[var(--muted)] hover:text-[var(--fg)]"
             }`}
           >
@@ -492,7 +492,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
                 onClick={() => setRight(r)}
                 className={`flex-1 rounded-lg px-3 py-1 text-[12px] capitalize transition ${
                   right === r
-                    ? "bg-[#1e2430] text-[var(--fg)]"
+                    ? "bg-hover text-[var(--fg)]"
                     : "text-[var(--muted)] hover:text-[var(--fg)]"
                 }`}
               >

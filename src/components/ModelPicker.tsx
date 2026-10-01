@@ -182,7 +182,7 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
       )}
 
       {savedNote && (
-        <p className="mb-4 rounded-lg border border-[var(--border)] bg-[#0e1116] px-3 py-2.5 text-[12px] leading-snug text-[var(--muted)]">
+        <p className="mb-4 rounded-lg border border-[var(--border)] bg-well px-3 py-2.5 text-[12px] leading-snug text-[var(--muted)]">
           {savedNote}
         </p>
       )}
@@ -241,7 +241,7 @@ function Field({
       <span className="mb-1 flex items-center gap-2">
         <span className="text-[12px] font-medium">{label}</span>
         {overridden && (
-          <span className="rounded bg-[#1e2430] px-1.5 py-0.5 text-[10px] text-[var(--muted)]">
+          <span className="rounded bg-hover px-1.5 py-0.5 text-[10px] text-[var(--muted)]">
             overrides {envValue}
           </span>
         )}

@@ -55,9 +55,9 @@ export function motionRequest(f: MotionForm): Record<string, unknown> {
 }
 
 const SELECT =
-  "min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]";
+  "min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus";
 const INPUT =
-  "min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-[#53606f] focus:border-[#4d5a7a]";
+  "min-w-0 flex-1 rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-faint focus:border-focus";
 const LABEL = "w-16 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase";
 
 const PALETTE_KEYS: (keyof MotionPalette)[] = ["dark", "primary", "accent", "pop", "light"];

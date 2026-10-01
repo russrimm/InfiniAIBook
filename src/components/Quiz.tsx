@@ -97,7 +97,7 @@ export default function Quiz({
       )}
 
       {submitted && (
-        <div className="fade-up mb-6 rounded-xl border border-[var(--border)] bg-[#0e1116] p-5 text-center">
+        <div className="fade-up mb-6 rounded-xl border border-[var(--border)] bg-well p-5 text-center">
           <div className="text-3xl font-semibold">
             {score}
             <span className="text-[var(--muted)]">/{total}</span>
@@ -144,12 +144,12 @@ export default function Quiz({
                   const isPicked = picked === ci;
                   const isRight = ci === q.answerIndex;
                   let cls =
-                    "border-[var(--border)] hover:border-[#39424f] hover:bg-[#171b21]";
+                    "border-[var(--border)] hover:border-line-hover hover:bg-panel2";
                   if (submitted && isRight)
                     cls = "border-emerald-500/60 bg-emerald-500/10";
                   else if (submitted && isPicked)
                     cls = "border-red-500/60 bg-red-500/10";
-                  else if (isPicked) cls = "border-[var(--accent)] bg-[#1b2030]";
+                  else if (isPicked) cls = "border-[var(--accent)] bg-selected";
                   return (
                     <button
                       key={ci}
@@ -170,7 +170,7 @@ export default function Quiz({
                 })}
               </div>
               {submitted && q.explanation && (
-                <p className="fade-up mt-3 rounded-lg bg-[#0e1116] px-3 py-2 text-[13px] leading-relaxed text-[var(--muted)]">
+                <p className="fade-up mt-3 rounded-lg bg-well px-3 py-2 text-[13px] leading-relaxed text-[var(--muted)]">
                   <InlineCited text={q.explanation} citations={citations} />
                 </p>
               )}

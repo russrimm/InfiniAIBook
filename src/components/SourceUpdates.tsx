@@ -155,7 +155,7 @@ export default function SourceUpdates({
                 </div>
 
                 {(u.samples.added.length > 0 || u.samples.removed.length > 0) && (
-                  <div className="mt-3 space-y-1 rounded-lg bg-[#0e1116] p-3 font-mono text-[11px] leading-relaxed">
+                  <div className="mt-3 space-y-1 rounded-lg bg-well p-3 font-mono text-[11px] leading-relaxed">
                     {u.samples.added.map((l, i) => (
                       <p key={`a${i}`} className="text-emerald-300/90">
                         <span className="mr-1.5 opacity-60">+</span>

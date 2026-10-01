@@ -12,6 +12,7 @@ import {
   type ReplyStatus,
   type Trigger,
 } from "@/lib/screenhelp";
+import { scrollBehavior } from "@/lib/reducedMotion";
 import type { Note } from "@/lib/types";
 
 type Turn = {
@@ -140,7 +141,7 @@ export default function ScreenHelperModal({
   }, [capture.stream, selectedId]);
 
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: scrollBehavior() });
   }, [turns, busy]);
 
   const announce = useCallback(
@@ -449,7 +450,7 @@ export default function ScreenHelperModal({
                   <li>2. Choose the app window to share. Sharing one window works better than the whole screen.</li>
                   <li>3. Follow the highlighted step. With auto-watch on, the helper notices when you have done it.</li>
                 </ol>
-                <p className="mt-4 rounded-lg border border-[var(--border)] bg-[#0e1116] p-3 text-left text-[12px] text-[var(--muted)]">
+                <p className="mt-4 rounded-lg border border-[var(--border)] bg-well p-3 text-left text-[12px] text-[var(--muted)]">
                   🔒 Screenshots go to your configured vision model (Models → Image reading) only while you
                   share, and are never stored. Avoid sharing passwords or other secrets.
                 </p>
@@ -513,7 +514,7 @@ export default function ScreenHelperModal({
               )}
               {turns.map((t) =>
                 t.role === "user" ? (
-                  <div key={t.id} className="ml-8 rounded-xl bg-[#1e2430] px-3 py-2 text-[13px]">
+                  <div key={t.id} className="ml-8 rounded-xl bg-hover px-3 py-2 text-[13px]">
                     {t.text}
                   </div>
                 ) : (
@@ -524,8 +525,8 @@ export default function ScreenHelperModal({
                       t.error
                         ? "border-rose-900/60 bg-rose-950/30 text-rose-200"
                         : t.id === selectedId
-                          ? "border-amber-400/60 bg-[#0e1116]"
-                          : "border-[var(--border)] bg-[#0e1116]"
+                          ? "border-amber-400/60 bg-well"
+                          : "border-[var(--border)] bg-well"
                     }`}
                   >
                     {t.auto && (
