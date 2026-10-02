@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InlineCited } from "./Markdown";
 import type { Citation, FlashcardsContent } from "@/lib/types";
 
@@ -36,6 +36,7 @@ export default function Flashcards({
   const [marks, setMarks] = useState<Record<number, Mark>>({});
   const [browsing, setBrowsing] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const flipRef = useRef<HTMLButtonElement>(null);
 
   // Restore before the first paint that matters, but only on the client.
   useEffect(() => {
@@ -98,6 +99,14 @@ export default function Flashcards({
     const h = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
       if (e.key === " " || e.key === "Enter") {
+        // Let a focused citation or other control handle its own activation.
+        if (
+          e.target instanceof Element &&
+          e.target !== flipRef.current &&
+          e.target.closest("button, a, textarea, select")
+        ) {
+          return;
+        }
         e.preventDefault();
         setFlipped((f) => !f);
       } else if (flipped && (e.key === "1" || e.key.toLowerCase() === "j")) {
@@ -244,36 +253,44 @@ export default function Flashcards({
       {/* The card is the whole point of this view, so it takes the room the
           modal gives it rather than sitting in a band at the top. */}
       <div className="flex flex-1 flex-col justify-center pb-4">
-        <button
-          onClick={() => setFlipped((f) => !f)}
-          aria-label={flipped ? "Show prompt" : "Reveal answer"}
-          className="group relative flex min-h-[16rem] w-full cursor-pointer flex-col items-center justify-center rounded-2xl border border-[var(--border)] bg-well px-6 py-12 text-center transition hover:border-line-hover sm:min-h-[22rem]"
-        >
-          <span className="absolute top-3 left-4 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+        {/* The flip control is a sibling overlay rather than a wrapper: the
+            answer carries citation buttons, and a button cannot contain one.
+            Text lets clicks fall through to the overlay; only citations opt
+            back in. */}
+        <div className="group relative flex min-h-[16rem] w-full flex-col items-center justify-center rounded-2xl border border-[var(--border)] bg-well px-6 py-12 text-center transition hover:border-line-hover sm:min-h-[22rem]">
+          <button
+            ref={flipRef}
+            type="button"
+            onClick={() => setFlipped((f) => !f)}
+            aria-label={flipped ? "Show prompt" : "Reveal answer"}
+            className="absolute inset-0 z-0 cursor-pointer rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+          />
+
+          <span className="pointer-events-none absolute top-3 left-4 z-10 text-[10px] tracking-wide text-[var(--muted)] uppercase">
             {flipped ? "Answer" : "Prompt"}
           </span>
 
           {flipped ? (
-            <p className="fade-up mx-auto max-w-xl text-[16px] leading-relaxed text-[#dbe3ee] sm:text-[17px]">
+            <p className="fade-up pointer-events-none relative z-10 mx-auto max-w-xl text-[16px] leading-relaxed text-[#dbe3ee] sm:text-[17px] [&_.cite]:pointer-events-auto">
               <InlineCited text={card.back} citations={citations} />
             </p>
           ) : (
             <>
-              <p className="mx-auto max-w-xl text-[20px] leading-snug font-medium sm:text-[24px]">
+              <p className="pointer-events-none relative z-10 mx-auto max-w-xl text-[20px] leading-snug font-medium sm:text-[24px]">
                 {stripMarkers(card.front)}
               </p>
               {card.hint && (
-                <p className="mx-auto mt-3 max-w-md text-[12px] text-[var(--muted)]">
+                <p className="pointer-events-none relative z-10 mx-auto mt-3 max-w-md text-[12px] text-[var(--muted)]">
                   Hint: {card.hint}
                 </p>
               )}
             </>
           )}
 
-          <span className="absolute inset-x-0 bottom-3 text-[10px] text-[var(--muted)] opacity-0 transition group-hover:opacity-100">
+          <span className="pointer-events-none absolute inset-x-0 bottom-3 z-10 text-[10px] text-[var(--muted)] opacity-0 transition group-hover:opacity-100">
             {flipped ? "Click to hide" : "Click or press Space to reveal"}
           </span>
-        </button>
+        </div>
 
         {flipped ? (
           <div className="fade-up mt-4 flex gap-2">
