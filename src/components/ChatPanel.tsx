@@ -392,7 +392,7 @@ export default function ChatPanel({
                   {STARTERS.map((s) => (
                     <button
                       key={s}
-                      className="card px-3 py-2.5 text-left text-[13px] text-[var(--muted)] transition hover:border-[#39424f] hover:text-[var(--fg)]"
+                      className="card px-3 py-2.5 text-left text-[13px] text-[var(--muted)] transition hover:border-line-hover hover:text-[var(--fg)]"
                       onClick={() => void send(s)}
                     >
                       {s}
@@ -502,7 +502,7 @@ export default function ChatPanel({
             </button>
           )}
         </form>
-        <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-[#6b7482]">
+        <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-dim">
           {selectedIds.length} of {sources.length} sources in context · answers are
           grounded in your documents only
         </p>
@@ -528,7 +528,7 @@ const MessageRow = memo(function MessageRow({
   if (m.role === "user") {
     return (
       <div className="fade-up flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-[#232a36] px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap">
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-user-bubble px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap">
           {m.content}
         </div>
       </div>
@@ -570,7 +570,7 @@ function CiteFooter({ citations }: { citations: Citation[] }) {
             <li key={`${c.sourceId}-${c.part}`}>
               <button
                 type="button"
-                className="block w-full rounded-lg border border-[var(--border)] bg-[#0e1116] px-3 py-2 text-left transition hover:border-[#39424f] disabled:cursor-default"
+                className="block w-full rounded-lg border border-[var(--border)] bg-well px-3 py-2 text-left transition hover:border-line-hover disabled:cursor-default"
                 disabled={!openCitation}
                 onClick={() => openCitation?.(c)}
                 title="Open this passage in its source"
@@ -578,7 +578,7 @@ function CiteFooter({ citations }: { citations: Citation[] }) {
                 <span className="mb-1 flex items-center gap-2">
                   <span className="cite">{c.n}</span>
                   <span className="truncate text-[11px] font-medium">{c.sourceTitle}</span>
-                  <span className="text-[10px] text-[#6b7482]">part {c.part}</span>
+                  <span className="text-[10px] text-dim">part {c.part}</span>
                 </span>
                 <span className="line-clamp-3 text-[11px] leading-snug text-[var(--muted)]">
                   {c.snippet}…

@@ -250,7 +250,7 @@ export default function BrowserModal({
                       {page.chars.toLocaleString()} characters
                       {page.contentType ? ` · ${page.contentType}` : ""}
                     </p>
-                    <article className="mt-5 text-[14px] leading-relaxed whitespace-pre-wrap text-[#c9d2dd]">
+                    <article className="mt-5 text-[14px] leading-relaxed whitespace-pre-wrap text-prose-soft">
                       {page.text}
                     </article>
                   </>
@@ -265,7 +265,7 @@ export default function BrowserModal({
                       {page.links.map((l, i) => (
                         <li key={i}>
                           <button
-                            className="w-full truncate text-left text-[12px] text-[#8f9dff] transition hover:underline"
+                            className="w-full truncate text-left text-[12px] text-link transition hover:underline"
                             onClick={() => void load(l.href)}
                           >
                             {l.text}

@@ -52,7 +52,7 @@ const fmt = (sec: number) =>
   `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
 
 const inputCls =
-  "w-full rounded-md border border-[var(--border)] bg-[#0e1116] px-2.5 py-1.5 text-[13px] text-[var(--fg)] outline-none placeholder:text-[#53606f] focus:border-[#4d5a7a] disabled:opacity-60";
+  "w-full rounded-md border border-[var(--border)] bg-well px-2.5 py-1.5 text-[13px] text-[var(--fg)] outline-none placeholder:text-faint focus:border-focus disabled:opacity-60";
 
 export default function TrainingVideo({
   artifactId,
@@ -206,7 +206,7 @@ export default function TrainingVideo({
       )}
 
       {rendering && (
-        <div className="rounded-2xl border border-[var(--border)] bg-[#0e1116] p-5">
+        <div className="rounded-2xl border border-[var(--border)] bg-well p-5">
           <div className="flex items-center gap-2">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
             <span className="text-[13px] font-medium">

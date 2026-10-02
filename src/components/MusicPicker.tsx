@@ -46,9 +46,9 @@ function useMusicLibrary() {
 }
 
 const selectCls =
-  "min-w-0 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a] disabled:cursor-not-allowed disabled:opacity-50";
+  "min-w-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:cursor-not-allowed disabled:opacity-50";
 const iconBtn =
-  "shrink-0 rounded-md border border-[var(--border)] bg-[#0e1116] px-1.5 py-1 text-[11px] leading-none text-[var(--muted)] transition hover:border-[#39424f] hover:text-[var(--fg)] disabled:cursor-not-allowed disabled:opacity-50";
+  "shrink-0 rounded-md border border-[var(--border)] bg-well px-1.5 py-1 text-[11px] leading-none text-[var(--muted)] transition hover:border-line-hover hover:text-[var(--fg)] disabled:cursor-not-allowed disabled:opacity-50";
 
 /**
  * Background-music chooser: none, a random track or a specific one, with a

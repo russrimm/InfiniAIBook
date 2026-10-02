@@ -10,7 +10,7 @@ import {
 } from "@/lib/narration";
 
 const fieldCls =
-  "min-w-0 rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-[#53606f] focus:border-[#4d5a7a] disabled:opacity-60";
+  "min-w-0 rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-faint focus:border-focus disabled:opacity-60";
 
 const same = (a: NarrationSettings, b: NarrationSettings) =>
   a.instructions.trim() === b.instructions.trim() &&
@@ -67,7 +67,7 @@ export default function NarrationOptions({
   return (
     <details className="group rounded-lg border border-[var(--border)] bg-[#0b0e12]/50" open={defaultOpen}>
       <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1.5 text-[11px] marker:hidden">
-        <span className="text-[var(--muted)] group-open:rotate-90 transition-transform">▸</span>
+        <span className="text-[var(--muted)] group-open:rotate-90 transition-transform motion-reduce:transition-none">▸</span>
         <span className="font-medium">Instructions</span>
         <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--muted)]">
           {active

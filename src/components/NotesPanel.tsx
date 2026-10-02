@@ -59,13 +59,13 @@ export default function NotesPanel({
             {notes.map((n) => (
               <li key={n.id}>
                 <button
-                  className="card w-full px-3 py-2.5 text-left transition hover:border-[#39424f]"
+                  className="card w-full px-3 py-2.5 text-left transition hover:border-line-hover"
                   onClick={() => onOpenNote(n.id)}
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-sm">{n.kind === "ai" ? "✨" : "🗒️"}</span>
                     <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{n.title}</span>
-                    <span className="shrink-0 text-[10px] text-[#6b7482]">{when(n.updatedAt)}</span>
+                    <span className="shrink-0 text-[10px] text-dim">{when(n.updatedAt)}</span>
                   </div>
                   <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-[var(--muted)]">
                     {n.content.replace(/[#*_>`-]/g, "").slice(0, 200)}

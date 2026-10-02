@@ -114,7 +114,7 @@ export default function SlideDeck({
             className={`w-28 shrink-0 rounded-lg border p-2 text-left transition ${
               i === index
                 ? "border-[var(--slide-accent)] bg-[var(--slide-surface)]"
-                : "border-[var(--border)] bg-[#0e1116] hover:border-[#39424f]"
+                : "border-[var(--border)] bg-well hover:border-line-hover"
             }`}
             onClick={() => setIndex(i)}
           >
@@ -128,11 +128,11 @@ export default function SlideDeck({
         ))}
       </div>
 
-      <section className="rounded-xl border border-[var(--border)] bg-[#0e1116] p-4">
+      <section className="rounded-xl border border-[var(--border)] bg-well p-4">
         <h3 className="text-[12px] font-semibold tracking-wide text-[var(--muted)] uppercase">
           Speaker notes
         </h3>
-        <p className="mt-2 text-[14px] leading-relaxed text-[#c9d2dd]">
+        <p className="mt-2 text-[14px] leading-relaxed text-prose-soft">
           {slide.notes ? (
             <InlineCited text={slide.notes} citations={citations} />
           ) : (

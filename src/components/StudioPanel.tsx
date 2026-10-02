@@ -8,7 +8,7 @@ import MotionCustomize, {
 } from "@/components/MotionCustomize";
 import MusicPicker from "@/components/MusicPicker";
 import NarrationOptions from "@/components/NarrationOptions";
-import { STUDIO, STUDIO_SECTIONS } from "@/lib/studio";
+import { STUDIO, STUDIO_SECTIONS, studioIcon, studioLabel } from "@/lib/studio";
 import { DEFAULT_SLIDE_THEME, SLIDE_THEMES } from "@/lib/slides";
 import { EMPTY_NARRATION, type NarrationSettings } from "@/lib/narration";
 import type { MusicChoice } from "@/lib/musicchoice";
@@ -444,7 +444,7 @@ export default function StudioPanel({
                 Profile
               </span>
               <select
-                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                 value={episodeProfile}
                 disabled={false}
                 onChange={(e) => applyEpisodeProfile(e.target.value)}
@@ -478,7 +478,7 @@ export default function StudioPanel({
                   </div>
                   <div className="grid grid-cols-1 gap-1.5">
                     <input
-                      className="min-w-0 rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-[#53606f] focus:border-[#4d5a7a]"
+                      className="min-w-0 rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-faint focus:border-focus"
                       placeholder={`Optional name, e.g. ${
                         i === 0 ? "Host" : "Expert"
                       }`}
@@ -487,7 +487,7 @@ export default function StudioPanel({
                       onChange={(e) => updateSpeaker(i, { name: e.target.value })}
                     />
                     <input
-                      className="min-w-0 rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-[#53606f] focus:border-[#4d5a7a]"
+                      className="min-w-0 rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-faint focus:border-focus"
                       placeholder="Role/personality, e.g. skeptical economist"
                       value={speaker.role}
                       disabled={false}
@@ -503,7 +503,7 @@ export default function StudioPanel({
                 Length
               </span>
               <select
-                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                 value={audioLen}
                 disabled={false}
                 onChange={(e) => setAudioLen(e.target.value as AudioLength)}
@@ -521,7 +521,7 @@ export default function StudioPanel({
                 Speed
               </span>
               <select
-                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                 value={speed}
                 disabled={false}
                 onChange={(e) => setSpeed(Number(e.target.value))}
@@ -533,7 +533,7 @@ export default function StudioPanel({
                 ))}
               </select>
               <select
-                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                 value={delivery}
                 disabled={false}
                 onChange={(e) => setDelivery(e.target.value as Delivery)}
@@ -709,7 +709,7 @@ export default function StudioPanel({
                 Trainer
               </span>
               <select
-                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                 value={trainer}
                 onChange={(e) => {
                   setTrainer(e.target.value);
@@ -724,7 +724,7 @@ export default function StudioPanel({
               </select>
               <select
                 aria-label="Presenter voice"
-                className="w-24 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                className="w-24 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                 value={trainerVoice}
                 onChange={(e) => setTrainerVoice(e.target.value)}
               >
@@ -740,7 +740,7 @@ export default function StudioPanel({
                 Length
               </span>
               <select
-                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                 value={trainingLen}
                 onChange={(e) => setTrainingLen(e.target.value as AudioLength)}
               >
@@ -752,7 +752,7 @@ export default function StudioPanel({
               </select>
               <select
                 aria-label="Background"
-                className="w-28 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                className="w-28 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                 value={trainingBg}
                 onChange={(e) => setTrainingBg(e.target.value)}
               >
@@ -818,7 +818,7 @@ export default function StudioPanel({
                     </span>
                     <select
                       aria-label="Slide theme"
-                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                       value={slideTheme}
                       onChange={(e) => setSlideTheme(e.target.value as SlideTheme)}
                     >
@@ -833,7 +833,7 @@ export default function StudioPanel({
                     </span>
                     <select
                       aria-label="Deck length"
-                      className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                      className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                       value={slideLength}
                       onChange={(e) => setSlideLength(e.target.value as StudyLength)}
                     >
@@ -876,7 +876,7 @@ export default function StudioPanel({
                       Level
                     </span>
                     <select
-                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                       value={difficulty}
                       disabled={false}
                       onChange={(e) =>
@@ -891,7 +891,7 @@ export default function StudioPanel({
                       Length
                     </span>
                     <select
-                      className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                      className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                       value={length}
                       disabled={false}
                       onChange={(e) => setLength(e.target.value as StudyLength)}
@@ -935,7 +935,7 @@ export default function StudioPanel({
                       Style
                     </span>
                     <select
-                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a]"
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                       value={style}
                       disabled={false}
                       onChange={(e) => setStyle(e.target.value as InfographicStyle)}
@@ -958,7 +958,7 @@ export default function StudioPanel({
                 disabled={blocked || isBusy}
                 onClick={() => void generate(type)}
                 className={`card group relative overflow-hidden px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                  isBusy ? "shimmer border-[var(--accent)]" : "hover:border-[#39424f]"
+                  isBusy ? "shimmer border-[var(--accent)]" : "hover:border-line-hover"
                 }`}
               >
                 <div className="mb-1.5 text-lg">{s.icon}</div>
@@ -983,7 +983,7 @@ export default function StudioPanel({
         {Object.entries(errors).map(([type, message]) => (
           <p key={type} className="mt-3 text-xs text-red-400">
             <span className="font-medium">
-              {STUDIO[type as ArtifactType]?.label ?? type}:
+              {studioLabel(type)}:
             </span>{" "}
             {message}
           </p>
@@ -994,7 +994,7 @@ export default function StudioPanel({
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
             Generating{" "}
             {[...running]
-              .map((t) => STUDIO[t]?.label.toLowerCase() ?? t)
+              .map((t) => studioLabel(t).toLowerCase())
               .join(", ")}{" "}
             in the background — carry on using the rest of the notebook.
           </p>
@@ -1013,10 +1013,10 @@ export default function StudioPanel({
               {artifacts.map((a) => (
                 <li
                   key={a.id}
-                  className="group flex items-center gap-2 rounded-xl border border-transparent px-2 py-2 transition hover:border-[var(--border)] hover:bg-[#171b21]"
+                  className="group flex items-center gap-2 rounded-xl border border-transparent px-2 py-2 transition hover:border-[var(--border)] hover:bg-panel2"
                 >
                   <span className="text-base">
-                    {STUDIO[a.type as ArtifactType]?.icon ?? "📄"}
+                    {studioIcon(a.type)}
                   </span>
                   <button
                     className="min-w-0 flex-1 text-left disabled:opacity-60"
@@ -1024,10 +1024,10 @@ export default function StudioPanel({
                     disabled={openingId === a.id}
                   >
                     <div className="truncate text-[13px] font-medium">{a.title}</div>
-                    <div className="text-[10px] text-[#6b7482]">
+                    <div className="text-[10px] text-dim">
                       {openingId === a.id
                         ? "Opening…"
-                        : `${STUDIO[a.type as ArtifactType]?.label} · ${new Date(
+                        : `${studioLabel(a.type)} · ${new Date(
                             a.createdAt
                           ).toLocaleString()}`}
                     </div>
@@ -1072,7 +1072,7 @@ function SpeakerSelect({
   return (
     <div className="flex min-w-0 flex-1 items-center gap-1">
       <select
-        className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-[#0e1116] px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-[#4d5a7a] disabled:cursor-not-allowed disabled:opacity-50"
+        className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:cursor-not-allowed disabled:opacity-50"
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
@@ -1098,7 +1098,7 @@ function SpeakerSelect({
         title={`Hear ${value}`}
         disabled={disabled}
         onClick={() => onPreview(value)}
-        className="shrink-0 rounded-md border border-[var(--border)] bg-[#0e1116] px-1.5 py-1 text-[11px] leading-none text-[var(--muted)] transition hover:border-[#39424f] hover:text-[var(--fg)] disabled:cursor-not-allowed disabled:opacity-50"
+        className="shrink-0 rounded-md border border-[var(--border)] bg-well px-1.5 py-1 text-[11px] leading-none text-[var(--muted)] transition hover:border-line-hover hover:text-[var(--fg)] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isLoading ? "…" : playing ? "◼" : "▶"}
       </button>
