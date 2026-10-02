@@ -1,5 +1,6 @@
 import dns from "node:dns/promises";
 import net from "node:net";
+import { Agent, fetch as undiciFetch } from "undici";
 
 /**
  * Outbound fetch for URLs a user supplies.
@@ -172,6 +173,65 @@ export async function assertPublicUrl(raw: string): Promise<URL> {
 
 export type SafeResponse = { res: Response; finalUrl: string };
 
+type LookupCallback = (
+  err: NodeJS.ErrnoException | null,
+  address: string | { address: string; family: number }[],
+  family?: number
+) => void;
+
+/**
+ * The resolver used when connecting, so the address connected to is the
+ * address that was checked.
+ *
+ * `assertPublicUrl` resolves a name and checks it, but `fetch` would resolve it
+ * again on its own. A name with a zero TTL can answer the first lookup with a
+ * public address and the second with 127.0.0.1 (DNS rebinding). Doing the
+ * check inside the connection's own lookup closes that gap on every hop.
+ */
+export function pinnedLookup(
+  hostname: string,
+  options: { all?: boolean; family?: number | string } | number | undefined,
+  callback: LookupCallback
+): void {
+  const opts = typeof options === "object" && options ? options : {};
+  const fam = typeof options === "number" ? options : opts.family;
+  const wanted = fam === 4 || fam === "IPv4" ? 4 : fam === 6 || fam === "IPv6" ? 6 : 0;
+  dns
+    .lookup(hostname, { all: true })
+    .then((addrs) => {
+      if (!addrs.length) throw new BlockedHostError(`${hostname} could not be resolved.`);
+      const blocked = addrs.find((a) => addressBlocked(a.address));
+      if (blocked) {
+        throw new BlockedHostError(
+          `${hostname} resolves to ${blocked.address}, a private or local address, which cannot be fetched.`
+        );
+      }
+      const usable = wanted ? addrs.filter((a) => a.family === wanted) : addrs;
+      if (!usable.length) throw new BlockedHostError(`${hostname} has no usable address.`);
+      if (opts.all) callback(null, usable);
+      else callback(null, usable[0].address, usable[0].family);
+    })
+    .catch((e: unknown) => {
+      const err = (e instanceof Error ? e : new Error(String(e))) as NodeJS.ErrnoException;
+      callback(err, "", 0);
+    });
+}
+
+let pinnedAgent: Agent | null = null;
+function agent(): Agent {
+  pinnedAgent ??= new Agent({ connect: { lookup: pinnedLookup } });
+  return pinnedAgent;
+}
+
+/** `fetch` whose connections resolve through `pinnedLookup`. */
+function pinnedFetch(url: string, init: RequestInit): Promise<Response> {
+  if (ALLOW_PRIVATE) return fetch(url, init);
+  return undiciFetch(url, {
+    ...(init as Parameters<typeof undiciFetch>[1]),
+    dispatcher: agent(),
+  }) as unknown as Promise<Response>;
+}
+
 /**
  * Fetch a user-supplied URL, validating every hop.
  *
@@ -185,7 +245,7 @@ export async function safeFetch(
   let current = (await assertPublicUrl(url)).toString();
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    const res = await fetch(current, { ...init, redirect: "manual" });
+    const res = await pinnedFetch(current, { ...init, redirect: "manual" });
 
     const location = res.headers.get("location");
     if (res.status >= 300 && res.status < 400 && location) {

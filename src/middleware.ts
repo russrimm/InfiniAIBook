@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_COOKIE, authPassword, bearerAllowed, verifySessionToken } from "@/lib/auth";
 import { hostAllowed, isCrossSiteWrite, parseAllowedHosts } from "@/lib/access";
+import { FailureThrottle } from "@/lib/throttle";
+
+const bearerThrottle = new FailureThrottle();
 
 function refuse(pathname: string, status: number, error: string, code: string) {
   if (pathname.startsWith("/api/")) {
@@ -61,11 +64,23 @@ export async function middleware(req: NextRequest) {
 
   if (pathname === "/login" || pathname.startsWith("/api/auth/")) return NextResponse.next();
 
-  const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (bearer && bearerAllowed(bearer, password)) return NextResponse.next();
-
+  // The session cookie is an HMAC and cannot be guessed, so it is checked first
+  // and never waits behind failed bearer attempts (a proxy that forwards its
+  // own Authorization header must not slow down signed-in users).
   const cookie = req.cookies.get(AUTH_COOKIE)?.value;
   if (cookie && (await verifySessionToken(cookie, password))) return NextResponse.next();
+
+  const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (bearer) {
+    // Bearer guesses go through the same back-off as /login, or they would be
+    // a way to try passwords at full speed.
+    if (bearerThrottle.saturated) {
+      return refuse(pathname, 429, "Too many failed sign-in attempts. Try again shortly.", "auth_throttled");
+    }
+    if (await bearerThrottle.attempt(() => bearerAllowed(bearer, password))) {
+      return NextResponse.next();
+    }
+  }
 
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Authentication required", code: "auth" }, { status: 401 });

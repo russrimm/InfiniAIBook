@@ -240,6 +240,18 @@ async function fetchCueText(track: CaptionTrack, videoId: string): Promise<strin
   const url = track.baseUrl.includes("fmt=")
     ? track.baseUrl
     : `${track.baseUrl}&fmt=json3`;
+  // The request carries YOUTUBE_COOKIE when set, so it must only ever go to
+  // YouTube, whatever the player response says.
+  let host = "";
+  try {
+    const u = new URL(url);
+    host = u.protocol === "https:" ? u.hostname.toLowerCase() : "";
+  } catch {
+    // handled below
+  }
+  if (host !== "youtube.com" && !host.endsWith(".youtube.com")) {
+    throw new YouTubeBlockedError("caption track is not on youtube.com");
+  }
   const res = await fetch(url, {
     headers: { ...headers(), referer: `https://www.youtube.com/watch?v=${videoId}` },
   });

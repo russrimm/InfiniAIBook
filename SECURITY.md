@@ -30,14 +30,26 @@ mind before running it anywhere other than your own machine:
   Changing the password or `INFINIAIBOOK_SESSION_SECRET` signs everyone out;
   **Sign out** on the home page clears this browser's cookie. Sign-in attempts
   are handled one at a time, and each failure holds the next attempt for
-  longer (up to 30 s). Behind a TLS-terminating proxy, set `TRUST_PROXY=true`
+  longer (up to 30 s). Wrong bearer tokens go through the same back-off in the
+    middleware, so the API cannot be used to guess the password at full speed; a
+    valid session cookie is checked first and never waits behind them. When too
+    many failed attempts are already waiting, further ones get an immediate 429.
+  After sign-in, the `?next=` path is resolved against this origin and dropped
+  unless it stays here, so `/login` cannot be used as an open redirect
+  (backslash and control-character tricks included). Behind a TLS-terminating
+  proxy, set `TRUST_PROXY=true`
   so the cookie gets the `Secure` flag. It is not multi-user access control,
   so keep the default localhost binding where you can, and use HTTPS or an
   authenticating reverse proxy when it is reachable by others.
 - **The server fetches URLs on your behalf.** Links, feeds, discovery results
   and the built-in browser are fetched server-side. Addresses that resolve to
   loopback, private, link-local or cloud-metadata ranges are refused on every
-  redirect hop (`src/lib/safefetch.ts`, tested by `npm run check:ssrf`).
+  redirect hop (`src/lib/safefetch.ts`, tested by `npm run check:ssrf`). The
+  check runs inside the connection's own DNS lookup, so the address connected
+  to is the address that was checked: a domain that answers with a public
+  address first and `127.0.0.1` a moment later (DNS rebinding) is still refused.
+  YouTube caption requests, which carry `YOUTUBE_COOKIE` when it is set, only
+  ever go to `youtube.com`.
   `ALLOW_PRIVATE_NETWORK_FETCH=true` turns that protection off; only set it if
   you trust everyone who can add a source.
 - **Source text can try to steer the model.** Web pages, feeds and documents
