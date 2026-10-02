@@ -44,7 +44,7 @@ const nextConfig: NextConfig = {
   // default output so `npm start` behaves as before.
   output: process.env.NEXT_OUTPUT_STANDALONE ? "standalone" : undefined,
   // These rely on Node built-ins / dynamic requires and must not be bundled.
-  serverExternalPackages: ["unpdf", "mammoth", "cheerio"],
+  serverExternalPackages: ["unpdf", "mammoth", "cheerio", "undici"],
   poweredByHeader: false,
   webpack(config, { isServer, webpack }) {
     // pptxgenjs builds decks in the browser. Its ES build still names Node's

@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { InlineCited } from "./Markdown";
 import Metaphor from "./Metaphors";
 import { styleDef, type InfographicTheme } from "@/lib/infographic";
@@ -15,6 +16,9 @@ const STAT_COLS: Record<number, string> = {
 };
 
 export default function Infographic({ content, citations }: Props) {
+  // Distinct per instance: the gallery shows several infographics at once,
+  // and SVG marker ids are document-wide.
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const def = styleDef(content.style);
   const t = def.theme;
 
@@ -117,7 +121,7 @@ export default function Infographic({ content, citations }: Props) {
           className="mb-1 text-[10px] font-semibold tracking-[0.14em] uppercase"
           style={{ color: t.accent }}
         >
-          Key takeaway
+          {takeawayLabel}
         </div>
         <p className="text-[15px] leading-relaxed font-medium" style={{ color: t.heading }}>
           {cite(content.takeaway)}
@@ -466,6 +470,7 @@ export default function Infographic({ content, citations }: Props) {
 
     return (
       <div className="space-y-5">
+        <HubCaption />
         {regions.map((region, ri) => {
           const c = tint(ri);
           const soft = `color-mix(in srgb, ${c} 14%, #ffffff)`;
@@ -537,6 +542,7 @@ export default function Infographic({ content, citations }: Props) {
             ))}
           </div>
         )}
+        <GuideExtras />
       </div>
     );
   };
@@ -549,14 +555,6 @@ export default function Infographic({ content, citations }: Props) {
         </p>
       );
     }
-    const captionHeading = (label: string) => (
-      <h3
-        className="text-[11px] font-bold tracking-[0.12em] uppercase"
-        style={{ ...headingStyle, color: t.accent }}
-      >
-        {label}
-      </h3>
-    );
     return (
       <div className="space-y-4">
         {/* eslint-disable-next-line @next/next/no-img-element -- generated PNG served from our own API, not a static asset */}
@@ -568,16 +566,7 @@ export default function Infographic({ content, citations }: Props) {
         />
         {/* Text inside the image is neither selectable nor citable, so the
             brief it was drawn from is repeated here with its citations. */}
-        {content.hub && (
-          <div style={card} className="p-4">
-            {captionHeading(plain(content.hub.label))}
-            {content.hub.caption && (
-              <p className="mt-2 text-sm" style={{ color: t.muted }}>
-                {cite(content.hub.caption)}
-              </p>
-            )}
-          </div>
-        )}
+        <HubCaption />
         {!!content.regions?.length && (
           <div className="space-y-3">
             {content.regions.map((r, i) => (
@@ -607,59 +596,477 @@ export default function Infographic({ content, citations }: Props) {
             ))}
           </div>
         )}
-        {!!content.scale?.length && (
-          <div style={card} className="p-4">
-            {captionHeading("Scale")}
-            <ul className="mt-2 space-y-1.5">
-              {content.scale.map((s, i) => (
-                <li key={i} className="text-sm">
-                  <span className="font-semibold" style={{ color: t.heading }}>
-                    {plain(s.tier)}
-                    {s.figure ? (
-                      <span style={{ color: t.statValue }}> · {plain(s.figure)}</span>
-                    ) : null}
-                  </span>
-                  {s.example && <span style={{ color: t.muted }}> — {cite(s.example)}</span>}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {!!content.matrix?.rows.length && (
-          <div style={card} className="overflow-x-auto p-4">
-            {captionHeading("Comparison")}
-            <table className="mt-2 w-full text-left text-sm">
-              <thead>
-                <tr>
-                  <th className="py-1.5 pr-3" />
-                  {content.matrix.columns.map((c, i) => (
-                    <th key={i} className="py-1.5 pr-3 font-semibold" style={{ color: t.heading }}>
-                      {plain(c)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {content.matrix.rows.map((r, i) => (
-                  <tr key={i} style={{ borderTop: `1px solid ${t.border}` }}>
-                    <td className="py-1.5 pr-3 font-semibold" style={{ color: t.heading }}>
-                      {plain(r.feature)}
-                    </td>
-                    {r.values.map((v, j) => (
-                      <td key={j} className="py-1.5 pr-3" style={{ color: t.muted }}>
-                        {cite(v)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <GuideExtras />
         <p className="text-[11px]" style={{ color: t.muted }}>
           Illustration generated by {content.imageModel || "an image model"}. Wording
           is drawn from your sources; verify any text rendered inside the image.
         </p>
+      </div>
+    );
+  };
+
+  const captionHeading = (label: string) => (
+    <h3
+      className="text-[11px] font-bold tracking-[0.12em] uppercase"
+      style={{ ...headingStyle, color: t.accent }}
+    >
+      {label}
+    </h3>
+  );
+
+  /** The visual guide's hub, kept as a cited caption. */
+  const HubCaption = () =>
+    !content.hub ? null : (
+      <div style={card} className="p-4">
+        {captionHeading(plain(content.hub.label))}
+        {content.hub.caption && (
+          <p className="mt-2 text-sm" style={{ color: t.muted }}>
+            {cite(content.hub.caption)}
+          </p>
+        )}
+      </div>
+    );
+
+  /** The visual guide's graded scale and comparison matrix, as cited text. */
+  const GuideExtras = () => (
+    <>
+      {!!content.scale?.length && (
+        <div style={card} className="p-4">
+          {captionHeading("Scale")}
+          <ul className="mt-2 space-y-1.5">
+            {content.scale.map((s, i) => (
+              <li key={i} className="text-sm">
+                <span className="font-semibold" style={{ color: t.heading }}>
+                  {plain(s.tier)}
+                  {s.figure ? (
+                    <span style={{ color: t.statValue }}> · {plain(s.figure)}</span>
+                  ) : null}
+                </span>
+                {s.example && <span style={{ color: t.muted }}> — {cite(s.example)}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {!!content.matrix?.rows.length && (
+        <div style={card} className="overflow-x-auto p-4">
+          {captionHeading("Comparison")}
+          <table className="mt-2 w-full text-left text-sm">
+            <thead>
+              <tr>
+                <th className="py-1.5 pr-3" />
+                {content.matrix.columns.map((c, i) => (
+                  <th key={i} className="py-1.5 pr-3 font-semibold" style={{ color: t.heading }}>
+                    {plain(c)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {content.matrix.rows.map((r, i) => (
+                <tr key={i} style={{ borderTop: `1px solid ${t.border}` }}>
+                  <td className="py-1.5 pr-3 font-semibold" style={{ color: t.heading }}>
+                    {plain(r.feature)}
+                  </td>
+                  {r.values.map((v, j) => (
+                    <td key={j} className="py-1.5 pr-3" style={{ color: t.muted }}>
+                      {cite(v)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+
+  const ExtraSections = ({ cols = 2 }: { cols?: 1 | 2 }) =>
+    !content.sections.length ? null : (
+      <div className={`grid gap-3 ${cols === 2 ? "sm:grid-cols-2" : ""}`}>
+        {content.sections.map((s, i) => (
+          <Section key={i} section={s} />
+        ))}
+      </div>
+    );
+
+  /** Dated milestones on a rail, alternating sides on wide screens. */
+  const TimelineBody = () => {
+    const items = content.milestones ?? [];
+    if (!items.length) return <StackBody />;
+    return (
+      <div className="space-y-5">
+        <ol className="relative">
+          <span
+            aria-hidden
+            className="absolute top-2 bottom-2 left-[0.6rem] w-0.5 sm:left-1/2 sm:-translate-x-1/2"
+            style={{ background: `linear-gradient(${t.accent}, ${t.accent2})` }}
+          />
+          {items.map((m, i) => {
+            const right = i % 2 === 1;
+            const c = right ? t.accent2 : t.accent;
+            return (
+              <li key={i} className="relative grid pb-5 pl-8 last:pb-0 sm:grid-cols-2 sm:gap-12 sm:pl-0">
+                <span
+                  aria-hidden
+                  className="absolute top-1.5 left-0 h-5 w-5 rounded-full sm:left-1/2 sm:-translate-x-1/2"
+                  style={{ background: t.surface, border: `4px solid ${c}` }}
+                />
+                <div className={right ? "sm:col-start-2" : "sm:text-right"}>
+                  <span
+                    className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-wide tabular-nums"
+                    style={{ background: `color-mix(in srgb, ${c} 14%, transparent)`, color: c }}
+                  >
+                    {m.date || `Step ${i + 1}`}
+                  </span>
+                  <div className="mt-1.5 p-3.5 text-left" style={card}>
+                    <h3 className="text-[14.5px] font-semibold" style={headingStyle}>
+                      {m.title}
+                    </h3>
+                    {m.detail && (
+                      <p className="mt-1 text-[12.5px] leading-snug">{cite(m.detail)}</p>
+                    )}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        <ExtraSections />
+      </div>
+    );
+  };
+
+  /**
+   * Pyramid (narrow apex first) or funnel (wide mouth first): trapezoid bands
+   * whose sides slope continuously, each with its detail alongside.
+   */
+  const TierBody = ({ funnel }: { funnel?: boolean }) => {
+    const levels = content.levels ?? [];
+    if (!levels.length) return <StackBody />;
+    const n = levels.length;
+    const half = (k: number) => (funnel ? 50 - (34 * k) / n : 9 + (41 * k) / n);
+    return (
+      <div className="space-y-5">
+        <ol className="space-y-1.5">
+          {levels.map((l, i) => {
+            const top = half(i);
+            const bottom = half(i + 1);
+            const mix = n > 1 ? Math.round((i / (n - 1)) * 100) : 0;
+            const fill = `color-mix(in srgb, ${t.accent2} ${mix}%, ${t.accent})`;
+            return (
+              <li
+                key={i}
+                className="grid items-center gap-2 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] sm:gap-5"
+              >
+                <div
+                  className="flex min-h-[4.25rem] flex-col items-center justify-center px-2 py-2 text-center"
+                  style={{
+                    background: fill,
+                    color: "#ffffff",
+                    clipPath: `polygon(${50 - top}% 0, ${50 + top}% 0, ${50 + bottom}% 100%, ${50 - bottom}% 100%)`,
+                  }}
+                >
+                  {l.value && (
+                    <span className="text-[19px] leading-none font-extrabold tabular-nums">
+                      {l.value}
+                    </span>
+                  )}
+                  <span
+                    className="max-w-[60%] text-[12.5px] leading-tight font-semibold"
+                    style={{ fontFamily: t.headingFont }}
+                  >
+                    {l.label}
+                  </span>
+                </div>
+                <div className="flex gap-2.5 p-3" style={card}>
+                  <span
+                    className="mt-0.5 h-3 w-3 shrink-0 rounded-full"
+                    style={{ background: fill }}
+                    aria-hidden
+                  />
+                  <p className="text-[12.5px] leading-snug">
+                    <span className="font-semibold" style={{ color: t.heading }}>
+                      {l.label}.
+                    </span>{" "}
+                    {cite(l.detail)}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        <ExtraSections />
+      </div>
+    );
+  };
+
+  /** Stages around a loop, with each stage's detail below. */
+  const CycleBody = () => {
+    const stages = (content.flow ?? []).slice(0, 6);
+    if (stages.length < 3) return <FlowBody />;
+    const n = stages.length;
+    const R = 37;
+    const at = (k: number) => {
+      const a = ((-90 + (360 * k) / n) * Math.PI) / 180;
+      return { x: 50 + R * Math.cos(a), y: 50 + R * Math.sin(a), a };
+    };
+    // Arcs stop short of each node so the arrowhead is visible.
+    const gap = (14 / (2 * Math.PI * R)) * 2 * Math.PI;
+    const arcs = stages.map((_, i) => {
+      const a1 = at(i).a + gap;
+      const a2 = at(i + 1).a - gap;
+      const p = (a: number) => `${50 + R * Math.cos(a)} ${50 + R * Math.sin(a)}`;
+      return `M ${p(a1)} A ${R} ${R} 0 0 1 ${p(a2)}`;
+    });
+    const markerId = `cyc-${uid}`;
+    return (
+      <div className="space-y-5">
+        <div className="relative mx-auto aspect-square w-full max-w-[30rem]">
+          <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden>
+            <defs>
+              <marker
+                id={markerId}
+                viewBox="0 0 10 10"
+                refX="6"
+                refY="5"
+                markerWidth="4"
+                markerHeight="4"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 0 L 10 5 L 0 10 z" fill={t.accent} />
+              </marker>
+            </defs>
+            {arcs.map((d, i) => (
+              <path
+                key={i}
+                d={d}
+                fill="none"
+                stroke={t.accent}
+                strokeWidth="1.1"
+                strokeLinecap="round"
+                markerEnd={`url(#${markerId})`}
+                opacity="0.75"
+              />
+            ))}
+          </svg>
+          <div
+            className="absolute top-1/2 left-1/2 flex h-[30%] w-[30%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-center text-[12px] font-semibold"
+            style={{
+              background: `color-mix(in srgb, ${t.accent} 10%, ${t.surface})`,
+              border: `1px dashed color-mix(in srgb, ${t.accent} 45%, transparent)`,
+              color: t.heading,
+            }}
+          >
+            <span className="px-2">↻ Repeats</span>
+          </div>
+          {stages.map((s, i) => {
+            const p = at(i);
+            return (
+              <div
+                key={i}
+                className="absolute flex max-w-[9rem] -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full py-1 pr-3 pl-1 text-[12px] leading-tight font-semibold shadow-sm"
+                style={{
+                  left: `${p.x}%`,
+                  top: `${p.y}%`,
+                  background: t.surface,
+                  border: `1px solid color-mix(in srgb, ${t.accent} 40%, ${t.border})`,
+                  color: t.heading,
+                }}
+              >
+                <span
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                  style={{ background: i % 2 ? t.accent2 : t.accent, color: "#ffffff" }}
+                >
+                  {i + 1}
+                </span>
+                <span>{s}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {content.sections.map((s, i) => (
+            <Section key={i} section={s} />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const MythsBody = () => {
+    const items = content.myths ?? [];
+    if (!items.length) return <StackBody />;
+    const myth = t.accent2;
+    const fact = t.accent;
+    return (
+      <div className="space-y-3">
+        {items.map((m, i) => (
+          <div
+            key={i}
+            className="grid items-stretch gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.25fr)]"
+          >
+            <div
+              className="p-3.5"
+              style={{
+                ...card,
+                background: `color-mix(in srgb, ${myth} 7%, ${t.surface})`,
+                borderColor: `color-mix(in srgb, ${myth} 35%, ${t.border})`,
+              }}
+            >
+              <div className="mb-1 text-[10px] font-bold tracking-[0.14em] uppercase" style={{ color: myth }}>
+                ✗ Myth
+              </div>
+              <p className="text-[13.5px] leading-snug font-medium line-through decoration-1" style={{ color: t.heading, textDecorationColor: `color-mix(in srgb, ${myth} 60%, transparent)` }}>
+                {plain(m.myth)}
+              </p>
+            </div>
+            <div className="hidden items-center text-lg sm:flex" style={{ color: t.muted }} aria-hidden>
+              →
+            </div>
+            <div
+              className="p-3.5"
+              style={{
+                ...card,
+                background: `color-mix(in srgb, ${fact} 7%, ${t.surface})`,
+                borderColor: `color-mix(in srgb, ${fact} 35%, ${t.border})`,
+              }}
+            >
+              <div className="mb-1 text-[10px] font-bold tracking-[0.14em] uppercase" style={{ color: fact }}>
+                ✓ Fact
+              </div>
+              <p className="text-[13px] leading-snug">{cite(m.fact)}</p>
+            </div>
+          </div>
+        ))}
+        <ExtraSections />
+      </div>
+    );
+  };
+
+  const ProsConsBody = () => {
+    const pros = content.pros ?? [];
+    const cons = content.cons ?? [];
+    if (!pros.length && !cons.length) return <StackBody />;
+    const column = (label: string, items: string[], c: string, mark: string) => (
+      <div
+        className="p-4"
+        style={{ ...card, borderTop: `4px solid ${c}` }}
+      >
+        <h3 className="mb-3 flex items-center gap-2 text-[15px] font-semibold" style={headingStyle}>
+          <span aria-hidden>{mark === "+" ? "👍" : "👎"}</span>
+          {label}
+        </h3>
+        <ul className="space-y-2">
+          {items.map((p, i) => (
+            <li key={i} className="flex gap-2.5 text-[13px] leading-snug">
+              <span
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[12px] font-bold"
+                style={{ background: `color-mix(in srgb, ${c} 15%, transparent)`, color: c }}
+                aria-hidden
+              >
+                {mark}
+              </span>
+              <span>{cite(p)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+    return (
+      <div className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {pros.length > 0 && column("Pros", pros, t.accent, "+")}
+          {cons.length > 0 && column("Cons", cons, t.accent2, "−")}
+        </div>
+        <ExtraSections />
+      </div>
+    );
+  };
+
+  const CheatsheetBody = () => {
+    const terms = content.terms ?? [];
+    if (!terms.length) return <StackBody />;
+    return (
+      <div className="space-y-4">
+        <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {terms.map((term, i) => (
+            <div key={i} className="px-3.5 py-3" style={card}>
+              <dt
+                className="text-[12.5px] font-bold"
+                style={{ color: i % 3 === 2 ? t.accent2 : t.accent, fontFamily: t.headingFont }}
+              >
+                {term.term}
+              </dt>
+              <dd className="mt-1 text-[12.5px] leading-snug">{cite(term.definition)}</dd>
+            </div>
+          ))}
+        </dl>
+        <ExtraSections />
+      </div>
+    );
+  };
+
+  /** Bricks stack from the foundation up: the first section sits at the bottom. */
+  const BricksBody = () => {
+    const BRICKS = ["#dc2626", "#2563eb", "#16a34a", "#f59e0b", "#7c3aed", "#0891b2"];
+    const n = content.sections.length;
+    if (!n) return null;
+    const rows = content.sections.map((s, i) => ({ s, i })).reverse();
+    return (
+      <div className="flex flex-col items-center gap-2.5 pt-2">
+        {rows.map(({ s, i }) => {
+          const color = BRICKS[i % BRICKS.length];
+          const dark = color === "#f59e0b";
+          // Each course sits a little narrower than the one beneath it.
+          const step = n > 1 ? Math.min(8, 36 / (n - 1)) : 0;
+          return (
+            <div
+              key={i}
+              className="relative w-full px-4 pt-4 pb-3"
+              style={{
+                maxWidth: `${100 - i * step}%`,
+                background: color,
+                color: dark ? "#1a1610" : "#ffffff",
+                borderRadius: 6,
+                boxShadow: `inset 0 -4px 0 rgba(0,0,0,0.18), 0 3px 0 rgba(0,0,0,0.12)`,
+                // Citation pills sit on a saturated brick, so they go neutral.
+                ["--cite-bg" as string]: "rgba(255,255,255,0.3)",
+                ["--cite-border" as string]: "rgba(255,255,255,0.65)",
+                ["--cite-fg" as string]: dark ? "#1a1610" : "#ffffff",
+              }}
+            >
+              <span aria-hidden className="absolute -top-2 left-4 flex gap-3">
+                {Array.from({ length: 6 }).map((_, k) => (
+                  <span
+                    key={k}
+                    className="block h-2.5 w-6 rounded-t-md"
+                    style={{ background: color, boxShadow: "inset 0 2px 0 rgba(255,255,255,0.35)" }}
+                  />
+                ))}
+              </span>
+              <div className="mb-1.5 flex items-center gap-2">
+                <span className="text-lg">{s.icon || "🧱"}</span>
+                <h3 className="text-[15px] font-bold" style={{ fontFamily: t.headingFont }}>
+                  {s.heading}
+                </h3>
+                {i === 0 && (
+                  <span className="ml-auto rounded-full bg-black/15 px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
+                    Foundation
+                  </span>
+                )}
+              </div>
+              <ul className="space-y-1">
+                {s.bullets.map((b, k) => (
+                  <li key={k} className="text-[13px] leading-snug">
+                    {cite(b)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -681,17 +1088,43 @@ export default function Infographic({ content, citations }: Props) {
       <ChecklistBody />
     ) : def.layout === "data" ? (
       <DataBody />
+    ) : def.layout === "timeline" ? (
+      <TimelineBody />
+    ) : def.layout === "pyramid" ? (
+      <TierBody />
+    ) : def.layout === "funnel" ? (
+      <TierBody funnel />
+    ) : def.layout === "cycle" ? (
+      <CycleBody />
+    ) : def.layout === "myths" ? (
+      <MythsBody />
+    ) : def.layout === "proscons" ? (
+      <ProsConsBody />
+    ) : def.layout === "cheatsheet" ? (
+      <CheatsheetBody />
+    ) : def.layout === "bricks" ? (
+      <BricksBody />
     ) : (
       <StackBody />
     );
 
   // Flat vector prints the conclusion first; the rest lead with the numbers.
   const takeawayFirst = content.style === "flat";
+  // Pros and cons end on the takeaway, so it reads as the verdict.
+  const takeawayLabel = def.layout === "proscons" ? "Verdict" : "Key takeaway";
+  const frameWidth =
+    content.orientation === "portrait" ? 680 : content.orientation === "square" ? 920 : undefined;
+  const fellBack = content.imageFallback
+    ? styleDef(content.imageFallback.from).label
+    : null;
 
   return (
     <div
       className="overflow-hidden"
+      data-infographic-style={content.style ?? "classic"}
       style={{
+        maxWidth: frameWidth,
+        marginInline: frameWidth ? "auto" : undefined,
         background: t.texture ? `${t.texture}, ${t.bg}` : t.bg,
         borderRadius: Math.max(t.radius, 8),
         border: `${t.borderWidth}px solid ${t.border}`,
@@ -743,6 +1176,23 @@ export default function Infographic({ content, citations }: Props) {
       )}
 
       <div className="space-y-4 p-5 sm:p-6">
+        {fellBack && (
+          <p
+            role="note"
+            className="rounded-lg px-3.5 py-2.5 text-[12px] leading-snug"
+            style={{
+              background: `color-mix(in srgb, ${t.accent} 8%, ${t.surface})`,
+              border: `1px dashed color-mix(in srgb, ${t.accent} 45%, ${t.border})`,
+              color: t.text,
+            }}
+          >
+            <strong style={{ color: t.heading }}>Shown as Illustrated.</strong> The{" "}
+            {fellBack} picture could not be drawn
+            {content.imageFallback?.reason ? ` (${content.imageFallback.reason})` : ""}, so
+            the cited brief it was based on is kept here instead. Check the image model
+            under Models, then generate again to get the picture.
+          </p>
+        )}
         {takeawayFirst && <Takeaway />}
         {/* The generated image is the artifact itself, so it leads; the cited
             figures act as its caption rather than its preamble. */}

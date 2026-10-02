@@ -48,6 +48,27 @@ export function hostAllowed(host: string | null, allowed: string[]): boolean {
 }
 
 /**
+ * The same-origin path to continue to after signing in, or "/".
+ *
+ * A prefix check alone is not enough: browsers treat `\` as `/` and strip tabs
+ * and newlines from URLs, so `/\evil.example` and `/\t/evil.example` both
+ * navigate off-site. The value is resolved against this origin and only kept
+ * when it stays here.
+ */
+export function safeNextPath(next: string | null | undefined, origin: string): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return "/";
+  if (/[\\\u0000-\u001f\u007f]/.test(next)) return "/";
+  try {
+    const base = new URL(origin);
+    const u = new URL(next, base);
+    if (u.origin !== base.origin) return "/";
+    return `${u.pathname}${u.search}${u.hash}` || "/";
+  } catch {
+    return "/";
+  }
+}
+
+/**
  * Whether a request is a cross-site, state-changing API call from a browser.
  * `sameHosts` are the host values (with port) this app is reached at.
  */

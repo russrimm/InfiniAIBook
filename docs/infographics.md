@@ -1,6 +1,45 @@
 # Infographic styles
 
-Pick a style in the Studio panel before generating. Twenty are available.
+Pick a style in the Studio panel before generating. There are 33.
+
+## Choosing a style
+
+The infographic card shows the chosen style with a live example. Click it, or
+**See examples of all 33 styles**, to open the **style gallery**: every style
+rendered on the same sample notebook (a community-garden pilot), so you can
+compare them like for like before spending a generation. Filter by **Drawn by
+AI**, **Structure-led** or **Look-led**, or search by name or use ("roadmap",
+"myth"). Selecting a thumbnail shows it full size with what it suits best;
+**Use this style** picks it and **Generate** picks it and starts right away.
+
+The HTML styles' examples are the real renderer on sample content, so what you
+see is what that style produces. The image styles cannot be previewed without
+spending an image-model call, so they show a labeled **layout sketch** in their
+art direction instead.
+
+**✨ Suggest styles for my sources** reads a sample of the selected sources
+(and the focus, if you typed one) and proposes three styles whose structure
+fits — a timeline for dated events, a funnel for narrowing numbers, myth vs fact
+for corrections — each with a one-line reason. Suggestions are marked in the
+gallery; nothing changes until you pick one. Without a working chat model it
+falls back to a quick guess from the shape of the text.
+
+## Options
+
+Like NotebookLM's infographic settings, each generation takes:
+
+- **Shape** — landscape (the default), portrait for phones and reading top to
+  bottom, or square for social posts. The image styles render at 1536×1024,
+  1024×1536 or 1024×1024 to match; the HTML styles are framed to that shape for
+  viewing and PNG export.
+- **Detail** — concise (only the essentials, at the low end of every count),
+  standard, or detailed (the high end of every count, with names and figures).
+- **Describe the infographic you want** — up to 600 characters of free text
+  for focus, audience, tone and wording ("for new volunteers; focus on the
+  weekly schedule"). It is passed to the model below the grounding rules, so it
+  can steer emphasis but cannot add facts the sources do not contain.
+
+## The styles
 
 **Visual guide** is the default: an image-model rendering in the shape of a
 polished enterprise explainer. The brief names one central **hub** — the
@@ -26,7 +65,10 @@ orange), so they stay crisp at any size, tint to match their region, and never
 misspell a label.
 
 **AI image** renders the infographic as a real picture with an image model,
-using the same grounded brief the illustrated style produces. See
+using the same grounded brief the illustrated style produces. **Anime** (bright
+cel-shaded panels with original characters), **Retro print** (a mid-century
+risograph poster) and **Paper craft** (a layered cut-paper diorama) use the same
+brief and composition in a different art direction. See
 [Image infographics](#image-infographics) below.
 
 **Structure-led** — these change what the infographic *is*:
@@ -34,12 +76,23 @@ using the same grounded brief the illustrated style produces. See
 | | |
 |---|---|
 | **Data-driven** headline stats, a real bar chart, then interpretation | **Process flow** numbered stages, each with its own detail |
-| **Comparison** two options side by side, with a verdict | **Checklist** 6-10 actionable items in working order |
-| **Educational** what it is, why it matters, how to apply it | |
+| **Timeline** four to seven dated milestones on a rail, alternating sides | **Cycle** three to six stages around a loop, each with its detail |
+| **Pyramid** three to five levels from apex to base, each with a cited line | **Funnel** stages narrowing from the broadest start, with the figure at each |
+| **Comparison** two options side by side, with a verdict | **Pros & cons** advantages and drawbacks, ending in a balanced verdict |
+| **Myth vs fact** misconceptions the sources address, each with its cited correction | **Checklist** 6-10 actionable items in working order |
+| **Cheat sheet** a dense card of key terms and crisp definitions, plus rules of thumb | **Educational** what it is, why it matters, how to apply it |
+
+None of these invent a structure the sources do not have: the timeline never
+makes up a date (it falls back to "Step 1, Step 2"), the funnel leaves a figure
+out rather than guess one, the cycle says so when nothing repeats, and myth vs
+fact only corrects misconceptions the sources actually address.
 
 **Look-led** — these change the treatment: **Classic**, **Flat vector**,
-**Bento grid**, **Corporate report**, **Minimal mono**, **Editorial feature**,
-**Neon network**, **Paper cutout**, **Clay explainer**, **Sketch note**,
+**Bento grid**, **Corporate report**, **Scientific** (a research-paper figure
+panel with measured quantities and Method / Results / Limitations),
+**Minimal mono**, **Editorial feature**, **Neon network**, **Paper cutout**,
+**Clay explainer**, **Kawaii** (cute pastel, cheerful and jargon-free),
+**Bricks** (building blocks stacked from the foundation up), **Sketch note**,
 **Chalkboard lesson**, **Watercolor story**.
 
 Even the look-led styles change the content, because the two are not separable:
@@ -50,7 +103,9 @@ only the fields it needs.
 
 ## Style gallery
 
-Every example below was generated by the app from the same fictional
+The in-app style gallery shows every style, including the new ones, on sample
+content. The screenshots below predate it: every example was generated by the
+app from the same fictional
 community-garden sample notebook — a project brief, a planting and water plan,
 volunteer workshop notes and a resident survey — using that style's prompt
 unchanged. Nothing was edited after generation, so these show what each prompt
@@ -181,7 +236,8 @@ app's dark default.
 
 ## Image infographics
 
-The **Visual guide** and **AI image** styles render the infographic as a
+The **Visual guide**, **AI image**, **Anime**, **Retro print** and **Paper
+craft** styles render the infographic as a
 picture instead. They run in two stages: the generation model first writes a
 grounded brief — headline, three regions, a takeaway, one cited sentence and an
 optional real figure per concept, plus the hub, scale and matrix for the visual
@@ -221,3 +277,10 @@ The prompt instructs the model to letter every string verbatim and invent no
 other text. Image models are far better at this than they were, but the
 instruction is not a guarantee — the app says so under each generated image, and
 the cited brief beneath it remains the authoritative copy.
+
+**If the picture fails.** Writing the brief costs a full generation, so a
+failed image call (no image deployment, a quota error, a refusal) no longer
+throws it away. The artifact is saved in the **Illustrated** HTML layout, with a
+note naming the style that was asked for and why the picture could not be
+drawn. Fix the image model under **Models**, then generate again for the
+picture.

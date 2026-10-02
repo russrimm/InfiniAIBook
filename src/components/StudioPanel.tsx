@@ -14,10 +14,17 @@ import { EMPTY_NARRATION, type NarrationSettings } from "@/lib/narration";
 import type { MusicChoice } from "@/lib/musicchoice";
 import {
   DEFAULT_STYLE,
+  DETAIL_LEVELS,
   INFOGRAPHIC_STYLES,
+  MAX_INFOGRAPHIC_INSTRUCTIONS,
+  ORIENTATIONS,
+  STYLE_META,
   STYLE_ORDER,
+  isImageStyle,
   type InfographicStyle,
 } from "@/lib/infographic";
+import InfographicGallery, { ScaledExample } from "@/components/InfographicGallery";
+import type { StyleSuggestion } from "@/lib/styleSuggest";
 import {
   VOICE_PRESETS,
   MULTITALKER_SPEAKERS,
@@ -32,6 +39,8 @@ import {
 import type {
   ArtifactSummary,
   ArtifactType,
+  InfographicDetail,
+  InfographicOrientation,
   SlideTheme,
   StudyDifficulty,
   StudyLength,
@@ -151,6 +160,41 @@ export default function StudioPanel({
 }) {
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState<InfographicStyle>(DEFAULT_STYLE);
+  const [orientation, setOrientation] = useState<InfographicOrientation>("landscape");
+  const [detail, setDetail] = useState<InfographicDetail>("standard");
+  const [instructions, setInstructions] = useState("");
+  const [describeOpen, setDescribeOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<StyleSuggestion[] | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
+
+  /** Ask which styles suit the selected sources; the user still chooses. */
+  const suggestStyles = async () => {
+    setSuggesting(true);
+    setSuggestError(null);
+    try {
+      const res = await fetch("/api/infographic/suggest", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          notebookId,
+          sourceIds: selectedIds,
+          topic: topic.trim() || undefined,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        suggestions?: StyleSuggestion[];
+        error?: string;
+      };
+      if (!res.ok) throw new Error(json.error || "Could not suggest a style.");
+      setSuggestions(json.suggestions ?? []);
+    } catch (e) {
+      setSuggestError(e instanceof Error ? e.message : "Could not suggest a style.");
+    } finally {
+      setSuggesting(false);
+    }
+  };
   const [difficulty, setDifficulty] = useState<StudyDifficulty>("medium");
   const [length, setLength] = useState<StudyLength>("standard");
   const [slideTheme, setSlideTheme] = useState<SlideTheme>(DEFAULT_SLIDE_THEME);
@@ -286,13 +330,20 @@ export default function StudioPanel({
     }
   };
 
-  const generate = (type: ArtifactType) =>
+  const generate = (type: ArtifactType, override?: { style?: InfographicStyle }) =>
     run(type, "/api/generate", {
       notebookId,
       type,
       topic: topic.trim() || undefined,
       sourceIds: selectedIds,
-      ...(type === "infographic" ? { style } : {}),
+      ...(type === "infographic"
+        ? {
+            style: override?.style ?? style,
+            orientation,
+            detail,
+            instructions: instructions.trim() || undefined,
+          }
+        : {}),
       ...(type === "slides" ? { theme: slideTheme, length: slideLength } : {}),
       ...(STUDIO[type].study ? { difficulty, length } : {}),
     });
@@ -905,13 +956,21 @@ export default function StudioPanel({
               );
             }
 
-            // The infographic has twenty styles, so its card carries its own
-            // chooser. A picker elsewhere in the panel reads as a global
-            // setting and gets missed.
+            // The infographic has many styles, so its card carries its own
+            // chooser — with a live example of the chosen style — rather than
+            // a picker elsewhere in the panel that reads as a global setting.
             if (type === "infographic") {
+              const chosen = INFOGRAPHIC_STYLES[style];
+              const segment = (active: boolean) =>
+                `px-2 py-1 text-[11px] transition ${
+                  active
+                    ? "bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] text-[var(--fg)]"
+                    : "text-[var(--muted)] hover:text-[var(--fg)]"
+                }`;
               return (
                 <div
                   key={type}
+                  data-testid="infographic-card"
                   className={`card relative col-span-2 overflow-hidden transition ${
                     isBusy ? "shimmer border-[var(--accent)]" : ""
                   }`}
@@ -925,29 +984,159 @@ export default function StudioPanel({
                     <span className="min-w-0 flex-1">
                       <span className="block text-[13px] font-medium">{s.label}</span>
                       <span className="block text-[10px] leading-snug text-[var(--muted)]">
-                        {isBusy ? "Generating…" : s.blurb}
+                        {isBusy
+                          ? isImageStyle(style)
+                            ? "Writing the brief, then drawing it (about 2 minutes)…"
+                            : "Generating…"
+                          : `${chosen.icon} ${chosen.label} · ${orientation} · ${detail}`}
                       </span>
                     </span>
                   </button>
 
-                  <label className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-2">
-                    <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                      Style
-                    </span>
-                    <select
-                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                      value={style}
-                      disabled={false}
-                      onChange={(e) => setStyle(e.target.value as InfographicStyle)}
+                  <div className="border-t border-[var(--border)] px-3 py-2">
+                    <button
+                      type="button"
+                      onClick={() => setGalleryOpen(true)}
+                      aria-label={`Style: ${chosen.label}. Browse all ${STYLE_ORDER.length} styles with examples`}
+                      className="group flex w-full items-center gap-2.5 rounded-md border border-[var(--border)] bg-well p-1.5 text-left transition hover:border-line-hover"
                     >
-                      {STYLE_ORDER.map((key) => (
-                        <option key={key} value={key}>
-                          {INFOGRAPHIC_STYLES[key].icon} {INFOGRAPHIC_STYLES[key].label} —{" "}
-                          {INFOGRAPHIC_STYLES[key].blurb}
-                        </option>
+                      <span className="w-[5.5rem] shrink-0 overflow-hidden rounded border border-[var(--border)]">
+                        <ScaledExample style={style} crop />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium">
+                          {chosen.icon} {chosen.label}
+                        </span>
+                        <span className="block text-[10px] leading-snug text-[var(--muted)]">
+                          {STYLE_META[style].bestFor}
+                        </span>
+                        <span className="mt-0.5 block text-[10px] text-[var(--accent)] group-hover:underline">
+                          See examples of all {STYLE_ORDER.length} styles →
+                        </span>
+                      </span>
+                    </button>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--muted)] transition hover:border-line-hover hover:text-[var(--fg)] disabled:opacity-40"
+                        disabled={blocked || suggesting}
+                        onClick={() => void suggestStyles()}
+                      >
+                        {suggesting ? "Reading your sources…" : "✨ Suggest styles for my sources"}
+                      </button>
+                      {suggestions?.map((sg) => (
+                        <button
+                          key={sg.style}
+                          type="button"
+                          title={sg.reason}
+                          onClick={() => setStyle(sg.style)}
+                          aria-pressed={style === sg.style}
+                          className={`rounded-full border px-2 py-0.5 text-[10px] transition ${
+                            style === sg.style
+                              ? "border-[var(--accent)] text-[var(--fg)]"
+                              : "border-[var(--border)] text-[var(--muted)] hover:border-line-hover hover:text-[var(--fg)]"
+                          }`}
+                        >
+                          {INFOGRAPHIC_STYLES[sg.style].icon} {INFOGRAPHIC_STYLES[sg.style].label}
+                        </button>
                       ))}
-                    </select>
-                  </label>
+                    </div>
+                    {suggestError && (
+                      <p className="mt-1 text-[10px] text-red-400">{suggestError}</p>
+                    )}
+                    {suggestions && suggestions.length > 0 && (
+                      <p className="mt-1 text-[10px] leading-snug text-[var(--muted)]">
+                        {suggestions.find((sg) => sg.style === style)?.reason ??
+                          "Hover a suggestion to see why it fits."}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] px-3 py-2">
+                    <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Shape
+                    </span>
+                    <div
+                      role="radiogroup"
+                      aria-label="Orientation"
+                      className="flex overflow-hidden rounded-md border border-[var(--border)]"
+                    >
+                      {ORIENTATIONS.map((o) => (
+                        <button
+                          key={o.key}
+                          type="button"
+                          role="radio"
+                          aria-checked={orientation === o.key}
+                          title={o.label}
+                          onClick={() => setOrientation(o.key)}
+                          className={segment(orientation === o.key)}
+                        >
+                          <span aria-hidden>{o.icon}</span> {o.label}
+                        </button>
+                      ))}
+                    </div>
+                    <label className="flex min-w-[9rem] flex-1 items-center gap-2">
+                      <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                        Detail
+                      </span>
+                      <select
+                        aria-label="Level of detail"
+                        className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                        value={detail}
+                        onChange={(e) => setDetail(e.target.value as InfographicDetail)}
+                      >
+                        {DETAIL_LEVELS.map((d) => (
+                          <option key={d.key} value={d.key}>
+                            {d.label} — {d.blurb}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="border-t border-[var(--border)] px-3 py-2">
+                    <button
+                      type="button"
+                      aria-expanded={describeOpen}
+                      onClick={() => setDescribeOpen((v) => !v)}
+                      className="flex w-full items-center gap-1.5 text-left text-[10px] tracking-wide text-[var(--muted)] uppercase hover:text-[var(--fg)]"
+                    >
+                      <span aria-hidden>{describeOpen ? "▾" : "▸"}</span>
+                      Describe the infographic you want
+                      {instructions.trim() && !describeOpen && (
+                        <span className="ml-auto normal-case">· added</span>
+                      )}
+                    </button>
+                    {describeOpen && (
+                      <>
+                        <textarea
+                          aria-label="Describe the infographic you want"
+                          rows={3}
+                          maxLength={MAX_INFOGRAPHIC_INSTRUCTIONS}
+                          value={instructions}
+                          onChange={(e) => setInstructions(e.target.value)}
+                          placeholder="e.g. For new volunteers. Focus on costs and the weekly schedule. Keep the tone upbeat."
+                          className="mt-1.5 w-full resize-y rounded-md border border-[var(--border)] bg-well px-2 py-1.5 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                        />
+                        <p className="mt-0.5 text-right text-[10px] text-[var(--muted)]">
+                          {instructions.length}/{MAX_INFOGRAPHIC_INSTRUCTIONS} · steers focus and
+                          tone; facts still come only from your sources
+                        </p>
+                      </>
+                    )}
+                  </div>
+
+                  {galleryOpen && (
+                    <InfographicGallery
+                      value={style}
+                      suggestions={suggestions ?? undefined}
+                      canGenerate={!blocked && !isBusy}
+                      onPick={setStyle}
+                      onGenerate={(picked) => void generate("infographic", { style: picked })}
+                      onClose={() => setGalleryOpen(false)}
+                    />
+                  )}
                 </div>
               );
             }

@@ -124,6 +124,37 @@ function toMarkdown(a: Artifact): string {
             .join("\n")}\n`
         );
       }
+      if (g.milestones?.length) {
+        parts.push(
+          `## Timeline\n\n${g.milestones
+            .map((m) => `- **${m.date}** — **${m.title}**${m.detail ? `: ${m.detail}` : ""}`)
+            .join("\n")}\n`
+        );
+      }
+      if (g.levels?.length) {
+        parts.push(
+          `## Levels\n\n${g.levels
+            .map(
+              (l, i) =>
+                `${i + 1}. **${l.label}**${l.value ? ` (${l.value})` : ""}${l.detail ? ` — ${l.detail}` : ""}`
+            )
+            .join("\n")}\n`
+        );
+      }
+      if (g.myths?.length) {
+        parts.push(
+          `## Myth vs fact\n\n${g.myths
+            .map((m) => `- **Myth:** ${m.myth}\n  **Fact:** ${m.fact}`)
+            .join("\n")}\n`
+        );
+      }
+      if (g.pros?.length) parts.push(`## Pros\n\n${g.pros.map((p) => `- ${p}`).join("\n")}\n`);
+      if (g.cons?.length) parts.push(`## Cons\n\n${g.cons.map((p) => `- ${p}`).join("\n")}\n`);
+      if (g.terms?.length) {
+        parts.push(
+          `## Key terms\n\n${g.terms.map((t) => `- **${t.term}** — ${t.definition}`).join("\n")}\n`
+        );
+      }
       if (g.stats.length) {
         parts.push(
           `## Key numbers\n\n${g.stats

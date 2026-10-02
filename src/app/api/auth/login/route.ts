@@ -8,26 +8,13 @@ import {
   safeEqual,
 } from "@/lib/auth";
 
+import { FailureThrottle } from "@/lib/throttle";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * Attempts are checked one at a time, and each failure holds the queue for a
- * growing delay (0.6 s, doubling, capped at 30 s) until a sign-in succeeds.
- * Parallel guesses therefore queue behind each other instead of each paying
- * one short delay, which is what made the old fixed sleep easy to get around.
- * It is per process and in memory, which is all a single-user server needs.
- */
-let queue: Promise<unknown> = Promise.resolve();
-let consecutiveFailures = 0;
-
-const backoffMs = (failures: number) => Math.min(30_000, 600 * 2 ** (failures - 1));
-
-function serialised<T>(work: () => Promise<T>): Promise<T> {
-  const run = queue.then(work, work);
-  queue = run.catch(() => undefined);
-  return run;
-}
+/** See FailureThrottle: failures hold a shared queue for a growing delay. */
+const throttle = new FailureThrottle();
 
 export async function POST(req: Request) {
   const password = authPassword();
@@ -35,13 +22,15 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => ({}))) as { password?: string };
 
-  const ok = await serialised(async () => {
-    const match = !!body.password && safeEqual(body.password, password);
-    consecutiveFailures = match ? 0 : consecutiveFailures + 1;
-    // Held inside the queue, so every attempt behind this one waits too.
-    if (!match) await new Promise((r) => setTimeout(r, backoffMs(consecutiveFailures)));
-    return match;
-  });
+  if (throttle.saturated) {
+    return NextResponse.json(
+      { error: "Too many failed sign-in attempts. Try again shortly.", code: "auth_throttled" },
+      { status: 429 }
+    );
+  }
+  const ok = await throttle.attempt(
+    () => typeof body.password === "string" && !!body.password && safeEqual(body.password, password)
+  );
 
   if (!ok) return NextResponse.json({ error: "Wrong password." }, { status: 401 });
 

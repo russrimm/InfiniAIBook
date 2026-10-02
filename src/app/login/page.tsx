@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { safeNextPath } from "@/lib/access";
 
 export default function LoginPage() {
   const [password, setPassword] = useState("");
@@ -18,8 +19,8 @@ export default function LoginPage() {
       });
       if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error);
       const next = new URLSearchParams(window.location.search).get("next");
-      // Only same-site paths, so the login page cannot be used as a redirector.
-      window.location.href = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+      // Only same-origin paths, so the login page cannot be used as a redirector.
+      window.location.href = safeNextPath(next, window.location.origin);
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : "Sign-in failed.");
       setBusy(false);
