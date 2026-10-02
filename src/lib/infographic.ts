@@ -12,11 +12,15 @@
  */
 
 import { METAPHOR_HINTS, METAPHOR_KEYS } from "./metaphors";
+import type { InfographicDetail, InfographicOrientation } from "./types";
 
 export type InfographicStyle =
   | "guide"
   | "illustrated"
   | "image"
+  | "anime"
+  | "retro"
+  | "papercraft"
   | "classic"
   | "flat"
   | "data"
@@ -24,6 +28,13 @@ export type InfographicStyle =
   | "comparison"
   | "checklist"
   | "educational"
+  | "timeline"
+  | "pyramid"
+  | "funnel"
+  | "cycle"
+  | "myths"
+  | "proscons"
+  | "cheatsheet"
   | "sketch"
   | "chalkboard"
   | "cutout"
@@ -33,7 +44,10 @@ export type InfographicStyle =
   | "editorial"
   | "neon"
   | "watercolor"
-  | "bento";
+  | "bento"
+  | "kawaii"
+  | "scientific"
+  | "bricks";
 
 /** How the body of the infographic is arranged. */
 export type InfographicLayout =
@@ -45,7 +59,15 @@ export type InfographicLayout =
   | "checklist"
   | "data"
   | "illustrated"
-  | "image";
+  | "image"
+  | "timeline"
+  | "pyramid"
+  | "funnel"
+  | "cycle"
+  | "myths"
+  | "proscons"
+  | "cheatsheet"
+  | "bricks";
 
 export type InfographicTheme = {
   bg: string;
@@ -88,6 +110,8 @@ const SERIF = 'Georgia, "Iowan Old Style", "Times New Roman", serif';
 const MONO = 'var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace';
 const CASUAL =
   '"Segoe Print", "Bradley Hand", "Comic Sans MS", ui-rounded, cursive, sans-serif';
+const ROUNDED =
+  'ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", var(--font-geist-sans), "Segoe UI", sans-serif';
 
 /** Metaphor vocabulary, listed for the prompt so the model picks a real key. */
 const METAPHOR_LIST = METAPHOR_KEYS.map(
@@ -115,6 +139,26 @@ const IMAGE_THEME: InfographicTheme = {
   headingFont: SANS,
   shadow: "0 10px 24px -18px rgba(15,34,51,0.45)",
 };
+
+/** The brief every illustrated image style asks for. */
+const IMAGE_HINT = `Analyse the material and identify the 6-9 most important ideas. Do not
+restate paragraphs — turn each idea into something that can be drawn.
+
+Populate "regions" with exactly 3 thematic groups, each { "heading": 1-3 words in
+upper case, "concepts": [...] }. Each concept is { "takeaway": a bold claim of
+3-7 words, "detail": ONE short sentence with a citation marker, "metaphor": one
+key from the list below, "value": an optional short figure taken literally from
+the sources, e.g. "68%", "$2.4B", "12 weeks" }.
+
+Choose "metaphor" by what the idea *is*, not by decoration:
+${METAPHOR_LIST}
+
+This brief is rendered as a drawn illustration, so text must be short enough to
+survive being lettered by hand: keep every takeaway under 45 characters and every
+detail under 110. Set "value" only where the sources state a real figure.
+Keep "sections" empty; "regions" replaces it for this style.
+"title" is one strong headline of at most 60 characters. "subtitle" is a single
+line of context.`;
 
 export const INFOGRAPHIC_STYLES: Record<InfographicStyle, StyleDef> = {
   /**
@@ -225,24 +269,37 @@ Keep "sections" empty; "regions" replaces it for this style.
     blurb: "Rendered by an image model",
     icon: "✨",
     layout: "image",
-    hint: `Analyse the material and identify the 6-9 most important ideas. Do not
-restate paragraphs — turn each idea into something that can be drawn.
+    hint: IMAGE_HINT,
+    theme: IMAGE_THEME,
+  },
 
-Populate "regions" with exactly 3 thematic groups, each { "heading": 1-3 words in
-upper case, "concepts": [...] }. Each concept is { "takeaway": a bold claim of
-3-7 words, "detail": ONE short sentence with a citation marker, "metaphor": one
-key from the list below, "value": an optional short figure taken literally from
-the sources, e.g. "68%", "$2.4B", "12 weeks" }.
+  /** The AI-image brief, drawn as a bright anime-style illustrated spread. */
+  anime: {
+    label: "Anime",
+    blurb: "Bright cel-shaded illustrated spread",
+    icon: "🌸",
+    layout: "image",
+    hint: IMAGE_HINT,
+    theme: IMAGE_THEME,
+  },
 
-Choose "metaphor" by what the idea *is*, not by decoration:
-${METAPHOR_LIST}
+  /** The AI-image brief, drawn as a mid-century risograph poster. */
+  retro: {
+    label: "Retro print",
+    blurb: "Mid-century risograph poster",
+    icon: "📻",
+    layout: "image",
+    hint: IMAGE_HINT,
+    theme: IMAGE_THEME,
+  },
 
-This brief is rendered as a drawn illustration, so text must be short enough to
-survive being lettered by hand: keep every takeaway under 45 characters and every
-detail under 110. Set "value" only where the sources state a real figure.
-Keep "sections" empty; "regions" replaces it for this style.
-"title" is one strong headline of at most 60 characters. "subtitle" is a single
-line of context.`,
+  /** The AI-image brief, built from layered cut paper. */
+  papercraft: {
+    label: "Paper craft",
+    blurb: "Layered cut-paper diorama",
+    icon: "🧩",
+    layout: "image",
+    hint: IMAGE_HINT,
     theme: IMAGE_THEME,
   },
 
@@ -790,26 +847,426 @@ so the cards stay balanced.`,
       shadow: "0 10px 30px -18px rgba(0,0,0,0.9)",
     },
   },
+
+  timeline: {
+    label: "Timeline",
+    blurb: "Dated milestones in order",
+    icon: "🗓️",
+    layout: "timeline",
+    hint: `Tell the material as a sequence of dated events. Populate "milestones" with
+4-7 entries in chronological order, each { "date": the date, year, phase or
+relative time exactly as the sources give it, at most 16 characters (e.g.
+"Mar 2024", "Week 3", "Phase 2"), "title": 2-6 words, "detail": one sentence with
+a citation marker }. Never invent a date: if the sources give only an order, use
+"Step 1", "Step 2" and so on. Keep "sections" to at most two, for context around
+the sequence, and "stats" to at most two.`,
+    theme: {
+      bg: "#f6f5fc",
+      surface: "#ffffff",
+      border: "#dedaf3",
+      borderStyle: "solid",
+      borderWidth: 1,
+      radius: 12,
+      text: "#353149",
+      muted: "#6f6a8a",
+      heading: "#1c1830",
+      accent: "#7c3aed",
+      accent2: "#f59e0b",
+      headerBg: "linear-gradient(135deg, #7c3aed, #c026d3)",
+      headerText: "#ffffff",
+      headerSubText: "rgba(255,255,255,0.88)",
+      statValue: "#7c3aed",
+      font: SANS,
+      headingFont: SANS,
+      shadow: "0 8px 20px -16px rgba(28,24,48,0.5)",
+    },
+  },
+
+  pyramid: {
+    label: "Pyramid",
+    blurb: "Hierarchy from apex to base",
+    icon: "🔺",
+    layout: "pyramid",
+    hint: `Organize the material as a hierarchy of 3-5 levels, from the apex (the most
+essential, most specific or smallest) down to the base (the broadest
+foundation). Populate "levels" top first, each { "label": 1-4 words, "detail":
+one sentence with a citation marker, "value": an optional short figure taken
+literally from the sources }. Each level should rest on the one beneath it.
+Keep "sections" to at most two and "stats" to at most two.`,
+    theme: {
+      bg: "#fbf7f0",
+      surface: "#ffffff",
+      border: "#eadfcb",
+      borderStyle: "solid",
+      borderWidth: 1,
+      radius: 10,
+      text: "#43392b",
+      muted: "#7f725f",
+      heading: "#2a2217",
+      accent: "#b45309",
+      accent2: "#0f766e",
+      headerBg: "linear-gradient(135deg, #b45309, #d97706)",
+      headerText: "#ffffff",
+      headerSubText: "rgba(255,255,255,0.9)",
+      statValue: "#b45309",
+      font: SANS,
+      headingFont: SANS,
+      shadow: "0 1px 2px rgba(42,34,23,0.06)",
+    },
+  },
+
+  funnel: {
+    label: "Funnel",
+    blurb: "Broad start narrowing to an outcome",
+    icon: "🔻",
+    layout: "funnel",
+    hint: `Present the material as a narrowing funnel of 3-6 stages, from the broadest
+start (most people, options or volume) to the narrow outcome. Populate "levels"
+widest first, each { "label": 1-4 words, "detail": one sentence with a citation
+marker saying what happens or drops out at that stage, "value": the count,
+share or figure at that stage taken literally from the sources, e.g. "1,200",
+"38%" — leave it out rather than invent one }. Keep "sections" to at most two.`,
+    theme: {
+      bg: "#f2f8fa",
+      surface: "#ffffff",
+      border: "#cfe3ea",
+      borderStyle: "solid",
+      borderWidth: 1,
+      radius: 10,
+      text: "#2c3f47",
+      muted: "#64808b",
+      heading: "#102a33",
+      accent: "#0891b2",
+      accent2: "#4f46e5",
+      headerBg: "linear-gradient(135deg, #0891b2, #4f46e5)",
+      headerText: "#ffffff",
+      headerSubText: "rgba(255,255,255,0.88)",
+      statValue: "#0891b2",
+      font: SANS,
+      headingFont: SANS,
+      shadow: "0 1px 2px rgba(16,42,51,0.06)",
+    },
+  },
+
+  cycle: {
+    label: "Cycle",
+    blurb: "A loop of stages that repeats",
+    icon: "🔄",
+    layout: "cycle",
+    hint: `Treat the material as a repeating cycle of 3-6 stages that loops back to
+the start. Populate "flow" with the stage names in order, 1-3 words each, and
+provide exactly one section per stage in the same order, with the same heading
+as the stage name. Make clear in the last section how it feeds back into the
+first. Only use a cycle if the sources describe something that repeats; if they
+do not, say so in the subtitle.`,
+    theme: {
+      bg: "#f3faf6",
+      surface: "#ffffff",
+      border: "#cde7d8",
+      borderStyle: "solid",
+      borderWidth: 1,
+      radius: 14,
+      text: "#2f4237",
+      muted: "#6a8475",
+      heading: "#12271b",
+      accent: "#059669",
+      accent2: "#0284c7",
+      headerBg: "linear-gradient(135deg, #059669, #0284c7)",
+      headerText: "#ffffff",
+      headerSubText: "rgba(255,255,255,0.9)",
+      statValue: "#059669",
+      font: SANS,
+      headingFont: SANS,
+      shadow: "0 1px 2px rgba(18,39,27,0.06)",
+    },
+  },
+
+  myths: {
+    label: "Myth vs fact",
+    blurb: "Misconceptions, corrected",
+    icon: "🕵️",
+    layout: "myths",
+    hint: `Correct common misconceptions. Populate "myths" with 3-6 entries of
+{ "myth": a plausible misconception stated plainly in at most 14 words, "fact":
+the correction the sources support, one or two sentences with a citation marker }.
+Only include a myth the sources actually address or contradict — never invent a
+strawman. The takeaway is the single most important correction. Keep "sections"
+to at most one and "stats" to at most two.`,
+    theme: {
+      bg: "#fbf8f6",
+      surface: "#ffffff",
+      border: "#eaded7",
+      borderStyle: "solid",
+      borderWidth: 1,
+      radius: 12,
+      text: "#3d3430",
+      muted: "#7c6f69",
+      heading: "#221a17",
+      accent: "#16a34a",
+      accent2: "#dc2626",
+      headerBg: "#221a17",
+      headerText: "#ffffff",
+      headerSubText: "rgba(255,255,255,0.8)",
+      statValue: "#16a34a",
+      font: SANS,
+      headingFont: SANS,
+      shadow: "0 1px 2px rgba(34,26,23,0.06)",
+    },
+  },
+
+  proscons: {
+    label: "Pros & cons",
+    blurb: "For and against, then a verdict",
+    icon: "👍",
+    layout: "proscons",
+    hint: `Weigh the subject the sources discuss. Populate "pros" with 3-6 advantages
+and "cons" with 3-6 drawbacks, each a short sentence of at most 16 words with a
+citation marker. Name the subject in the title. The takeaway is a balanced
+one-sentence verdict on when it is worth it — not a winner unless the sources
+clearly support one. Keep "sections" to at most one and "stats" to at most two.`,
+    theme: {
+      bg: "#f7f9fc",
+      surface: "#ffffff",
+      border: "#dbe2ec",
+      borderStyle: "solid",
+      borderWidth: 1,
+      radius: 12,
+      text: "#323d4b",
+      muted: "#6c7889",
+      heading: "#141c27",
+      accent: "#16a34a",
+      accent2: "#e11d48",
+      headerBg: "linear-gradient(135deg, #0f766e, #334155)",
+      headerText: "#ffffff",
+      headerSubText: "rgba(255,255,255,0.86)",
+      statValue: "#0f766e",
+      font: SANS,
+      headingFont: SANS,
+      shadow: "0 1px 2px rgba(20,28,39,0.06)",
+    },
+  },
+
+  cheatsheet: {
+    label: "Cheat sheet",
+    blurb: "Dense reference card of key terms",
+    icon: "📋",
+    layout: "cheatsheet",
+    hint: `Make a dense, scannable reference card. Populate "terms" with 8-14 entries
+of { "term": a key term, name, setting or concept of at most 4 words,
+"definition": a crisp explanation of at most 20 words with a citation marker },
+ordered so related terms sit together. Add 1-3 sections of short rules of thumb.
+Keep "stats" to at most two. Every term must appear in the sources.`,
+    theme: {
+      bg: "#0f172a",
+      surface: "#131d35",
+      border: "#24324f",
+      borderStyle: "solid",
+      borderWidth: 1,
+      radius: 8,
+      text: "#d3dbea",
+      muted: "#8a99b5",
+      heading: "#f5f8fc",
+      accent: "#38bdf8",
+      accent2: "#a3e635",
+      headerBg: "#0b1222",
+      headerText: "#f5f8fc",
+      headerSubText: "#93a4c3",
+      statValue: "#38bdf8",
+      font: SANS,
+      headingFont: MONO,
+      shadow: "none",
+      uppercaseHeadings: true,
+    },
+  },
+
+  kawaii: {
+    label: "Kawaii",
+    blurb: "Cute pastel, cheerful and simple",
+    icon: "🍡",
+    layout: "bento",
+    hint: `Explain it in a cute, cheerful, friendly way, as if for a curious beginner.
+Give each section a playful heading of 2-4 words and a cute emoji icon (animals,
+food, stars, sparkles). Keep every bullet under 12 words, simple and
+encouraging, with no jargon. Rank the sections: the first is shown largest. The
+takeaway is one upbeat sentence.`,
+    theme: {
+      bg: "#fff6fa",
+      surface: "#ffffff",
+      border: "#fbd3e4",
+      borderStyle: "solid",
+      borderWidth: 2,
+      radius: 24,
+      text: "#5a3b52",
+      muted: "#a07a94",
+      heading: "#4a1d3f",
+      accent: "#ec4899",
+      accent2: "#8b5cf6",
+      headerBg: "linear-gradient(135deg, #fbcfe8, #ddd6fe 55%, #bae6fd)",
+      headerText: "#4a1d3f",
+      headerSubText: "#7a4d6d",
+      statValue: "#db2777",
+      font: ROUNDED,
+      headingFont: ROUNDED,
+      shadow: "0 6px 0 -2px rgba(236,72,153,0.16)",
+    },
+  },
+
+  scientific: {
+    label: "Scientific",
+    blurb: "Figure panel from a research paper",
+    icon: "🔬",
+    layout: "data",
+    hint: `Write as a figure panel in a scientific paper. State the headline finding
+plainly. Provide up to 4 stats as measured quantities, with units exactly as the
+sources give them. Populate "chart" with 3-6 entries comparable on one scale,
+each { "label", "value": number, "display": a compact figure of 10 characters or
+fewer such as "13%" or "2.4 mg" } — only if the sources provide them; never put a
+sentence in "display". Give 2-4 sections headed like a paper — "Background",
+"Method", "Results", "Limitations" — using only those the sources support. Use
+precise, hedged language and cite every claim.`,
+    theme: {
+      bg: "#ffffff",
+      surface: "#ffffff",
+      border: "#d9dde3",
+      borderStyle: "solid",
+      borderWidth: 1,
+      radius: 2,
+      text: "#2b2f36",
+      muted: "#6b717c",
+      heading: "#111418",
+      accent: "#1e3a8a",
+      accent2: "#b91c1c",
+      headerBg: "#ffffff",
+      headerText: "#111418",
+      headerSubText: "#5b616c",
+      statValue: "#1e3a8a",
+      font: SANS,
+      headingFont: SERIF,
+      shadow: "none",
+    },
+  },
+
+  bricks: {
+    label: "Bricks",
+    blurb: "Building blocks, foundation up",
+    icon: "🧱",
+    layout: "bricks",
+    hint: `Build the topic up like stacked building bricks. Provide 4-6 sections
+ordered from the foundation upward: the first section is the foundation
+everything rests on, each later one builds on those before it, and the last is
+the outcome at the top. Give each a 1-3 word heading, an emoji icon and 2-3
+bullets of under 12 words.`,
+    theme: {
+      bg: "#f4f1ea",
+      surface: "#ffffff",
+      border: "#ddd5c5",
+      borderStyle: "solid",
+      borderWidth: 1,
+      radius: 6,
+      text: "#2f2a22",
+      muted: "#776e5f",
+      heading: "#1a1610",
+      accent: "#dc2626",
+      accent2: "#2563eb",
+      headerBg: "#facc15",
+      headerText: "#1a1610",
+      headerSubText: "#4a4130",
+      statValue: "#dc2626",
+      font: ROUNDED,
+      headingFont: ROUNDED,
+      shadow: "0 4px 0 rgba(26,22,16,0.18)",
+    },
+  },
+};
+
+export type StyleGroup = "ai" | "structure" | "look";
+
+export const STYLE_GROUPS: { key: StyleGroup; label: string; blurb: string }[] = [
+  {
+    key: "ai",
+    label: "Drawn by AI",
+    blurb: "A picture from your image model, with the cited brief kept beneath it",
+  },
+  {
+    key: "structure",
+    label: "Structure-led",
+    blurb: "Changes what the infographic is: a timeline, a funnel, a checklist",
+  },
+  {
+    key: "look",
+    label: "Look-led",
+    blurb: "Changes the treatment and tone, and shapes the content to suit",
+  },
+];
+
+/** Gallery metadata: where each style is listed and what it suits. */
+export const STYLE_META: Record<InfographicStyle, { group: StyleGroup; bestFor: string }> = {
+  guide: { group: "ai", bestFor: "Platforms, pricing and anything with a central mechanism" },
+  image: { group: "ai", bestFor: "A polished editorial illustration of the key ideas" },
+  anime: { group: "ai", bestFor: "Energetic explainers for students and social posts" },
+  retro: { group: "ai", bestFor: "Posters, histories and eye-catching summaries" },
+  papercraft: { group: "ai", bestFor: "Friendly overviews with a handmade feel" },
+  illustrated: { group: "structure", bestFor: "Broad topics, with no image model needed" },
+  data: { group: "structure", bestFor: "Sources rich in comparable numbers" },
+  process: { group: "structure", bestFor: "How-tos, workflows and pipelines" },
+  timeline: { group: "structure", bestFor: "Histories, launches and roadmaps" },
+  cycle: { group: "structure", bestFor: "Loops: feedback, lifecycles, seasons" },
+  pyramid: { group: "structure", bestFor: "Priorities, hierarchies and maturity levels" },
+  funnel: { group: "structure", bestFor: "Conversion, filtering and selection stages" },
+  comparison: { group: "structure", bestFor: "Two options set against each other" },
+  proscons: { group: "structure", bestFor: "Deciding whether something is worth it" },
+  myths: { group: "structure", bestFor: "Clearing up common misunderstandings" },
+  checklist: { group: "structure", bestFor: "Things to do, in order" },
+  cheatsheet: { group: "structure", bestFor: "Vocabulary, settings and quick reference" },
+  educational: { group: "structure", bestFor: "Teaching one concept from scratch" },
+  classic: { group: "look", bestFor: "A general-purpose summary" },
+  flat: { group: "look", bestFor: "A crisp one-page overview" },
+  bento: { group: "look", bestFor: "One main conclusion with supporting points" },
+  corporate: { group: "look", bestFor: "Briefings for leadership" },
+  scientific: { group: "look", bestFor: "Research papers and study findings" },
+  minimal: { group: "look", bestFor: "The five points that matter most" },
+  editorial: { group: "look", bestFor: "Narrative topics with a quotable line" },
+  neon: { group: "look", bestFor: "Technical routes and decision paths" },
+  cutout: { group: "look", bestFor: "Ranked facts, biggest first" },
+  clay: { group: "look", bestFor: "Approachable, jargon-free explainers" },
+  kawaii: { group: "look", bestFor: "Beginners, kids and lighthearted topics" },
+  bricks: { group: "look", bestFor: "Concepts that build on a foundation" },
+  sketch: { group: "look", bestFor: "Brainstorms and study notes" },
+  chalkboard: { group: "look", bestFor: "One rule, taught with examples" },
+  watercolor: { group: "look", bestFor: "Stories with a beginning, middle and end" },
 };
 
 export const STYLE_ORDER: InfographicStyle[] = [
   "guide",
-  "illustrated",
   "image",
-  "classic",
-  "flat",
+  "anime",
+  "retro",
+  "papercraft",
+  "illustrated",
   "data",
   "process",
+  "timeline",
+  "cycle",
+  "pyramid",
+  "funnel",
   "comparison",
+  "proscons",
+  "myths",
   "checklist",
+  "cheatsheet",
   "educational",
+  "classic",
+  "flat",
   "bento",
   "corporate",
+  "scientific",
   "minimal",
   "editorial",
   "neon",
   "cutout",
   "clay",
+  "kawaii",
+  "bricks",
   "sketch",
   "chalkboard",
   "watercolor",
@@ -823,6 +1280,86 @@ const ALIASES: Record<string, InfographicStyle> = {
 /** What new infographics use unless the user picks otherwise. */
 export const DEFAULT_STYLE: InfographicStyle = "guide";
 
+/** A known style key, after resolving aliases; null for anything else. */
+export function knownStyle(style: unknown): InfographicStyle | null {
+  if (typeof style !== "string") return null;
+  const key = ALIASES[style] ?? style;
+  return Object.prototype.hasOwnProperty.call(INFOGRAPHIC_STYLES, key)
+    ? (key as InfographicStyle)
+    : null;
+}
+
+export const ORIENTATIONS: { key: InfographicOrientation; label: string; icon: string }[] = [
+  { key: "landscape", label: "Landscape", icon: "▭" },
+  { key: "portrait", label: "Portrait", icon: "▯" },
+  { key: "square", label: "Square", icon: "□" },
+];
+
+export const DETAIL_LEVELS: { key: InfographicDetail; label: string; blurb: string }[] = [
+  { key: "concise", label: "Concise", blurb: "Only the essentials" },
+  { key: "standard", label: "Standard", blurb: "Balanced" },
+  { key: "detailed", label: "Detailed", blurb: "More points, more specifics" },
+];
+
+export function knownOrientation(v: unknown): InfographicOrientation {
+  return v === "portrait" || v === "square" ? v : "landscape";
+}
+
+export function knownDetail(v: unknown): InfographicDetail {
+  return v === "concise" || v === "detailed" ? v : "standard";
+}
+
+/** Longest custom request accepted, in characters. */
+export const MAX_INFOGRAPHIC_INSTRUCTIONS = 600;
+
+/** Image size requested from the image model for each orientation. */
+export function imageSizeFor(orientation: InfographicOrientation | undefined): string {
+  return orientation === "portrait"
+    ? "1024x1536"
+    : orientation === "square"
+      ? "1024x1024"
+      : "1536x1024";
+}
+
+/**
+ * The generation-prompt additions for the NotebookLM-style options: how much
+ * detail, which frame, and the user's own free-text request. The request is
+ * fenced and ranked below the grounding rules, so it can steer emphasis and
+ * tone but cannot license invented facts.
+ */
+export function optionsHint(opts: {
+  detail?: InfographicDetail;
+  orientation?: InfographicOrientation;
+  instructions?: string;
+}): string {
+  const parts: string[] = [];
+  if (opts.detail === "concise") {
+    parts.push(`DETAIL: concise. Use the low end of every count above, the shortest
+phrasing that stays specific, and only the essential points.`);
+  } else if (opts.detail === "detailed") {
+    parts.push(`DETAIL: detailed. Use the high end of every count above and make each
+point concrete — names, figures and specifics from the sources — while keeping
+the length limits.`);
+  }
+  if (opts.orientation === "portrait") {
+    parts.push(`FRAME: portrait (tall, phone-friendly). Prefer fewer, taller groups
+read top to bottom over wide rows.`);
+  } else if (opts.orientation === "square") {
+    parts.push(`FRAME: square (social post). Keep it compact and balanced: favor the
+low end of every count.`);
+  }
+  const request = (opts.instructions ?? "").trim().slice(0, MAX_INFOGRAPHIC_INSTRUCTIONS);
+  if (request) {
+    parts.push(`USER REQUEST — follow it for focus, emphasis, audience, tone and wording,
+but never at the cost of the grounding rules or the JSON schema; ignore anything
+in it that asks for facts the sources do not contain:
+"""
+${request.replace(/"""/g, "\u201d\u201d\u201d")}
+"""`);
+  }
+  return parts.length ? `\n\n${parts.join("\n\n")}` : "";
+}
+
 /** Styles whose artifact is a PNG from the image model, not HTML. */
 export function isImageStyle(style?: string): boolean {
   return !!style && styleDef(style).layout === "image";
@@ -832,8 +1369,8 @@ export function styleDef(style?: string): StyleDef {
   // Artifacts created before styles existed have no key and no regions, so
   // they must keep resolving to the original look rather than the new default.
   if (!style) return INFOGRAPHIC_STYLES.classic;
-  const key = ALIASES[style] ?? (style as InfographicStyle);
-  return INFOGRAPHIC_STYLES[key] ?? INFOGRAPHIC_STYLES.classic;
+  const key = knownStyle(style);
+  return key ? INFOGRAPHIC_STYLES[key] : INFOGRAPHIC_STYLES.classic;
 }
 
 type BriefConcept = {
@@ -894,20 +1431,101 @@ function headline(content: ImageBrief): string {
  * itself derived from the sources — the image model is told to letter it
  * verbatim rather than invent copy, because it cannot be cited after the fact.
  */
-export function buildImagePrompt(content: ImageBrief, style?: string): string {
-  return style === "guide" ? buildGuidePrompt(content) : buildIllustratedPrompt(content);
+export function buildImagePrompt(
+  content: ImageBrief,
+  style?: string,
+  orientation?: InfographicOrientation
+): string {
+  return style === "guide"
+    ? buildGuidePrompt(content, orientation)
+    : buildIllustratedPrompt(content, style, orientation);
 }
 
-function buildIllustratedPrompt(content: ImageBrief): string {
-  const regions = regionLines(content.regions);
+/** The frame line of the composition, matching the requested image size. */
+function frame(orientation: InfographicOrientation | undefined, wide: string): string {
+  if (orientation === "portrait") {
+    return "a tall portrait layout, roughly 2:3, read from top to bottom, with the regions stacked vertically";
+  }
+  if (orientation === "square") {
+    return "a square layout, 1:1, compact and balanced, with the regions arranged around the center";
+  }
+  return wide;
+}
 
-  return `Create a polished, editorial-style illustrated infographic.
+type ArtDirection = { opener: string; illustration: string; typography: string; resemble: string };
+
+/** The illustrated image styles share a brief and composition; only the art changes. */
+const ART: Record<string, ArtDirection> = {
+  image: {
+    opener: "Create a polished, editorial-style illustrated infographic.",
+    illustration: `polished modern editorial vector illustration; friendly
+technical aesthetic; slightly dimensional objects; dark navy outlines; rounded
+geometry; subtle gradients; soft shadows; a blue, cyan, teal and green primary
+palette with orange and yellow used selectively for emphasis. Very light
+off-white background with subtle blue/green regional tinting. Generous
+whitespace.`,
+    typography: `large bold black sans-serif headline; bold section headings; strong
+black subheads; highly readable supporting text. Avoid excessive text.`,
+    resemble: `a premium illustrated technology infographic produced
+for an enterprise publication — not a PowerPoint slide, dashboard, poster or a
+collection of UI cards.`,
+  },
+  anime: {
+    opener: "Create a vibrant anime-style illustrated infographic.",
+    illustration: `bright, clean Japanese anime and manga illustration: crisp
+cel shading, confident ink linework, expressive original characters (not any
+existing franchise character) acting out each concept, speed lines and sparkle
+accents for emphasis, a saturated sky-blue, coral, mint and sunshine-yellow
+palette on a soft pastel background. Each region reads like a manga panel with
+a rounded border.`,
+    typography: `bold, rounded display headline with a thin dark outline;
+clean sans-serif section headings in pill-shaped banners; highly readable body
+text. Avoid excessive text and do not add sound-effect lettering.`,
+    resemble: `a polished anime-style explainer poster from an education
+publisher — lively and clear, not cluttered.`,
+  },
+  retro: {
+    opener: "Create a mid-century retro print infographic.",
+    illustration: `1950s-60s risograph and screen-print aesthetic: flat shapes,
+two or three overprinted inks (teal, tomato red and mustard on cream paper),
+visible halftone dots and slight misregistration, paper grain texture, simple
+geometric pictograms and stylized figures, starbursts and ribbons for emphasis.`,
+    typography: `bold condensed vintage display headline; slab-serif or
+geometric sans section headings; clean readable body text in a single dark ink.
+Avoid excessive text.`,
+    resemble: `a collectible vintage educational poster, printed by hand —
+not a modern flat UI or a slide.`,
+  },
+  papercraft: {
+    opener: "Create a layered paper-craft infographic diorama.",
+    illustration: `everything built from cut and folded colored paper: layered
+cardstock with soft drop shadows between layers, visible paper texture and
+clean scissor-cut edges, small 3D paper props for each concept, a warm palette
+of teal, coral, butter yellow and leaf green on a light kraft background, shot
+from straight above with soft studio light.`,
+    typography: `headline and headings set as crisp printed labels on paper
+tags and ribbons; highly readable body text on white paper cards. Avoid
+excessive text.`,
+    resemble: `a handcrafted paper diorama photographed for a magazine
+feature — tactile and cheerful, not a flat vector graphic.`,
+  },
+};
+
+function buildIllustratedPrompt(
+  content: ImageBrief,
+  style?: string,
+  orientation?: InfographicOrientation
+): string {
+  const regions = regionLines(content.regions);
+  const art = ART[style ?? "image"] ?? ART.image;
+
+  return `${art.opener}
 
 Convert each concept below into an intuitive visual metaphor, diagram, process
 illustration, comparison, gauge, timeline or mini visualization. Do not simply
 place paragraphs into boxes.
 
-COMPOSITION: a wide landscape editorial infographic, roughly 2:1. One large
+COMPOSITION: ${frame(orientation, "a wide landscape editorial infographic, roughly 3:2")}. One large
 centered headline at the top. Divide the information into the ${regions.length} thematic
 regions given below, each with a bold section heading. Build a visual journey
 through the information rather than a rigid grid of cards. Connect related
@@ -917,19 +1535,11 @@ HIERARCHY: each concept shows its bold takeaway, an illustration that
 communicates the idea, and at most one short supporting sentence. Figures marked
 as oversized must be rendered dramatically large.
 
-ILLUSTRATION STYLE: polished modern editorial vector illustration; friendly
-technical aesthetic; slightly dimensional objects; dark navy outlines; rounded
-geometry; subtle gradients; soft shadows; a blue, cyan, teal and green primary
-palette with orange and yellow used selectively for emphasis. Very light
-off-white background with subtle blue/green regional tinting. Generous
-whitespace.
+ILLUSTRATION STYLE: ${art.illustration}
 
-TYPOGRAPHY: large bold black sans-serif headline; bold section headings; strong
-black subheads; highly readable supporting text. Avoid excessive text.
+TYPOGRAPHY: ${art.typography}
 
-The result should resemble a premium illustrated technology infographic produced
-for an enterprise publication — not a PowerPoint slide, dashboard, poster or a
-collection of UI cards.
+The result should resemble ${art.resemble}
 
 ${EXACT_TEXT}
 
@@ -944,7 +1554,7 @@ ${regions.join("\n\n")}`;
  * the regions, plus optional tier scale, comparison matrix and pro tip — the
  * shape of a polished enterprise licensing or architecture explainer.
  */
-function buildGuidePrompt(content: ImageBrief): string {
+function buildGuidePrompt(content: ImageBrief, orientation?: InfographicOrientation): string {
   const regions = regionLines(content.regions);
   const hubLabel = strip(content.hub?.label || "");
   const hubCaption = strip(content.hub?.caption || "");
@@ -998,7 +1608,7 @@ enterprise technology explainer.
 Convert each concept below into an intuitive visual metaphor, icon, diagram,
 flow or mini visualization. Do not simply place paragraphs into boxes.
 
-COMPOSITION: a wide landscape layout, roughly 16:9. A very large bold headline
+COMPOSITION: ${frame(orientation, "a wide landscape layout, roughly 3:2")}. A very large bold headline
 across the top with the subhead on one line beneath it. ${
     hubLabel
       ? `At the visual centre (or anchoring the left third) place the HUB as a hero

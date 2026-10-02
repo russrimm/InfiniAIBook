@@ -140,7 +140,8 @@ and cannot be edited or deleted.
 
 | Method | Path | Body |
 |---|---|---|
-| POST | `/api/generate` | `{ notebookId, type, topic?, sourceIds?, style?, theme?, difficulty?, length? }` (`theme` applies to `type: "slides"`) |
+| POST | `/api/generate` | `{ notebookId, type, topic?, sourceIds?, style?, theme?, difficulty?, length?, orientation?, detail?, instructions? }` (`theme` applies to `type: "slides"`; `style`, `orientation` (`landscape`/`portrait`/`square`), `detail` (`concise`/`standard`/`detailed`) and `instructions` (free text, up to 600 characters) to `type: "infographic"`). Unknown types and styles, a `topic` over 2,000 characters and malformed `sourceIds` are refused with 400 |
+| POST | `/api/infographic/suggest` | `{ notebookId, sourceIds?, topic? }` → `{ suggestions: [{ style, reason }], source: "model" \| "heuristic" }`: up to three infographic styles that suit the sources, best first. Falls back to a model-free guess when the model is unavailable |
 | POST | `/api/podcast` | `{ notebookId, topic?, sourceIds?, preset?, speakers?: [{ voice?, name?, role? }] (1–4), rate?, breath?, length?, narration?, music? }` → audio-overview **script** (`stage: "script"`), not yet narrated |
 | PATCH | `/api/podcast/{id}` | Edit `title`, `description`, `script: { segments: [{ title, turns: [{ speaker, text }] }] }`, `voices`, `rate`, `music`, `narration`; 409 while narrating |
 | POST | `/api/podcast/{id}/narrate` | Synthesize the script (and mix any music); returns the artifact with `audioUrl` and timed `turns` |

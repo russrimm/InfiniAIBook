@@ -7,16 +7,33 @@ import { chatJSON, generateImage, type ChatMsg } from "@/lib/ai";
 import { imageDir } from "@/lib/paths";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES, STUDIO } from "@/lib/studio";
-import { DEFAULT_STYLE, buildImagePrompt, isImageStyle, styleDef } from "@/lib/infographic";
+import {
+  DEFAULT_STYLE,
+  MAX_INFOGRAPHIC_INSTRUCTIONS,
+  buildImagePrompt,
+  imageSizeFor,
+  isImageStyle,
+  knownDetail,
+  knownOrientation,
+  knownStyle,
+  optionsHint,
+  styleDef,
+  type InfographicStyle,
+} from "@/lib/infographic";
+import { infographicIsEmpty, normalizeInfographic } from "@/lib/infographicNormalize";
 import { normalizeSlides } from "@/lib/slides";
-import type { ArtifactType, StudyDifficulty, StudyLength, StudyOptions } from "@/lib/types";
+import type {
+  ArtifactType,
+  InfographicContent,
+  StudyDifficulty,
+  StudyLength,
+  StudyOptions,
+} from "@/lib/types";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
-
-const ACCENTS = ["indigo", "emerald", "amber", "rose", "sky", "violet"];
 
 /**
  * Characters of source material sent to the model. Roughly 4 chars per token,
@@ -122,176 +139,8 @@ function normalize(type: ArtifactType, raw: Loose): Loose {
         .filter(Boolean);
       return { title: str(raw.title, "Timeline"), items };
     }
-    case "infographic": {
-      const accent = ACCENTS.includes(str(raw.accent)) ? str(raw.accent) : "indigo";
-      const stats = arr(raw.stats)
-        .map((s) => {
-          const o = s as Loose;
-          return str(o.value)
-            ? { value: str(o.value), label: str(o.label), caption: str(o.caption) }
-            : null;
-        })
-        .filter(Boolean)
-        .slice(0, 4);
-      const sections = arr(raw.sections)
-        .map((s) => {
-          const o = s as Loose;
-          const bullets = arr(o.bullets).map((b) => str(b)).filter(Boolean);
-          return str(o.heading) && bullets.length
-            ? { heading: str(o.heading), icon: str(o.icon, "•"), bullets }
-            : null;
-        })
-        .filter(Boolean);
-      const list = (v: unknown, max: number) =>
-        arr(v)
-          .map((x) => str(x))
-          .filter(Boolean)
-          .slice(0, max);
-
-      const chart = arr(raw.chart)
-        .map((c) => {
-          const o = c as Loose;
-          const value = Number(o.value);
-          if (!str(o.label) || !Number.isFinite(value) || value < 0) return null;
-          // A sentence here wrecks the bar layout, so keep only a compact figure.
-          const display = str(o.display).trim();
-          return {
-            label: str(o.label).slice(0, 32),
-            value,
-            display: display && display.length <= 12 ? display : undefined,
-          };
-        })
-        .filter(Boolean)
-        .slice(0, 6) as { label: string; value: number; display?: string }[];
-
-      const rawCompare = (raw.compare ?? {}) as Loose;
-      const rows = arr(rawCompare.rows)
-        .map((r) => {
-          const o = r as Loose;
-          return str(o.feature)
-            ? { feature: str(o.feature), a: str(o.a), b: str(o.b) }
-            : null;
-        })
-        .filter(Boolean)
-        .slice(0, 6) as { feature: string; a: string; b: string }[];
-      const compare =
-        rows.length && str(rawCompare.aLabel) && str(rawCompare.bLabel)
-          ? {
-              aLabel: str(rawCompare.aLabel),
-              bLabel: str(rawCompare.bLabel),
-              rows,
-              verdict: str(rawCompare.verdict) || undefined,
-            }
-          : undefined;
-
-      const checklist = arr(raw.checklist)
-        .map((c) => {
-          const o = c as Loose;
-          return str(o.title)
-            ? { title: str(o.title), detail: str(o.detail) }
-            : null;
-        })
-        .filter(Boolean)
-        .slice(0, 10) as { title: string; detail: string }[];
-
-      const regions = arr(raw.regions)
-        .map((r) => {
-          const o = r as Loose;
-          const concepts = arr(o.concepts)
-            .map((c) => {
-              const k = c as Loose;
-              if (!str(k.takeaway)) return null;
-              const value = str(k.value).trim();
-              return {
-                takeaway: str(k.takeaway),
-                detail: str(k.detail),
-                metaphor: str(k.metaphor, "lightbulb"),
-                // Rendered oversized, so a long string would dominate the card.
-                value: value && value.length <= 10 ? value : undefined,
-              };
-            })
-            .filter(Boolean)
-            .slice(0, 6) as {
-            takeaway: string;
-            detail: string;
-            metaphor: string;
-            value?: string;
-          }[];
-          return str(o.heading) && concepts.length
-            ? { heading: str(o.heading), concepts }
-            : null;
-        })
-        .filter(Boolean)
-        .slice(0, 3) as {
-        heading: string;
-        concepts: {
-          takeaway: string;
-          detail: string;
-          metaphor: string;
-          value?: string;
-        }[];
-      }[];
-
-      // The header sits on a themed, often accent-coloured band, where a
-      // citation pill is either invisible or stray text depending on the
-      // style. Headings frame the piece; the claims they preview are cited
-      // again in the body, so strip markers from both.
-      const stripMarkers = (s: string) =>
-        s.replace(/\s*\[\d+\](?:\[\d+\])*/g, "").trim();
-
-      // Visual-guide fields: the central hub, a graded scale, and an N-way matrix.
-      const rawHub = (raw.hub ?? {}) as Loose;
-      const hub = str(rawHub.label)
-        ? { label: stripMarkers(str(rawHub.label)), caption: str(rawHub.caption) }
-        : undefined;
-
-      const scale = arr(raw.scale)
-        .map((s) => {
-          const o = s as Loose;
-          return str(o.tier)
-            ? { tier: str(o.tier), example: str(o.example), figure: str(o.figure) }
-            : null;
-        })
-        .filter(Boolean)
-        .slice(0, 4) as { tier: string; example: string; figure: string }[];
-
-      const rawMatrix = (raw.matrix ?? {}) as Loose;
-      const columns = list(rawMatrix.columns, 4);
-      const matrixRows = arr(rawMatrix.rows)
-        .map((r) => {
-          const o = r as Loose;
-          const values = arr(o.values).map((v) => str(v));
-          return str(o.feature)
-            ? {
-                feature: str(o.feature),
-                values: columns.map((_, i) => values[i] ?? ""),
-              }
-            : null;
-        })
-        .filter(Boolean)
-        .slice(0, 6) as { feature: string; values: string[] }[];
-      const matrix =
-        columns.length >= 2 && matrixRows.length ? { columns, rows: matrixRows } : undefined;
-
-      return {
-        title: stripMarkers(str(raw.title, "Infographic")),
-        subtitle: stripMarkers(str(raw.subtitle)),
-        accent,
-        stats,
-        sections,
-        takeaway: str(raw.takeaway),
-        pullQuote: str(raw.pullQuote) || undefined,
-        nextSteps: list(raw.nextSteps, 4).length ? list(raw.nextSteps, 4) : undefined,
-        flow: list(raw.flow, 6).length ? list(raw.flow, 6) : undefined,
-        chart: chart.length >= 2 ? chart : undefined,
-        compare,
-        checklist: checklist.length ? checklist : undefined,
-        regions: regions.length ? regions : undefined,
-        hub,
-        scale: scale.length >= 2 ? scale : undefined,
-        matrix,
-      };
-    }
+    case "infographic":
+      return normalizeInfographic(raw) as unknown as Loose;
     default: {
       return {
         title: str(raw.title, STUDIO[type].label),
@@ -308,25 +157,27 @@ function isEmpty(type: ArtifactType, c: Loose): boolean {
   if (type === "faq") return (c.items as unknown[]).length === 0;
   if (type === "timeline") return (c.items as unknown[]).length === 0;
   if (type === "slides") return (c.slides as unknown[]).length < 3;
-  if (type === "infographic") {
-    // Checklist, comparison and illustrated styles legitimately carry little
-    // or no "sections", so the body can live in any of these.
-    return (
-      (c.sections as unknown[]).length === 0 &&
-      !c.compare &&
-      !(c.checklist as unknown[] | undefined)?.length &&
-      !(c.chart as unknown[] | undefined)?.length &&
-      !(c.regions as unknown[] | undefined)?.length
-    );
-  }
+  if (type === "infographic") return infographicIsEmpty(c as unknown as InfographicContent);
   if (type === "mindmap") return ((c.root as Loose).children as unknown[]).length === 0;
   return !str(c.markdown).trim();
 }
 
+/** Longest focus topic accepted; it is retrieval input and part of the prompt. */
+const MAX_TOPIC_CHARS = 2000;
+
+/** Formats built by their own routes; their studio entries carry no prompt. */
+const OWN_ROUTE = new Set<string>(["podcast", "video", "motion", "training"]);
+
+const bad = (error: string) => NextResponse.json({ error, code: "invalid" }, { status: 400 });
+
 export async function POST(req: Request) {
   try {
+    const body = (await req.json().catch(() => null)) as Loose | null;
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return bad("Send a JSON object.");
+    }
     const { notebookId, type, topic, sourceIds, style, theme, difficulty, length } =
-      (await req.json()) as {
+      body as {
         notebookId: string;
         type: ArtifactType;
         topic?: string;
@@ -337,8 +188,29 @@ export async function POST(req: Request) {
         length?: StudyLength;
       };
 
-    const spec = STUDIO[type];
-    if (!spec) return NextResponse.json({ error: "Unknown artifact type" }, { status: 400 });
+    // Own keys only: "constructor" or "__proto__" would otherwise resolve to
+    // something that is not a spec and fail later with a confusing error.
+    const spec =
+      typeof type === "string" && Object.prototype.hasOwnProperty.call(STUDIO, type)
+        ? STUDIO[type]
+        : undefined;
+    if (!spec || OWN_ROUTE.has(type)) {
+      return NextResponse.json({ error: "Unknown artifact type" }, { status: 400 });
+    }
+    if (typeof notebookId !== "string" || !notebookId) return bad("notebookId is required.");
+    if (topic !== undefined && topic !== null && typeof topic !== "string") {
+      return bad("topic must be a string.");
+    }
+    if (typeof topic === "string" && topic.length > MAX_TOPIC_CHARS) {
+      return bad(`Keep the focus under ${MAX_TOPIC_CHARS} characters.`);
+    }
+    if (
+      sourceIds !== undefined &&
+      sourceIds !== null &&
+      (!Array.isArray(sourceIds) || sourceIds.some((s) => typeof s !== "string"))
+    ) {
+      return bad("sourceIds must be a list of source ids.");
+    }
     const none = noSourcesSelected(sourceIds);
     if (none) return none;
 
@@ -367,9 +239,34 @@ export async function POST(req: Request) {
     // Infographic styles change the content shape, not just the palette.
     // Resolve once: the same key must drive both the prompt and what is
     // stored, or the artifact renders in a style it was not written for.
-    const activeStyle = type === "infographic" ? style || DEFAULT_STYLE : undefined;
+    // An unknown key is refused rather than stored as-is.
+    let activeStyle: InfographicStyle | undefined;
+    if (type === "infographic") {
+      const known = knownStyle(style || DEFAULT_STYLE);
+      if (!known) return bad(`Unknown infographic style "${String(style).slice(0, 40)}".`);
+      activeStyle = known;
+    }
+    const { orientation, detail, instructions } = body as {
+      orientation?: unknown;
+      detail?: unknown;
+      instructions?: unknown;
+    };
+    if (instructions !== undefined && instructions !== null && typeof instructions !== "string") {
+      return bad("instructions must be a string.");
+    }
+    if (typeof instructions === "string" && instructions.length > MAX_INFOGRAPHIC_INSTRUCTIONS) {
+      return bad(`Keep the description under ${MAX_INFOGRAPHIC_INSTRUCTIONS} characters.`);
+    }
+    const infographicOpts = activeStyle
+      ? {
+          orientation: knownOrientation(orientation),
+          detail: knownDetail(detail),
+          instructions: typeof instructions === "string" ? instructions.trim() : "",
+        }
+      : undefined;
     const styleHint = activeStyle
-      ? `\n\nSTYLE: ${styleDef(activeStyle).label}\n${styleDef(activeStyle).hint}`.trimEnd()
+      ? `\n\nSTYLE: ${styleDef(activeStyle).label}\n${styleDef(activeStyle).hint}`.trimEnd() +
+        optionsHint(infographicOpts ?? {})
       : "";
 
     const collect = (budget: number): Passage[] => {
@@ -454,29 +351,42 @@ export async function POST(req: Request) {
     // stored, so the artifact keeps its citations — an image alone cannot
     // carry them, and the text in it is not selectable.
     let image: { imageUrl: string; imageModel: string; imageSize: string } | null = null;
-    if (isImageStyle(activeStyle)) {
+    let storedStyle: string | undefined = activeStyle;
+    let imageFallback: { from: string; reason: string } | undefined;
+    if (activeStyle && isImageStyle(activeStyle)) {
       try {
         const { png, model, size } = await generateImage(
-          buildImagePrompt(content as Parameters<typeof buildImagePrompt>[0], activeStyle)
+          buildImagePrompt(
+            content as Parameters<typeof buildImagePrompt>[0],
+            activeStyle,
+            infographicOpts?.orientation
+          ),
+          { size: imageSizeFor(infographicOpts?.orientation) }
         );
         fs.mkdirSync(imageDir(), { recursive: true });
         fs.writeFileSync(path.join(imageDir(), `${id}.png`), png);
         image = { imageUrl: `/api/image/${id}`, imageModel: model, imageSize: size };
       } catch (e) {
-        // Falling back to the drawn style beats losing the generated brief.
-        const why = e instanceof Error ? e.message : "The image model failed.";
-        return NextResponse.json(
-          {
-            error: `The brief was generated but the image could not be rendered. ${why}`,
-          },
-          { status: 502 }
-        );
+        // The grounded brief took a full generation to write and already
+        // carries regions, so keep it in the HTML illustrated layout rather
+        // than throwing it away with the failed picture.
+        const why = (e instanceof Error ? e.message : "The image model failed.")
+          // Provider error bodies are JSON noise in a reader-facing note.
+          .replace(/\s*\{[\s\S]*\}\s*$/, "")
+          .trim();
+        console.warn(`[generate] image render failed, keeping the brief as illustrated: ${why}`);
+        storedStyle = "illustrated";
+        imageFallback = { from: activeStyle, reason: why.slice(0, 300) };
       }
     }
 
     const stored = {
       ...content,
-      ...(activeStyle ? { style: activeStyle } : {}),
+      ...(storedStyle ? { style: storedStyle } : {}),
+      ...(infographicOpts
+        ? { orientation: infographicOpts.orientation, detail: infographicOpts.detail }
+        : {}),
+      ...(imageFallback ? { imageFallback } : {}),
       ...(studyOpts ? { difficulty: studyOpts.difficulty } : {}),
       ...(image ?? {}),
       citations,

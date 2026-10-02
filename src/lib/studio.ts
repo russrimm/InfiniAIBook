@@ -319,7 +319,13 @@ Schema:
   "hub": { "label": string, "caption": string },
   "scale": [{ "tier": string, "example": string, "figure": string }],
   "matrix": { "columns": [string],
-              "rows": [{ "feature": string, "values": [string] }] }
+              "rows": [{ "feature": string, "values": [string] }] },
+  "milestones": [{ "date": string, "title": string, "detail": string }],
+  "levels": [{ "label": string, "detail": string, "value": string }],
+  "myths": [{ "myth": string, "fact": string }],
+  "pros": [string],
+  "cons": [string],
+  "terms": [{ "term": string, "definition": string }]
 }
 Rules: 3-4 stats whose "value" is a short figure taken literally from the sources
 (e.g. "68%", "$2.4B", "3x", "12 weeks"); never fabricate a number — if the sources have
@@ -327,7 +333,9 @@ few numbers, use counts of things the sources enumerate. 3-4 sections, each with
 bullets (<= 14 words each) and a single emoji as "icon". "takeaway" is one memorable sentence.
 Include citation markers inside bullets and stat captions.
 Omit "pullQuote", "nextSteps", "flow", "chart", "compare", "checklist", "regions",
-"hub", "scale" and "matrix" unless the style guidance below asks for them.`,
+"hub", "scale", "matrix", "milestones", "levels", "myths", "pros", "cons" and "terms"
+unless the style guidance below asks for them. Where the style guidance gives
+different counts for "stats" or "sections", the style guidance wins.`,
   },
 
   video: {

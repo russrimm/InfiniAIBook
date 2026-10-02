@@ -75,7 +75,7 @@ How it works, setup and costs: [Training videos](docs/training-videos.md).
   | 🎞️ [Motion explainer](docs/motion-explainers.md) | A narrated 2D animated explainer (problem → solution → how → benefits → next step), MP4. [Customize](docs/motion-explainers.md#customizing-a-video) the length, tone, audience, illustration style, colors, character, closing call to action, resolution and character motion |
   | 🧑‍🏫 [Training video](docs/training-videos.md) | An editable trainer's script from sources and notes, rendered by a lip-synced Azure avatar presenter, MP4 |
   | 📽️ [PowerPoint deck](docs/studio.md#powerpoint-deck) | Title, agenda, content slides with speaker notes and a sources slide; download as PPTX |
-  | 📊 [Infographic](docs/infographics.md) | Headline stats and themed sections in **20 styles** |
+  | 📊 [Infographic](docs/infographics.md) | **33 styles**, each with a live example in the style gallery before you generate — timelines, funnels, pyramids, cycles, myth vs fact, pros & cons, cheat sheets, kawaii, bricks and AI-drawn anime, retro print and paper craft among them. Pick the shape (landscape, portrait, square), the level of detail, describe what you want, or ask for styles that suit your sources |
   | 🕸️ [Mind map](docs/studio.md#mind-maps) | Interactive, expandable concept tree |
   | 🧠 [Quiz](docs/studio.md#quiz) · 🗂️ [Flashcards](docs/studio.md#flashcards) | Scored quizzes and self-graded decks |
   | 📄 Report · 🧾 Briefing · 🎓 Study guide · ❓ FAQ · 🗓️ Timeline | Structured written summaries |

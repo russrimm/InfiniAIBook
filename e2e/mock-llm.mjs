@@ -34,6 +34,52 @@ http
         });
       }
 
+      const system = body.messages[0]?.role === "system" ? String(body.messages[0].content) : "";
+      const reply = (obj) =>
+        send(res, 200, {
+          choices: [{ message: { role: "assistant", content: JSON.stringify(obj) } }],
+          usage: { prompt_tokens: 900 },
+        });
+
+      // Infographic style suggestions.
+      if (system.startsWith("You choose infographic formats")) {
+        last = { kind: "suggest", system: system.slice(0, 60) };
+        return reply({
+          suggestions: [
+            { style: "timeline", reason: "The sources follow the pilot month by month" },
+            { style: "funnel", reason: "Survey to weekly volunteers narrows step by step" },
+            { style: "not-a-style", reason: "ignored" },
+            { style: "myths", reason: "The notes correct common worries" },
+          ],
+        });
+      }
+
+      // An infographic brief, carrying every layout's fields so any style renders.
+      if (system.includes("Design a visual infographic")) {
+        last = { kind: "infographic", system };
+        return reply({
+          title: "Garden pilot at a glance [1]",
+          subtitle: "What the mock sources say",
+          stats: [{ value: "24", label: "Beds", caption: "Built in spring [1]" }],
+          sections: [{ heading: "Plan", icon: "🌱", bullets: ["Build 24 beds [1]"] }],
+          takeaway: "Steady volunteers matter most [1].",
+          milestones: [
+            { date: "Mar", title: "Workshops", detail: "Volunteers join [1]." },
+            { date: "Apr", title: "Build day", detail: "Beds go up [1]." },
+            { date: "Sep", title: "Harvest", detail: "Review the season [1]." },
+          ],
+          levels: [
+            { label: "Surveyed", detail: "Everyone asked [1].", value: "210" },
+            { label: "Weekly", detail: "Committed helpers [1].", value: "12" },
+          ],
+          myths: [{ myth: "Nobody wants it", fact: "Most residents do [1]." }],
+          pros: ["Saves water [1]"],
+          cons: ["Costs money [1]"],
+          terms: [{ term: "Drip line", definition: "Slow watering tube [1]." }],
+          flow: ["Plant", "Water", "Harvest"],
+        });
+      }
+
       last = {
         model: body.model,
         jsonMode: body.response_format?.type === "json_object",
@@ -43,14 +89,14 @@ http
         detail: image?.image_url?.detail ?? null,
         prompt: text,
       };
-      const reply = {
+      const vision = {
         status: "next_step",
         say: "I can see an editor. The **Share** button is at the top right.",
         step: "Click Share at the top right.",
         target: { x: 1100, y: 12, w: 160, h: 40, label: "Share" },
       };
       return send(res, 200, {
-        choices: [{ message: { role: "assistant", content: "```json\n" + JSON.stringify(reply) + "\n```" } }],
+        choices: [{ message: { role: "assistant", content: "```json\n" + JSON.stringify(vision) + "\n```" } }],
         usage: { prompt_tokens: 1500 },
       });
     });

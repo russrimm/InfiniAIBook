@@ -150,8 +150,8 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
         label="Image model"
         hint={
           data.image.length
-            ? 'Used by the "AI image" infographic style.'
-            : 'Used by the "AI image" infographic style. No image model was found — deploy one to use it.'
+            ? "Used by the drawn infographic styles (visual guide, AI image, anime, retro print, paper craft)."
+            : "Used by the drawn infographic styles. No image model was found — deploy one to use them; until then they are kept as Illustrated."
         }
         value={image}
         options={data.image}

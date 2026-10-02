@@ -141,11 +141,34 @@ export type InfographicContent = {
   scale?: { tier: string; example?: string; figure?: string }[];
   /** Visual guide: 2-4 options compared across features. */
   matrix?: { columns: string[]; rows: { feature: string; values: string[] }[] };
+  /** Dated events in order, used by the timeline layout. */
+  milestones?: { date: string; title: string; detail: string }[];
+  /** Ranked tiers, top first: the pyramid (narrow top) and funnel (wide top) layouts. */
+  levels?: { label: string; detail: string; value?: string }[];
+  /** Misconceptions and the corrections the sources give, used by the myth-vs-fact layout. */
+  myths?: { myth: string; fact: string }[];
+  /** Arguments for and against, used by the pros-and-cons layout. */
+  pros?: string[];
+  cons?: string[];
+  /** Key terms and short definitions, used by the cheat-sheet layout. */
+  terms?: { term: string; definition: string }[];
+  /** Requested frame shape; also the size of the picture for image styles. */
+  orientation?: InfographicOrientation;
+  /** Requested amount of detail. */
+  detail?: InfographicDetail;
+  /**
+   * Set when an image style could not be rendered and the brief was kept in
+   * the HTML illustrated layout instead, so no generated content is lost.
+   */
+  imageFallback?: { from: string; reason: string };
   /** Set by the image styles: the rendered PNG served from /api/image/:id. */
   imageUrl?: string;
   imageModel?: string;
   imageSize?: string;
 };
+
+export type InfographicOrientation = "landscape" | "portrait" | "square";
+export type InfographicDetail = "concise" | "standard" | "detailed";
 
 export type PodcastSpeakerId = "a" | "b" | "c" | "d";
 export type PodcastTurn = { speaker: PodcastSpeakerId; text: string; at: number };

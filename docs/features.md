@@ -27,7 +27,7 @@
 | 📽️ PowerPoint deck | Title, agenda, content slides with speaker notes and a sources slide; download as PPTX |
 | 📄 Report | Executive summary, analytical sections, key takeaways, open questions |
 | 🧾 Briefing doc | Under 700 words: bottom line, evidence, risks, next steps |
-| 📊 Infographic | Headline stats, themed sections, key takeaway — **20 styles**, visual guide by default |
+| 📊 Infographic | Headline stats, themed sections, key takeaway — **33 styles** with a live example of each before you generate, style suggestions, orientation, detail level and a free-text description; visual guide by default |
 | 🕸️ Mind map | Interactive concept tree — starts collapsed, expand topic by topic |
 | 🧠 Quiz | Multiple-choice, interactive, scored, with explanations and retry-the-misses |
 | 🗂️ Flashcards | Two-sided deck: flip, self-grade, shuffle, drill the ones you missed |
