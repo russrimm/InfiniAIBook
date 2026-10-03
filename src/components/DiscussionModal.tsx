@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useDialog } from "./useDialog";
 import {
   DISCUSSION_MODES,
   DISCUSSION_VOICES,
@@ -320,13 +321,7 @@ export default function DiscussionModal({
     call.end();
     onClose();
   };
-  const closeRef = useRef(close);
-  closeRef.current = close;
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, []);
+  const { dialogRef, backdropProps } = useDialog(close);
 
   const save = async () => {
     setSaving(true);
@@ -373,14 +368,15 @@ export default function DiscussionModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/65 p-0 backdrop-blur-sm sm:p-6"
-      onClick={close}
+      {...backdropProps}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Live discussion"
-        className="fade-up flex h-full w-full max-w-5xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
+        className="fade-up flex h-full w-full max-w-5xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:rounded-2xl"
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <span className="text-xl">🎙️</span>
@@ -493,6 +489,7 @@ export default function DiscussionModal({
                     <input
                       className="input !py-1.5 !text-[12px]"
                       placeholder="Or type instead…"
+                      aria-label="Type a message instead of speaking"
                       value={draft}
                       disabled={!live}
                       maxLength={2000}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useDialog } from "./useDialog";
 
 type Loaded =
   | {
@@ -53,11 +54,7 @@ export default function BrowserModal({
   /** Pages visited in this session, so Back works in the reader view. */
   const history = useRef<string[]>([]);
 
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
+  const { dialogRef, backdropProps } = useDialog(onClose);
 
   const load = useCallback(
     async (raw: string, pushHistory = true) => {
@@ -125,11 +122,15 @@ export default function BrowserModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/65 p-0 backdrop-blur-sm sm:p-6"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
-        className="fade-up flex h-full w-full max-w-6xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Browse the web"
+        className="fade-up flex h-full w-full max-w-6xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:rounded-2xl"
       >
         <header className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-4 py-2.5">
           <button
@@ -150,6 +151,8 @@ export default function BrowserModal({
             <input
               className="input !py-1.5 min-w-0 flex-1 !text-[12px]"
               placeholder="Paste or type a web address"
+              aria-label="Web address"
+              autoFocus={!initialUrl}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               spellCheck={false}

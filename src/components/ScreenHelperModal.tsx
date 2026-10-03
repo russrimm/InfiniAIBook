@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDialog } from "./useDialog";
 import Markdown from "./Markdown";
 import { captureUnsupportedReason, useScreenCapture } from "./useScreenCapture";
 import {
@@ -115,11 +116,7 @@ export default function ScreenHelperModal({
     onClose();
   }, [onClose, stop]);
 
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === "Escape" && close();
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [close]);
+  const { dialogRef, backdropProps } = useDialog(close);
 
   // Restore the tab title flagged while the user was in the shared app.
   useEffect(() => {
@@ -338,14 +335,15 @@ export default function ScreenHelperModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/65 p-0 backdrop-blur-sm sm:p-6"
-      onClick={close}
+      {...backdropProps}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="screen-helper-title"
-        className="fade-up flex h-full w-full max-w-6xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
+        className="fade-up flex h-full w-full max-w-6xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:rounded-2xl"
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <span className="text-xl" aria-hidden>

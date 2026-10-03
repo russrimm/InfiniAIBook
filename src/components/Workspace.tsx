@@ -92,6 +92,9 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   /** Set by SourcesPanel so Discover can queue URLs through the same pipeline. */
   const addSources = useRef<((hits: DiscoverHit[]) => void) | null>(null);
 
+  /** The first load picks the opening tab on narrow screens. */
+  const firstLoad = useRef(true);
+
   const load = useCallback(async (): Promise<Data | null> => {
     const seq = ++loadSeq.current;
     let res: Response;
@@ -123,6 +126,11 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     seenSources.current = live;
 
     setData(d);
+    if (firstLoad.current) {
+      firstLoad.current = false;
+      // An empty notebook's next step is adding a source, not chatting.
+      if (d.sources.length === 0) setTab("sources");
+    }
     setSelected((prev) => {
       const next = new Set([...prev].filter((id) => live.has(id)));
       for (const id of fresh) next.add(id);
@@ -146,14 +154,21 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     [openSource]
   );
 
-  // Links from search carry ?source=<id>&part=<n>; open that passage once, then
-  // tidy the address so a reload does not reopen it.
+  // Links from search carry ?source=<id>&part=<n> or ?note=<id>; open that
+  // passage or note once, then tidy the address so a reload does not reopen it.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const source = params.get("source");
-    if (!source) return;
-    const part = Number(params.get("part"));
-    openSource(source, Number.isInteger(part) && part > 0 ? { part } : null);
+    const note = params.get("note");
+    if (!source && !note) return;
+    if (source) {
+      const part = Number(params.get("part"));
+      openSource(source, Number.isInteger(part) && part > 0 ? { part } : null);
+    } else if (note) {
+      setRight("notes");
+      setTab("notes");
+      setOpenNoteId(note);
+    }
     window.history.replaceState(null, "", window.location.pathname);
   }, [openSource]);
 
@@ -226,6 +241,12 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   useEffect(() => {
     void loadModel();
   }, [loadModel]);
+
+  // Keep the browser tab in step with renames; the server sets it on first load.
+  const notebookTitle = data?.notebook.title;
+  useEffect(() => {
+    if (notebookTitle) document.title = `${notebookTitle} — InfiniAIBook`;
+  }, [notebookTitle]);
 
   const selectedIds = [...selected].filter((id) => !hidden.has(id));
   const visibleSourceCount = data ? data.sources.filter((s) => !hidden.has(s.id)).length : 0;
@@ -305,7 +326,11 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
 
   if (!data) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-[var(--muted)]">
+      <div
+        role="status"
+        className="flex min-h-screen items-center justify-center gap-2 text-sm text-[var(--muted)]"
+      >
+        <span aria-hidden className="spinner" />
         Loading notebook…
       </div>
     );
@@ -330,7 +355,12 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ title }),
-    });
+    })
+      // A rename that did not stick must not keep showing as if it had.
+      .then((r) => {
+        if (!r.ok) void load();
+      })
+      .catch(() => void load());
   };
 
   const editTitle = (value: string) => {
@@ -342,16 +372,21 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   return (
     <CitationContext.Provider value={openCitation}>
     <div className="flex h-screen flex-col">
-      <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-4 py-3">
+      {/* On narrow screens the actions wrap to a second row so the title keeps its room. */}
+      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-[var(--border)] px-4 py-3">
         <Link
           href="/"
+          aria-label="Back to notebooks"
+          title="Back to notebooks"
           className="rounded-lg px-2 py-1 text-sm text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
         >
           ←
         </Link>
-        <span className="text-xl">{data.notebook.emoji}</span>
+        <span aria-hidden className="text-xl">
+          {data.notebook.emoji}
+        </span>
         <input
-          className="min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-medium outline-none transition hover:border-[var(--border)] focus:border-[var(--border)] focus:bg-well"
+          className="min-w-[11rem] flex-1 basis-[11rem] truncate rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-medium outline-none transition hover:border-[var(--border)] focus:border-[var(--border)] focus:bg-well"
           value={titleDraft ?? data.notebook.title}
           aria-label="Notebook title"
           onChange={(e) => editTitle(e.target.value)}
@@ -365,41 +400,46 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             }
           }}
         />
-        <span className="hidden shrink-0 text-xs text-[var(--muted)] sm:block">
+        <span aria-live="polite" className="hidden shrink-0 text-xs text-[var(--muted)] sm:block">
           {checkingSources
             ? "Checking links…"
             : `${selectedIds.length}/${sources.length} sources in context`}
         </span>
-        <Link
-          href={`/search?notebookId=${notebookId}`}
-          className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
-          title="Search and ask across all notebooks"
-        >
-          🔎 <span className="hidden md:inline">Search</span>
-        </Link>
-        <button
-          className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
-          onClick={() => setHelperOpen(true)}
-          title="Share an app and get coached through it step by step"
-          aria-label="Screen helper"
-        >
-          🖥️ <span className="hidden md:inline">Screen helper</span>
-        </button>
-        <button
-          className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
-          onClick={() => setPickingModel(true)}
-          title="Choose which models to use"
-        >
-          🧠 <span className="hidden max-w-[10rem] truncate md:inline">{model}</span>
-        </button>
-        <button
-          aria-label="About InfiniAIBook"
-          title="About"
-          className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
-          onClick={() => setAboutOpen(true)}
-        >
-          ⓘ
-        </button>
+        <div className="ml-auto flex shrink-0 items-center gap-3">
+          <Link
+            href={`/search?notebookId=${notebookId}`}
+            className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
+            title="Search and ask across all notebooks"
+            aria-label="Search"
+          >
+            <span aria-hidden>🔎</span> <span className="hidden md:inline">Search</span>
+          </Link>
+          <button
+            className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
+            onClick={() => setHelperOpen(true)}
+            title="Share an app and get coached through it step by step"
+            aria-label="Screen helper"
+          >
+            <span aria-hidden>🖥️</span> <span className="hidden md:inline">Screen helper</span>
+          </button>
+          <button
+            className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
+            onClick={() => setPickingModel(true)}
+            title="Choose which models to use"
+            aria-label={model ? `Models (chat: ${model})` : "Models"}
+          >
+            <span aria-hidden>🧠</span>{" "}
+            <span className="hidden max-w-[10rem] truncate md:inline">{model}</span>
+          </button>
+          <button
+            aria-label="About InfiniAIBook"
+            title="About"
+            className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
+            onClick={() => setAboutOpen(true)}
+          >
+            ⓘ
+          </button>
+        </div>
       </header>
 
       {pendingUpdates.length > 0 && (
@@ -407,7 +447,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           onClick={() => setShowUpdates(true)}
           className="fade-up flex shrink-0 items-center gap-2 border-b border-amber-900/50 bg-amber-950/25 px-4 py-2 text-left text-[12px] text-amber-100 transition hover:bg-amber-950/40"
         >
-          <span>🔄</span>
+          <span aria-hidden>🔄</span>
           <span className="flex-1">
             {pendingUpdates.length} linked source
             {pendingUpdates.length === 1 ? " has" : "s have"} changed since they were
@@ -417,11 +457,15 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         </button>
       )}
 
-      <nav className="flex shrink-0 gap-1 border-b border-[var(--border)] px-3 py-2 lg:hidden">
+      <nav
+        aria-label="Notebook panels"
+        className="flex shrink-0 gap-1 border-b border-[var(--border)] px-3 py-2 lg:hidden"
+      >
         {(["sources", "chat", "studio", "notes"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
+            aria-pressed={tab === t}
             className={`flex-1 rounded-lg px-3 py-1.5 text-sm capitalize transition ${
               tab === t
                 ? "bg-hover text-[var(--fg)]"
@@ -429,11 +473,13 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             }`}
           >
             {t}
+            {t === "sources" && sources.length ? ` (${selectedIds.length}/${sources.length})` : ""}
+            {t === "notes" && notes.length ? ` (${notes.length})` : ""}
           </button>
         ))}
       </nav>
 
-      <div className="grid min-h-0 flex-1 lg:grid-cols-[320px_minmax(0,1fr)_380px]">
+      <main className="grid min-h-0 flex-1 lg:grid-cols-[320px_minmax(0,1fr)_380px]">
         <div
           className={`min-h-0 border-[var(--border)] lg:block lg:border-r ${
             tab === "sources" ? "block" : "hidden"
@@ -489,6 +535,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
               <button
                 key={r}
                 onClick={() => setRight(r)}
+                aria-pressed={right === r}
                 className={`flex-1 rounded-lg px-3 py-1 text-[12px] capitalize transition ${
                   right === r
                     ? "bg-hover text-[var(--fg)]"
@@ -552,7 +599,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             />
           </div>
         </div>
-      </div>
+      </main>
 
       {/* Before the source viewer, so a citation opened mid-call shows on top. */}
       {discussing && (
@@ -665,7 +712,10 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         // Same layer as the ready toast: this can happen while a modal is open,
         // and below it the message would be invisible.
         <div className="fade-up fixed bottom-4 left-1/2 z-[60] -translate-x-1/2">
-          <div className="flex items-center gap-3 rounded-full border border-red-900/60 bg-red-950/40 py-2 pr-2 pl-4 shadow-xl">
+          <div
+            role="alert"
+            className="flex items-center gap-3 rounded-full border border-red-900/60 bg-red-950/40 py-2 pr-2 pl-4 shadow-xl"
+          >
             <span className="max-w-[20rem] text-[12px] text-red-200">{openError}</span>
             <button
               className="btn !py-1 !text-[11px]"
@@ -681,8 +731,11 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         // is already on screen, so at z-40 it would sit behind the very thing
         // that caused it to be shown.
         <div className="fade-up fixed bottom-4 left-1/2 z-[60] -translate-x-1/2">
-          <div className="flex items-center gap-3 rounded-full border border-[var(--border)] bg-[var(--panel)] py-2 pr-2 pl-4 shadow-xl">
-            <span className="text-base">
+          <div
+            role="status"
+            className="flex items-center gap-3 rounded-full border border-[var(--border)] bg-[var(--panel)] py-2 pr-2 pl-4 shadow-xl"
+          >
+            <span aria-hidden className="text-base">
               {studioIcon(readyArtifact.type)}
             </span>
             <span className="max-w-[16rem] truncate text-[12px]">

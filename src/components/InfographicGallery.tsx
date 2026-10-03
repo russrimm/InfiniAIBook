@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useDialog } from "./useDialog";
 import Infographic from "./Infographic";
 import Metaphor from "./Metaphors";
 import { CitationContext } from "./CitationContext";
@@ -419,11 +420,7 @@ export default function InfographicGallery({
   const selectedRef = useRef<HTMLButtonElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
+  const { dialogRef, backdropProps } = useDialog(onClose);
 
   useEffect(() => {
     // Only on open: later selections keep focus where the user put it.
@@ -454,14 +451,15 @@ export default function InfographicGallery({
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/65 p-0 backdrop-blur-sm sm:p-6"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="gallery-title"
-        className="fade-up flex h-full w-full max-w-7xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
+        className="fade-up flex h-full w-full max-w-7xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:rounded-2xl"
       >
         <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <span className="text-lg" aria-hidden>

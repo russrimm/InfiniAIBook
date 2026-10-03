@@ -16,8 +16,8 @@ colors:
   heading-white: "#f2f5f9"
   prose-mist: "#d7dde6"
   fog: "#8b95a5"
-  dim-fog: "#6b7482"
-  faint-fog: "#53606f"
+  dim-fog: "#7d8696"
+  faint-fog: "#758090"
   lamplight: "#7c8cff"
   lamplight-top: "#6f7dff"
   lamplight-deep: "#5a68ee"
@@ -225,7 +225,7 @@ A cool blue-black ink scale with one periwinkle lamp. Status colors appear only 
 - **Heading White** (`heading-white`): Headings and table header text in rendered prose. Bold text in prose goes to pure white.
 - **Prose Mist** (`prose-mist`): Body text in rendered answers and notes. It's slightly softer than Paper White for long reading.
 - **Fog** (`fog`): Secondary text, including summaries, metadata, section labels, and inactive tabs. It's the most-used text color in the app.
-- **Dim Fog / Faint Fog** (`dim-fog`, `faint-fog`): Placeholders, list markers, and tertiary hints.
+- **Dim Fog / Faint Fog** (`dim-fog`, `faint-fog`): Placeholders, list markers, and tertiary hints. Both hold at least 4.5:1 against Night Ink, Slate Panel, Raised Slate, and Well Black, so the smallest meta text stays readable; don't darken them.
 
 ### Status
 Status colors use Tailwind's amber, red, emerald, and rose families. They're never solid fills.
@@ -297,6 +297,7 @@ Quiet, tactile slate buttons. Only one per view is lit.
 - **Compact:** the same button with tighter padding and 11px text. Used in the workspace header and in toasts.
 - **Ghost:** no fill or border, Fog text, Medium corners. On hover it gets a Hover Slate fill with Paper White text. Destructive ghost actions turn red-400 on hover.
 - **Disabled:** 45% opacity with a not-allowed cursor.
+- **Keyboard focus:** every link, button, select, checkbox, radio, and tab shows a 2px Lamplight outline offset by 2px, only on `:focus-visible`. It's one base-layer rule in `globals.css`; don't remove outlines without replacing them. Buttons transition color, fill, border, opacity, and shadow only, never `all`, so the ring appears instantly.
 
 ### Inputs / Fields
 - **Style:** a Well Black fill sunk below its panel, a Hairline border, and Control corners. Placeholder text is Dim Fog.
@@ -324,6 +325,9 @@ A checkbox, an emoji for the source type, a 13px title clamped to two lines, and
 
 ### Chat Messages
 User messages are User Bubble pills with Sheet corners and a 6px tail corner, right-aligned at up to 85% width. Assistant answers are unboxed prose (the Body register) with inline citation chips. Three Lamplight typing dots pulse while the answer streams.
+
+### Modals
+Every modal uses `useDialog` (`src/components/useDialog.ts`) and carries `role="dialog"`, `aria-modal`, and a label. Focus moves into the dialog on open, Tab stays inside it, Escape closes only the topmost dialog, and focus returns to the control that opened it. The scrim closes a dialog only when a click both starts and ends on it, so selecting text and releasing outside never discards work. Editors with unsaved input confirm before closing.
 
 ### Banners and Toasts
 - **Banners:** full-width strips or Tile-cornered boxes that use the Status Wash. The source-update banner runs under the header at 12px with an underlined "Review" action.

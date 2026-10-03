@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDialog } from "./useDialog";
 
 export type PendingUpdate = {
   id: string;
@@ -46,11 +47,7 @@ export default function SourceUpdates({
     });
   }, [updates]);
 
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
+  const { dialogRef, backdropProps } = useDialog(onClose);
 
   const decide = async (id: string, action: "apply" | "dismiss") => {
     setWorking(id);
@@ -79,16 +76,20 @@ export default function SourceUpdates({
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/65 p-0 backdrop-blur-sm sm:p-6"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
-        className="fade-up flex h-full w-full max-w-3xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="updates-title"
+        className="fade-up flex h-full w-full max-w-3xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:rounded-2xl"
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <span className="text-lg">🔄</span>
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[15px] font-semibold">
+            <h2 id="updates-title" className="truncate text-[15px] font-semibold">
               {outstanding.length
                 ? `${outstanding.length} source${outstanding.length === 1 ? " has" : "s have"} changed`
                 : "All changes reviewed"}

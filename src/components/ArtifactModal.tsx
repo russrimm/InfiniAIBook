@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Markdown, { InlineCited } from "./Markdown";
+import { useDialog } from "./useDialog";
 import MindMap from "./MindMap";
 import Quiz from "./Quiz";
 import Flashcards from "./Flashcards";
@@ -232,11 +233,7 @@ export default function ArtifactModal({
   const citations = (artifact.content as { citations?: Citation[] }).citations ?? [];
   const spec = STUDIO[artifact.type as ArtifactType];
 
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
+  const { dialogRef, backdropProps } = useDialog(onClose);
 
   const safeName = (ext: string) =>
     `${artifact.title.replace(/[^\w\s-]/g, "").trim().slice(0, 60) || "artifact"}.${ext}`;
@@ -323,28 +320,39 @@ export default function ArtifactModal({
     artifact.type === "infographic" || artifact.type === "mindmap";
 
   const copy = async () => {
-    await navigator.clipboard.writeText(toMarkdown(artifact));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
+    try {
+      // Unavailable outside a secure context, e.g. when opened over plain http on a LAN.
+      await navigator.clipboard.writeText(toMarkdown(artifact));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setExportError("Copying is blocked by the browser here. Use Export to download instead.");
+    }
   };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/65 p-0 backdrop-blur-sm sm:p-6"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
-        className={`fade-up flex h-full w-full flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] sm:rounded-2xl ${
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="artifact-title"
+        className={`fade-up flex h-full w-full flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:rounded-2xl ${
           // Infographics are composed as wide editorial pieces; at 4xl the
           // illustrated layout reflows into a tall column instead.
           artifact.type === "infographic" ? "max-w-6xl" : "max-w-4xl"
         }`}
-        onClick={(e) => e.stopPropagation()}
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <span className="text-lg">{spec?.icon}</span>
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[15px] font-semibold">{artifact.title}</h2>
+            <h2 id="artifact-title" className="truncate text-[15px] font-semibold">
+              {artifact.title}
+            </h2>
             <p className="text-[11px] text-[var(--muted)]">
               {spec?.label} · {new Date(artifact.createdAt).toLocaleString()}
             </p>
@@ -412,7 +420,10 @@ export default function ArtifactModal({
         </div>
 
         {exportError && (
-          <p className="shrink-0 border-t border-red-900/50 bg-red-950/20 px-5 py-2 text-[11px] text-red-200">
+          <p
+            role="alert"
+            className="shrink-0 border-t border-red-900/50 bg-red-950/20 px-5 py-2 text-[11px] text-red-200"
+          >
             {exportError}
           </p>
         )}

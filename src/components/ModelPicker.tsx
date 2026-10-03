@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useDialog } from "./useDialog";
 
 type ModelsResponse = {
   provider: "azure" | "openai";
@@ -41,11 +42,8 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
   }, []);
 
   useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", h);
     void load();
-    return () => window.removeEventListener("keydown", h);
-  }, [load, onClose]);
+  }, [load]);
 
   if (!data && !error) {
     return (
@@ -272,18 +270,25 @@ function Shell({
   children: React.ReactNode;
   onClose: () => void;
 }) {
+  const { dialogRef, backdropProps } = useDialog(onClose);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
-        className="fade-up w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-5"
-        onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="models-title"
+        className="fade-up w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-5 outline-none"
       >
         <div className="mb-1 flex items-center gap-2">
           <span className="text-lg">🧠</span>
-          <h2 className="flex-1 text-[15px] font-semibold">Models</h2>
+          <h2 id="models-title" className="flex-1 text-[15px] font-semibold">
+            Models
+          </h2>
           <button
             aria-label="Close"
             className="btn !px-2.5 !py-1.5 !text-xs"

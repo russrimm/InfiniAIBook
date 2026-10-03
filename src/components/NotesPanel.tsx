@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Markdown from "./Markdown";
+import { useDialog } from "./useDialog";
 import type { Note } from "@/lib/types";
 
 function when(ms: number) {
@@ -31,9 +32,9 @@ export default function NotesPanel({
   const open = notes.find((n) => n.id === openNoteId) ?? null;
 
   return (
-    <aside className="flex h-full min-h-0 flex-col">
+    <aside aria-labelledby="notes-heading" className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-2 px-4 pt-4 pb-3">
-        <h2 className="flex-1 text-[13px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+        <h2 id="notes-heading" className="flex-1 text-[13px] font-semibold tracking-wide text-[var(--muted)] uppercase">
           Notes
         </h2>
         <button
@@ -112,12 +113,16 @@ function NoteEditor({
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const dirty = !note || title !== note.title || content !== note.content;
+  /** Something typed that closing would throw away. */
+  const unsaved = note
+    ? title !== note.title || content !== note.content
+    : Boolean(title.trim() || content.trim());
 
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
+  const requestClose = () => {
+    if (unsaved && !window.confirm("Discard your unsaved changes to this note?")) return;
+    onClose();
+  };
+  const { dialogRef, backdropProps } = useDialog(requestClose);
 
   const save = async () => {
     if (!content.trim()) {
@@ -173,24 +178,35 @@ function NoteEditor({
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/65 p-0 backdrop-blur-sm sm:p-6"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
-        className="fade-up flex h-full w-full max-w-3xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label={note ? `Note: ${title || "Untitled note"}` : "New note"}
+        className="fade-up flex h-full w-full max-w-3xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:rounded-2xl"
+        onKeyDown={(e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+            e.preventDefault();
+            if (!busy && dirty) void save();
+          }
+        }}
       >
         <header className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-5 py-3">
           <span>{note?.kind === "ai" ? "✨" : "🗒️"}</span>
           <input
             className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-semibold outline-none focus:border-[var(--border)]"
             placeholder="Untitled note"
+            aria-label="Note title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
           <button className="btn !px-2.5 !py-1 !text-[11px]" onClick={() => setEditing(!editing)}>
             {editing ? "Preview" : "Edit"}
           </button>
-          <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={onClose}>
+          <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={requestClose}>
             ✕
           </button>
         </header>
@@ -200,6 +216,7 @@ function NoteEditor({
             <textarea
               className="input h-full min-h-[50vh] resize-none font-mono text-[13px] leading-relaxed"
               placeholder="Write in Markdown…"
+              aria-label="Note content (Markdown)"
               value={content}
               autoFocus
               onChange={(e) => setContent(e.target.value)}
@@ -232,11 +249,17 @@ function NoteEditor({
               </button>
             </>
           )}
-          <span className="min-w-0 flex-1 truncate text-[12px] text-[var(--muted)]">{message}</span>
+          <span
+            role="status"
+            className="min-w-0 flex-1 truncate text-[12px] text-[var(--muted)]"
+          >
+            {message}
+          </span>
           <button
             className="btn btn-primary !text-[12px]"
             disabled={!!busy || !dirty}
             onClick={() => void save()}
+            title="Save (Ctrl+S / ⌘S)"
           >
             {busy === "save" ? "Saving…" : "Save"}
           </button>

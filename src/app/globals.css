@@ -21,8 +21,9 @@
   --heading: #f2f5f9;
   --prose: #d7dde6;
   --prose-soft: #c9d2dd;
-  --dim: #6b7482;
-  --faint: #53606f;
+  /* Both clear WCAG AA (4.5:1) for small text on every panel surface. */
+  --dim: #7d8696;
+  --faint: #758090;
   /* Lamplight family. */
   --accent-top: #6f7dff;
   --accent-deep: #5a68ee;
@@ -72,6 +73,18 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * One visible keyboard focus ring everywhere: a Lamplight outline that only
+ * appears for keyboard focus. In the base layer so a component can still
+ * restyle its own focus (inputs use the steel border and halo instead).
+ */
+@layer base {
+  :where(a[href], button, summary, select, [role="button"], [role="tab"], input[type="checkbox"], input[type="radio"], [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -108,7 +121,9 @@ body {
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--fg);
-  transition: all 0.15s ease;
+  transition-property: color, background-color, border-color, opacity, box-shadow;
+  transition-duration: 0.15s;
+  transition-timing-function: ease;
   cursor: pointer;
 }
 .btn:hover:not(:disabled) {

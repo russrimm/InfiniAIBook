@@ -1,12 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { safeNextPath } from "@/lib/access";
 
 export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // With no password configured there is nothing to sign in to; go on to where
+  // the user was headed instead of showing a lock that cannot be used.
+  useEffect(() => {
+    void fetch("/api/auth/status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { auth?: boolean } | null) => {
+        if (j && j.auth === false) {
+          const next = new URLSearchParams(window.location.search).get("next");
+          const target = safeNextPath(next, window.location.origin);
+          window.location.replace(target.startsWith("/login") ? "/" : target);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const submit = async () => {
     setBusy(true);
@@ -17,12 +32,19 @@ export default function LoginPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ password }),
       });
-      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error);
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j.error);
+      }
       const next = new URLSearchParams(window.location.search).get("next");
       // Only same-origin paths, so the login page cannot be used as a redirector.
       window.location.href = safeNextPath(next, window.location.origin);
     } catch (e) {
-      setError(e instanceof Error && e.message ? e.message : "Sign-in failed.");
+      setError(
+        e instanceof Error && e.message
+          ? e.message
+          : "Sign-in failed. Check your connection and try again."
+      );
       setBusy(false);
     }
   };
@@ -40,17 +62,31 @@ export default function LoginPage() {
         <p className="mt-1 mb-6 text-[13px] text-[var(--muted)]">
           This instance is password protected.
         </p>
+        <label htmlFor="password" className="mb-1.5 block text-[13px] font-medium">
+          Password
+        </label>
         <input
+          id="password"
+          name="password"
           className="input"
           type="password"
           autoFocus
+          required
           autoComplete="current-password"
-          placeholder="Password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "login-error" : undefined}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            if (error) setError(null);
+          }}
         />
-        {error && <p className="mt-2 text-[12px] text-red-300">{error}</p>}
-        <button className="btn btn-primary mt-4 w-full" disabled={busy || !password}>
+        {error && (
+          <p id="login-error" role="alert" className="mt-2 text-[12px] text-red-300">
+            {error}
+          </p>
+        )}
+        <button type="submit" className="btn btn-primary mt-4 w-full" disabled={busy || !password}>
           {busy ? "Signing in…" : "Sign in"}
         </button>
       </form>

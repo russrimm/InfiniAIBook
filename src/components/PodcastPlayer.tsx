@@ -194,6 +194,7 @@ function Player({ content }: { content: PodcastContent & { audioUrl: string } })
               </span>
               <select
                 className="ml-auto min-w-0 max-w-[60%] cursor-pointer rounded-md border border-[var(--border)] bg-panel px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                aria-label="Jump to topic"
                 value={activeChapter >= 0 ? activeChapter : ""}
                 onChange={(e) => {
                   const i = Number(e.target.value);

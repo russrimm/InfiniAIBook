@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Notebook } from "@/lib/types";
 import AboutModal from "@/components/AboutModal";
@@ -10,7 +11,9 @@ import { useDeferredDelete } from "@/components/UndoToast";
 export default function Home() {
   const router = useRouter();
   const [notebooks, setNotebooks] = useState<Notebook[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [authOn, setAuthOn] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [helperOpen, setHelperOpen] = useState(false);
@@ -19,8 +22,15 @@ export default function Home() {
   const [hiddenNb, setHiddenNb] = useState<Set<string>>(new Set());
 
   const load = async () => {
-    const res = await fetch("/api/notebooks");
-    setNotebooks(res.ok ? await res.json() : []);
+    try {
+      const res = await fetch("/api/notebooks");
+      if (!res.ok) throw new Error(String(res.status));
+      setNotebooks(await res.json());
+      setLoadError(false);
+    } catch {
+      // An unreachable server is not "no notebooks yet"; say so and offer a retry.
+      setLoadError(true);
+    }
   };
 
   useEffect(() => {
@@ -38,13 +48,22 @@ export default function Home() {
 
   const create = async () => {
     setCreating(true);
-    const res = await fetch("/api/notebooks", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({}),
-    });
-    const { id } = await res.json();
-    router.push(`/notebook/${id}`);
+    setCreateError(null);
+    try {
+      const res = await fetch("/api/notebooks", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const j = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      if (!res.ok || !j.id) throw new Error(j.error);
+      router.push(`/notebook/${j.id}`);
+    } catch (e) {
+      setCreateError(
+        e instanceof Error && e.message ? e.message : "Could not create a notebook. Try again."
+      );
+      setCreating(false);
+    }
   };
 
   const remove = (id: string, title: string) => {
@@ -73,7 +92,7 @@ export default function Home() {
       <header className="mb-12 flex flex-wrap items-end justify-between gap-6">
         <div>
           <div className="mb-2 flex items-center gap-2 text-xs font-medium tracking-widest text-[var(--muted)] uppercase">
-            <span className="inline-block h-2 w-2 rounded-full bg-[var(--accent)]" />
+            <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-[var(--accent)]" />
             Grounded research studio
           </div>
           <h1 className="text-4xl font-semibold tracking-tight">InfiniAIBook</h1>
@@ -82,16 +101,16 @@ export default function Home() {
             mind maps and infographics — every claim cited back to your documents.
           </p>
         </div>
-        <div className="flex gap-2">
-          <button className="btn" onClick={() => router.push("/search")}>
-            🔎 Search all
-          </button>
+        <div className="flex flex-wrap gap-2">
+          <Link className="btn" href="/search">
+            <span aria-hidden>🔎</span> Search all
+          </Link>
           <button
             className="btn"
             onClick={() => setHelperOpen(true)}
             title="Share an app and get coached through it step by step"
           >
-            🖥️ Screen helper
+            <span aria-hidden>🖥️</span> Screen helper
           </button>
           <button
             aria-label="About InfiniAIBook"
@@ -112,15 +131,39 @@ export default function Home() {
         </div>
       </header>
 
-      {visible === null ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {createError && (
+        <p
+          role="alert"
+          className="mb-6 rounded-xl border border-red-900/60 bg-red-950/30 px-4 py-3 text-sm text-red-300"
+        >
+          {createError}
+        </p>
+      )}
+
+      {loadError && visible === null ? (
+        <div
+          role="alert"
+          className="flex flex-col items-center gap-4 rounded-xl border border-red-900/60 bg-red-950/30 px-6 py-12 text-center"
+        >
+          <p className="text-sm text-red-300">
+            Your notebooks could not be loaded. Check that the server is running.
+          </p>
+          <button className="btn" onClick={() => void load()}>
+            Try again
+          </button>
+        </div>
+      ) : visible === null ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+          <span className="sr-only" role="status">
+            Loading notebooks…
+          </span>
           {[0, 1, 2].map((i) => (
-            <div key={i} className="card shimmer h-36" />
+            <div key={i} aria-hidden className="card shimmer h-36" />
           ))}
         </div>
       ) : visible.length === 0 ? (
         <div className="card flex flex-col items-center gap-4 px-6 py-20 text-center">
-          <div className="text-5xl">📚</div>
+          <div aria-hidden className="text-5xl">📚</div>
           <h2 className="text-lg font-medium">No notebooks yet</h2>
           <p className="max-w-sm text-sm text-[var(--muted)]">
             A notebook holds a set of sources — PDFs, docs, web pages or pasted text —
@@ -131,32 +174,43 @@ export default function Home() {
           </button>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visible.map((n) => (
-            <div
+            <li
               key={n.id}
-              className="card fade-up group relative cursor-pointer p-5 transition hover:border-line-hover"
-              onClick={() => router.push(`/notebook/${n.id}`)}
+              className="card fade-up group relative p-5 transition focus-within:border-line-hover hover:border-line-hover"
             >
-              <div className="mb-4 text-3xl">{n.emoji}</div>
-              <h3 className="mb-1 line-clamp-2 font-medium">{n.title}</h3>
+              <div aria-hidden className="mb-4 text-3xl">
+                {n.emoji}
+              </div>
+              <h2 className="mb-1 line-clamp-2 pr-14 font-medium">
+                {/* The link's overlay makes the whole card the target, while the
+                    delete button stays a separate control rather than nested. */}
+                <Link
+                  href={`/notebook/${n.id}`}
+                  className="rounded outline-none after:absolute after:inset-0 after:rounded-[14px] after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-[var(--accent)]"
+                >
+                  {n.title}
+                </Link>
+              </h2>
               <p className="text-xs text-[var(--muted)]">
-                {n.sourceCount ?? 0} source{n.sourceCount === 1 ? "" : "s"} ·{" "}
-                {new Date(n.createdAt).toLocaleDateString()}
+                {n.sourceCount ?? 0} source{n.sourceCount === 1 ? "" : "s"} · Created{" "}
+                {new Date(n.createdAt).toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
               </p>
               <button
                 aria-label={`Delete notebook ${n.title}`}
-                className="reveal absolute top-3 right-3 rounded-lg px-2 py-1 text-xs text-[var(--muted)] transition hover:bg-hover hover:text-red-400"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  remove(n.id, n.title);
-                }}
+                className="reveal absolute top-3 right-3 z-10 rounded-lg px-2 py-1 text-xs text-[var(--muted)] transition hover:bg-hover hover:text-red-400"
+                onClick={() => remove(n.id, n.title)}
               >
                 Delete
               </button>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
       {helperOpen && <ScreenHelperModal onClose={() => setHelperOpen(false)} />}

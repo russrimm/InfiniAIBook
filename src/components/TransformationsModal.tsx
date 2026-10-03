@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDialog } from "./useDialog";
 import type { Transformation } from "@/lib/types";
 
 type Draft = { id?: string; name: string; description: string; prompt: string };
@@ -19,12 +20,11 @@ export default function TransformationsModal({ onClose }: { onClose: () => void 
     if (res.ok) setList(((await res.json()) as { transformations: Transformation[] }).transformations);
   };
 
+  const { dialogRef, backdropProps } = useDialog(onClose);
+
   useEffect(() => {
     void load();
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
+  }, []);
 
   const save = async () => {
     if (!draft) return;
@@ -58,15 +58,21 @@ export default function TransformationsModal({ onClose }: { onClose: () => void 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
-        className="fade-up flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--panel)]"
-        onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="transformations-title"
+        className="fade-up flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--panel)] outline-none"
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <div className="flex-1">
-            <h2 className="text-[15px] font-semibold">Transformations</h2>
+            <h2 id="transformations-title" className="text-[15px] font-semibold">
+              Transformations
+            </h2>
             <p className="text-[11px] text-[var(--muted)]">
               Reusable prompts. Open any source and apply one; the result is saved as a note.
             </p>
@@ -82,18 +88,21 @@ export default function TransformationsModal({ onClose }: { onClose: () => void 
               <input
                 className="input"
                 placeholder="Name, e.g. Extract methodology"
+                aria-label="Name"
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
               />
               <input
                 className="input"
                 placeholder="Short description (optional)"
+                aria-label="Short description (optional)"
                 value={draft.description}
                 onChange={(e) => setDraft({ ...draft, description: e.target.value })}
               />
               <textarea
                 className="input min-h-[12rem] resize-y text-[13px] leading-relaxed"
                 placeholder="Instruction for the model, e.g. List every dataset the source uses and how it was collected."
+                aria-label="Instruction for the model"
                 value={draft.prompt}
                 onChange={(e) => setDraft({ ...draft, prompt: e.target.value })}
               />
