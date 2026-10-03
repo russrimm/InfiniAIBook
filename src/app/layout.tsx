@@ -7,7 +7,10 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "InfiniAIBook — grounded research studio",
+  title: {
+    default: "InfiniAIBook — grounded research studio",
+    template: "%s — InfiniAIBook",
+  },
   description:
     "Upload sources, chat with them, and generate reports, quizzes, mind maps and infographics grounded in your own documents.",
 };

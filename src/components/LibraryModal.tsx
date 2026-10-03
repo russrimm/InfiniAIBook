@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useDialog } from "./useDialog";
 
 type LibrarySource = {
   id: string;
@@ -31,14 +32,14 @@ export default function LibraryModal({
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
+  const { dialogRef, backdropProps } = useDialog(onClose);
+
   useEffect(() => {
     void fetch(`/api/sources?exclude=${encodeURIComponent(notebookId)}`)
       .then((r) => (r.ok ? r.json() : { sources: [] }))
-      .then((j: { sources: LibrarySource[] }) => setAll(j.sources));
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [notebookId, onClose]);
+      .then((j: { sources: LibrarySource[] }) => setAll(j.sources))
+      .catch(() => setAll([]));
+  }, [notebookId]);
 
   const groups = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -88,15 +89,21 @@ export default function LibraryModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
-        className="fade-up flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--panel)]"
-        onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="library-title"
+        className="fade-up flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--panel)] outline-none"
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <div className="flex-1">
-            <h2 className="text-[15px] font-semibold">Add from your library</h2>
+            <h2 id="library-title" className="text-[15px] font-semibold">
+              Add from your library
+            </h2>
             <p className="text-[11px] text-[var(--muted)]">
               Reuse sources from other notebooks without uploading or re-indexing them.
             </p>
@@ -109,6 +116,8 @@ export default function LibraryModal({
           <input
             className="input"
             placeholder="Filter by source or notebook…"
+            aria-label="Filter sources"
+            autoFocus
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
@@ -145,7 +154,7 @@ export default function LibraryModal({
             ))
           )}
           {errors.map((e, i) => (
-            <p key={i} className="text-[12px] text-red-300">
+            <p key={i} role="alert" className="text-[12px] text-red-300">
               {e}
             </p>
           ))}

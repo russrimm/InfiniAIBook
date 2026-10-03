@@ -155,7 +155,13 @@ export async function POST(req: Request) {
             if (upstream.signal.aborted) break;
           }
           const stopped = upstream.signal.aborted;
-          if (full || !stopped) {
+          if (!full.trim() && !stopped) {
+            // An empty completion is a failure to report, not an answer to keep.
+            send({
+              type: "error",
+              error: "The model returned an empty answer. Try again, or pick another chat model.",
+            });
+          } else if (full || !stopped) {
             const { id, cites } = saveAnswer(stopped);
             saved = true;
             send({ type: "done", id, citations: cites, stopped });

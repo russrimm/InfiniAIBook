@@ -1,26 +1,23 @@
 "use client";
 
-import { useEffect } from "react";
 import { AUTHOR, GITHUB_URL, LINKEDIN_URL, MIT_LICENSE, REPO_URL } from "@/lib/about";
+import { useDialog } from "./useDialog";
 
 export default function AboutModal({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
+  const { dialogRef, backdropProps } = useDialog(onClose);
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="about-title"
-        className="fade-up card flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden !p-0"
-        onClick={(e) => e.stopPropagation()}
+        className="fade-up card flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden !p-0 outline-none"
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <div className="flex-1">

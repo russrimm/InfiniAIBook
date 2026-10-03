@@ -424,9 +424,14 @@ export default function StudioPanel({
     .filter((voice, i, all) => all.indexOf(voice) !== i && all.lastIndexOf(voice) === i);
 
   return (
-    <aside className="flex h-full min-h-0 flex-col bg-[var(--panel)]">
+    <aside
+      aria-labelledby="studio-heading"
+      className="flex h-full min-h-0 flex-col bg-[var(--panel)]"
+    >
       <div className="px-4 pt-4 pb-3">
-        <h2 className="text-sm font-semibold tracking-wide">Studio</h2>
+        <h2 id="studio-heading" className="text-sm font-semibold tracking-wide">
+          Studio
+        </h2>
         <p className="mt-1 text-[11px] text-[var(--muted)]">
           Turn your sources into something you can actually use.
         </p>
@@ -435,6 +440,7 @@ export default function StudioPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         <input
           className="input mb-3"
+          aria-label="Optional focus for everything generated below"
           placeholder="Optional focus, e.g. 'funding risks'"
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
@@ -496,6 +502,7 @@ export default function StudioPanel({
               </span>
               <select
                 className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                aria-label="Audio profile"
                 value={episodeProfile}
                 disabled={false}
                 onChange={(e) => applyEpisodeProfile(e.target.value)}
@@ -533,6 +540,7 @@ export default function StudioPanel({
                       placeholder={`Optional name, e.g. ${
                         i === 0 ? "Host" : "Expert"
                       }`}
+                      aria-label={`Speaker ${speaker.id} name`}
                       value={speaker.name}
                       disabled={false}
                       onChange={(e) => updateSpeaker(i, { name: e.target.value })}
@@ -540,6 +548,7 @@ export default function StudioPanel({
                     <input
                       className="min-w-0 rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-faint focus:border-focus"
                       placeholder="Role/personality, e.g. skeptical economist"
+                      aria-label={`Speaker ${speaker.id} role`}
                       value={speaker.role}
                       disabled={false}
                       onChange={(e) => updateSpeaker(i, { role: e.target.value })}
@@ -555,6 +564,7 @@ export default function StudioPanel({
               </span>
               <select
                 className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                aria-label="Audio length"
                 value={audioLen}
                 disabled={false}
                 onChange={(e) => setAudioLen(e.target.value as AudioLength)}
@@ -573,6 +583,7 @@ export default function StudioPanel({
               </span>
               <select
                 className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                aria-label="Speaking speed"
                 value={speed}
                 disabled={false}
                 onChange={(e) => setSpeed(Number(e.target.value))}
@@ -585,6 +596,7 @@ export default function StudioPanel({
               </select>
               <select
                 className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                aria-label="Delivery"
                 value={delivery}
                 disabled={false}
                 onChange={(e) => setDelivery(e.target.value as Delivery)}
@@ -761,6 +773,7 @@ export default function StudioPanel({
               </span>
               <select
                 className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                aria-label="Trainer"
                 value={trainer}
                 onChange={(e) => {
                   setTrainer(e.target.value);
@@ -792,6 +805,7 @@ export default function StudioPanel({
               </span>
               <select
                 className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                aria-label="Training video length"
                 value={trainingLen}
                 onChange={(e) => setTrainingLen(e.target.value as AudioLength)}
               >
@@ -928,6 +942,7 @@ export default function StudioPanel({
                     </span>
                     <select
                       className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                      aria-label="Difficulty level"
                       value={difficulty}
                       disabled={false}
                       onChange={(e) =>
@@ -943,6 +958,7 @@ export default function StudioPanel({
                     </span>
                     <select
                       className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                      aria-label="Length"
                       value={length}
                       disabled={false}
                       onChange={(e) => setLength(e.target.value as StudyLength)}
@@ -1261,6 +1277,7 @@ function SpeakerSelect({
   return (
     <div className="flex min-w-0 flex-1 items-center gap-1">
       <select
+        aria-label="Voice"
         className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:cursor-not-allowed disabled:opacity-50"
         value={value}
         disabled={disabled}

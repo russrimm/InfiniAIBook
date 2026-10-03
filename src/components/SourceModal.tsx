@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Note, Transformation } from "@/lib/types";
 import { findPassage } from "@/lib/highlight";
+import { useDialog } from "./useDialog";
 
 type Full = {
   id: string;
@@ -68,17 +69,9 @@ export default function SourceModal({
     }
   };
 
-  useEffect(() => {
-    // Captured and stopped: this can open above another modal (a citation
-    // clicked inside an artifact), and Escape should close only this one.
-    const h = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopPropagation();
-      onClose();
-    };
-    window.addEventListener("keydown", h, true);
-    return () => window.removeEventListener("keydown", h, true);
-  }, [onClose]);
+  // This can open above another modal (a citation clicked inside an artifact);
+  // the dialog stack makes Escape close only this one.
+  const { dialogRef, backdropProps } = useDialog(onClose);
 
   const part = highlight?.part;
   useEffect(() => {
@@ -116,15 +109,19 @@ export default function SourceModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/65 p-0 backdrop-blur-sm sm:p-6"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
-        className="fade-up flex h-full w-full max-w-3xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="source-title"
+        className="fade-up flex h-full w-full max-w-3xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:rounded-2xl"
       >
         <header className="flex shrink-0 items-start gap-3 border-b border-[var(--border)] px-5 py-3">
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[15px] font-semibold">
+            <h2 id="source-title" className="truncate text-[15px] font-semibold">
               {src?.title ?? (loadError ? "Source unavailable" : "Loading…")}
             </h2>
             {src && (

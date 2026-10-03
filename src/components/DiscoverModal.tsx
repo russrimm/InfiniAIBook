@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useDialog } from "./useDialog";
 
 export type DiscoverHit = {
   title: string;
@@ -35,12 +36,11 @@ export default function DiscoverModal({
   const [queries, setQueries] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const { dialogRef, backdropProps } = useDialog(onClose);
+
   useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", h);
     inputRef.current?.focus();
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
+  }, []);
 
   const search = async (q: string) => {
     const query = q.trim();
@@ -97,17 +97,23 @@ export default function DiscoverModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/65 p-0 backdrop-blur-sm sm:items-center sm:p-6"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div
-        className="fade-up flex h-full w-full max-w-3xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] sm:h-[min(80vh,46rem)] sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="discover-title"
+        className="fade-up flex h-full w-full max-w-3xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:h-[min(80vh,46rem)] sm:rounded-2xl"
       >
         <header className="shrink-0 border-b border-[var(--border)] px-5 py-4">
           <div className="mb-3 flex items-center gap-3">
             <span className="text-lg">🔎</span>
             <div className="min-w-0 flex-1">
-              <h2 className="text-[15px] font-semibold">Discover sources</h2>
+              <h2 id="discover-title" className="text-[15px] font-semibold">
+                Discover sources
+              </h2>
               <p className="text-[11px] text-[var(--muted)]">
                 Describe a topic and pick the pages worth adding.
               </p>
@@ -132,6 +138,7 @@ export default function DiscoverModal({
               ref={inputRef}
               className="input"
               placeholder="e.g. how mRNA vaccines were developed"
+              aria-label="Topic"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
             />

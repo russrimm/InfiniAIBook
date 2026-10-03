@@ -49,6 +49,7 @@ export default function ChatPanel({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   /** Follow new text only while the reader is at the bottom. */
   const stickToBottom = useRef(true);
   const abortRef = useRef<AbortController | null>(null);
@@ -160,6 +161,11 @@ export default function ChatPanel({
     stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
   };
 
+  // The composer grows with its text; shrink it back once a question is sent.
+  useEffect(() => {
+    if (!input && inputRef.current) inputRef.current.style.height = "";
+  }, [input]);
+
   // Follow the answer as it streams, but only while the reader is at the
   // bottom: scrolling up to reread something must not be yanked back down.
   useEffect(() => {
@@ -270,6 +276,15 @@ export default function ChatPanel({
           } else if (ev.type === "done") {
             flushDraft();
             finished = true;
+            if (!acc.trim()) {
+              // Nothing to show or save; say so instead of leaving a blank turn.
+              setError(
+                "The model returned an empty answer. Try again, or pick another chat model."
+              );
+              setDraft("");
+              setDraftCites([]);
+              continue;
+            }
             setMessages((m) => [
               ...m,
               {
@@ -318,7 +333,7 @@ export default function ChatPanel({
   const blocked = disabled || noneSelected;
 
   return (
-    <section className="flex h-full min-h-0 flex-col">
+    <section aria-label="Chat" className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-4 py-2 sm:px-8">
         <select
           aria-label="Chat"
@@ -378,7 +393,9 @@ export default function ChatPanel({
           )}
           {!loadingSession && messages.length === 0 && !draft && (
             <div className="pt-8 pb-6 text-center">
-              <div className="mb-3 text-4xl">💬</div>
+              <div aria-hidden className="mb-3 text-4xl">
+                💬
+              </div>
               <h2 className="text-lg font-medium">Ask your sources anything</h2>
               <p className="mx-auto mt-2 max-w-md text-sm text-[var(--muted)]">
                 {disabled
@@ -429,7 +446,10 @@ export default function ChatPanel({
             )}
 
             {error && (
-              <div className="rounded-xl border border-red-900/60 bg-red-950/30 px-4 py-3 text-sm text-red-300">
+              <div
+                role="alert"
+                className="rounded-xl border border-red-900/60 bg-red-950/30 px-4 py-3 text-sm text-red-300"
+              >
                 {error}
               </div>
             )}
@@ -459,6 +479,7 @@ export default function ChatPanel({
           }}
         >
           <textarea
+            ref={inputRef}
             className="input max-h-40 min-h-[44px] resize-none py-3"
             rows={1}
             placeholder={
@@ -478,7 +499,8 @@ export default function ChatPanel({
               e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
             }}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              // Enter while an IME is composing confirms the character, not the message.
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
                 void send(input);
               }
@@ -536,15 +558,23 @@ const MessageRow = memo(function MessageRow({
   }
   return (
     <div className="fade-up">
-      <Markdown citations={m.citations}>{m.content}</Markdown>
+      {m.content.trim() ? (
+        <Markdown citations={m.citations}>{m.content}</Markdown>
+      ) : (
+        <p className="text-[13px] text-[var(--muted)] italic">
+          No answer was returned for this question.
+        </p>
+      )}
       {!!m.citations?.length && <CiteFooter citations={m.citations} />}
-      <button
-        className="mt-2 text-[11px] text-[var(--muted)] transition hover:text-[var(--fg)] disabled:opacity-60"
-        disabled={saved}
-        onClick={() => void onSave(m)}
-      >
-        {saved ? "✓ Saved to notes" : "🗒️ Save to notes"}
-      </button>
+      {m.content.trim() && (
+        <button
+          className="mt-2 text-[11px] text-[var(--muted)] transition hover:text-[var(--fg)] disabled:opacity-60"
+          disabled={saved}
+          onClick={() => void onSave(m)}
+        >
+          {saved ? "✓ Saved to notes" : "🗒️ Save to notes"}
+        </button>
+      )}
     </div>
   );
 });

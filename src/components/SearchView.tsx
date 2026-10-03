@@ -10,6 +10,18 @@ import { CitationContext } from "./CitationContext";
 const passageHref = (notebookId: string, sourceId: string, part: number) =>
   `/notebook/${notebookId}?source=${encodeURIComponent(sourceId)}&part=${part}`;
 
+/** Opens the notebook with that note showing. */
+const noteHref = (notebookId: string, noteId: string) =>
+  `/notebook/${notebookId}?note=${encodeURIComponent(noteId)}`;
+
+/** Mirror the query in the address bar so reload and Back keep the results. */
+function rememberQuery(query: string) {
+  const url = new URL(window.location.href);
+  if (query) url.searchParams.set("q", query);
+  else url.searchParams.delete("q");
+  window.history.replaceState(window.history.state, "", url);
+}
+
 type Hit = {
   id: string;
   notebookId: string;
@@ -64,6 +76,7 @@ export default function SearchView({
     setBusy("search");
     setError(null);
     setAnswer(null);
+    rememberQuery(query.trim());
     try {
       const params = new URLSearchParams({ q: query, mode });
       if (scope) params.set("notebookId", scope);
@@ -83,6 +96,7 @@ export default function SearchView({
     setBusy("ask");
     setError(null);
     setResults(null);
+    rememberQuery(q.trim());
     try {
       const res = await fetch("/api/search/ask", {
         method: "POST",
@@ -105,11 +119,22 @@ export default function SearchView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Switching keyword/semantic or the scope re-runs the search on screen, so
+  // the results always match the options shown above them.
+  const hasResults = results !== null;
+  useEffect(() => {
+    if (hasResults && !busy) void search();
+    // Only when the options change, not on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, scope]);
+
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl px-6 py-10">
       <header className="mb-6 flex items-center gap-3">
         <Link
           href={notebookId ? `/notebook/${notebookId}` : "/"}
+          aria-label={notebookId ? "Back to notebook" : "Back to notebooks"}
+          title={notebookId ? "Back to notebook" : "Back to notebooks"}
           className="rounded-lg px-2 py-1 text-sm text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
         >
           ←
@@ -118,6 +143,7 @@ export default function SearchView({
       </header>
 
       <form
+        role="search"
         className="flex flex-wrap gap-2"
         onSubmit={(e) => {
           e.preventDefault();
@@ -125,18 +151,24 @@ export default function SearchView({
         }}
       >
         <input
-          className="input min-w-0 flex-1"
+          type="search"
+          className="input min-w-0 basis-full sm:basis-0 sm:flex-1"
+          aria-label="Search passages and notes, or ask a question"
           placeholder="Search passages and notes, or ask a question…"
           value={q}
           autoFocus
           onChange={(e) => setQ(e.target.value)}
         />
-        <button className="btn btn-primary" disabled={!!busy || !q.trim()}>
+        <button
+          type="submit"
+          className="btn btn-primary flex-1 sm:flex-none"
+          disabled={!!busy || !q.trim()}
+        >
           {busy === "search" ? "Searching…" : "Search"}
         </button>
         <button
           type="button"
-          className="btn"
+          className="btn flex-1 sm:flex-none"
           disabled={!!busy || !q.trim()}
           onClick={() => void ask()}
           title="Get one grounded answer drawn from all matching sources"
@@ -146,22 +178,26 @@ export default function SearchView({
       </form>
 
       <div className="mt-3 flex flex-wrap items-center gap-4 text-[12px] text-[var(--muted)]">
-        <label className="flex items-center gap-1.5">
-          <input
-            type="radio"
-            checked={mode === "text"}
-            onChange={() => setMode("text")}
-          />
-          Keyword
-        </label>
-        <label className="flex items-center gap-1.5">
-          <input
-            type="radio"
-            checked={mode === "vector"}
-            onChange={() => setMode("vector")}
-          />
-          Semantic
-        </label>
+        <div role="radiogroup" aria-label="Search mode" className="flex items-center gap-4">
+          <label className="flex items-center gap-1.5" title="Match the exact words you typed">
+            <input
+              type="radio"
+              name="search-mode"
+              checked={mode === "text"}
+              onChange={() => setMode("text")}
+            />
+            Keyword
+          </label>
+          <label className="flex items-center gap-1.5" title="Match by meaning, even with different wording">
+            <input
+              type="radio"
+              name="search-mode"
+              checked={mode === "vector"}
+              onChange={() => setMode("vector")}
+            />
+            Semantic
+          </label>
+        </div>
         {notebookId && (
           <label className="flex items-center gap-1.5">
             <input type="checkbox" checked={scoped} onChange={(e) => setScoped(e.target.checked)} />
@@ -170,8 +206,33 @@ export default function SearchView({
         )}
       </div>
 
+      <p className="sr-only" role="status">
+        {busy === "search"
+          ? "Searching…"
+          : busy === "ask"
+            ? "Writing an answer from your sources…"
+            : results
+              ? `${results.hits.length} passage${results.hits.length === 1 ? "" : "s"} and ${results.notes.length} note${results.notes.length === 1 ? "" : "s"} found.`
+              : answer
+                ? "Answer ready."
+                : ""}
+      </p>
+
+      {!results && !answer && !error && !busy && (
+        <p className="mt-8 max-w-xl text-[13px] leading-relaxed text-[var(--muted)]">
+          <span className="text-[var(--fg)]">Search</span> lists every passage and note that
+          matches{scope ? " in this notebook" : ", across all your notebooks"}.{" "}
+          <span className="text-[var(--fg)]">Ask</span>{" "}
+          writes one answer from the best matches, with numbered citations that open the
+          passage they came from.
+        </p>
+      )}
+
       {error && (
-        <div className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 px-4 py-3 text-sm text-red-300">
+        <div
+          role="alert"
+          className="mt-6 rounded-xl border border-red-900/60 bg-red-950/30 px-4 py-3 text-sm text-red-300"
+        >
           {error}
         </div>
       )}
@@ -234,8 +295,8 @@ export default function SearchView({
                 {results.notes.map((n) => (
                   <li key={n.id} className="card px-4 py-3">
                     <div className="flex items-center gap-2 text-[13px]">
-                      <span>{n.kind === "ai" ? "✨" : "🗒️"}</span>
-                      <Link className="font-medium hover:underline" href={`/notebook/${n.notebookId}`}>
+                      <span aria-hidden>{n.kind === "ai" ? "✨" : "🗒️"}</span>
+                      <Link className="font-medium hover:underline" href={noteHref(n.notebookId, n.id)}>
                         {n.title}
                       </Link>
                       <span className="text-[11px] text-dim">{n.notebookTitle}</span>

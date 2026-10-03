@@ -85,10 +85,11 @@ function Swatches({ colors }: { colors: MotionPalette }) {
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-center gap-2">
+    // A label element, so the control inside is announced with its row name.
+    <label className="flex items-center gap-2">
       <span className={LABEL}>{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 
@@ -245,6 +246,7 @@ export default function MotionCustomize({
                 className={`${INPUT} w-full`}
                 maxLength={MAX_CHARACTER_CHARS}
                 placeholder="e.g. a nurse in blue scrubs with a stethoscope"
+                aria-label="Describe the character"
                 value={value.characterDescription}
                 onChange={(e) => set("characterDescription", e.target.value)}
               />

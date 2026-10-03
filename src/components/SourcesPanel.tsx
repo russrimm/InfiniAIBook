@@ -231,9 +231,14 @@ export default function SourcesPanel({
   const active = jobs.filter((j) => !j.error);
 
   return (
-    <aside className="flex h-full min-h-0 flex-col bg-[var(--panel)]">
+    <aside
+      aria-labelledby="sources-heading"
+      className="flex h-full min-h-0 flex-col bg-[var(--panel)]"
+    >
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
-        <h2 className="text-sm font-semibold tracking-wide">Sources</h2>
+        <h2 id="sources-heading" className="text-sm font-semibold tracking-wide">
+          Sources
+        </h2>
         {sources.length > 0 && (
           <button
             className="text-xs text-[var(--muted)] transition hover:text-[var(--fg)]"
@@ -245,7 +250,8 @@ export default function SourcesPanel({
       </div>
 
       <div className="px-4 pb-3">
-        <div
+        <button
+          type="button"
           onDragOver={(e) => {
             e.preventDefault();
             setDragging(true);
@@ -257,18 +263,20 @@ export default function SourcesPanel({
             uploadFiles(e.dataTransfer.files);
           }}
           onClick={() => fileRef.current?.click()}
-          className={`cursor-pointer rounded-xl border border-dashed px-4 py-5 text-center transition ${
+          className={`block w-full cursor-pointer rounded-xl border border-dashed px-4 py-5 text-center transition ${
             dragging
               ? "border-[var(--accent)] bg-[rgba(124,140,255,0.06)]"
               : "border-[var(--border)] hover:border-line-hover hover:bg-[#161a21]"
           }`}
         >
-          <div className="mb-1 text-lg">📎</div>
-          <p className="text-xs font-medium">Drop files or click to upload</p>
-          <p className="mt-1 text-[11px] text-[var(--muted)]">
+          <span aria-hidden className="mb-1 block text-lg">
+            📎
+          </span>
+          <span className="block text-xs font-medium">Drop files or click to upload</span>
+          <span className="mt-1 block text-[11px] text-[var(--muted)]">
             PDF · DOCX · TXT · MD · CSV · HTML · audio/video (transcribed)
-          </p>
-        </div>
+          </span>
+        </button>
         <input
           ref={fileRef}
           type="file"
@@ -285,19 +293,31 @@ export default function SourcesPanel({
           <button
             className="btn !px-2 !py-1.5 !text-xs"
             onClick={() => setMode(mode === "url" ? "none" : "url")}
+            aria-expanded={mode === "url"}
+            title="Add a web page or YouTube link"
           >
-            🌐 Link
+            🔗 Link
           </button>
           <button
             className="btn !px-2 !py-1.5 !text-xs"
             onClick={() => setMode(mode === "text" ? "none" : "text")}
+            aria-expanded={mode === "text"}
+            title="Paste text as a source"
           >
             📝 Paste
           </button>
-          <button className="btn !px-2 !py-1.5 !text-xs" onClick={onDiscover}>
+          <button
+            className="btn !px-2 !py-1.5 !text-xs"
+            onClick={onDiscover}
+            title="Search the web for sources on a topic"
+          >
             🔎 Find
           </button>
-          <button className="btn !px-2 !py-1.5 !text-xs" onClick={onBrowse}>
+          <button
+            className="btn !px-2 !py-1.5 !text-xs"
+            onClick={onBrowse}
+            title="Browse the web and add pages as you go"
+          >
             🌐 Browse
           </button>
           <button
@@ -323,7 +343,9 @@ export default function SourcesPanel({
           >
             <input
               className="input"
+              inputMode="url"
               placeholder="https://example.com or a YouTube link"
+              aria-label="Link to add"
               value={urlValue}
               onChange={(e) => setUrlValue(e.target.value)}
               autoFocus
@@ -351,12 +373,14 @@ export default function SourcesPanel({
             <input
               className="input"
               placeholder="Title (optional)"
+              aria-label="Title (optional)"
               value={textTitle}
               onChange={(e) => setTextTitle(e.target.value)}
             />
             <textarea
               className="input h-28 resize-none"
               placeholder="Paste your text here…"
+              aria-label="Text to add"
               value={textValue}
               onChange={(e) => setTextValue(e.target.value)}
               autoFocus
@@ -427,10 +451,13 @@ export default function SourcesPanel({
                   className="mt-1 h-3.5 w-3.5 shrink-0 accent-[var(--accent)]"
                   checked={selected.has(s.id)}
                   onChange={() => onToggle(s.id)}
+                  aria-label={`Use “${s.title}” in chat and Studio`}
                 />
                 <button className="min-w-0 flex-1 text-left" onClick={() => onOpen(s.id)}>
                   <div className="flex items-start gap-1.5">
-                    <span className="shrink-0 text-sm">{ICONS[s.kind] ?? "📄"}</span>
+                    <span aria-hidden className="shrink-0 text-sm">
+                      {ICONS[s.kind] ?? "📄"}
+                    </span>
                     <span className="line-clamp-2 text-[13px] leading-snug font-medium">
                       {s.title}
                     </span>
@@ -456,7 +483,10 @@ export default function SourcesPanel({
       </div>
 
       {active.length > 0 && (
-        <div className="shrink-0 border-t border-[var(--border)] px-4 py-2 text-[11px] text-[var(--accent)]">
+        <div
+          role="status"
+          className="shrink-0 border-t border-[var(--border)] px-4 py-2 text-[11px] text-[var(--accent)]"
+        >
           Processing {active.length} source{active.length === 1 ? "" : "s"} — you can
           keep adding more.
         </div>
