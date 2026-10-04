@@ -1,5 +1,8 @@
 # Getting started
 
+> Never set up a Node.js app or an `.env` file before? Start with
+> [Install step by step](install-guide.md) instead.
+
 **Prerequisites**
 
 - **Node.js 22.13 or later** — the database uses the built-in `node:sqlite`.

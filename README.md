@@ -107,6 +107,10 @@ See the [full feature list](docs/features.md) for details.
 
 Requires **Node.js 22.13+** and a model provider.
 
+> **New to this?** Follow [Install step by step](docs/install-guide.md). It
+> explains every step on Windows and Mac, including how to create the settings
+> file, with no prior experience needed.
+
 ```bash
 npm install
 cp .env.example .env.local   # then configure a provider
