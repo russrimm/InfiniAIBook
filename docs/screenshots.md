@@ -4,6 +4,9 @@ Captured from the app with a fictional community-garden sample notebook, except
 the avatar training video at the end. Sources, chat responses, notes and
 artifacts shown here are prepared demo content.
 
+For an example of every Studio format, see
+[Studio examples](../README.md#studio-examples) in the README.
+
 ## Research workspace
 
 Sources, cited answers and Studio tools in one view. Expand citations to inspect

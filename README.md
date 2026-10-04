@@ -69,7 +69,8 @@ How it works, setup and costs: [Training videos](docs/training-videos.md).
   and get coached one step at a time, with the next control highlighted on a
   screenshot. Auto-watch notices when you have done a step and suggests the
   next. [More](docs/screen-helper.md)
-- **Studio** — fourteen generators, each producing a structured, interactive artifact:
+- **Studio** — fourteen generators, each producing a structured, interactive
+  artifact ([see an example of each](#studio-examples)):
 
   | Format | Output |
   |---|---|
@@ -102,6 +103,57 @@ How it works, setup and costs: [Training videos](docs/training-videos.md).
   media live under `.data/`. Password protection and a Docker image included.
 
 See the [full feature list](docs/features.md) for details.
+
+## Studio examples
+
+Every example below, except the training video, was generated from the same
+fictional notebook: four sources about a community-garden pilot (a project
+brief, a planting and water plan, volunteer workshop notes and a resident
+survey). The numbered badges are citations; hover or click one to see the
+passage it came from.
+
+### Documents
+
+| 📄 Report | 🧾 Briefing doc |
+|---|---|
+| ![Report with an executive summary, analysis sections, a comparison table and inline citations](docs/screenshots/studio/report.png) | ![One-page briefing with a bottom line, what the sources say, risks and caveats, and recommended next steps](docs/screenshots/studio/briefing.png) |
+| An in-depth write-up with an executive summary, analysis, tables, key takeaways and open questions | An executive one-pager: bottom line, evidence, risks and next steps |
+| **🎓 Study guide** | **❓ FAQ** |
+| ![Study guide with core concepts, a glossary table and short-answer questions](docs/screenshots/studio/study-guide.png) | ![FAQ with expandable questions and cited answers](docs/screenshots/studio/faq.png) |
+| Core concepts, a glossary, ten short-answer questions and an answer key | The questions the sources actually answer, as expandable items |
+| **🗓️ Timeline** | **📽️ [PowerPoint deck](docs/studio.md#powerpoint-deck)** |
+| ![Vertical timeline of the pilot from the February survey to the October lease decision](docs/screenshots/studio/timeline.png) | ![Slide preview with thumbnails and cited speaker notes](docs/screenshots/studio/powerpoint-deck.png) |
+| A dated chronology of the events in the sources | Slides with speaker notes and a sources slide; download as PPTX |
+
+### Visuals
+
+| 📊 [Infographic](docs/infographics.md) | 🕸️ [Mind map](docs/studio.md#mind-maps) |
+|---|---|
+| ![Illustrated infographic with headline numbers and grouped visual concepts](docs/screenshots/studio/infographic.png) | ![Fully expanded mind map with four color-coded branches](docs/screenshots/studio/mind-map.png) |
+| The *Illustrated* style, one of 33; see every style in the [style gallery](docs/infographics.md#style-gallery) | An expandable concept tree; export it as PNG |
+
+### Study
+
+| 🧠 [Quiz](docs/studio.md#quiz) | 🗂️ [Flashcards](docs/studio.md#flashcards) |
+|---|---|
+| ![Scored quiz showing 5 of 6 correct with a retry button and cited explanations](docs/screenshots/studio/quiz.png) | ![Flashcard deck in Browse all view with two cards marked got it and one marked missed](docs/screenshots/studio/flashcards.png) |
+| Scored multiple choice with cited explanations; retry only the ones you missed | Flip, self-grade and shuffle, or browse the deck as a list; export to Anki or Quizlet |
+
+### Audio & video
+
+Audio overviews, whiteboard videos and motion explainers stop at an
+**editable script** before anything is narrated or rendered, which is the stage
+shown here. Narrating and rendering need Azure Speech, and whiteboard and motion
+videos also need an image model and Python; see
+[Models and what they're used for](#models-and-what-theyre-used-for).
+
+| 🎧 [Audio overview](docs/audio-overviews.md) | 🎬 [Whiteboard video](docs/whiteboard-videos.md) |
+|---|---|
+| ![Audio overview script editor with two named hosts, voices, music and chaptered lines](docs/screenshots/studio/audio-overview.png) | ![Whiteboard video script with a caption, drawing description and narration for each scene](docs/screenshots/studio/whiteboard-video.png) |
+| A conversation between one to four speakers, with chapters; narrate it to MP3 | Six hand-drawn scenes, each with a caption, a drawing and narration; render to MP4 |
+| **🎞️ [Motion explainer](docs/motion-explainers.md)** | **🧑‍🏫 [Training video](docs/training-videos.md)** |
+| ![Motion explainer script with story beats, on-screen headlines, callout chips and narration](docs/screenshots/studio/motion-explainer.png) | [![A presenter on a slate background, with the subtitle "If you build or manage agents in Copilot Studio, the pace of change is fast"](docs/screenshots/training-video.jpg)](#sample-an-avatar-training-video) |
+| Problem, solution, how, benefits and a call to action, with headlines and callouts; render to MP4 | A lip-synced avatar presenter with timed slides; watch the 3:37 [sample above](#sample-an-avatar-training-video) |
 
 ## Quick start
 
