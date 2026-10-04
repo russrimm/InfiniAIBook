@@ -22,6 +22,8 @@ import {
 } from "@/lib/narration";
 import { notebookNarration } from "@/lib/narrationstore";
 import { normalizeMusicChoice } from "@/lib/musicchoice";
+import { normalizeComposition } from "@/lib/trainingvisuals";
+import { planTrainingVisuals } from "@/lib/trainingplan";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,6 +51,7 @@ export async function POST(req: Request) {
       length?: string;
       narration?: unknown;
       music?: unknown;
+      composition?: unknown;
     };
     const { notebookId, sourceIds } = body;
     const none = noSourcesSelected(sourceIds);
@@ -145,6 +148,10 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"}, keeping the same structure. ${
     const price = Number(process.env.AZURE_AVATAR_PRICE_PER_MINUTE);
     const id = nanoid(12);
     const replace = (s: string) => applyReplacements(s, narration.replacements);
+    const composition = normalizeComposition(body.composition ?? { mode: "presenter" });
+    if (composition.mode === "composed" && !composition.lowerThird.name) {
+      composition.lowerThird.name = preset.label.split(/[\s·]+/)[0] ?? "";
+    }
     const content: TrainingContent & { citations: ReturnType<typeof citationList> } = {
       title: replace(script.title),
       description: replace(script.description ?? ""),
@@ -159,8 +166,21 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"}, keeping the same structure. ${
       narration,
       musicChoice: normalizeMusicChoice(body.music),
       progress: { stage: "transcript" },
+      composition,
       citations: citationList(passages),
     };
+
+    if (composition.mode === "composed") {
+      try {
+        const cues = await planTrainingVisuals(notebookId, content);
+        content.sections = content.sections.map((s, i) => (cues[i]?.length ? { ...s, cues: cues[i] } : s));
+      } catch (e) {
+        // The transcript is the expensive part; visuals can be planned again from the editor.
+        console.warn("[training] visual planning failed", e);
+        content.progress.note =
+          "The visuals could not be planned automatically. Open Visuals and choose Plan visuals to try again.";
+      }
+    }
 
     const now = Date.now();
     db.prepare(

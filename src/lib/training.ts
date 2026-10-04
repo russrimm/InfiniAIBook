@@ -3,6 +3,7 @@ import { retrieve, sampleCorpus, type Passage } from "./retrieve";
 import { AUDIO_LENGTHS, PINNED_VOICES, type AudioLength } from "./voices";
 import { addBreaths } from "./prosody";
 import type { TrainingSection } from "./types";
+import { normalizeCues, type TrainingComposition } from "./trainingvisuals";
 
 /**
  * Training videos: one trainer, one script, rendered by a talking avatar.
@@ -145,14 +146,20 @@ export type TrainingScript = {
 export const MAX_SECTIONS = 12;
 export const MAX_SECTION_CHARS = 6000;
 
-export function normaliseSections(raw: unknown): TrainingSection[] {
+export function normaliseSections(
+  raw: unknown,
+  composition?: Pick<TrainingComposition, "defaultLayout" | "transition">
+): TrainingSection[] {
   return (Array.isArray(raw) ? raw : [])
     .map((s) => {
       const o = (s ?? {}) as Record<string, unknown>;
-      return {
+      const section: TrainingSection = {
         title: cleanSpoken(str(o.title)).slice(0, 80),
         text: cleanSpoken(str(o.text)).slice(0, MAX_SECTION_CHARS),
       };
+      const cues = normalizeCues(o.cues, composition, true);
+      if (cues.length) section.cues = cues;
+      return section;
     })
     .filter((s) => s.text)
     .slice(0, MAX_SECTIONS);

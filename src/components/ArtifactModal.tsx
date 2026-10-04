@@ -14,6 +14,7 @@ import SlideDeck from "./SlideDeck";
 import { STUDIO } from "@/lib/studio";
 import { buildPptx, slidesToMarkdown } from "@/lib/slides";
 import { scriptOf } from "@/lib/podcastscript";
+import { CUE_KIND_LABELS } from "@/lib/trainingvisuals";
 import type {
   Artifact,
   ArtifactType,
@@ -198,7 +199,12 @@ function toMarkdown(a: Artifact): string {
         ? `## Learning objectives\n\n${t.objectives!.map((o) => `- ${o}`).join("\n")}\n\n`
         : "";
       const body = t.sections
-        .map((s) => `## ${s.title || "Untitled section"}\n\n${s.text}`)
+        .map((s) => {
+          const visuals = (s.cues ?? []).length
+            ? `\n\n${s.cues!.map((q) => `> Visual: ${CUE_KIND_LABELS[q.kind]}${q.title ? ` — ${q.title}` : ""}, at “${q.anchor}”`).join("\n")}`
+            : "";
+          return `## ${s.title || "Untitled section"}\n\n${s.text}${visuals}`;
+        })
         .join("\n\n");
       return `${head}${t.description ? `${t.description}\n\n` : ""}${objectives}${body}\n`;
     }

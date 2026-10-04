@@ -12,6 +12,8 @@ import { STUDIO, STUDIO_SECTIONS, studioIcon, studioLabel } from "@/lib/studio";
 import { DEFAULT_SLIDE_THEME, SLIDE_THEMES } from "@/lib/slides";
 import { EMPTY_NARRATION, type NarrationSettings } from "@/lib/narration";
 import type { MusicChoice } from "@/lib/musicchoice";
+import { MOTION_PALETTES } from "@/lib/motion";
+import { DEFAULT_COMPOSITION } from "@/lib/trainingvisuals";
 import {
   DEFAULT_STYLE,
   DETAIL_LEVELS,
@@ -248,6 +250,10 @@ export default function StudioPanel({
   const [trainerVoice, setTrainerVoice] = useState(AVATAR_PRESETS[DEFAULT_PRESENTER].voice);
   const [trainingLen, setTrainingLen] = useState<AudioLength>("short");
   const [trainingBg, setTrainingBg] = useState(DEFAULT_BACKGROUND);
+  const [trainingMode, setTrainingMode] = useState<"composed" | "presenter">("composed");
+  const [trainingPalette, setTrainingPalette] = useState<keyof typeof MOTION_PALETTES>(
+    DEFAULT_COMPOSITION.palette
+  );
   const [running, setRunning] = useState<Set<ArtifactType>>(new Set());
   const [errors, setErrors] = useState<Partial<Record<ArtifactType, string>>>({});
   const previewAudio = useRef<HTMLAudioElement | null>(null);
@@ -399,6 +405,7 @@ export default function StudioPanel({
       length: trainingLen,
       narration: narrationFor("training"),
       music: music.training,
+      composition: { ...DEFAULT_COMPOSITION, mode: trainingMode, palette: trainingPalette },
     });
 
   const updateSpeaker = (i: number, patch: Partial<SpeakerConfig>) =>
@@ -760,7 +767,9 @@ export default function StudioPanel({
               <span className="block text-[13px] font-medium">Training video</span>
               <span className="block text-[10px] leading-snug text-[var(--muted)]">
                 {trainingBusy
-                  ? "Writing the transcript from your sources and notes…"
+                  ? trainingMode === "composed"
+                    ? "Writing the transcript and planning its visuals…"
+                    : "Writing the transcript from your sources and notes…"
                   : "A presenter teaches your research — review the script, then render"}
               </span>
             </span>
@@ -824,6 +833,33 @@ export default function StudioPanel({
                 {BACKGROUNDS.map((b) => (
                   <option key={b.value} value={b.value}>
                     {b.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                Style
+              </span>
+              <select
+                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                aria-label="Training video style"
+                value={trainingMode}
+                onChange={(e) => setTrainingMode(e.target.value as "composed" | "presenter")}
+              >
+                <option value="composed">Presenter with slides and visuals</option>
+                <option value="presenter">Presenter only</option>
+              </select>
+              <select
+                aria-label="Visual theme"
+                className="w-28 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:opacity-50"
+                value={trainingPalette}
+                disabled={trainingMode !== "composed"}
+                onChange={(e) => setTrainingPalette(e.target.value as keyof typeof MOTION_PALETTES)}
+              >
+                {(Object.keys(MOTION_PALETTES) as (keyof typeof MOTION_PALETTES)[]).map((k) => (
+                  <option key={k} value={k}>
+                    {MOTION_PALETTES[k].label}
                   </option>
                 ))}
               </select>
