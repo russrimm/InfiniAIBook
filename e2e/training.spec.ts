@@ -38,8 +38,10 @@ test("plans visuals with the transcript, edits one and previews it on the timeli
   const notebookId = await notebookWithSource(request);
   await page.goto(`/notebook/${notebookId}`);
 
-  await expect(page.getByLabel("Training video style")).toHaveValue("composed");
-  await page.locator("button", { hasText: "Training video" }).first().click();
+  const card = page.getByTestId("training-card");
+  await card.getByRole("button", { name: /^Options/ }).click();
+  await expect(card.getByLabel("Training video style")).toHaveValue("composed");
+  await card.getByRole("button", { name: "Generate Training video" }).click();
 
   const dialog = page.getByRole("dialog").last();
   const visualsTab = dialog.getByRole("tab", { name: "Visuals" });
@@ -85,7 +87,7 @@ test("draws every visual in the browser before handing the render to the avatar"
 }) => {
   const notebookId = await notebookWithSource(request);
   await page.goto(`/notebook/${notebookId}`);
-  await page.locator("button", { hasText: "Training video" }).first().click();
+  await page.getByRole("button", { name: "Generate Training video" }).click();
   const dialog = page.getByRole("dialog").last();
   await expect(dialog.getByRole("tab", { name: "Visuals" })).toBeVisible({ timeout: 30_000 });
 

@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "./Markdown";
+import GettingStarted from "./GettingStarted";
 import { useCitationHandler } from "./CitationContext";
 import { useDeferredDelete } from "./UndoToast";
 import type { ChatSession, Citation, Message, Source } from "@/lib/types";
@@ -24,6 +25,9 @@ export default function ChatPanel({
   initialMessages,
   sessions,
   onNoteSaved,
+  onAddSources,
+  onUseAll,
+  onOpenStudio,
 }: {
   notebookId: string;
   sources: Source[];
@@ -32,6 +36,10 @@ export default function ChatPanel({
   initialMessages: Message[];
   sessions: ChatSession[];
   onNoteSaved?: () => void;
+  /** Getting-started actions; each takes the user to the panel that does it. */
+  onAddSources?: () => void;
+  onUseAll?: () => void;
+  onOpenStudio?: () => void;
 }) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   /** null is a new, unsaved chat; the server creates it on the first question. */
@@ -83,17 +91,30 @@ export default function ChatPanel({
     }
   };
 
-  const renameSession = async () => {
+  /** The chat title being edited in place of the picker, or null. */
+  const [renaming, setRenaming] = useState<string | null>(null);
+  /** Set by Escape so the blur that follows does not save the edit. */
+  const cancelRename = useRef(false);
+
+  const renameSession = async (value: string) => {
+    setRenaming(null);
     const current = sessionList.find((s) => s.id === sessionId);
-    if (!current) return;
-    const title = window.prompt("Rename this chat", current.title)?.trim();
-    if (!title) return;
+    const title = value.trim();
+    if (!current || !title || title === current.title) return;
+    const restore = () =>
+      setSessionList((l) => l.map((s) => (s.id === current.id ? { ...s, title: current.title } : s)));
     setSessionList((l) => l.map((s) => (s.id === current.id ? { ...s, title } : s)));
-    await fetch(`/api/sessions/${current.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title }),
-    });
+    try {
+      const res = await fetch(`/api/sessions/${current.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      restore();
+      setError("That chat could not be renamed. Try again.");
+    }
   };
 
   const deleteCurrentSession = () => {
@@ -331,26 +352,55 @@ export default function ChatPanel({
   /** Sources exist but none is ticked: nothing to ground an answer in. */
   const noneSelected = !disabled && selectedIds.length === 0;
   const blocked = disabled || noneSelected;
+  /** No chat has ever been started here, so the getting-started steps still help. */
+  const firstRun = sessionList.length === 0;
 
   return (
     <section aria-label="Chat" className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-4 py-2 sm:px-8">
-        <select
-          aria-label="Chat"
-          className="input !h-8 min-w-0 flex-1 !py-0 text-[12px]"
-          value={sessionId ?? ""}
-          disabled={streaming}
-          onChange={(e) => void openSession(e.target.value || null)}
-        >
-          {!sessionId && <option value="">New chat</option>}
-          {sessionList
-            .filter((s) => !hiddenSessions.has(s.id))
-            .map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.title}
-              </option>
-            ))}
-        </select>
+        {renaming !== null ? (
+          <input
+            aria-label="Chat name"
+            className="input !h-8 min-w-0 flex-1 !py-0 text-[12px]"
+            value={renaming}
+            autoFocus
+            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => setRenaming(e.target.value)}
+            onBlur={(e) => {
+              if (cancelRename.current) {
+                cancelRename.current = false;
+                return;
+              }
+              void renameSession(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+              if (e.key === "Escape") {
+                // Handled here so Escape cancels the edit rather than closing anything else.
+                e.stopPropagation();
+                cancelRename.current = true;
+                setRenaming(null);
+              }
+            }}
+          />
+        ) : (
+          <select
+            aria-label="Chat"
+            className="input !h-8 min-w-0 flex-1 !py-0 text-[12px]"
+            value={sessionId ?? ""}
+            disabled={streaming}
+            onChange={(e) => void openSession(e.target.value || null)}
+          >
+            {!sessionId && <option value="">New chat</option>}
+            {sessionList
+              .filter((s) => !hiddenSessions.has(s.id))
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title}
+                </option>
+              ))}
+          </select>
+        )}
         <button
           className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
           disabled={streaming || !sessionId}
@@ -363,8 +413,11 @@ export default function ChatPanel({
           <>
             <button
               className="btn shrink-0 !px-2 !py-1 !text-[11px]"
-              disabled={streaming}
-              onClick={() => void renameSession()}
+              disabled={streaming || renaming !== null}
+              onClick={() => {
+                cancelRename.current = false;
+                setRenaming(sessionList.find((s) => s.id === sessionId)?.title ?? "");
+              }}
               title="Rename this chat"
               aria-label="Rename this chat"
             >
@@ -398,12 +451,21 @@ export default function ChatPanel({
               </div>
               <h2 className="text-lg font-medium">Ask your sources anything</h2>
               <p className="mx-auto mt-2 max-w-md text-sm text-[var(--muted)]">
-                {disabled
-                  ? "Add a source first — answers are grounded strictly in the documents you upload."
-                  : noneSelected
-                    ? "Select at least one source to chat — answers use only the sources you tick."
-                    : "Every answer is drawn only from your selected sources, with numbered citations that open the passage they came from."}
+                {blocked
+                  ? "Answers come only from your sources. Here is how to get started."
+                  : "Every answer is drawn only from your selected sources, with numbered citations that open the passage they came from."}
               </p>
+              {(blocked || firstRun) && (
+                <div className="mt-6">
+                  <GettingStarted
+                    sourceCount={sources.length}
+                    selectedCount={selectedIds.length}
+                    onAddSources={onAddSources}
+                    onUseAll={onUseAll}
+                    onOpenStudio={onOpenStudio}
+                  />
+                </div>
+              )}
               {!blocked && (
                 <div className="mx-auto mt-6 grid max-w-xl gap-2 sm:grid-cols-2">
                   {STARTERS.map((s) => (
@@ -525,8 +587,8 @@ export default function ChatPanel({
           )}
         </form>
         <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-dim">
-          {selectedIds.length} of {sources.length} sources in context · answers are
-          grounded in your documents only
+          Using {selectedIds.length} of {sources.length} source
+          {sources.length === 1 ? "" : "s"} · answers come only from these documents
         </p>
       </div>
     </section>

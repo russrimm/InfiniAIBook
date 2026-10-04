@@ -8,6 +8,7 @@ import MotionCustomize, {
 } from "@/components/MotionCustomize";
 import MusicPicker from "@/components/MusicPicker";
 import NarrationOptions from "@/components/NarrationOptions";
+import StudioCard from "@/components/StudioCard";
 import { STUDIO, STUDIO_SECTIONS, studioIcon, studioLabel } from "@/lib/studio";
 import { DEFAULT_SLIDE_THEME, SLIDE_THEMES } from "@/lib/slides";
 import { EMPTY_NARRATION, type NarrationSettings } from "@/lib/narration";
@@ -143,6 +144,7 @@ export default function StudioPanel({
   narrationDefaults,
   onSaveNarration,
   onDiscuss,
+  onShowSources,
 }: {
   notebookId: string;
   hasSources: boolean;
@@ -159,7 +161,10 @@ export default function StudioPanel({
   onSaveNarration?: (n: NarrationSettings) => Promise<NarrationSettings>;
   /** Open a live spoken discussion, starting from the focus box. */
   onDiscuss?: (focus: string) => void;
+  /** Take the user to the Sources panel when nothing can be generated yet. */
+  onShowSources?: () => void;
 }) {
+  const [view, setView] = useState<"create" | "library">("create");
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState<InfographicStyle>(DEFAULT_STYLE);
   const [orientation, setOrientation] = useState<InfographicOrientation>("landscape");
@@ -430,25 +435,154 @@ export default function StudioPanel({
     .map((s) => s.voice)
     .filter((voice, i, all) => all.indexOf(voice) !== i && all.lastIndexOf(voice) === i);
 
+  const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const deliveryLabel = { natural: "natural dialogue", even: "even delivery", pinned: "fixed voices" }[
+    delivery
+  ];
+  const audioSummary = `${
+    EPISODE_PROFILES.find((p) => p.key === episodeProfile)?.label ?? "Custom"
+  } · about ${AUDIO_LENGTHS[audioLen].minutes} min · ${
+    speed === 1 ? "normal speed" : `${speed}× speed`
+  } · ${deliveryLabel}`;
+  const extras = (t: SpokenType) =>
+    [music[t] ? "music" : "", narration[t].instructions.trim() ? "instructions" : ""]
+      .filter(Boolean)
+      .map((x) => ` · ${x}`)
+      .join("");
+
   return (
     <aside
       aria-labelledby="studio-heading"
       className="flex h-full min-h-0 flex-col bg-[var(--panel)]"
     >
       <div className="px-4 pt-4 pb-3">
-        <h2 id="studio-heading" className="text-sm font-semibold tracking-wide">
-          Studio
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 id="studio-heading" className="flex-1 text-sm font-semibold tracking-wide">
+            Studio
+          </h2>
+          <div
+            role="group"
+            aria-label="Studio view"
+            className="flex overflow-hidden rounded-lg border border-[var(--border)]"
+          >
+            {(["create", "library"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={view === v}
+                onClick={() => setView(v)}
+                className={`px-2.5 py-1 text-[11px] transition ${
+                  view === v
+                    ? "bg-hover text-[var(--fg)]"
+                    : "text-[var(--muted)] hover:text-[var(--fg)]"
+                }`}
+              >
+                {v === "create" ? "Create" : `Library (${artifacts.length})`}
+              </button>
+            ))}
+          </div>
+        </div>
         <p className="mt-1 text-[11px] text-[var(--muted)]">
-          Turn your sources into something you can actually use.
+          {view === "create"
+            ? "Turn your selected sources into reports, audio, video, visuals and study aids."
+            : "Everything generated in this notebook. Open one to read, play or export it."}
         </p>
       </div>
 
+      {running.size > 0 && (
+        <p
+          role="status"
+          className="mx-4 mb-3 flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-well px-3 py-2 text-[11px] text-[var(--muted)]"
+        >
+          <span
+            aria-hidden
+            className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[var(--accent)]"
+          />
+          <span>
+            Generating{" "}
+            {[...running].map((t) => studioLabel(t).toLowerCase()).join(", ")} in the
+            background. It opens when ready, and you can keep working meanwhile.
+          </span>
+        </p>
+      )}
+
+      {view === "library" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+          {artifacts.length === 0 ? (
+            <div className="card px-4 py-6 text-center text-[11px] leading-relaxed text-[var(--muted)]">
+              Nothing generated yet.
+              <div className="mt-3">
+                <button className="btn !px-2.5 !py-1 !text-[11px]" onClick={() => setView("create")}>
+                  Choose a format to create
+                </button>
+              </div>
+            </div>
+          ) : (
+            <ul className="space-y-1">
+              {artifacts.map((a) => (
+                <li
+                  key={a.id}
+                  className="group flex items-center gap-2 rounded-xl border border-transparent px-2 py-2 transition hover:border-[var(--border)] hover:bg-panel2"
+                >
+                  <span aria-hidden className="text-base">
+                    {studioIcon(a.type)}
+                  </span>
+                  <button
+                    className="min-w-0 flex-1 text-left disabled:opacity-60"
+                    onClick={() => onOpen(a)}
+                    disabled={openingId === a.id}
+                  >
+                    <div className="truncate text-[13px] font-medium">{a.title}</div>
+                    <div className="text-[10px] text-dim">
+                      {openingId === a.id
+                        ? "Opening…"
+                        : `${studioLabel(a.type)} · ${new Date(
+                            a.createdAt
+                          ).toLocaleString()}`}
+                    </div>
+                  </button>
+                  <button
+                    aria-label={`Delete ${a.title}`}
+                    className="reveal shrink-0 rounded px-1 text-xs text-[var(--muted)] transition hover:text-red-400"
+                    onClick={() => onRemove(a)}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : (
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+        {blocked && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-[var(--border)] bg-well px-3 py-2 text-[11px] text-[var(--muted)]">
+            <span className="flex-1">
+              {hasSources
+                ? "Tick at least one source to generate. Studio uses only the sources you tick."
+                : "Add a source to start creating. Everything here is built from your sources."}
+            </span>
+            {onShowSources && (
+              <button className="btn shrink-0 !px-2.5 !py-1 !text-[11px]" onClick={onShowSources}>
+                Go to Sources
+              </button>
+            )}
+          </div>
+        )}
+
+        <label
+          htmlFor="studio-focus"
+          className="mb-1 block text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase"
+        >
+          Focus{" "}
+          <span className="font-normal tracking-normal normal-case">
+            (optional): steers everything below
+          </span>
+        </label>
         <input
-          className="input mb-3"
-          aria-label="Optional focus for everything generated below"
-          placeholder="Optional focus, e.g. 'funding risks'"
+          id="studio-focus"
+          className="input mb-4"
+          placeholder="e.g. 'funding risks' or 'for new volunteers'"
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
         />
@@ -464,13 +598,14 @@ export default function StudioPanel({
               onClick={() => onDiscuss(topic)}
               className="card mb-4 flex w-full items-center gap-3 px-3 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <span className="text-xl">🎙️</span>
+              <span aria-hidden className="text-xl">🎙️</span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[13px] font-medium">Live discussion</span>
                 <span className="block text-[10px] leading-snug text-[var(--muted)]">
                   Talk it through out loud: discuss, debate, Q&amp;A, interview or quiz, with cited answers
                 </span>
               </span>
+              <span className="shrink-0 text-[11px] text-[var(--muted)]">Start →</span>
             </button>
           </>
         )}
@@ -478,31 +613,30 @@ export default function StudioPanel({
         <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
           Audio &amp; video
         </h3>
+        <p className="mb-2 text-[10px] leading-snug text-[var(--muted)]">
+          Each one stops at an editable script, so nothing is narrated or rendered until you
+          approve it.
+        </p>
 
-        <div
-          className={`card relative mb-2 overflow-hidden transition ${
-            audioBusy ? "shimmer border-[var(--accent)]" : ""
-          }`}
-        >
-          <button
-            disabled={blocked || audioBusy}
-            onClick={() => void generateAudio()}
-            className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <span className="text-xl">🎧</span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-medium">Audio overview</span>
-              <span className="block text-[10px] leading-snug text-[var(--muted)]">
-                {audioBusy
-                  ? `Writing a script for about ${AUDIO_LENGTHS[audioLen].minutes} minutes…`
-                  : speakers.length === 1
-                    ? "A solo narration explains your sources"
-                    : `${speakers.length} speakers discuss your sources`}
-              </span>
-            </span>
-          </button>
-
-          <div className="space-y-2 border-t border-[var(--border)] px-3 py-2">
+        <div className="space-y-2">
+        <StudioCard
+          icon="🎧"
+          label="Audio overview"
+          testId="audio-card"
+          busy={audioBusy}
+          blocked={blocked}
+          error={errors.podcast}
+          onGenerate={() => void generateAudio()}
+          status={
+            audioBusy
+              ? `Writing a script for about ${AUDIO_LENGTHS[audioLen].minutes} minutes…`
+              : speakers.length === 1
+                ? "A solo narration explains your sources"
+                : `${speakers.length} speakers discuss your sources`
+          }
+          summary={audioSummary + extras("podcast")}
+          options={
+            <>
             <div className="flex items-center gap-2">
               <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
                 Profile
@@ -511,7 +645,6 @@ export default function StudioPanel({
                 className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                 aria-label="Audio profile"
                 value={episodeProfile}
-                disabled={false}
                 onChange={(e) => applyEpisodeProfile(e.target.value)}
               >
                 {EPISODE_PROFILES.map((p) => (
@@ -549,7 +682,6 @@ export default function StudioPanel({
                       }`}
                       aria-label={`Speaker ${speaker.id} name`}
                       value={speaker.name}
-                      disabled={false}
                       onChange={(e) => updateSpeaker(i, { name: e.target.value })}
                     />
                     <input
@@ -557,7 +689,6 @@ export default function StudioPanel({
                       placeholder="Role/personality, e.g. skeptical economist"
                       aria-label={`Speaker ${speaker.id} role`}
                       value={speaker.role}
-                      disabled={false}
                       onChange={(e) => updateSpeaker(i, { role: e.target.value })}
                     />
                   </div>
@@ -573,7 +704,6 @@ export default function StudioPanel({
                 className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                 aria-label="Audio length"
                 value={audioLen}
-                disabled={false}
                 onChange={(e) => setAudioLen(e.target.value as AudioLength)}
               >
                 {(Object.keys(AUDIO_LENGTHS) as AudioLength[]).map((k) => (
@@ -592,7 +722,6 @@ export default function StudioPanel({
                 className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                 aria-label="Speaking speed"
                 value={speed}
-                disabled={false}
                 onChange={(e) => setSpeed(Number(e.target.value))}
               >
                 {RATE_CHOICES.map((r) => (
@@ -605,7 +734,6 @@ export default function StudioPanel({
                 className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
                 aria-label="Delivery"
                 value={delivery}
-                disabled={false}
                 onChange={(e) => setDelivery(e.target.value as Delivery)}
               >
                 <option value="natural">Natural dialogue</option>
@@ -649,34 +777,22 @@ export default function StudioPanel({
               defaults={defaults}
               onSaveDefault={onSaveNarration ? saveNarration : undefined}
             />
-            <p className="text-[10px] leading-snug text-[var(--muted)]">
-              You review and edit the script before anything is narrated.
-            </p>
-          </div>
-        </div>
+            </>
+          }
+        />
 
-        <div
-          className={`card relative mb-2 overflow-hidden transition ${
-            videoBusy ? "shimmer border-[var(--accent)]" : ""
-          }`}
-        >
-          <button
-            disabled={blocked || videoBusy}
-            onClick={() => void generateVideo()}
-            className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <span className="text-xl">🎬</span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-medium">Whiteboard video</span>
-              <span className="block text-[10px] leading-snug text-[var(--muted)]">
-                {videoBusy
-                  ? "Writing the scene plan…"
-                  : "A hand draws your sources, narrated — review the script, then render"}
-              </span>
-            </span>
-          </button>
-
-          <div className="space-y-2 border-t border-[var(--border)] px-3 py-2">
+        <StudioCard
+          icon="🎬"
+          label="Whiteboard video"
+          testId="whiteboard-card"
+          busy={videoBusy}
+          blocked={blocked}
+          error={errors.video}
+          onGenerate={() => void generateVideo()}
+          status={videoBusy ? "Writing the scene plan…" : "A hand draws your sources, narrated"}
+          summary={`Voice: ${narrator}${extras("video")}`}
+          options={
+            <>
             <div className="flex items-center gap-2">
               <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
                 Voice
@@ -689,10 +805,10 @@ export default function StudioPanel({
                 previewing={previewing}
                 loading={previewLoading}
               />
-              <span className="shrink-0 text-[10px] leading-snug text-[var(--muted)]">
-                Uses the focus box above
-              </span>
             </div>
+            {previewError && (
+              <p className="text-[10px] leading-snug text-red-300">{previewError}</p>
+            )}
             <MusicPicker value={music.video} onChange={setMusicFor("video")} />
             <NarrationOptions
               value={narration.video}
@@ -700,31 +816,22 @@ export default function StudioPanel({
               defaults={defaults}
               onSaveDefault={onSaveNarration ? saveNarration : undefined}
             />
-          </div>
-        </div>
+            </>
+          }
+        />
 
-        <div
-          className={`card relative mb-2 overflow-hidden transition ${
-            motionBusy ? "shimmer border-[var(--accent)]" : ""
-          }`}
-        >
-          <button
-            disabled={blocked || motionBusy}
-            onClick={() => void generateMotion()}
-            className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <span className="text-xl">{STUDIO.motion.icon}</span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-medium">Motion explainer</span>
-              <span className="block text-[10px] leading-snug text-[var(--muted)]">
-                {motionBusy
-                  ? "Writing the story…"
-                  : "An animated 2D story — review the script, then render"}
-              </span>
-            </span>
-          </button>
-
-          <div className="space-y-2 border-t border-[var(--border)] px-3 py-2">
+        <StudioCard
+          icon={STUDIO.motion.icon}
+          label="Motion explainer"
+          testId="motion-card"
+          busy={motionBusy}
+          blocked={blocked}
+          error={errors.motion}
+          onGenerate={() => void generateMotion()}
+          status={motionBusy ? "Writing the story…" : "An animated 2D story, narrated"}
+          summary={`Voice: ${motionNarrator} · length, tone, style and colors${extras("motion")}`}
+          options={
+            <>
             <div className="flex items-center gap-2">
               <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
                 Voice
@@ -737,10 +844,10 @@ export default function StudioPanel({
                 previewing={previewing}
                 loading={previewLoading}
               />
-              <span className="shrink-0 text-[10px] leading-snug text-[var(--muted)]">
-                Uses the focus box above
-              </span>
             </div>
+            {previewError && (
+              <p className="text-[10px] leading-snug text-red-300">{previewError}</p>
+            )}
             <MusicPicker value={music.motion} onChange={setMusicFor("motion")} />
             <NarrationOptions
               value={narration.motion}
@@ -749,33 +856,32 @@ export default function StudioPanel({
               onSaveDefault={onSaveNarration ? saveNarration : undefined}
             />
             <MotionCustomize value={motionForm} onChange={setMotionForm} />
-          </div>
-        </div>
+            </>
+          }
+        />
 
-        <div
-          className={`card relative mb-2 overflow-hidden transition ${
-            trainingBusy ? "shimmer border-[var(--accent)]" : ""
-          }`}
-        >
-          <button
-            disabled={blocked || trainingBusy}
-            onClick={() => void generateTraining()}
-            className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <span className="text-xl">{STUDIO.training.icon}</span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-medium">Training video</span>
-              <span className="block text-[10px] leading-snug text-[var(--muted)]">
-                {trainingBusy
-                  ? trainingMode === "composed"
-                    ? "Writing the transcript and planning its visuals…"
-                    : "Writing the transcript from your sources and notes…"
-                  : "A presenter teaches your research — review the script, then render"}
-              </span>
-            </span>
-          </button>
-
-          <div className="space-y-2 border-t border-[var(--border)] px-3 py-2">
+        <StudioCard
+          icon={STUDIO.training.icon}
+          label="Training video"
+          testId="training-card"
+          busy={trainingBusy}
+          blocked={blocked}
+          error={errors.training}
+          onGenerate={() => void generateTraining()}
+          status={
+            trainingBusy
+              ? trainingMode === "composed"
+                ? "Writing the transcript and planning its visuals…"
+                : "Writing the transcript from your sources and notes…"
+              : "A presenter teaches your sources and notes. Nothing is billed until you render."
+          }
+          summary={`${AVATAR_PRESETS[trainer]?.label ?? trainer} · ${trainerVoice} · about ${
+            AUDIO_LENGTHS[trainingLen].minutes
+          } min · ${trainingMode === "composed" ? "with slides" : "presenter only"}${extras(
+            "training"
+          )}`}
+          options={
+            <>
             <div className="flex items-center gap-2">
               <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
                 Trainer
@@ -872,10 +978,11 @@ export default function StudioPanel({
               onSaveDefault={onSaveNarration ? saveNarration : undefined}
             />
             <p className="text-[10px] leading-snug text-[var(--muted)]">
-              Uses the focus box, selected sources and all notes. Nothing is
-              billed for video until you press Render.
+              Uses the focus, selected sources and all notes.
             </p>
-          </div>
+            </>
+          }
+        />
         </div>
 
         {STUDIO_SECTIONS.map((section) => (
@@ -890,59 +997,53 @@ export default function StudioPanel({
           {section.types.map((type) => {
             const s = STUDIO[type];
             const isBusy = running.has(type);
+            const status = isBusy ? "Generating…" : s.blurb;
 
             if (type === "slides") {
               return (
-                <div
-                  key={type}
-                  className={`card relative col-span-2 overflow-hidden transition ${
-                    isBusy ? "shimmer border-[var(--accent)]" : ""
-                  }`}
-                >
-                  <button
-                    disabled={blocked || isBusy}
-                    onClick={() => void generate(type)}
-                    className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <span className="text-lg">{s.icon}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[13px] font-medium">{s.label}</span>
-                      <span className="block text-[10px] leading-snug text-[var(--muted)]">
-                        {isBusy ? "Generating…" : s.blurb}
-                      </span>
-                    </span>
-                  </button>
-
-                  <div className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-2">
-                    <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                      Theme
-                    </span>
-                    <select
-                      aria-label="Slide theme"
-                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                      value={slideTheme}
-                      onChange={(e) => setSlideTheme(e.target.value as SlideTheme)}
-                    >
-                      {(Object.keys(SLIDE_THEMES) as SlideTheme[]).map((k) => (
-                        <option key={k} value={k}>
-                          {SLIDE_THEMES[k].label}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                      Length
-                    </span>
-                    <select
-                      aria-label="Deck length"
-                      className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                      value={slideLength}
-                      onChange={(e) => setSlideLength(e.target.value as StudyLength)}
-                    >
-                      <option value="short">Short</option>
-                      <option value="standard">Standard</option>
-                      <option value="long">Long</option>
-                    </select>
-                  </div>
+                <div key={type} className="col-span-2">
+                  <StudioCard
+                    icon={s.icon}
+                    label={s.label}
+                    busy={isBusy}
+                    blocked={blocked}
+                    error={errors[type]}
+                    onGenerate={() => void generate(type)}
+                    status={status}
+                    summary={`${SLIDE_THEMES[slideTheme].label} theme · ${capitalize(slideLength)} length`}
+                    options={
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                          Theme
+                        </span>
+                        <select
+                          aria-label="Slide theme"
+                          className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                          value={slideTheme}
+                          onChange={(e) => setSlideTheme(e.target.value as SlideTheme)}
+                        >
+                          {(Object.keys(SLIDE_THEMES) as SlideTheme[]).map((k) => (
+                            <option key={k} value={k}>
+                              {SLIDE_THEMES[k].label}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                          Length
+                        </span>
+                        <select
+                          aria-label="Deck length"
+                          className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                          value={slideLength}
+                          onChange={(e) => setSlideLength(e.target.value as StudyLength)}
+                        >
+                          <option value="short">Short</option>
+                          <option value="standard">Standard</option>
+                          <option value="long">Long</option>
+                        </select>
+                      </div>
+                    }
+                  />
                 </div>
               );
             }
@@ -952,58 +1053,49 @@ export default function StudioPanel({
             // parked elsewhere in the panel read as global and get missed.
             if (s.study) {
               return (
-                <div
-                  key={type}
-                  className={`card relative col-span-2 overflow-hidden transition ${
-                    isBusy ? "shimmer border-[var(--accent)]" : ""
-                  }`}
-                >
-                  <button
-                    disabled={blocked || isBusy}
-                    onClick={() => void generate(type)}
-                    className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <span className="text-lg">{s.icon}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[13px] font-medium">{s.label}</span>
-                      <span className="block text-[10px] leading-snug text-[var(--muted)]">
-                        {isBusy ? "Generating…" : s.blurb}
-                      </span>
-                    </span>
-                  </button>
-
-                  <div className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-2">
-                    <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                      Level
-                    </span>
-                    <select
-                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                      aria-label="Difficulty level"
-                      value={difficulty}
-                      disabled={false}
-                      onChange={(e) =>
-                        setDifficulty(e.target.value as StudyDifficulty)
-                      }
-                    >
-                      <option value="easy">Easy</option>
-                      <option value="medium">Medium</option>
-                      <option value="hard">Hard</option>
-                    </select>
-                    <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                      Length
-                    </span>
-                    <select
-                      className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                      aria-label="Length"
-                      value={length}
-                      disabled={false}
-                      onChange={(e) => setLength(e.target.value as StudyLength)}
-                    >
-                      <option value="short">Short</option>
-                      <option value="standard">Standard</option>
-                      <option value="long">Long</option>
-                    </select>
-                  </div>
+                <div key={type} className="col-span-2">
+                  <StudioCard
+                    icon={s.icon}
+                    label={s.label}
+                    busy={isBusy}
+                    blocked={blocked}
+                    error={errors[type]}
+                    onGenerate={() => void generate(type)}
+                    status={status}
+                    summary={`${capitalize(difficulty)} level · ${capitalize(length)} length`}
+                    options={
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                          Level
+                        </span>
+                        <select
+                          className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                          aria-label="Difficulty level"
+                          value={difficulty}
+                          onChange={(e) =>
+                            setDifficulty(e.target.value as StudyDifficulty)
+                          }
+                        >
+                          <option value="easy">Easy</option>
+                          <option value="medium">Medium</option>
+                          <option value="hard">Hard</option>
+                        </select>
+                        <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                          Length
+                        </span>
+                        <select
+                          className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                          aria-label="Length"
+                          value={length}
+                          onChange={(e) => setLength(e.target.value as StudyLength)}
+                        >
+                          <option value="short">Short</option>
+                          <option value="standard">Standard</option>
+                          <option value="long">Long</option>
+                        </select>
+                      </div>
+                    }
+                  />
                 </div>
               );
             }
@@ -1020,164 +1112,164 @@ export default function StudioPanel({
                     : "text-[var(--muted)] hover:text-[var(--fg)]"
                 }`;
               return (
-                <div
-                  key={type}
-                  data-testid="infographic-card"
-                  className={`card relative col-span-2 overflow-hidden transition ${
-                    isBusy ? "shimmer border-[var(--accent)]" : ""
-                  }`}
-                >
-                  <button
-                    disabled={blocked || isBusy}
-                    onClick={() => void generate(type)}
-                    className="flex w-full items-center gap-3 px-3 pt-3 pb-2 text-left transition disabled:cursor-not-allowed disabled:opacity-40"
+                <div key={type} className="col-span-2">
+                  <StudioCard
+                    testId="infographic-card"
+                    icon={s.icon}
+                    label={s.label}
+                    busy={isBusy}
+                    blocked={blocked}
+                    error={errors[type]}
+                    onGenerate={() => void generate(type)}
+                    status={
+                      isBusy
+                        ? isImageStyle(style)
+                          ? "Writing the brief, then drawing it (about 2 minutes)…"
+                          : "Generating…"
+                        : s.blurb
+                    }
+                    summary={`${capitalize(orientation)} · ${capitalize(detail)} detail${
+                      instructions.trim() ? " · description added" : ""
+                    }`}
+                    options={
+                      <>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <button
+                            type="button"
+                            className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--muted)] transition hover:border-line-hover hover:text-[var(--fg)] disabled:opacity-40"
+                            disabled={blocked || suggesting}
+                            onClick={() => void suggestStyles()}
+                          >
+                            {suggesting ? "Reading your sources…" : "✨ Suggest styles for my sources"}
+                          </button>
+                          {suggestions?.map((sg) => (
+                            <button
+                              key={sg.style}
+                              type="button"
+                              title={sg.reason}
+                              onClick={() => setStyle(sg.style)}
+                              aria-pressed={style === sg.style}
+                              className={`rounded-full border px-2 py-0.5 text-[10px] transition ${
+                                style === sg.style
+                                  ? "border-[var(--accent)] text-[var(--fg)]"
+                                  : "border-[var(--border)] text-[var(--muted)] hover:border-line-hover hover:text-[var(--fg)]"
+                              }`}
+                            >
+                              {INFOGRAPHIC_STYLES[sg.style].icon} {INFOGRAPHIC_STYLES[sg.style].label}
+                            </button>
+                          ))}
+                        </div>
+                        {suggestError && (
+                          <p className="text-[10px] text-red-400">{suggestError}</p>
+                        )}
+                        {suggestions && suggestions.length > 0 && (
+                          <p className="text-[10px] leading-snug text-[var(--muted)]">
+                            {suggestions.find((sg) => sg.style === style)?.reason ??
+                              "Hover a suggestion to see why it fits."}
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                            Shape
+                          </span>
+                          <div
+                            role="radiogroup"
+                            aria-label="Orientation"
+                            className="flex overflow-hidden rounded-md border border-[var(--border)]"
+                          >
+                            {ORIENTATIONS.map((o) => (
+                              <button
+                                key={o.key}
+                                type="button"
+                                role="radio"
+                                aria-checked={orientation === o.key}
+                                title={o.label}
+                                onClick={() => setOrientation(o.key)}
+                                className={segment(orientation === o.key)}
+                              >
+                                <span aria-hidden>{o.icon}</span> {o.label}
+                              </button>
+                            ))}
+                          </div>
+                          <label className="flex min-w-[9rem] flex-1 items-center gap-2">
+                            <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                              Detail
+                            </span>
+                            <select
+                              aria-label="Level of detail"
+                              className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                              value={detail}
+                              onChange={(e) => setDetail(e.target.value as InfographicDetail)}
+                            >
+                              {DETAIL_LEVELS.map((d) => (
+                                <option key={d.key} value={d.key}>
+                                  {d.label} — {d.blurb}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+
+                        <div>
+                          <button
+                            type="button"
+                            aria-expanded={describeOpen}
+                            onClick={() => setDescribeOpen((v) => !v)}
+                            className="flex w-full items-center gap-1.5 text-left text-[10px] tracking-wide text-[var(--muted)] uppercase hover:text-[var(--fg)]"
+                          >
+                            <span aria-hidden>{describeOpen ? "▾" : "▸"}</span>
+                            Describe the infographic you want
+                            {instructions.trim() && !describeOpen && (
+                              <span className="ml-auto normal-case">· added</span>
+                            )}
+                          </button>
+                          {describeOpen && (
+                            <>
+                              <textarea
+                                aria-label="Describe the infographic you want"
+                                rows={3}
+                                maxLength={MAX_INFOGRAPHIC_INSTRUCTIONS}
+                                value={instructions}
+                                onChange={(e) => setInstructions(e.target.value)}
+                                placeholder="e.g. For new volunteers. Focus on costs and the weekly schedule. Keep the tone upbeat."
+                                className="mt-1.5 w-full resize-y rounded-md border border-[var(--border)] bg-well px-2 py-1.5 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                              />
+                              <p className="mt-0.5 text-right text-[10px] text-[var(--muted)]">
+                                {instructions.length}/{MAX_INFOGRAPHIC_INSTRUCTIONS} · steers focus and
+                                tone; facts still come only from your sources
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      </>
+                    }
                   >
-                    <span className="text-lg">{s.icon}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[13px] font-medium">{s.label}</span>
-                      <span className="block text-[10px] leading-snug text-[var(--muted)]">
-                        {isBusy
-                          ? isImageStyle(style)
-                            ? "Writing the brief, then drawing it (about 2 minutes)…"
-                            : "Generating…"
-                          : `${chosen.icon} ${chosen.label} · ${orientation} · ${detail}`}
-                      </span>
-                    </span>
-                  </button>
-
-                  <div className="border-t border-[var(--border)] px-3 py-2">
-                    <button
-                      type="button"
-                      onClick={() => setGalleryOpen(true)}
-                      aria-label={`Style: ${chosen.label}. Browse all ${STYLE_ORDER.length} styles with examples`}
-                      className="group flex w-full items-center gap-2.5 rounded-md border border-[var(--border)] bg-well p-1.5 text-left transition hover:border-line-hover"
-                    >
-                      <span className="w-[5.5rem] shrink-0 overflow-hidden rounded border border-[var(--border)]">
-                        <ScaledExample style={style} crop />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-medium">
-                          {chosen.icon} {chosen.label}
-                        </span>
-                        <span className="block text-[10px] leading-snug text-[var(--muted)]">
-                          {STYLE_META[style].bestFor}
-                        </span>
-                        <span className="mt-0.5 block text-[10px] text-[var(--accent)] group-hover:underline">
-                          See examples of all {STYLE_ORDER.length} styles →
-                        </span>
-                      </span>
-                    </button>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {/* The style is the main choice, so it stays in view. */}
+                    <div className="border-t border-[var(--border)] px-3 py-2">
                       <button
                         type="button"
-                        className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--muted)] transition hover:border-line-hover hover:text-[var(--fg)] disabled:opacity-40"
-                        disabled={blocked || suggesting}
-                        onClick={() => void suggestStyles()}
+                        onClick={() => setGalleryOpen(true)}
+                        aria-label={`Style: ${chosen.label}. Browse all ${STYLE_ORDER.length} styles with examples`}
+                        className="group flex w-full items-center gap-2.5 rounded-md border border-[var(--border)] bg-well p-1.5 text-left transition hover:border-line-hover"
                       >
-                        {suggesting ? "Reading your sources…" : "✨ Suggest styles for my sources"}
+                        <span className="w-[5.5rem] shrink-0 overflow-hidden rounded border border-[var(--border)]">
+                          <ScaledExample style={style} crop />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-medium">
+                            {chosen.icon} {chosen.label}
+                          </span>
+                          <span className="block text-[10px] leading-snug text-[var(--muted)]">
+                            {STYLE_META[style].bestFor}
+                          </span>
+                          <span className="mt-0.5 block text-[10px] text-[var(--accent)] group-hover:underline">
+                            See examples of all {STYLE_ORDER.length} styles →
+                          </span>
+                        </span>
                       </button>
-                      {suggestions?.map((sg) => (
-                        <button
-                          key={sg.style}
-                          type="button"
-                          title={sg.reason}
-                          onClick={() => setStyle(sg.style)}
-                          aria-pressed={style === sg.style}
-                          className={`rounded-full border px-2 py-0.5 text-[10px] transition ${
-                            style === sg.style
-                              ? "border-[var(--accent)] text-[var(--fg)]"
-                              : "border-[var(--border)] text-[var(--muted)] hover:border-line-hover hover:text-[var(--fg)]"
-                          }`}
-                        >
-                          {INFOGRAPHIC_STYLES[sg.style].icon} {INFOGRAPHIC_STYLES[sg.style].label}
-                        </button>
-                      ))}
                     </div>
-                    {suggestError && (
-                      <p className="mt-1 text-[10px] text-red-400">{suggestError}</p>
-                    )}
-                    {suggestions && suggestions.length > 0 && (
-                      <p className="mt-1 text-[10px] leading-snug text-[var(--muted)]">
-                        {suggestions.find((sg) => sg.style === style)?.reason ??
-                          "Hover a suggestion to see why it fits."}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] px-3 py-2">
-                    <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                      Shape
-                    </span>
-                    <div
-                      role="radiogroup"
-                      aria-label="Orientation"
-                      className="flex overflow-hidden rounded-md border border-[var(--border)]"
-                    >
-                      {ORIENTATIONS.map((o) => (
-                        <button
-                          key={o.key}
-                          type="button"
-                          role="radio"
-                          aria-checked={orientation === o.key}
-                          title={o.label}
-                          onClick={() => setOrientation(o.key)}
-                          className={segment(orientation === o.key)}
-                        >
-                          <span aria-hidden>{o.icon}</span> {o.label}
-                        </button>
-                      ))}
-                    </div>
-                    <label className="flex min-w-[9rem] flex-1 items-center gap-2">
-                      <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                        Detail
-                      </span>
-                      <select
-                        aria-label="Level of detail"
-                        className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                        value={detail}
-                        onChange={(e) => setDetail(e.target.value as InfographicDetail)}
-                      >
-                        {DETAIL_LEVELS.map((d) => (
-                          <option key={d.key} value={d.key}>
-                            {d.label} — {d.blurb}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className="border-t border-[var(--border)] px-3 py-2">
-                    <button
-                      type="button"
-                      aria-expanded={describeOpen}
-                      onClick={() => setDescribeOpen((v) => !v)}
-                      className="flex w-full items-center gap-1.5 text-left text-[10px] tracking-wide text-[var(--muted)] uppercase hover:text-[var(--fg)]"
-                    >
-                      <span aria-hidden>{describeOpen ? "▾" : "▸"}</span>
-                      Describe the infographic you want
-                      {instructions.trim() && !describeOpen && (
-                        <span className="ml-auto normal-case">· added</span>
-                      )}
-                    </button>
-                    {describeOpen && (
-                      <>
-                        <textarea
-                          aria-label="Describe the infographic you want"
-                          rows={3}
-                          maxLength={MAX_INFOGRAPHIC_INSTRUCTIONS}
-                          value={instructions}
-                          onChange={(e) => setInstructions(e.target.value)}
-                          placeholder="e.g. For new volunteers. Focus on costs and the weekly schedule. Keep the tone upbeat."
-                          className="mt-1.5 w-full resize-y rounded-md border border-[var(--border)] bg-well px-2 py-1.5 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                        />
-                        <p className="mt-0.5 text-right text-[10px] text-[var(--muted)]">
-                          {instructions.length}/{MAX_INFOGRAPHIC_INSTRUCTIONS} · steers focus and
-                          tone; facts still come only from your sources
-                        </p>
-                      </>
-                    )}
-                  </div>
+                  </StudioCard>
 
                   {galleryOpen && (
                     <InfographicGallery
@@ -1194,98 +1286,39 @@ export default function StudioPanel({
             }
 
             return (
-              <button
-                key={type}
-                disabled={blocked || isBusy}
-                onClick={() => void generate(type)}
-                className={`card group relative overflow-hidden px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                  isBusy ? "shimmer border-[var(--accent)]" : "hover:border-line-hover"
-                }`}
-              >
-                <div className="mb-1.5 text-lg">{s.icon}</div>
-                <div className="text-[13px] font-medium">{s.label}</div>
-                <div className="mt-0.5 text-[10px] leading-snug text-[var(--muted)]">
-                  {isBusy ? "Generating…" : s.blurb}
-                </div>
-              </button>
+              <div key={type} className="flex flex-col">
+                <button
+                  disabled={blocked || isBusy}
+                  onClick={() => void generate(type)}
+                  aria-label={`Generate ${s.label}`}
+                  className={`card group relative flex flex-1 flex-col overflow-hidden px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                    isBusy ? "shimmer border-[var(--accent)]" : "hover:border-line-hover"
+                  }`}
+                >
+                  <div aria-hidden className="mb-1.5 text-lg">{s.icon}</div>
+                  <div className="text-[13px] font-medium">{s.label}</div>
+                  <div className="mt-0.5 flex-1 text-[10px] leading-snug text-[var(--muted)]">
+                    {status}
+                  </div>
+                  {!isBusy && (
+                    <div className="mt-2 text-[10px] font-medium text-[var(--muted)] transition group-hover:text-[var(--fg)]">
+                      Generate →
+                    </div>
+                  )}
+                </button>
+                {errors[type] && (
+                  <p role="alert" className="mt-1 px-1 text-[10px] leading-snug text-red-300">
+                    {errors[type]}
+                  </p>
+                )}
+              </div>
             );
           })}
         </div>
         </section>
         ))}
-
-        {blocked && (
-          <p className="mt-3 text-[11px] text-[var(--muted)]">
-            {hasSources
-              ? "Select at least one source to generate."
-              : "Add a source to unlock the studio."}
-          </p>
-        )}
-        {Object.entries(errors).map(([type, message]) => (
-          <p key={type} className="mt-3 text-xs text-red-400">
-            <span className="font-medium">
-              {studioLabel(type)}:
-            </span>{" "}
-            {message}
-          </p>
-        ))}
-
-        {running.size > 0 && (
-          <p className="mt-3 flex items-center gap-1.5 text-[11px] text-[var(--muted)]">
-            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
-            Generating{" "}
-            {[...running]
-              .map((t) => studioLabel(t).toLowerCase())
-              .join(", ")}{" "}
-            in the background — carry on using the rest of the notebook.
-          </p>
-        )}
-
-        <div className="mt-6">
-          <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
-            Generated
-          </h3>
-          {artifacts.length === 0 ? (
-            <p className="text-[11px] text-[var(--muted)]">
-              Nothing yet. Pick a format above.
-            </p>
-          ) : (
-            <ul className="space-y-1">
-              {artifacts.map((a) => (
-                <li
-                  key={a.id}
-                  className="group flex items-center gap-2 rounded-xl border border-transparent px-2 py-2 transition hover:border-[var(--border)] hover:bg-panel2"
-                >
-                  <span className="text-base">
-                    {studioIcon(a.type)}
-                  </span>
-                  <button
-                    className="min-w-0 flex-1 text-left disabled:opacity-60"
-                    onClick={() => onOpen(a)}
-                    disabled={openingId === a.id}
-                  >
-                    <div className="truncate text-[13px] font-medium">{a.title}</div>
-                    <div className="text-[10px] text-dim">
-                      {openingId === a.id
-                        ? "Opening…"
-                        : `${studioLabel(a.type)} · ${new Date(
-                            a.createdAt
-                          ).toLocaleString()}`}
-                    </div>
-                  </button>
-                  <button
-                    aria-label={`Delete ${a.title}`}
-                    className="reveal shrink-0 rounded px-1 text-xs text-[var(--muted)] transition hover:text-red-400"
-                    onClick={() => onRemove(a)}
-                  >
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
       </div>
+      )}
     </aside>
   );
 }

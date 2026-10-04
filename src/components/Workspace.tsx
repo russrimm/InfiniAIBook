@@ -248,6 +248,12 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     if (notebookTitle) document.title = `${notebookTitle} — InfiniAIBook`;
   }, [notebookTitle]);
 
+  /** Bring the Sources panel into view and put focus on its upload control. */
+  const showSources = () => {
+    setTab("sources");
+    setTimeout(() => document.getElementById("add-sources")?.focus(), 0);
+  };
+
   const selectedIds = [...selected].filter((id) => !hidden.has(id));
   const visibleSourceCount = data ? data.sources.filter((s) => !hidden.has(s.id)).length : 0;
   const allSelected = data ? selectedIds.length === visibleSourceCount : false;
@@ -403,7 +409,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         <span aria-live="polite" className="hidden shrink-0 text-xs text-[var(--muted)] sm:block">
           {checkingSources
             ? "Checking links…"
-            : `${selectedIds.length}/${sources.length} sources in context`}
+            : `Using ${selectedIds.length} of ${sources.length} source${sources.length === 1 ? "" : "s"}`}
         </span>
         <div className="ml-auto flex shrink-0 items-center gap-3">
           <Link
@@ -432,12 +438,12 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             <span className="hidden max-w-[10rem] truncate md:inline">{model}</span>
           </button>
           <button
-            aria-label="About InfiniAIBook"
-            title="About"
+            aria-label="Help and about"
+            title="Help & about"
             className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
             onClick={() => setAboutOpen(true)}
           >
-            ⓘ
+            <span aria-hidden>?</span> <span className="hidden md:inline">Help</span>
           </button>
         </div>
       </header>
@@ -522,6 +528,12 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             initialMessages={data.messages}
             sessions={data.sessions ?? []}
             onNoteSaved={() => void load()}
+            onAddSources={showSources}
+            onUseAll={() => setSelected(new Set(sources.map((s) => s.id)))}
+            onOpenStudio={() => {
+              setRight("studio");
+              setTab("studio");
+            }}
           />
         </div>
 
@@ -581,6 +593,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
                 return saved;
               }}
               onDiscuss={(focus) => setDiscussing({ focus })}
+              onShowSources={showSources}
             />
           </div>
           <div

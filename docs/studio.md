@@ -5,9 +5,19 @@ videos have their own pages: [Infographic styles](infographics.md),
 [Audio overviews](audio-overviews.md), [Whiteboard videos](whiteboard-videos.md),
 [Motion explainers](motion-explainers.md) and [Training videos](training-videos.md).
 
-The Studio panel is grouped into **Audio & video**, **Documents** (report,
-briefing, study guide, FAQ, timeline and PowerPoint deck), **Visuals**
-(infographic and mind map) and **Study** (quiz and flashcards).
+The Studio panel has two views. **Create** lists the formats, grouped into
+**Audio & video**, **Documents** (report, briefing, study guide, FAQ, timeline
+and PowerPoint deck), **Visuals** (infographic and mind map) and **Study** (quiz
+and flashcards). **Library** lists everything already generated in the
+notebook; open an item to read, play or export it.
+
+Every format uses only the sources you have ticked, steered by the optional
+**Focus** box at the top of Create. Formats with settings fold them behind
+**Options ▸**, which shows a one-line summary of the current choices while it is
+closed; nothing starts until you press **Generate**. A job runs in the
+background, a status line at the top of Studio says what is running, and the
+result opens when it is ready. If a job fails, the error appears on that
+format's card.
 
 ## Spoken formats: script review, instructions and music
 

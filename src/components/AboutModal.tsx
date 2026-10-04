@@ -3,6 +3,45 @@
 import { AUTHOR, GITHUB_URL, LINKEDIN_URL, MIT_LICENSE, REPO_URL } from "@/lib/about";
 import { useDialog } from "./useDialog";
 
+const DOCS = `${REPO_URL}/blob/main/docs`;
+
+/** The core loop and where things live, in the order a new user meets them. */
+const HELP: { title: string; body: string; doc?: string }[] = [
+  {
+    title: "1. Add sources",
+    body: "Open or create a notebook, then upload files, add a link, paste text, search or browse the web, or reuse a source from another notebook.",
+    doc: "sources.md",
+  },
+  {
+    title: "2. Choose which sources to use",
+    body: "Tick sources in the Sources panel. Chat and Studio use only the ticked ones, and the header shows how many are in use.",
+  },
+  {
+    title: "3. Ask in Chat",
+    body: "Answers come only from your sources. Numbered citations open the exact passage. Save a good answer to Notes.",
+    doc: "grounding.md",
+  },
+  {
+    title: "4. Create in Studio",
+    body: "Pick a format, adjust its Options if you like, and press Generate. Results appear in Studio's Library. Audio and video stop at an editable script before anything is narrated or rendered.",
+    doc: "studio.md",
+  },
+  {
+    title: "Notes and transformations",
+    body: "Notes sit beside Studio. Transformations are reusable prompts. Open a source and choose Transform to run one; the result becomes a note.",
+    doc: "notes-and-search.md",
+  },
+  {
+    title: "Search, live discussion and screen helper",
+    body: "Search finds and answers across every notebook. Live discussion lets you talk your sources through out loud. Screen helper coaches you through any app, one step at a time.",
+    doc: "features.md",
+  },
+  {
+    title: "Mistakes are recoverable",
+    body: "Deleted sources, notes, chats, artifacts and notebooks can be restored for 8 seconds from the Undo prompt.",
+  },
+];
+
 export default function AboutModal({ onClose }: { onClose: () => void }) {
   const { dialogRef, backdropProps } = useDialog(onClose);
 
@@ -25,7 +64,8 @@ export default function AboutModal({ onClose }: { onClose: () => void }) {
               InfiniAIBook
             </h2>
             <p className="text-[11px] text-[var(--muted)]">
-              A self-hosted research notebook for grounded notes, chat and Studio artifacts.
+              Help and about: a self-hosted research notebook for grounded chat, notes and
+              Studio artifacts.
             </p>
           </div>
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={onClose}>
@@ -34,7 +74,38 @@ export default function AboutModal({ onClose }: { onClose: () => void }) {
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          <p className="text-sm text-[#d7dee8]">Created by {AUTHOR}</p>
+          <section aria-labelledby="help-title">
+            <h3 id="help-title" className="text-[13px] font-semibold">
+              How InfiniAIBook works
+            </h3>
+            <ul className="mt-2 space-y-2">
+              {HELP.map((h) => (
+                <li key={h.title} className="rounded-xl border border-[var(--border)] px-3 py-2">
+                  <p className="text-[13px] font-medium">{h.title}</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-[var(--muted)]">
+                    {h.body}
+                    {h.doc && (
+                      <>
+                        {" "}
+                        <a
+                          className="text-[var(--accent)] underline-offset-2 hover:underline"
+                          href={`${DOCS}/${h.doc}`}
+                          aria-label={`Learn more: ${h.title.replace(/^\d+\.\s*/, "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Learn more
+                        </a>
+                      </>
+                    )}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <h3 className="mt-5 text-[13px] font-semibold">About</h3>
+          <p className="mt-1 text-sm text-[#d7dee8]">Created by {AUTHOR}</p>
           <div className="mt-3 flex flex-wrap gap-2 text-[13px]">
             <a className="btn !text-[12px]" href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer">
               LinkedIn
@@ -47,13 +118,14 @@ export default function AboutModal({ onClose }: { onClose: () => void }) {
             </a>
           </div>
 
-          <section className="mt-5">
-            <h3 className="text-[13px] font-semibold">License</h3>
-            <p className="mt-1 text-[12px] text-[var(--muted)]">MIT License</p>
+          <details className="mt-5">
+            <summary className="cursor-pointer text-[13px] font-semibold">
+              License <span className="font-normal text-[var(--muted)]">· MIT</span>
+            </summary>
             <pre className="mt-2 max-h-80 overflow-auto rounded-xl border border-[var(--border)] bg-[#0b0d12] p-3 text-[11px] leading-relaxed whitespace-pre-wrap text-prose-soft">
               {MIT_LICENSE}
             </pre>
-          </section>
+          </details>
         </div>
       </div>
     </div>

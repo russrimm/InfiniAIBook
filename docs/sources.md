@@ -21,7 +21,7 @@ Files over 50 MB (`MAX_UPLOAD_BYTES`) are refused before they are sent. A
 source and all of its chunks are written in one transaction, so an interrupted
 upload never leaves a half-indexed source behind.
 
-### Discover (🔎 Find)
+### Discover (🔎 Search web)
 
 Describe a topic and InfiniAIBook searches the web, then lets you choose which
 pages to add — checkboxes, snippets, and a link to preview each one first.
@@ -38,7 +38,7 @@ Two things make the results usable rather than noisy:
   import**, sorted last, and left out of the default selection. Pages already in
   the notebook are marked and cannot be added twice.
 
-### Built-in browser (🌐 Browse)
+### Built-in browser (🌐 Browse web)
 
 An address bar, the page, and **Add to sources**. It tells you when a page is
 already a source in this notebook rather than letting you add it twice.

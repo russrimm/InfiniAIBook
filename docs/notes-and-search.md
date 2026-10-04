@@ -4,7 +4,7 @@
 
 The bar above the chat lists every conversation in the notebook. **＋ New**
 starts a fresh one (created on its first question and named after it), ✎
-renames and 🗑 deletes. Follow-up context only comes from the session you are
+renames it in place (Enter saves, Escape cancels) and 🗑 deletes. Follow-up context only comes from the session you are
 in, so an unrelated question in a new session is not colored by an old thread.
 Chat history from before sessions existed is kept as "Earlier conversation".
 
@@ -25,7 +25,8 @@ A transformation is a named prompt applied to one source at a time. Eight
 ship built in — Dense summary, Key insights, Analyze paper, Explain simply,
 Table of contents, Reflection questions, Glossary and Action items — and
 **⚙ Transformations** in the Notes panel lets you add, edit and delete your
-own. Results are grounded and cited like everything else.
+own. To run one, open a source and choose it under **Transform**; the result is
+saved as a note. Results are grounded and cited like everything else.
 
 ## Search and Ask
 
@@ -38,6 +39,6 @@ From inside a notebook you can tick *Only this notebook* to narrow it.
 
 ## Reusing sources across notebooks
 
-**📚 Library** in the Sources panel lists sources from your other notebooks.
+**📚 From other notebooks** in the Sources panel lists sources from your other notebooks.
 Picked ones are copied with their text, summary and embeddings, so nothing is
 fetched or embedded again and the copy is independent afterwards.

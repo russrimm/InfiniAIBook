@@ -6,7 +6,7 @@ word by word, stat cards count up, and scenes change with wipes and slides. A
 narrator tells the story over it, and an optional music bed plays underneath.
 
 By default it is a seven-scene, flat-vector video at 720p with a friendly
-narrator. Everything about that can be changed under **Customize** on the card:
+narrator. Everything about that can be changed under **Options ▸** → **Customize** on the card:
 see [Customizing a video](#customizing-a-video).
 
 The **focus box** at the top of the Studio panel steers it, like every other
@@ -48,7 +48,7 @@ naming real brands, logos or people.
 
 ## Customizing a video
 
-Open **Customize** on the Motion explainer card. Every control is optional. The
+Open **Options ▸** → **Customize** on the Motion explainer card. Every control is optional. The
 header lists whatever differs from the defaults, and **Reset** puts them all
 back.
 

@@ -14,7 +14,7 @@ two steps, so nothing is billed for video until you are happy with the script.
    service. The finished file is saved locally and plays in the artifact;
    **MP4** in the header downloads it.
 
-The card's **Style** picks one of two kinds of video:
+The card's **Style** (under **Options ▸**) picks one of two kinds of video:
 
 - **Presenter with slides and visuals** (the default). Title cards, bullet
   points, key numbers, quotes, knowledge checks, AI pictures, screenshots and
