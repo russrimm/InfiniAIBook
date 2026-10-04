@@ -15,6 +15,7 @@ type Ctx = { params: Promise<{ id: string }> };
  * (0-based). Replaces the cues it plans; the transcript is untouched.
  */
 export async function POST(req: Request, { params }: Ctx) {
+  const started = Date.now();
   try {
     const { id } = await params;
     const t = loadTraining(id);
@@ -32,7 +33,8 @@ export async function POST(req: Request, { params }: Ctx) {
       return NextResponse.json({ error: "No such section." }, { status: 400 });
     }
 
-    const cues = await planTrainingVisuals(t.notebookId, t.content, only);
+    // Pictures are found while there is time left in the request; the rest at render.
+    const cues = await planTrainingVisuals(t.notebookId, t.content, only, { pictureDeadline: started + 200_000 });
     const next = {
       ...t.content,
       sections: t.content.sections.map((s, i) => {

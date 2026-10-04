@@ -4,8 +4,9 @@ import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode }
 import Infographic from "./Infographic";
 import type { MotionPalette } from "@/lib/motion";
 import type { InfographicContent } from "@/lib/types";
-import type { TrainingCue } from "@/lib/trainingvisuals";
+import { TEXT_PICTURE_KINDS, type TrainingCue } from "@/lib/trainingvisuals";
 import { cueBullets, type RasterJob } from "@/lib/trainingtimeline";
+import { casedCue, fixCase, type CaseVocabulary } from "@/lib/slidecase";
 
 /**
  * Every picture a composed training video shows, drawn at its exact pixel
@@ -26,6 +27,8 @@ export type VisualContext = {
   sectionCount?: number;
   lowerName?: string;
   lowerRole?: string;
+  /** How the script writes its names, so slide text is capitalized to match. */
+  vocab?: CaseVocabulary;
 };
 
 type Props = {
@@ -37,6 +40,8 @@ type Props = {
   cue?: TrainingCue;
   ctx: VisualContext;
   infographic?: InfographicContent | null;
+  /** Square corners, for a card drawn inside another one. */
+  flat?: boolean;
 };
 
 const FONT = `var(--font-geist-sans), "Segoe UI", system-ui, sans-serif`;
@@ -109,11 +114,86 @@ function FitInfographic({ content, width, height }: { content: InfographicConten
   );
 }
 
-export default function TrainingVisual({ role, width, height, state, palette: p, cue, ctx, infographic }: Props) {
+/**
+ * A visual's picture. Screenshots are shown whole, over a blurred copy of
+ * themselves so the spare space is not a flat bar; illustrations fill the area.
+ */
+export function Picture({
+  cue,
+  palette: p,
+  u,
+  credit = true,
+}: {
+  cue: TrainingCue;
+  palette: MotionPalette;
+  u: number;
+  /** Show where the picture came from. */
+  credit?: boolean;
+}) {
+  const shot = cue.kind === "screenshot" || Boolean(cue.imageCredit);
+  const src = `/api/image/${cue.imageId}`;
+  const alt = cue.caption || cue.title || (shot ? "Screenshot" : "Illustration");
+  // Plain <img>s: the rasterizer needs the bytes inline, which next/image would not give it.
+  return (
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden", background: shot ? "#0f141b" : p.dark }}>
+      {shot && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt=""
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            filter: `blur(${Math.max(6, u * 3)}px) brightness(0.55)`,
+            transform: "scale(1.15)",
+          }}
+        />
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        style={{
+          position: "absolute",
+          inset: shot ? u * 3 : 0,
+          width: shot ? `calc(100% - ${u * 6}px)` : "100%",
+          height: shot ? `calc(100% - ${u * 6}px)` : "100%",
+          objectFit: shot ? "contain" : "cover",
+          display: "block",
+        }}
+      />
+      {credit && cue.imageCredit && (
+        <div
+          style={{
+            position: "absolute",
+            top: u * 1.6,
+            right: u * 1.6,
+            padding: `${u * 0.5}px ${u * 1.2}px`,
+            borderRadius: u * 0.8,
+            background: "rgba(10,12,16,0.72)",
+            color: "#f4f6f8",
+            fontSize: Math.max(10, u * 2.2),
+            fontWeight: 600,
+            letterSpacing: 0.2,
+          }}
+        >
+          {cue.imageCredit}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function TrainingVisual({ role, width, height, state, palette: p, cue: rawCue, ctx, infographic, flat }: Props) {
   const u = height / 100;
   const wide = width / height;
   // The narrow side panel needs smaller type than the wide one.
   const t = Math.min(1, wide / 1.55) * u;
+  const fx = (s: string | undefined) => fixCase(s, ctx.vocab);
 
   if (role === "intro" || role === "outro" || role === "section") {
     const eyebrow =
@@ -122,9 +202,9 @@ export default function TrainingVisual({ role, width, height, state, palette: p,
         : role === "outro"
           ? "Session complete"
           : `Part ${(ctx.sectionIndex ?? 0) + 1} of ${ctx.sectionCount ?? 1}`;
-    const heading = role === "section" ? ctx.sectionTitle || "Next" : ctx.title;
+    const heading = fx(role === "section" ? ctx.sectionTitle || "Next" : ctx.title);
     const sub =
-      role === "intro" ? ctx.description : role === "outro" ? "Thank you for learning with us." : undefined;
+      role === "intro" ? fx(ctx.description) : role === "outro" ? "Thank you for learning with us." : undefined;
     return (
       <Frame
         width={width}
@@ -195,7 +275,37 @@ export default function TrainingVisual({ role, width, height, state, palette: p,
     );
   }
 
-  if (!cue) return <Frame width={width} height={height}><span /></Frame>;
+  if (!rawCue) return <Frame width={width} height={height} radius={!flat}><span /></Frame>;
+  const cue = casedCue(rawCue, ctx.vocab);
+
+  // Text visuals with a picture: the picture beside the words on a wide panel,
+  // above them on the narrower side panel.
+  if (cue.imageId && TEXT_PICTURE_KINDS.includes(cue.kind)) {
+    const beside = wide >= 1.5;
+    const pw = beside ? Math.round(width * 0.45) : width;
+    const ph = beside ? height : Math.round(height * 0.42);
+    const tw = beside ? width - pw : width;
+    const th = beside ? height : height - ph;
+    return (
+      <Frame width={width} height={height} radius={!flat} style={{ background: p.light }}>
+        <div style={{ position: "absolute", left: beside ? tw : 0, top: 0, width: pw, height: ph }}>
+          <Picture cue={cue} palette={p} u={u} />
+        </div>
+        <div style={{ position: "absolute", left: 0, top: beside ? 0 : ph, width: tw, height: th }}>
+          <TrainingVisual
+            role="cue"
+            width={tw}
+            height={th}
+            state={state}
+            palette={p}
+            cue={{ ...cue, imageId: undefined }}
+            ctx={ctx}
+            flat
+          />
+        </div>
+      </Frame>
+    );
+  }
 
   const card: CSSProperties = {
     background: p.light,
@@ -226,6 +336,7 @@ export default function TrainingVisual({ role, width, height, state, palette: p,
         <Frame
           width={width}
           height={height}
+          radius={!flat}
           style={{
             ...card,
             background: `linear-gradient(140deg, ${p.dark}, ${p.primary})`,
@@ -242,11 +353,11 @@ export default function TrainingVisual({ role, width, height, state, palette: p,
 
     case "bullets":
     case "objectives": {
-      const bullets = cueBullets(cue, ctx.objectives);
+      const bullets = cueBullets(cue, ctx.objectives.map((o) => fx(o) ?? o));
       const numbered = cue.kind === "objectives";
       const size = bullets.length <= 3 ? 7 : bullets.length <= 5 ? 6 : 5.2;
       return (
-        <Frame width={width} height={height} style={{ ...card, justifyContent: "center" }}>
+        <Frame width={width} height={height} radius={!flat} style={{ ...card, justifyContent: "center" }}>
           {accentBar}
           {heading(cue.title ?? (numbered ? "What you will learn" : undefined), numbered ? "Learning objectives" : undefined)}
           <div style={{ marginTop: u * 6, display: "flex", flexDirection: "column", gap: u * 4.2 }}>
@@ -293,7 +404,7 @@ export default function TrainingVisual({ role, width, height, state, palette: p,
 
     case "stat":
       return (
-        <Frame width={width} height={height} style={{ ...card, justifyContent: "center", alignItems: "center", textAlign: "center" }}>
+        <Frame width={width} height={height} radius={!flat} style={{ ...card, justifyContent: "center", alignItems: "center", textAlign: "center" }}>
           {accentBar}
           {cue.title && <div style={{ fontSize: t * 4.4, fontWeight: 650, color: p.primary, marginBottom: u * 2 }}>{cue.title}</div>}
           <div style={{ fontSize: t * 24, fontWeight: 800, color: p.accent, lineHeight: 1, letterSpacing: -t * 0.4 }}>
@@ -305,7 +416,7 @@ export default function TrainingVisual({ role, width, height, state, palette: p,
 
     case "quote":
       return (
-        <Frame width={width} height={height} style={{ ...card, justifyContent: "center", background: p.dark, color: p.light }}>
+        <Frame width={width} height={height} radius={!flat} style={{ ...card, justifyContent: "center", background: p.dark, color: p.light }}>
           <div style={{ fontSize: t * 24, lineHeight: 0.6, color: p.accent, fontWeight: 800, height: t * 10 }}>“</div>
           <div style={{ fontSize: t * 6.4, fontWeight: 620, lineHeight: 1.3 }}>{cue.quote?.text}</div>
           {cue.quote?.attribution && (
@@ -316,7 +427,7 @@ export default function TrainingVisual({ role, width, height, state, palette: p,
 
     case "check":
       return (
-        <Frame width={width} height={height} style={{ ...card, justifyContent: "center" }}>
+        <Frame width={width} height={height} radius={!flat} style={{ ...card, justifyContent: "center" }}>
           {accentBar}
           {heading(undefined, "Knowledge check")}
           <div style={{ fontSize: t * 6.4, fontWeight: 700, lineHeight: 1.25, marginTop: u * 2.5 }}>{cue.question}</div>
@@ -346,15 +457,9 @@ export default function TrainingVisual({ role, width, height, state, palette: p,
     case "screenshot": {
       const shot = cue.kind === "screenshot";
       return (
-        <Frame width={width} height={height} style={{ background: shot ? "#0f141b" : p.dark }}>
+        <Frame width={width} height={height} radius={!flat} style={{ background: shot ? "#0f141b" : p.dark }}>
           {cue.imageId ? (
-            // A plain <img>: the rasterizer needs the bytes inline, which next/image would not give it.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`/api/image/${cue.imageId}`}
-              alt={cue.caption || cue.title || (shot ? "Screenshot" : "Illustration")}
-              style={{ width: "100%", height: "100%", objectFit: shot ? "contain" : "cover", display: "block" }}
-            />
+            <Picture cue={cue} palette={p} u={u} />
           ) : (
             <div
               style={{
@@ -399,7 +504,7 @@ export default function TrainingVisual({ role, width, height, state, palette: p,
 
     case "infographic":
       return (
-        <Frame width={width} height={height} style={{ background: "#0e1116" }}>
+        <Frame width={width} height={height} radius={!flat} style={{ background: "#0e1116" }}>
           {infographic ? (
             <FitInfographic content={infographic} width={width} height={height} />
           ) : (
@@ -411,6 +516,6 @@ export default function TrainingVisual({ role, width, height, state, palette: p,
       );
 
     default:
-      return <Frame width={width} height={height}><span /></Frame>;
+      return <Frame width={width} height={height} radius={!flat}><span /></Frame>;
   }
 }

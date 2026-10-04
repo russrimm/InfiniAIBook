@@ -11,6 +11,7 @@
  * normalizers share one implementation and can be unit-tested.
  */
 import { MOTION_PALETTES, type MotionPalette } from "./motion";
+import { caseVocabulary, casedCue } from "./slidecase";
 
 export const CUE_KINDS = [
   "title",
@@ -38,6 +39,16 @@ export const CUE_KIND_LABELS: Record<CueKind, string> = {
   infographic: "Infographic",
   presenter: "Back to presenter",
 };
+
+/** Text visuals that show a picture beside their words when they have one. */
+export const TEXT_PICTURE_KINDS: readonly CueKind[] = ["title", "objectives", "bullets", "stat", "quote", "check"];
+
+export const cueTakesPicture = (cue: Pick<TrainingCue, "kind">) =>
+  cue.kind === "image" || TEXT_PICTURE_KINDS.includes(cue.kind);
+
+/** A visual still without its picture that says how to find or draw one. */
+export const cueNeedsPicture = (cue: TrainingCue) =>
+  cueTakesPicture(cue) && !cue.imageId && Boolean(cue.imageQuery || cue.imagePrompt);
 
 /** Where the presenter sits while a cue is on screen. */
 export const LAYOUTS = ["presenter", "side-left", "side-right", "pip", "full"] as const;
@@ -108,6 +119,12 @@ export type TrainingCue = {
   /** Picture served from /api/image/:id — uploaded, captured or generated. */
   imageId?: string;
   imagePrompt?: string;
+  /** Microsoft Learn search that finds a real screenshot for this visual. */
+  imageQuery?: string;
+  /** Where a found picture came from, shown on the slide ("Microsoft Learn"). */
+  imageCredit?: string;
+  /** The found picture's original address, so a video does not use it twice. */
+  imageSource?: string;
   caption?: string;
   /** Slow push-in on pictures. */
   kenBurns?: boolean;
@@ -266,6 +283,14 @@ export function normalizeCue(
   if (isId(o.imageId)) cue.imageId = o.imageId;
   const prompt = str(o.imagePrompt, 600);
   if (prompt) cue.imagePrompt = prompt;
+  const query = str(o.imageQuery, 120);
+  if (query) cue.imageQuery = query;
+  if (cue.imageId) {
+    const credit = str(o.imageCredit, 60);
+    if (credit) cue.imageCredit = credit;
+    const source = str(o.imageSource, 400);
+    if (/^https:\/\/[^\s"'<>]+$/i.test(source)) cue.imageSource = source;
+  }
   if (kind === "image" || kind === "screenshot") cue.kenBurns = o.kenBurns !== false;
   if (keepEmpty) return cue;
 
@@ -287,7 +312,7 @@ export function normalizeCue(
       if (!cue.title) return null;
       break;
     case "image":
-      if (!cue.imageId && !cue.imagePrompt) return null;
+      if (!cue.imageId && !cue.imagePrompt && !cue.imageQuery) return null;
       break;
   }
   return cue;
@@ -419,7 +444,7 @@ export function TRAINING_VISUALS_INSTRUCTION(opts: {
     `"quote" — a memorable line or attributed quotation: quote {text, attribution}`,
     `"check" — a knowledge-check question: question, answer, answerAnchor`,
     ...(opts.images
-      ? [`"image" — an illustrative picture: imagePrompt (describe a clean, text-free illustration), caption`]
+      ? [`"image" — an illustrative picture: imagePrompt (describe a clean, text-free illustration), imageQuery, caption`]
       : []),
     ...(opts.infographics.length
       ? [`"infographic" — show one of the notebook's infographics listed below: infographicId, title`]
@@ -446,7 +471,7 @@ Schema:
       "stat": { "value": string, "label": string },
       "quote": { "text": string, "attribution": string },
       "question": string, "answer": string, "answerAnchor": string,
-      "imagePrompt": string, "infographicId": string, "caption": string
+      "imageQuery": string, ${opts.images ? `"imagePrompt": string, ` : ""}"infographicId": string, "caption": string
     }]
   }]
 }
@@ -454,6 +479,21 @@ Include only the fields a kind uses.
 
 KINDS
 ${kinds.map((k) => `- ${k}`).join("\n")}
+
+PICTURES
+Every "title", "objectives", "bullets", "stat", "quote" and "check" visual is
+shown beside a picture of the idea it teaches, so give each of them:
+- "imageQuery": when the idea concerns a Microsoft product, service, portal or
+  admin center, a 3-8 word Microsoft Learn search that would find a
+  documentation page with a screenshot of exactly that (for example "create
+  agent Copilot Studio portal"). Otherwise "".${
+    opts.images
+      ? `
+- "imagePrompt": one sentence describing a clean, text-free illustration of
+  the idea, used when no screenshot is found. Concrete subjects, no words,
+  letters or logos in the picture.`
+      : ""
+  }
 
 LAYOUTS
 - "side-left": presenter on the left, visual on the right. The default for teaching.
@@ -482,6 +522,12 @@ CONTENT
 - Knowledge check: one "check" per question.
 - Every word on screen must come from the script. Never add facts, numbers or
   names the presenter does not say. Bullets are 2-7 words, titles 2-6 words.
+- Capitalize on-screen text as a professionally edited slide would, even when
+  the words come from mid-sentence: sentence case, so titles, bullets, labels,
+  captions, questions and answers start with a capital letter, and product
+  names, proper nouns and acronyms are written exactly as the script writes
+  them ("Copilot Studio", "Azure", "AI"). Never write on-screen text in all
+  lowercase. Anchors are still copied exactly.
 - US English. No citation markers, emoji or markdown.${
     opts.infographics.length
       ? `\n\nNOTEBOOK INFOGRAPHICS (use the id exactly)\n${opts.infographics
@@ -509,6 +555,7 @@ export function normalizeVisualPlan(
   const out: TrainingCue[][] = sections.map(() => []);
   const list = (raw && typeof raw === "object" ? (raw as { sections?: unknown }).sections : null) ?? [];
   if (!Array.isArray(list)) return out;
+  const vocab = caseVocabulary(sections.map((s) => s.text));
   list.forEach((entry, pos) => {
     const e = (entry ?? {}) as Record<string, unknown>;
     const n = Number(e.section);
@@ -528,8 +575,18 @@ export function normalizeVisualPlan(
       }
       if (r.kind === "infographic" && !opts.infographicIds.includes(String(r.infographicId))) continue;
       if (r.kind === "screenshot") continue;
-      const cue = normalizeCue(r, opts.composition);
-      if (!cue) continue;
+      // Pictures are found or drawn later; the model cannot name one.
+      delete r.imageId;
+      delete r.imageCredit;
+      delete r.imageSource;
+      if (!opts.images) delete r.imagePrompt;
+      const normalized = normalizeCue(r, opts.composition);
+      if (!normalized) continue;
+      const cue = casedCue(normalized, vocab);
+      if (!cueTakesPicture(cue)) {
+        delete cue.imageQuery;
+        if (cue.kind !== "image") delete cue.imagePrompt;
+      }
       const m = findAnchor(text, cue.anchor, words);
       if (!m) continue;
       if (cue.bullets) {

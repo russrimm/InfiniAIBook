@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import TrainingVisual, { type VisualContext } from "./TrainingVisual";
+import TrainingVisual, { Picture, type VisualContext } from "./TrainingVisual";
 import type { MotionPalette } from "@/lib/motion";
 import type { InfographicContent } from "@/lib/types";
 import { CUE_KIND_LABELS, type TrainingCue } from "@/lib/trainingvisuals";
@@ -60,14 +60,76 @@ function cueLook(q: TimelineCue, t: number, reduced: boolean) {
   return { opacity, dx, scale, clip };
 }
 
-/** A presenter stand-in at the avatar's framing: centered, head high, cut at the waist. */
-function Placeholder({ color }: { color: string }) {
+/**
+ * Where the presenter will stand, until their clip is rendered: one of the
+ * section's pictures, framed where the avatar's body sits, so the preview
+ * shows the topic rather than a silhouette.
+ */
+function StandIn({ cue, palette, u }: { cue: TrainingCue | null; palette: MotionPalette; u: number }) {
   return (
-    <svg viewBox="0 0 1280 720" width="100%" height="100%" aria-hidden>
-      <ellipse cx="640" cy="215" rx="78" ry="92" fill={color} opacity="0.9" />
-      <path d="M470 720 C470 470 540 360 640 360 C740 360 810 470 810 720 Z" fill={color} opacity="0.75" />
-    </svg>
+    <div
+      style={{
+        position: "absolute",
+        left: "30%",
+        top: "14%",
+        width: "40%",
+        height: "86%",
+        borderRadius: "16px 16px 0 0",
+        overflow: "hidden",
+        background: `linear-gradient(160deg, ${palette.primary}, ${palette.dark})`,
+        boxShadow: "0 18px 40px rgba(0,0,0,0.35)",
+      }}
+    >
+      {cue?.imageId && <Picture cue={cue} palette={palette} u={u} credit={false} />}
+      {u > 4 && (
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: u * 3,
+            transform: "translateX(-50%)",
+            whiteSpace: "nowrap",
+            padding: `${u * 0.8}px ${u * 1.8}px`,
+            borderRadius: 999,
+            background: "rgba(10,12,16,0.72)",
+            color: "#f4f6f8",
+            fontSize: u * 2.5,
+            fontWeight: 600,
+          }}
+        >
+          Presenter appears here once rendered
+        </div>
+      )}
+    </div>
   );
+}
+
+/**
+ * The picture for the stand-in at time `t`: one not on screen right now, from
+ * the current section when it has one, preferring the most recent.
+ */
+function standInCue(
+  cues: TimelineCue[],
+  cueById: Map<string, TrainingCue>,
+  t: number,
+  section: number | undefined
+): TrainingCue | null {
+  const showing = new Set(
+    cues
+      .filter((q) => t >= q.start && t < q.end + CUE_OUT_S)
+      .map((q) => cueById.get(q.id)?.imageId)
+      .filter(Boolean)
+  );
+  const pool = cues.filter((q) => {
+    const id = cueById.get(q.id)?.imageId;
+    return id && !showing.has(id);
+  });
+  if (!pool.length) return null;
+  const here = pool.filter((q) => q.section === section);
+  const from = here.length ? here : pool;
+  const before = from.filter((q) => q.start <= t).at(-1);
+  const pick = before ?? from.reduce((a, b) => (Math.abs(b.start - t) < Math.abs(a.start - t) ? b : a));
+  return cueById.get(pick.id) ?? null;
 }
 
 export default function TrainingPreview({
@@ -274,7 +336,11 @@ export default function TrainingPreview({
                       style={{ width: "100%", height: "100%" }}
                     />
                   ) : (
-                    <Placeholder color={palette.light} />
+                    <StandIn
+                      cue={standInCue(tl.cues, cueById, t, section.index)}
+                      palette={palette}
+                      u={(0.86 * H * pose.scale) / 100}
+                    />
                   )}
                 </div>
               )}

@@ -60,6 +60,22 @@ around it on one timeline:
   number, quote, knowledge check, AI image (drawn on demand by the image model),
   screenshot or picture (upload, paste or capture a screen), and any of the
   notebook's infographics.
+- **A picture on every slide.** Title cards, objectives, bullet points, key
+  numbers, quotes and knowledge checks show a picture of the idea beside their
+  words: above them on the side panel, beside them on a wide one. When the idea
+  concerns a Microsoft product, the planner writes a Microsoft Learn search and
+  a real screenshot is taken from the matching Learn article, credited
+  "Microsoft Learn" on the slide. Otherwise, or when Learn has nothing
+  suitable, the image model draws an illustration from the planner's
+  description. Pictures are found while the visuals are planned, as time
+  allows; **Add pictures to N visuals** on the **Visuals** and **Preview** tabs
+  fills the rest, and rendering does too. Each visual's editor can search Learn
+  again (**Find another**), draw, upload or remove its picture. A slide whose
+  search and drawing both fail shows its words alone.
+- **Capitalization.** On-screen text is shown as an edited slide would be:
+  sentence case, with product names and acronyms written the way the script
+  writes them ("Copilot Studio", "AI"), even when the planner copied the words
+  in lowercase from mid-sentence. Text is only ever capitalized, never lowered.
 - **Transitions.** Cut, fade, slide in, wipe or zoom, plus a slow push-in on
   pictures.
 - **Design.** The **Design** tab sets the theme colors, the default layout and
@@ -82,15 +98,17 @@ The editor has four tabs:
 The preview costs nothing. It times the speech by synthesizing each sentence
 with the presenter's own standard neural voice through the ordinary speech
 endpoint, which costs a fraction of a cent per video and is cached. It plays
-that voice under the visuals with a stand-in silhouette for the presenter. Once
-the presenter has been rendered, the preview plays the real transparent
-presenter clips instead. Without Azure Speech configured, timing is estimated
-from the word count and the preview is silent.
+that voice under the visuals. Until the presenter has been rendered, the spot
+where they will stand shows one of the section's pictures, labeled "Presenter
+appears here once rendered". Once the presenter has been rendered, the preview
+plays the real transparent presenter clips instead. Without Azure Speech
+configured, timing is estimated from the word count and the preview is silent.
 
 ### How it renders
 
-1. **Visuals are drawn in the browser.** Pictures that have a description but
-   no image yet are generated. Then every visual, and every build step of
+1. **Visuals are drawn in the browser.** Visuals still without their picture
+   get one first: a Microsoft Learn screenshot, or a generated illustration.
+   Then every visual, and every build step of
    bullets and knowledge checks, is drawn as a PNG at its exact size by the same
    components the preview shows, and uploaded. Only visuals that changed since
    the last render are drawn again.
@@ -185,7 +203,7 @@ Optional settings:
 | `AZURE_AVATAR_BACKGROUND_URL` | A public image shown behind the presenter instead of the chosen color (presenter-only videos) |
 | `AZURE_AVATAR_PRICE_PER_MINUTE` | Shows an estimated cost in the editor before rendering |
 | `AZURE_AVATAR_CONCURRENCY` | Section clips of a composed video rendered at once (default 2, at most 8) |
-| `TRAINING_IMAGES` | Set to `off` to stop the visual planner proposing AI images |
+| `TRAINING_IMAGES` | Set to `off` to stop the visual planner proposing AI images and drawing illustrations for slides. Microsoft Learn screenshots are still found |
 
 ## Presenters and voices
 

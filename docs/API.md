@@ -158,6 +158,7 @@ and cannot be edited or deleted.
 | GET, PUT | `/api/training/{id}/raster` | `GET` → `{ missing: [{ key, state }] }` visuals still to draw; `PUT { key, state, dataUrl }` stores one PNG |
 | POST | `/api/training/{id}/assets` | `{ dataUrl }` (PNG) → `{ imageId, url }` for screenshots, pictures and logos |
 | POST | `/api/training/{id}/assets/generate` | `{ prompt }` → `{ imageId, url }` drawn by the image model |
+| POST | `/api/training/{id}/assets/find` | `{ query?, prompt?, exclude? }` → `{ imageId, url, credit?, source? }`: a Microsoft Learn screenshot for `query`, else an illustration drawn from `prompt`; 404 when neither fits. Screenshots already in the video or in `exclude` are skipped |
 | GET | `/api/training/{id}/infographics` | The notebook's infographics, for infographic visuals |
 | GET | `/api/training/{id}/clips/{hash}` | A rendered transparent presenter clip (WebM), with byte ranges |
 | GET | `/api/training/{id}/speech/{hash}` | A section's preview voice track (MP3), with byte ranges |

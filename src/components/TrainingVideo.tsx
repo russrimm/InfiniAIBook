@@ -16,6 +16,7 @@ import {
   LAYOUT_LABELS,
   anchorAt,
   compositionPalette,
+  cueNeedsPicture,
   findAnchor,
   newCueId,
   normalizeComposition,
@@ -23,7 +24,7 @@ import {
   type TrainingComposition,
   type TrainingCue,
 } from "@/lib/trainingvisuals";
-import { composeInputOf, usableTimings, type SectionTiming } from "@/lib/trainingtimeline";
+import { composeInputOf, composeVocabulary, usableTimings, type SectionTiming } from "@/lib/trainingtimeline";
 import MusicPicker from "./MusicPicker";
 import NarrationOptions from "./NarrationOptions";
 import TrainingCueEditor from "./TrainingCueEditor";
@@ -126,7 +127,7 @@ export default function TrainingVideo({
 
   const [draft, setDraft] = useState<Draft>(() => toDraft(content));
   const [dirty, setDirty] = useState(false);
-  const [busy, setBusy] = useState<"save" | "render" | "plan" | null>(null);
+  const [busy, setBusy] = useState<"save" | "render" | "plan" | "pictures" | null>(null);
   const [prep, setPrep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -297,6 +298,41 @@ export default function TrainingVideo({
   };
 
   /**
+   * Find a screenshot on Microsoft Learn, or draw an illustration, for every
+   * visual that is still without its picture. Returns updated copies.
+   */
+  const findPictures = async (
+    sections: TrainingSection[],
+    onStep: (n: number, total: number) => void
+  ): Promise<{ sections: TrainingSection[]; failed: number }> => {
+    const next = sections.map((s) => ({ ...s, cues: s.cues?.map((q) => ({ ...q })) }));
+    const pending = next.flatMap((s) => (s.cues ?? []).filter(cueNeedsPicture));
+    const used = next.flatMap((s) => s.cues ?? []).map((q) => q.imageSource).filter((u): u is string => Boolean(u));
+    let failed = 0;
+    let n = 0;
+    for (const q of pending) {
+      onStep(++n, pending.length);
+      const res = await fetch(`/api/training/${artifactId}/assets/find`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ query: q.imageQuery, prompt: q.imagePrompt, exclude: used }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { imageId?: string; credit?: string; source?: string };
+      if (!res.ok || !j.imageId) {
+        failed++;
+        continue;
+      }
+      q.imageId = j.imageId;
+      if (j.credit) q.imageCredit = j.credit;
+      if (j.source) {
+        q.imageSource = j.source;
+        used.push(j.source);
+      }
+    }
+    return { sections: next, failed };
+  };
+
+  /**
    * Everything a composed render needs from the browser: pictures that were
    * described but not yet drawn, then every visual rasterized for the
    * compositor. Only what changed since the last render is drawn again.
@@ -322,32 +358,18 @@ export default function TrainingVideo({
       const gone = saved.sections.flatMap((s) => s.cues ?? []).find((q) => q.infographicId && !graphics.has(q.infographicId));
       if (gone) throw new Error("An infographic used by a visual has been deleted. Choose another on the Visuals tab.");
     }
-    const pending = saved.sections.flatMap((s, i) =>
-      (s.cues ?? []).filter((q) => q.kind === "image" && !q.imageId && q.imagePrompt).map((q) => ({ i, q }))
-    );
     let current = saved;
+    const pending = saved.sections.flatMap((s, i) => (s.cues ?? []).filter(cueNeedsPicture).map((q) => ({ i, q })));
     if (pending.length) {
-      const sections = saved.sections.map((s) => ({ ...s, cues: s.cues?.map((q) => ({ ...q })) }));
-      let n = 0;
-      let failed = 0;
-      for (const { i, q } of pending) {
-        setPrep(`Drawing picture ${++n} of ${pending.length}`);
-        const res = await fetch(`/api/training/${artifactId}/assets/generate`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ prompt: q.imagePrompt }),
-        });
-        const j = (await res.json().catch(() => ({}))) as { imageId?: string };
-        const target = sections[i].cues?.find((x) => x.id === q.id);
-        if (res.ok && j.imageId && target) target.imageId = j.imageId;
-        else failed++;
-      }
+      const { sections, failed } = await findPictures(saved.sections, (n, total) =>
+        setPrep(`Finding picture ${n} of ${total}`)
+      );
       current = await patch({ sections });
       if (failed) {
         setError(
-          `${failed} picture${failed === 1 ? "" : "s"} could not be generated; ${
-            failed === 1 ? "it shows" : "they show"
-          } the caption instead. Upload a picture on the Visuals tab to replace ${failed === 1 ? "it" : "them"}.`
+          `${failed} visual${failed === 1 ? "" : "s"} got no picture and ${
+            failed === 1 ? "shows" : "show"
+          } words only. Add a picture on the Visuals tab if you want one.`
         );
       }
     }
@@ -405,10 +427,45 @@ export default function TrainingVideo({
     }
   };
 
+  const pictures = async () => {
+    setBusy("pictures");
+    setError(null);
+    try {
+      const saved = dirty ? await save() : content;
+      const { sections, failed } = await findPictures(saved.sections, (n, total) =>
+        setPrep(`Finding picture ${n} of ${total}`)
+      );
+      await patch({ sections });
+      setDirty(false);
+      await refresh.current();
+      if (failed) {
+        setError(
+          `${failed} visual${failed === 1 ? "" : "s"} got no picture. Open ${
+            failed === 1 ? "it" : "them"
+          } on the Visuals tab to try other search words, describe a picture or upload one.`
+        );
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not find pictures.");
+    } finally {
+      setBusy(null);
+      setPrep(null);
+    }
+  };
+
   const wordCount = words(draft.sections);
   const minutes = wordCount / WORDS_PER_MINUTE;
   const tooLong = minutes > MAX_AVATAR_MINUTES * 0.95;
   const locked = rendering || busy !== null;
+  const missingPictures = draft.sections.reduce((n, s) => n + (s.cues ?? []).filter(cueNeedsPicture).length, 0);
+  const picturesButton =
+    missingPictures > 0 ? (
+      <button className="btn !text-xs" disabled={locked || !savedComposed} onClick={() => void pictures()}>
+        {busy === "pictures"
+          ? "Finding pictures…"
+          : `Add pictures to ${missingPictures} visual${missingPictures === 1 ? "" : "s"}`}
+      </button>
+    ) : null;
 
   const previewInput = useMemo(
     () =>
@@ -440,6 +497,15 @@ export default function TrainingVideo({
       : null;
   const recomposeOnly = composed && uncached.length === 0 && Boolean(content.videoUrl);
 
+  const vocab = useMemo(
+    () =>
+      composeVocabulary({
+        sections: draft.sections,
+        description: content.description,
+        objectives: draft.objectives.split("\n"),
+      }),
+    [draft.sections, draft.objectives, content.description]
+  );
   const ctxFor = useCallback(
     (section?: number): VisualContext => ({
       title: draft.title,
@@ -450,8 +516,9 @@ export default function TrainingVideo({
       sectionCount: draft.sections.length,
       lowerName: draft.composition.lowerThird.name,
       lowerRole: draft.composition.lowerThird.role,
+      vocab,
     }),
-    [draft, content.description]
+    [draft, content.description, vocab]
   );
 
   const stages = savedComposed ? COMPOSED_STAGES : PRESENTER_STAGES;
@@ -799,6 +866,7 @@ export default function TrainingVideo({
                 Each visual appears when the presenter says its words. Select words
                 in a section to place a new visual there.
               </p>
+              {picturesButton}
               <button className="btn !text-xs" disabled={locked} onClick={() => void plan()}>
                 {busy === "plan" ? "Planning…" : "Plan all visuals again"}
               </button>
@@ -915,6 +983,7 @@ export default function TrainingVideo({
                   ? "Plays your unsaved edits on the measured timing. Nothing is billed."
                   : "Save to switch this video to presenter with visuals, then preview it here."}
               </p>
+              {picturesButton}
               <button
                 className="btn !text-xs"
                 disabled={timingInfo.busy || !savedComposed}
