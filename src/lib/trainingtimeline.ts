@@ -26,6 +26,7 @@ import {
   type TrainingCue,
   type TrainingLayout,
 } from "./trainingvisuals";
+import { caseVocabulary, casedCue, fixCase, type CaseVocabulary } from "./slidecase";
 
 export const INTRO_S = 3.5;
 export const OUTRO_S = 3.5;
@@ -267,24 +268,31 @@ export function cueBullets(cue: TrainingCue, objectives: string[]): TrainingBull
   return [];
 }
 
-const VISUAL_VERSION = 1;
+const VISUAL_VERSION = 2;
 
-function cueKey(cue: TrainingCue, input: ComposeInput, px: { w: number; h: number }): string {
+/** How the script writes its names, for capitalizing slide text (src/lib/slidecase.ts). */
+export function composeVocabulary(input: Pick<ComposeInput, "sections" | "description" | "objectives">): CaseVocabulary {
+  return caseVocabulary([...input.sections.map((s) => s.text), input.description, ...input.objectives]);
+}
+
+function cueKey(cue: TrainingCue, input: ComposeInput, px: { w: number; h: number }, vocab: CaseVocabulary): string {
   const c = input.composition;
+  const shown = casedCue(cue, vocab);
   return hashText(
     JSON.stringify([
       VISUAL_VERSION,
-      cue.kind,
-      cue.title,
-      cue.subtitle,
-      cueBullets(cue, input.objectives).map((b) => b.text),
-      cue.stat,
-      cue.quote,
-      cue.question,
-      cue.answer,
-      cue.infographicId,
-      cue.imageId,
-      cue.caption,
+      shown.kind,
+      shown.title,
+      shown.subtitle,
+      cueBullets(shown, input.objectives.map((o) => fixCase(o, vocab))).map((b) => b.text),
+      shown.stat,
+      shown.quote,
+      shown.question,
+      shown.answer,
+      shown.infographicId,
+      shown.imageId,
+      shown.imageCredit,
+      shown.caption,
       px,
       c.palette,
     ])
@@ -296,9 +304,11 @@ export function rasterJobs(input: ComposeInput): RasterJob[] {
   const jobs: RasterJob[] = [];
   const full = rectPixels(FULL_RECT, c);
   const pal = c.palette;
+  const vocab = composeVocabulary(input);
+  const cased = (s: string | undefined) => fixCase(s, vocab);
   if (c.intro) {
     jobs.push({
-      key: hashText(JSON.stringify([VISUAL_VERSION, "intro", input.title, input.description, full, pal])),
+      key: hashText(JSON.stringify([VISUAL_VERSION, "intro", cased(input.title), cased(input.description), full, pal])),
       role: "intro",
       states: 1,
       width: full.w,
@@ -308,7 +318,7 @@ export function rasterJobs(input: ComposeInput): RasterJob[] {
   input.sections.forEach((s, i) => {
     if (c.sectionCards && !(i === 0 && c.intro)) {
       jobs.push({
-        key: hashText(JSON.stringify([VISUAL_VERSION, "section", i, s.title, input.sections.length, full, pal])),
+        key: hashText(JSON.stringify([VISUAL_VERSION, "section", i, cased(s.title), input.sections.length, full, pal])),
         role: "section",
         section: i,
         states: 1,
@@ -321,7 +331,7 @@ export function rasterJobs(input: ComposeInput): RasterJob[] {
       if (!panel || cue.kind === "presenter") continue;
       const px = rectPixels(panel, c);
       jobs.push({
-        key: cueKey(cue, input, px),
+        key: cueKey(cue, input, px, vocab),
         role: "cue",
         section: i,
         cueId: cue.id,
@@ -333,7 +343,7 @@ export function rasterJobs(input: ComposeInput): RasterJob[] {
   });
   if (c.outro) {
     jobs.push({
-      key: hashText(JSON.stringify([VISUAL_VERSION, "outro", input.title, full, pal])),
+      key: hashText(JSON.stringify([VISUAL_VERSION, "outro", cased(input.title), full, pal])),
       role: "outro",
       states: 1,
       width: full.w,
@@ -426,9 +436,10 @@ export function compileTrainingTimeline(
         (cueId === undefined || j.cueId === cueId)
     )?.key ?? null;
   // Duplicate cues share a key, so look them up by content rather than id.
+  const vocab = composeVocabulary(input);
   const cueKeyOf = (cue: TrainingCue) => {
     const { panel } = layoutGeometry(cue.layout, c);
-    return panel && cue.kind !== "presenter" ? cueKey(cue, input, rectPixels(panel, c)) : null;
+    return panel && cue.kind !== "presenter" ? cueKey(cue, input, rectPixels(panel, c), vocab) : null;
   };
 
   const warnings: string[] = [];

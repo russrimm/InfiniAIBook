@@ -5,7 +5,8 @@ import { createRoot } from "react-dom/client";
 import TrainingVisual from "./TrainingVisual";
 import type { InfographicContent, TrainingContent } from "@/lib/types";
 import { compositionPalette, normalizeComposition } from "@/lib/trainingvisuals";
-import { rasterJobs, composeInputOf, type RasterJob } from "@/lib/trainingtimeline";
+import { rasterJobs, composeInputOf, composeVocabulary, type RasterJob } from "@/lib/trainingtimeline";
+import type { CaseVocabulary } from "@/lib/slidecase";
 
 /**
  * Draw every visual the compositor still needs and upload it as a PNG.
@@ -38,7 +39,11 @@ async function settle(host: HTMLElement) {
   await frames(1);
 }
 
-export function visualContext(c: TrainingContent, job: Pick<RasterJob, "section">) {
+export function visualContext(
+  c: TrainingContent,
+  job: Pick<RasterJob, "section">,
+  vocab: CaseVocabulary = composeVocabulary(composeInputOf(c))
+) {
   const comp = normalizeComposition(c.composition);
   const s = job.section !== undefined ? c.sections[job.section] : undefined;
   return {
@@ -50,6 +55,7 @@ export function visualContext(c: TrainingContent, job: Pick<RasterJob, "section"
     sectionCount: c.sections.length,
     lowerName: comp.lowerThird.name,
     lowerRole: comp.lowerThird.role,
+    vocab,
   };
 }
 
@@ -67,6 +73,7 @@ export async function prepareRasters(opts: {
   if (!missing.length) return;
 
   const jobs = rasterJobs(composeInputOf(content));
+  const vocab = composeVocabulary(composeInputOf(content));
   const palette = compositionPalette(normalizeComposition(content.composition));
   const host = document.createElement("div");
   host.setAttribute("aria-hidden", "true");
@@ -95,7 +102,7 @@ export async function prepareRasters(opts: {
             state={m.state}
             palette={palette}
             cue={cue}
-            ctx={visualContext(content, job)}
+            ctx={visualContext(content, job, vocab)}
             infographic={cue?.infographicId ? infographics.get(cue.infographicId) ?? null : null}
           />
         )

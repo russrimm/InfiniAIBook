@@ -22,10 +22,12 @@ export async function GET(_req: Request, { params }: Ctx) {
   }
 
   const bytes = fs.readFileSync(file);
+  // Screenshots found on Microsoft Learn are stored as they came, sometimes JPEG.
+  const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8;
   return new NextResponse(new Uint8Array(bytes), {
     status: 200,
     headers: {
-      "content-type": "image/png",
+      "content-type": jpeg ? "image/jpeg" : "image/png",
       "content-length": String(bytes.length),
       "cache-control": "private, max-age=31536000, immutable",
     },

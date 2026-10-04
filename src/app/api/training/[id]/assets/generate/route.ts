@@ -1,10 +1,7 @@
-import fs from "node:fs";
-import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { ok, fail } from "@/lib/http";
-import { generateImage } from "@/lib/ai";
-import { imageDir, imagePath } from "@/lib/paths";
 import { loadTraining } from "@/lib/trainingroute";
+import { drawTrainingPicture } from "@/lib/trainingpictures";
 import { compositionPalette, normalizeComposition } from "@/lib/trainingvisuals";
 
 export const runtime = "nodejs";
@@ -28,16 +25,7 @@ export async function POST(req: Request, { params }: Ctx) {
     if (!prompt) return NextResponse.json({ error: "Describe the picture first." }, { status: 400 });
 
     const pal = compositionPalette(normalizeComposition(t.content.composition));
-    const { png } = await generateImage(
-      `${prompt}. Clean, modern editorial illustration for a corporate training video, ` +
-        `soft lighting, uncluttered composition with room around the subject, ` +
-        `color accents in ${pal.primary} and ${pal.accent}. ` +
-        `No text, letters, numbers, logos or watermarks anywhere in the picture.`,
-      { size: "1536x1024", quality: "medium" }
-    );
-    const imageId = nanoid(12);
-    fs.mkdirSync(imageDir(), { recursive: true });
-    fs.writeFileSync(imagePath(imageId), png);
+    const imageId = await drawTrainingPicture(prompt, pal);
     return ok({ imageId, url: `/api/image/${imageId}` });
   } catch (e) {
     return fail(e);

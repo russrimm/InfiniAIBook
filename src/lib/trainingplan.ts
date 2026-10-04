@@ -8,11 +8,13 @@ import { db } from "./db";
 import { studioJSON, type ChatMsg } from "./ai";
 import {
   TRAINING_VISUALS_INSTRUCTION,
+  compositionPalette,
   normalizeComposition,
   normalizeVisualPlan,
   type TrainingCue,
 } from "./trainingvisuals";
 import type { TrainingContent } from "./types";
+import { fillCuePictures, trainingImagesEnabled } from "./trainingpictures";
 
 type Loose = Record<string, unknown>;
 
@@ -33,11 +35,13 @@ export function notebookInfographics(notebookId: string): { id: string; title: s
 export async function planTrainingVisuals(
   notebookId: string,
   c: Pick<TrainingContent, "title" | "objectives" | "sections" | "composition">,
-  only?: number
+  only?: number,
+  /** Find pictures for the planned visuals until this time (ms since epoch). */
+  opts: { pictureDeadline?: number } = {}
 ): Promise<TrainingCue[][]> {
   const composition = normalizeComposition(c.composition);
   const infographics = notebookInfographics(notebookId);
-  const images = !/^(0|false|off|no)$/i.test(process.env.TRAINING_IMAGES ?? "");
+  const images = trainingImagesEnabled();
   const system = TRAINING_VISUALS_INSTRUCTION({ images, infographics });
   const sections = c.sections
     .map((s, i) =>
@@ -73,5 +77,15 @@ ${sections}`;
     if (relevant.some((cues) => cues.length)) plan = out;
   }
   if (!plan) throw Object.assign(new Error("The model did not return any usable visuals. Try again."), { status: 502 });
-  return c.sections.map((s, i) => (only === undefined || only === i ? plan![i] : s.cues ?? []));
+  const planned = plan;
+  if (opts.pictureDeadline && opts.pictureDeadline > Date.now()) {
+    // Pictures for the new visuals only; the other sections keep theirs.
+    const fresh = c.sections.map((s, i) => ({ ...s, cues: only === undefined || only === i ? planned[i] : [] }));
+    const { missing } = await fillCuePictures(fresh, compositionPalette(composition), {
+      ai: images,
+      deadline: opts.pictureDeadline,
+    });
+    if (missing) console.info(`[training] ${missing} visual(s) left without a picture until render`);
+  }
+  return c.sections.map((s, i) => (only === undefined || only === i ? planned[i] : s.cues ?? []));
 }

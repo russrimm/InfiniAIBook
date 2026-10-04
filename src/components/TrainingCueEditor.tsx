@@ -8,6 +8,7 @@ import {
   LAYOUTS,
   LAYOUT_LABELS,
   MAX_BULLETS,
+  TEXT_PICTURE_KINDS,
   TRANSITION_LABELS,
   findAnchor,
   type CueKind,
@@ -80,7 +81,7 @@ export default function TrainingCueEditor({
     });
     const j = (await res.json().catch(() => ({}))) as { imageId?: string; error?: string };
     if (!res.ok || !j.imageId) throw new Error(j.error || "Could not save the picture.");
-    set({ imageId: j.imageId });
+    set({ imageId: j.imageId, imageCredit: undefined, imageSource: undefined });
   };
 
   const act = async (label: string, work: () => Promise<void>) => {
@@ -107,12 +108,25 @@ export default function TrainingCueEditor({
       });
       const j = (await res.json().catch(() => ({}))) as { imageId?: string; error?: string };
       if (!res.ok || !j.imageId) throw new Error(j.error || "Could not draw the picture.");
-      set({ imageId: j.imageId });
+      set({ imageId: j.imageId, imageCredit: undefined, imageSource: undefined });
+    });
+
+  const findShot = () =>
+    act("find", async () => {
+      const res = await fetch(`/api/training/${artifactId}/assets/find`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ query: cue.imageQuery, exclude: cue.imageSource ? [cue.imageSource] : [] }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { imageId?: string; credit?: string; source?: string; error?: string };
+      if (!res.ok || !j.imageId) throw new Error(j.error || "Could not find a screenshot.");
+      set({ imageId: j.imageId, imageCredit: j.credit, imageSource: j.source });
     });
 
   const locked = disabled || busy !== null;
   const anchor = anchorStatus(sectionText, cue.anchor);
   const pictureKind = cue.kind === "image" || cue.kind === "screenshot";
+  const textPicture = TEXT_PICTURE_KINDS.includes(cue.kind);
 
   return (
     <div className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--panel)] p-3">
@@ -356,23 +370,47 @@ export default function TrainingCueEditor({
         </label>
       )}
 
-      {pictureKind && (
+      {(pictureKind || textPicture) && (
         <div className="space-y-2">
-          {cue.kind === "image" && (
+          {textPicture && (
+            <span className={labelCls}>Picture beside the words · optional</span>
+          )}
+          {cue.kind !== "screenshot" && (
             <label className="block">
-              <span className={labelCls}>Describe the picture</span>
+              <span className={labelCls}>Microsoft Learn screenshot search</span>
+              <div className="flex gap-2">
+                <input
+                  className={inputCls}
+                  value={cue.imageQuery ?? ""}
+                  disabled={locked}
+                  placeholder="For example: create agent Copilot Studio portal"
+                  onChange={(e) => set({ imageQuery: e.target.value || undefined })}
+                />
+                <button
+                  className="btn shrink-0 !text-[11px]"
+                  disabled={locked || !cue.imageQuery?.trim()}
+                  onClick={() => void findShot()}
+                >
+                  {busy === "find" ? "Searching…" : cue.imageCredit ? "Find another" : "Find screenshot"}
+                </button>
+              </div>
+            </label>
+          )}
+          {cue.kind !== "screenshot" && (
+            <label className="block">
+              <span className={labelCls}>{textPicture ? "Or describe a picture to draw" : "Describe the picture"}</span>
               <textarea
                 className={`${inputCls} min-h-[3.5rem]`}
                 value={cue.imagePrompt ?? ""}
                 disabled={locked}
-                onChange={(e) => set({ imagePrompt: e.target.value })}
+                onChange={(e) => set({ imagePrompt: e.target.value || undefined })}
               />
             </label>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            {cue.kind === "image" && (
+            {cue.kind !== "screenshot" && (
               <button className="btn !text-[11px]" disabled={locked || !cue.imagePrompt?.trim()} onClick={() => void generate()}>
-                {busy === "generate" ? "Drawing…" : cue.imageId ? "Draw again" : "Generate picture"}
+                {busy === "generate" ? "Drawing…" : cue.imageId && !cue.imageCredit ? "Draw again" : "Generate picture"}
               </button>
             )}
             <label className={`btn !text-[11px] ${locked ? "pointer-events-none opacity-50" : "cursor-pointer"}`}>
@@ -418,26 +456,55 @@ export default function TrainingCueEditor({
             </div>
           </div>
           {cue.imageId && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`/api/image/${cue.imageId}`}
-              alt={cue.caption || "Picture for this visual"}
-              className="max-h-32 rounded-md border border-[var(--border)]"
-            />
+            <div className="flex flex-wrap items-end gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/image/${cue.imageId}`}
+                alt={cue.caption || "Picture for this visual"}
+                className="max-h-32 rounded-md border border-[var(--border)]"
+              />
+              <div className="space-y-1">
+                {cue.imageCredit && (
+                  <p className="text-[10px] text-[var(--muted)]">
+                    From{" "}
+                    {cue.imageSource ? (
+                      <a className="underline" href={cue.imageSource} target="_blank" rel="noreferrer">
+                        {cue.imageCredit}
+                      </a>
+                    ) : (
+                      cue.imageCredit
+                    )}
+                  </p>
+                )}
+                {textPicture && (
+                  <button
+                    className="btn !px-2 !py-0.5 !text-[10px] hover:text-red-300"
+                    disabled={locked}
+                    onClick={() => set({ imageId: undefined, imageCredit: undefined, imageSource: undefined })}
+                  >
+                    Remove picture
+                  </button>
+                )}
+              </div>
+            </div>
           )}
-          <label className="block">
-            <span className={labelCls}>Caption (optional)</span>
-            <input className={inputCls} value={cue.caption ?? ""} disabled={locked} onChange={(e) => set({ caption: e.target.value })} />
-          </label>
-          <label className="flex items-center gap-2 text-[11px] text-[var(--muted)]">
-            <input
-              type="checkbox"
-              checked={cue.kenBurns !== false}
-              disabled={locked}
-              onChange={(e) => set({ kenBurns: e.target.checked })}
-            />
-            Slow push-in while on screen
-          </label>
+          {pictureKind && (
+            <>
+              <label className="block">
+                <span className={labelCls}>Caption (optional)</span>
+                <input className={inputCls} value={cue.caption ?? ""} disabled={locked} onChange={(e) => set({ caption: e.target.value })} />
+              </label>
+              <label className="flex items-center gap-2 text-[11px] text-[var(--muted)]">
+                <input
+                  type="checkbox"
+                  checked={cue.kenBurns !== false}
+                  disabled={locked}
+                  onChange={(e) => set({ kenBurns: e.target.checked })}
+                />
+                Slow push-in while on screen
+              </label>
+            </>
+          )}
         </div>
       )}
 

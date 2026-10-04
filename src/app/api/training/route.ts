@@ -40,6 +40,7 @@ type Loose = Record<string, unknown>;
  * made only when the user asks for it (POST /api/training/:id/render).
  */
 export async function POST(req: Request) {
+  const started = Date.now();
   try {
     const body = (await req.json()) as {
       notebookId: string;
@@ -172,7 +173,7 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"}, keeping the same structure. ${
 
     if (composition.mode === "composed") {
       try {
-        const cues = await planTrainingVisuals(notebookId, content);
+        const cues = await planTrainingVisuals(notebookId, content, undefined, { pictureDeadline: started + 200_000 });
         content.sections = content.sections.map((s, i) => (cues[i]?.length ? { ...s, cues: cues[i] } : s));
       } catch (e) {
         // The transcript is the expensive part; visuals can be planned again from the editor.
