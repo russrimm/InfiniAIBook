@@ -69,6 +69,29 @@ function decodeEntities(s: string): string {
     .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(Number(d)));
 }
 
+const OLE_MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+
+/**
+ * A real .docx is a ZIP. Encrypted ones (sensitivity labels, IRM, passwords)
+ * and legacy .doc files renamed to .docx are OLE compound files instead, which
+ * mammoth rejects with an opaque JSZip error. Explain what the user can do.
+ */
+export function describeUnreadableDocx(buf: Buffer, name: string): string | null {
+  if (buf.subarray(0, 4).toString("latin1") === "PK\x03\x04") return null;
+  if (!buf.subarray(0, 8).equals(OLE_MAGIC)) {
+    return `"${name}" is not a valid Word document. Re-save it as .docx and try again.`;
+  }
+  // OLE directory entry names are stored as UTF-16LE.
+  const has = (s: string) => buf.includes(Buffer.from(s, "utf16le"));
+  if (has("DRMEncrypted")) {
+    return `"${name}" is protected by a sensitivity label or rights management (IRM), so its contents are encrypted. Remove the protection in Word, or copy the text and use "Paste".`;
+  }
+  if (has("EncryptedPackage") || has("EncryptionInfo")) {
+    return `"${name}" is password-protected. Remove the password in Word (File > Info > Protect Document) and try again.`;
+  }
+  return `"${name}" is a legacy Word 97–2003 document with a .docx extension. Open it in Word and save it as .docx.`;
+}
+
 export async function extractFromFile(file: File): Promise<Extracted> {
   const name = file.name || "Untitled";
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
@@ -91,6 +114,8 @@ export async function extractFromFile(file: File): Promise<Extracted> {
   }
 
   if (ext === "docx") {
+    const problem = describeUnreadableDocx(buf, name);
+    if (problem) throw new Error(problem);
     const { value } = await mammoth.extractRawText({ buffer: buf });
     return { title: name, text: clean(value), kind: "docx" };
   }
