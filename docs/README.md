@@ -2,6 +2,9 @@
 
 **Setup**
 
+- [Install step by step](install-guide.md): a beginner's walkthrough for
+  Windows, Mac and Linux, covering the settings file, choosing a provider,
+  where your data lives, and troubleshooting
 - [Getting started](getting-started.md) — prerequisites, local install, Docker
   and password protection
 - [Configuration](configuration.md) — model providers, custom endpoints, which
