@@ -12,7 +12,7 @@
 | **Studio** | Fourteen generators, each returning a structured, validated artifact rendered with a purpose-built view — not a wall of text. |
 | **Model picker** | Switch the chat, embedding, image and vision models from the workspace header. A saved choice overrides the environment until you reset it; after changing the embedding model, existing chunks rank by keyword until the notebook is [re-embedded](grounding.md). See [Configuration](configuration.md#models-and-what-theyre-used-for). |
 | **Reduced motion** | When the OS or browser asks for reduced motion, entrances fade instead of rising, spinners and shimmers pulse in place, mind-map nodes jump instead of sliding, and scripted scrolling jumps instead of gliding. |
-| **About** | The ⓘ button in the home and workspace headers opens app, author, source and MIT license details. |
+| **Help & about** | The **? Help** button in the home and workspace headers explains how the app works (add sources, choose which to use, ask, create), links to the docs, and shows author, source and MIT license details. |
 | **Everything is local** | Sources, chunks, embeddings, chat history, artifacts, generated audio, voice samples and images live under `.data/`. |
 | **Undo deletes** | Deleting a source, artifact, note, chat or notebook hides it right away and offers **Undo** for 8 seconds before anything is removed. |
 

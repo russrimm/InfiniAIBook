@@ -318,7 +318,9 @@ Quiet, tactile slate buttons. Only one per view is lit.
 A small pill sitting just above the baseline after a claim: Cite Wash fill, a Lamplight border at 32%, Cite Ink numerals at 10.9px semibold. On hover the fill deepens; on keyboard focus it gets a 2px Lamplight outline. Opening a chip highlights the source passage in the same hue. This chip is the visual proof behind "grounded or silent."
 
 ### Studio Tile (signature)
-A Card-styled button with an emoji at 20px, a Body UI tool name, and a one-line Micro description in Fog. On hover the border lights to Lamplight. While generating, the tile gets a shimmer and a persistent Lamplight border. Disabled tiles drop to 40% opacity.
+A Card-styled button with an emoji at 20px, a Body UI tool name, a one-line Micro description in Fog, and a "Generate →" cue. On hover the border lights to Lamplight. While generating, the tile gets a shimmer and a persistent Lamplight border. Disabled tiles drop to 40% opacity.
+
+Formats with settings use a **Studio Card** (`src/components/StudioCard.tsx`) instead: the same header with a compact default **Generate** button (never the title), then an **Options ▸** disclosure that shows a one-line summary of the current settings while closed. Errors appear as a Status Wash strip on the card that failed. Studio itself switches between **Create** and **Library (n)** with a small segmented control.
 
 ### Source Row (signature)
 A checkbox, an emoji for the source type, a 13px title clamped to two lines, and an 11px Fog summary. Selected rows sit on Raised Slate with a Hairline Strong border. Unselected rows have no border and are dimmed to 55% opacity, brightening on hover. The selection you're grounding on is visibly "in the light."

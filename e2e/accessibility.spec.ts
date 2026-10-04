@@ -38,7 +38,7 @@ test("dialogs trap focus, close on Escape and restore focus", async ({ page }) =
   const id = await createNotebook(page, "Dialog notebook", true);
   await page.goto(`/notebook/${id}`);
 
-  const about = page.getByRole("button", { name: "About InfiniAIBook" });
+  const about = page.getByRole("button", { name: "Help and about" });
   await about.focus();
   await page.keyboard.press("Enter");
   const dialog = page.getByRole("dialog", { name: "InfiniAIBook" });
@@ -56,7 +56,7 @@ test("dialogs trap focus, close on Escape and restore focus", async ({ page }) =
 test("a drag that ends on the backdrop does not close a dialog", async ({ page }) => {
   const id = await createNotebook(page, "Backdrop notebook");
   await page.goto(`/notebook/${id}`);
-  await page.getByRole("button", { name: "About InfiniAIBook" }).click();
+  await page.getByRole("button", { name: "Help and about" }).click();
   const box = (await page.getByRole("dialog").boundingBox())!;
   await page.mouse.move(box.x + 30, box.y + 30);
   await page.mouse.down();

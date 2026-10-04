@@ -78,6 +78,9 @@ test("suggests styles, then generates with orientation and a description", async
   const id = await notebookWithSource(request);
   const card = await openStudio(page, id);
 
+  // Everything but the style sits behind Options until asked for.
+  await expect(card.getByRole("button", { name: /Suggest styles/ })).toHaveCount(0);
+  await card.getByRole("button", { name: /^Options/ }).click();
   await card.getByRole("button", { name: /Suggest styles/ }).click();
   await expect(card.getByRole("button", { name: /Timeline/ })).toBeVisible();
   await expect(card.getByRole("button", { name: /Funnel/ })).toBeVisible();
@@ -91,7 +94,8 @@ test("suggests styles, then generates with orientation and a description", async
     "For new volunteers; focus on the schedule."
   );
 
-  await card.getByRole("button", { name: /^📊 Infographic/ }).click();
+  await expect(card.getByRole("button", { name: /^Options/ })).toHaveAttribute("aria-expanded", "true");
+  await card.getByRole("button", { name: "Generate Infographic" }).click();
 
   const modal = page.locator("[data-infographic-style]").filter({ hasText: "Garden pilot at a glance" });
   await expect(modal).toBeVisible({ timeout: 30_000 });

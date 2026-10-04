@@ -235,23 +235,31 @@ export default function SourcesPanel({
       aria-labelledby="sources-heading"
       className="flex h-full min-h-0 flex-col bg-[var(--panel)]"
     >
-      <div className="flex items-center justify-between px-4 pt-4 pb-3">
-        <h2 id="sources-heading" className="text-sm font-semibold tracking-wide">
-          Sources
-        </h2>
-        {sources.length > 0 && (
-          <button
-            className="text-xs text-[var(--muted)] transition hover:text-[var(--fg)]"
-            onClick={onToggleAll}
-          >
-            {allSelected ? "Deselect all" : "Select all"}
-          </button>
-        )}
+      <div className="px-4 pt-4 pb-3">
+        <div className="flex items-center justify-between">
+          <h2 id="sources-heading" className="text-sm font-semibold tracking-wide">
+            Sources
+          </h2>
+          {sources.length > 0 && (
+            <button
+              className="text-xs text-[var(--muted)] transition hover:text-[var(--fg)]"
+              onClick={onToggleAll}
+            >
+              {allSelected ? "Deselect all" : "Select all"}
+            </button>
+          )}
+        </div>
+        <p className="mt-1 text-[11px] text-[var(--muted)]">
+          {sources.length > 0
+            ? "Ticked sources are the only ones Chat and Studio use. Click a source to read it."
+            : "Add what you want to research. Chat and Studio use only these."}
+        </p>
       </div>
 
       <div className="px-4 pb-3">
         <button
           type="button"
+          id="add-sources"
           onDragOver={(e) => {
             e.preventDefault();
             setDragging(true);
@@ -289,14 +297,14 @@ export default function SourcesPanel({
           }}
         />
 
-        <div className="mt-2 grid grid-cols-3 gap-2">
+        <div className="mt-2 grid grid-cols-2 gap-2">
           <button
             className="btn !px-2 !py-1.5 !text-xs"
             onClick={() => setMode(mode === "url" ? "none" : "url")}
             aria-expanded={mode === "url"}
             title="Add a web page or YouTube link"
           >
-            🔗 Link
+            <span aria-hidden>🔗</span> Add link
           </button>
           <button
             className="btn !px-2 !py-1.5 !text-xs"
@@ -304,28 +312,28 @@ export default function SourcesPanel({
             aria-expanded={mode === "text"}
             title="Paste text as a source"
           >
-            📝 Paste
+            <span aria-hidden>📝</span> Paste text
           </button>
           <button
             className="btn !px-2 !py-1.5 !text-xs"
             onClick={onDiscover}
-            title="Search the web for sources on a topic"
+            title="Search the web for sources on a topic and pick which to add"
           >
-            🔎 Find
+            <span aria-hidden>🔎</span> Search web
           </button>
           <button
             className="btn !px-2 !py-1.5 !text-xs"
             onClick={onBrowse}
-            title="Browse the web and add pages as you go"
+            title="Browse the web in the app and add pages as you go"
           >
-            🌐 Browse
+            <span aria-hidden>🌐</span> Browse web
           </button>
           <button
-            className="btn !px-2 !py-1.5 !text-xs"
+            className="btn col-span-2 !px-2 !py-1.5 !text-xs"
             onClick={onLibrary}
-            title="Reuse a source from another notebook"
+            title="Reuse a source that is already in another notebook"
           >
-            📚 Library
+            <span aria-hidden>📚</span> From other notebooks
           </button>
         </div>
 
@@ -393,7 +401,8 @@ export default function SourcesPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         {jobs.length === 0 && sources.length === 0 ? (
           <p className="px-2 py-8 text-center text-xs text-[var(--muted)]">
-            No sources yet. Everything you generate is grounded in what you add here.
+            No sources yet. Everything you ask and generate is grounded in what you add
+            here.
           </p>
         ) : (
           <ul className="space-y-1">

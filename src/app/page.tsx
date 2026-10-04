@@ -113,12 +113,12 @@ export default function Home() {
             <span aria-hidden>🖥️</span> Screen helper
           </button>
           <button
-            aria-label="About InfiniAIBook"
-            title="About"
+            aria-label="Help and about"
+            title="Help & about"
             className="btn"
             onClick={() => setAboutOpen(true)}
           >
-            ⓘ
+            <span aria-hidden>?</span> Help
           </button>
           {authOn && (
             <button className="btn" onClick={() => void signOut()}>
@@ -169,6 +169,21 @@ export default function Home() {
             A notebook holds a set of sources — PDFs, docs, web pages or pasted text —
             and everything you generate from them.
           </p>
+          <ol className="grid w-full max-w-2xl gap-2 text-left sm:grid-cols-3">
+            {[
+              ["Add sources", "Upload files, add links, paste text or search the web."],
+              ["Ask questions", "Chat answers only from your sources, with citations."],
+              ["Create", "Turn them into reports, audio, video, infographics and quizzes."],
+            ].map(([title, body], i) => (
+              <li key={title} className="rounded-xl border border-[var(--border)] px-3 py-2.5">
+                <p className="text-[13px] font-medium">
+                  <span className="mr-1.5 text-[var(--muted)]">{i + 1}.</span>
+                  {title}
+                </p>
+                <p className="mt-0.5 text-[11px] leading-snug text-[var(--muted)]">{body}</p>
+              </li>
+            ))}
+          </ol>
           <button className="btn btn-primary" onClick={create} disabled={creating}>
             Create your first notebook
           </button>
