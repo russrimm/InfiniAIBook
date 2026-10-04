@@ -135,12 +135,15 @@ function ImageStyleSketch({ style }: { style: InfographicStyle }) {
   const c = sampleInfographic(style);
   const regions = c.regions ?? [];
   const isGuide = style === "guide";
+  const bgIsImage = art.bg.includes("gradient(");
+  const bgLayers = [art.texture, bgIsImage ? art.bg : undefined].filter(Boolean);
   return (
     <div
       className="relative flex min-h-[720px] flex-col overflow-hidden px-8 pt-8 pb-12"
       style={{
-        background: art.texture ? `${art.texture}, ${art.bg}` : art.bg,
-        backgroundSize: style === "retro" ? "6px 6px, auto" : undefined,
+        backgroundColor: bgIsImage ? undefined : art.bg,
+        backgroundImage: bgLayers.length ? bgLayers.join(", ") : undefined,
+        backgroundSize: style === "retro" ? "6px 6px" : undefined,
         color: art.ink,
         fontFamily: art.font,
         borderRadius: 16,
