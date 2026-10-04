@@ -1,4 +1,5 @@
 import type { MotionOptions, MotionPlan } from "./motion";
+import type { TrainingComposition, TrainingCue } from "./trainingvisuals";
 import type { MusicChoice } from "./musicchoice";
 import type { NarrationSettings } from "./narration";
 import type { PodcastScript } from "./podcastscript";
@@ -242,10 +243,29 @@ export type TrainingStage =
   | "submitted"
   | "rendering"
   | "downloading"
+  /** Composed videos: laying the visuals over the presenter clips. */
+  | "composing"
   | "done"
   | "failed";
 
-export type TrainingSection = { title: string; text: string };
+export type TrainingSection = {
+  title: string;
+  text: string;
+  /** Visuals timed to phrases of `text`; composed videos only. */
+  cues?: TrainingCue[];
+};
+
+/** One section's presenter clip in a composed render. */
+export type TrainingClip = {
+  /** Content hash of the presenter, voice and SSML; names the cached file. */
+  hash: string;
+  status: "cached" | "pending" | "submitted" | "rendering" | "done" | "failed";
+  synthesisId?: string;
+  submittedAt?: number;
+  durationSec?: number;
+  /** Avatar seconds Azure billed for this clip. */
+  billedSec?: number;
+};
 
 export type TrainingContent = SpokenExtras & {
   title: string;
@@ -267,7 +287,13 @@ export type TrainingContent = SpokenExtras & {
     note?: string;
     synthesisId?: string;
     submittedAt?: number;
+    /** Composed renders: one presenter clip per section, in order. */
+    clips?: TrainingClip[];
   };
+  /** Absent on videos made before composition: they render presenter only. */
+  composition?: TrainingComposition;
+  /** WebVTT captions of the last composed render. */
+  captionsUrl?: string;
   videoUrl?: string;
   durationSec?: number;
   bytes?: number;

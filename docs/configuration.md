@@ -133,7 +133,7 @@ commentary. Only a model provider is required.
 | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | Service principal or user-assigned identity for Entra auth |
 | `AZURE_SPEECH_REGION`, `AZURE_SPEECH_RESOURCE_ID`, `AZURE_SPEECH_KEY` | Azure Speech for audio overviews, video narration and training-video avatars |
 | `AZURE_SPEECH_ENDPOINT` | Custom-domain Speech endpoint for the avatar service; derived from `AZURE_SPEECH_RESOURCE_ID` when unset |
-| `AZURE_AVATAR_BACKGROUND_URL`, `AZURE_AVATAR_PRICE_PER_MINUTE` | Optional training-video background image and cost estimate ([Training videos](training-videos.md)) |
+| `AZURE_AVATAR_BACKGROUND_URL`, `AZURE_AVATAR_PRICE_PER_MINUTE`, `AZURE_AVATAR_CONCURRENCY`, `TRAINING_IMAGES` | Optional training-video background image, cost estimate, parallel section renders and AI-image planning ([Training videos](training-videos.md)) |
 | `STUDIO_CONTEXT_CHARS` | Starting source budget for Studio generation (default `30000`) |
 | `AI_STUDIO_MODEL`, `AI_STUDIO_ENDPOINT`, `AI_STUDIO_API`, `AI_STUDIO_BASE_URL`, `AI_STUDIO_API_KEY`, `AI_STUDIO_MAX_TOKENS` | Separate model for audio-overview, video and training scripts and scene plans; see [Studio script model](#studio-script-model) |
 | `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX` | Optional discovery providers; DuckDuckGo is used without them |

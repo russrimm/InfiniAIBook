@@ -1,8 +1,22 @@
 import fs from "node:fs";
+import path from "node:path";
 import { db } from "./db";
-import { videoDir, videoPath } from "./paths";
 import {
+  captionsPath,
+  imagePath,
+  removeImage,
+  trainingClipPath,
+  trainingClipsDir,
+  trainingRasterPath,
+  trainingVisualsDir,
+  videoDir,
+  videoPath,
+  videoWorkDir,
+} from "./paths";
+import {
+  avatarConfigured,
   avatarFailureReason,
+  avatarNotConfigured,
   deleteAvatarJob,
   downloadAvatarResult,
   getAvatarJob,
@@ -11,10 +25,22 @@ import {
 import { presenter, presenterVoice, backgroundColour, MAX_AVATAR_MINUTES } from "./avatars";
 import { buildTrainingSsml, countWords } from "./training";
 import { WORDS_PER_MINUTE } from "./voices";
-import type { TrainingContent, TrainingStage } from "./types";
+import type { TrainingClip, TrainingContent, TrainingStage } from "./types";
 import { applyReplacements, readNarration } from "./narration";
 import { mixMusicInto, resolveMusic } from "./music";
 import { normalizeMusicChoice } from "./musicchoice";
+import { runPythonRenderer } from "./python";
+import { compositionPalette, normalizeComposition } from "./trainingvisuals";
+import {
+  compileTrainingTimeline,
+  composeInputOf,
+  estimateSectionTiming,
+  rasterJobs,
+  renderConfig,
+  toWebVtt,
+  type ComposeInput,
+} from "./trainingtimeline";
+import { clipDuration, measureTraining, saveClipDuration, sectionClipHash, sectionSsml } from "./trainingtiming";
 
 /**
  * The render lifecycle for training videos.
@@ -29,7 +55,7 @@ const STALL_MS = 60_000;
 /** Longer than any plausible render of a 20-minute script. */
 const GIVE_UP_MS = 90 * 60_000;
 
-const IN_FLIGHT: TrainingStage[] = ["submitting", "submitted", "rendering", "downloading"];
+const IN_FLIGHT: TrainingStage[] = ["submitting", "submitted", "rendering", "downloading", "composing"];
 
 // Survives Next's dev-mode module reloads, which would otherwise start a
 // second watcher for a job the first one is still polling.
@@ -54,6 +80,9 @@ function read(id: string): (TrainingContent & { heartbeatAt?: number }) | null {
     return null;
   }
 }
+
+/** A training artifact's content, or null when missing or another type. */
+export const readTraining = (id: string) => read(id);
 
 export function writeTraining(id: string, patch: Partial<TrainingContent>) {
   const current = read(id);
@@ -99,6 +128,10 @@ export async function startTrainingRender(id: string): Promise<void> {
       `The transcript runs about ${Math.round(minutes)} minutes; avatar videos are limited to ${MAX_AVATAR_MINUTES}. Shorten it first.`
     );
   }
+  if (normalizeComposition(c.composition).mode === "composed") {
+    startComposedRender(id, c);
+    return;
+  }
 
   const { preset } = presenter(c.presenter);
   const voice = presenterVoice(c.voice, preset.voice);
@@ -114,7 +147,7 @@ export async function startTrainingRender(id: string): Promise<void> {
 
   const previous = c.progress?.synthesisId;
   const synthesisId = synthesisIdFor(id);
-  writeTraining(id, { progress: { stage: "submitting", synthesisId, note: undefined } });
+  writeTraining(id, { progress: { stage: "submitting", synthesisId, note: undefined, clips: undefined } });
 
   try {
     await submitAvatarJob(synthesisId, ssml, {
@@ -209,6 +242,7 @@ async function poll(id: string): Promise<void> {
         progress: { stage: "done", synthesisId, note },
         // Cache-busted so a re-render is not served from the browser's copy.
         videoUrl: `/api/video/${id}?v=${renderedAt}`,
+        captionsUrl: undefined,
         bytes: withMusic ? fs.statSync(videoPath(id)).size : bytes,
         music: withMusic,
         durationSec: ms ? Math.round(ms / 100) / 10 : undefined,
@@ -237,6 +271,13 @@ export function resumeStalledTraining(id: string): void {
   const last = Number(c.heartbeatAt ?? 0);
   if (Date.now() - last < STALL_MS) return;
 
+  // Composed renders keep every clip's state on the row, so the watcher can
+  // pick up wherever the last one stopped — including re-running the compose.
+  if (c.progress.clips) {
+    watchComposed(id);
+    return;
+  }
+
   if (c.progress.stage === "submitting" || !c.progress.synthesisId) {
     // Died between deciding to submit and Azure accepting — nothing to resume.
     writeTraining(id, {
@@ -257,12 +298,295 @@ export function resumeStalledTrainings(notebookId: string): void {
   for (const r of rows) resumeStalledTraining(r.id);
 }
 
-/** Clean up Azure's copy when the artifact goes. The MP4 is removed by the caller. */
+/**
+ * Clean up Azure's copies and the pictures the video owned when the artifact
+ * goes. The MP4, clips and drawn visuals are removed by the caller.
+ */
 export function forgetTraining(content: string): void {
   try {
     const c = JSON.parse(content) as TrainingContent;
     if (c.progress?.synthesisId) void deleteAvatarJob(c.progress.synthesisId);
+    for (const clip of c.progress?.clips ?? []) {
+      if (clip.synthesisId) void deleteAvatarJob(clip.synthesisId);
+    }
+    const images = new Set<string>();
+    for (const s of c.sections ?? []) for (const q of s.cues ?? []) if (q.imageId) images.add(q.imageId);
+    if (c.composition?.logoId) images.add(c.composition.logoId);
+    for (const img of images) removeImage(img);
   } catch {
     /* nothing to clean */
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Composed renders: one transparent presenter clip per section, cached by
+// content, then laid over the visuals by scripts/training/render.py.
+// ---------------------------------------------------------------------------
+
+const avatarConcurrency = () => {
+  const n = Number(process.env.AZURE_AVATAR_CONCURRENCY);
+  return Number.isInteger(n) && n >= 1 ? Math.min(8, n) : 2;
+};
+
+export function composeInput(c: TrainingContent): ComposeInput {
+  return composeInputOf(c);
+}
+
+/** Raster keys and states the compositor needs that the browser has not drawn. */
+export function missingRasters(id: string, c: TrainingContent): { key: string; state: number }[] {
+  const out: { key: string; state: number }[] = [];
+  for (const job of rasterJobs(composeInput(c))) {
+    for (let s = 0; s < job.states; s++) {
+      if (!fs.existsSync(trainingRasterPath(id, job.key, s))) out.push({ key: job.key, state: s });
+    }
+  }
+  return out;
+}
+
+function startComposedRender(id: string, c: TrainingContent): void {
+  const missing = missingRasters(id, c);
+  if (missing.length) {
+    throw userError(
+      `${missing.length} visual${missing.length === 1 ? " has" : "s have"} not been drawn yet. Render from the training editor, which prepares them first.`,
+      409
+    );
+  }
+  const clips: TrainingClip[] = c.sections.map((_, i) => {
+    const hash = sectionClipHash(c, i);
+    return { hash, status: clipDuration(id, hash) ? "cached" : "pending" };
+  });
+  const fresh = clips.every((k) => k.status === "cached");
+  // Fail now, not from the background watcher, so the editor can say why.
+  if (!fresh && !avatarConfigured()) throw avatarNotConfigured();
+  writeTraining(id, {
+    progress: {
+      stage: fresh ? "composing" : "submitting",
+      clips,
+      submittedAt: Date.now(),
+      synthesisId: undefined,
+      note: undefined,
+    },
+  });
+  watchComposed(id);
+}
+
+function watchComposed(id: string) {
+  if (watching.has(id)) return;
+  watching.add(id);
+  void pollComposed(id)
+    .catch((e) => {
+      console.error("[training] composed render failed", e);
+      const c = read(id);
+      // Clips already downloaded stay cached; only in-flight jobs are dropped.
+      const clips = (c?.progress.clips ?? []).map((k) => {
+        if (k.status === "submitted" || k.status === "rendering") {
+          if (k.synthesisId) void deleteAvatarJob(k.synthesisId);
+          return { hash: k.hash, status: "failed" as const };
+        }
+        return k;
+      });
+      writeTraining(id, {
+        progress: {
+          stage: "failed",
+          clips,
+          note: e instanceof Error ? e.message : "The render failed.",
+        },
+      });
+    })
+    .finally(() => watching.delete(id));
+}
+
+async function pollComposed(id: string): Promise<void> {
+  for (;;) {
+    const c = read(id);
+    if (!c || !isRendering(c) || !c.progress.clips) return;
+    if (c.progress.stage === "composing") {
+      await compose(id, c);
+      return;
+    }
+
+    const { preset } = presenter(c.presenter);
+    const clips = c.progress.clips.map((k) => ({ ...k }));
+    fs.mkdirSync(trainingClipsDir(id), { recursive: true });
+
+    // Another section with the same words may already have produced this clip.
+    for (const k of clips) {
+      if ((k.status === "pending" || k.status === "failed") && clipDuration(id, k.hash)) k.status = "cached";
+    }
+
+    let active = clips.filter((k) => k.status === "submitted" || k.status === "rendering").length;
+    for (let i = 0; i < clips.length && active < avatarConcurrency(); i++) {
+      const k = clips[i];
+      if (k.status !== "pending" && k.status !== "failed") continue;
+      if (clips.some((o, j) => j < i && o.hash === k.hash && o.status !== "cached" && o.status !== "done")) {
+        continue;
+      }
+      const synthesisId = `${synthesisIdFor(id)}-s${i + 1}`;
+      await submitAvatarJob(synthesisId, sectionSsml(c, i), {
+        character: preset.character,
+        style: preset.style,
+        background: backgroundColour(c.background),
+        description: `${c.title} — section ${i + 1}`,
+        transparent: true,
+      });
+      Object.assign(k, { status: "submitted", synthesisId, submittedAt: Date.now() });
+      // Record each accepted job at once, so a later failure or a restart can still find and cancel it.
+      writeTraining(id, { progress: { stage: "submitted", clips } });
+      active++;
+    }
+    writeTraining(id, { progress: { stage: "submitted", clips } });
+
+    for (let i = 0; i < clips.length; i++) {
+      const k = clips[i];
+      if ((k.status !== "submitted" && k.status !== "rendering") || !k.synthesisId) continue;
+      if (k.submittedAt && Date.now() - k.submittedAt > GIVE_UP_MS) {
+        throw new Error(`Azure did not finish section ${i + 1} within 90 minutes. Try again.`);
+      }
+      let job;
+      try {
+        job = await getAvatarJob(k.synthesisId);
+      } catch (e) {
+        const status = (e as { status?: number }).status;
+        if (status && status < 500 && status !== 429) throw e;
+        continue;
+      }
+      if (job.status === "Failed") {
+        throw new Error(`Section ${i + 1}: ${await avatarFailureReason(job)}`);
+      }
+      if (job.status === "Succeeded") {
+        const result = job.outputs?.result;
+        if (!result) throw new Error(`Azure finished section ${i + 1} but returned no video.`);
+        await downloadAvatarResult(result, trainingClipPath(id, k.hash));
+        const ms = job.properties?.durationInMilliseconds;
+        saveClipDuration(id, k.hash, ms ? ms / 1000 : estimateSectionTiming(c.sections[i].text).duration);
+        Object.assign(k, {
+          status: "done",
+          durationSec: ms ? ms / 1000 : undefined,
+          billedSec: job.properties?.billingDetails?.talkingAvatarDurationSeconds,
+        });
+        void deleteAvatarJob(k.synthesisId);
+        delete k.synthesisId;
+      } else if (job.status === "Running") {
+        k.status = "rendering";
+      }
+    }
+
+    // Re-read so a deletion while polling is honored.
+    if (!read(id)) return;
+    const allDone = clips.every((k) => k.status === "cached" || k.status === "done");
+    const anyRendering = clips.some((k) => k.status === "rendering");
+    writeTraining(id, {
+      progress: { stage: allDone ? "composing" : anyRendering ? "rendering" : "submitted", clips },
+    });
+    if (allDone) continue;
+    await sleep(POLL_MS);
+  }
+}
+
+async function compose(id: string, c: TrainingContent): Promise<void> {
+  const input = composeInput(c);
+  const comp = input.composition;
+  const work = videoWorkDir(id);
+  fs.mkdirSync(work, { recursive: true });
+  const beat = setInterval(() => writeTraining(id, {}), 20_000);
+  try {
+    const { timings } = await measureTraining(id, c);
+    const missing = timings.findIndex((t) => t.source !== "avatar");
+    if (missing >= 0) throw new Error(`The presenter clip for section ${missing + 1} is missing. Render again.`);
+    const tl = compileTrainingTimeline(input, timings);
+    const slash = (p: string) => p.replace(/\\/g, "/");
+    const hashes = c.sections.map((_, i) => sectionClipHash(c, i));
+    const logo = comp.logoId ? imagePath(comp.logoId) : null;
+    const out = path.join(work, "render.mp4");
+
+    const config = renderConfig(tl, {
+      output: slash(out),
+      background: backgroundColour(c.background),
+      palette: compositionPalette(comp),
+      clip: (i) => slash(trainingClipPath(id, hashes[i])),
+      raster: (key, state) => slash(trainingRasterPath(id, key, state)),
+      burnCaptions: comp.captions === "burned",
+      logo: logo && fs.existsSync(logo) ? slash(logo) : null,
+    });
+    const configPath = path.join(work, "training.json");
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    await runPythonRenderer(["training", "render.py"], configPath);
+    if (!fs.existsSync(out)) throw new Error("The compositor finished but produced no file.");
+
+    let withMusic = false;
+    let note: string | undefined;
+    const music = resolveMusic(normalizeMusicChoice(c.musicChoice));
+    if (music) {
+      try {
+        await mixMusicInto(out, music, "video");
+        withMusic = true;
+      } catch (e) {
+        console.warn("[training] music mix failed, keeping the video without it", e);
+        note = "The music could not be mixed in, so the video was saved without it.";
+      }
+    }
+
+    if (!read(id)) return;
+    fs.mkdirSync(videoDir(), { recursive: true });
+    try {
+      fs.renameSync(out, videoPath(id));
+    } catch {
+      // Windows refuses to replace a file a player still has open.
+      fs.rmSync(videoPath(id), { force: true });
+      fs.renameSync(out, videoPath(id));
+    }
+    const renderedAt = Date.now();
+    let captionsUrl: string | undefined;
+    if (comp.captions !== "off" && tl.captions.length) {
+      fs.writeFileSync(captionsPath(id), toWebVtt(tl.captions));
+      captionsUrl = `/api/training/${id}/captions?v=${renderedAt}`;
+    } else {
+      fs.rmSync(captionsPath(id), { force: true });
+    }
+    pruneComposedFiles(id, c, hashes);
+
+    const billed = (c.progress.clips ?? []).reduce((n, k) => n + (k.billedSec ?? 0), 0);
+    writeTraining(id, {
+      progress: {
+        stage: "done",
+        clips: (c.progress.clips ?? []).map((k) => ({ hash: k.hash, status: "cached" as const, durationSec: k.durationSec })),
+        note,
+      },
+      videoUrl: `/api/video/${id}?v=${renderedAt}`,
+      captionsUrl,
+      bytes: fs.statSync(videoPath(id)).size,
+      music: withMusic,
+      durationSec: Math.round(tl.duration * 10) / 10,
+      billedSeconds: billed || undefined,
+      renderedAt,
+      editedSinceRender: false,
+    });
+  } finally {
+    clearInterval(beat);
+    try {
+      fs.rmSync(work, { recursive: true, force: true });
+    } catch {
+      /* scratch is not worth failing a finished video over */
+    }
+  }
+}
+
+/** Drop clips and drawings the current script no longer uses. */
+function pruneComposedFiles(id: string, c: TrainingContent, hashes: string[]) {
+  const keepClips = new Set(hashes);
+  try {
+    for (const f of fs.readdirSync(trainingClipsDir(id))) {
+      if (!keepClips.has(f.replace(/\.(webm|json|part)$/, ""))) fs.rmSync(path.join(trainingClipsDir(id), f), { force: true });
+    }
+  } catch {
+    /* nothing to prune */
+  }
+  const keepKeys = new Set(rasterJobs(composeInput(c)).map((j) => j.key));
+  try {
+    for (const f of fs.readdirSync(trainingVisualsDir(id))) {
+      if (!keepKeys.has(f.split("-")[0])) fs.rmSync(path.join(trainingVisualsDir(id), f), { force: true });
+    }
+  } catch {
+    /* nothing to prune */
   }
 }

@@ -26,7 +26,8 @@
     "test:e2e": "playwright test",
     "check:ai": "tsx --env-file-if-exists=.env.local scripts/check-ai.ts",
     "check:ssrf": "tsx scripts/check-ssrf.ts",
-    "check:motion": "tsx scripts/check-motion.ts"
+    "check:motion": "tsx scripts/check-motion.ts",
+    "check:training": "tsx scripts/check-training.ts"
   },
   "dependencies": {
     "@azure/identity": "^4.13.3",

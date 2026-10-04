@@ -150,9 +150,18 @@ and cannot be edited or deleted.
 | PATCH | `/api/video/{id}` | Edit a whiteboard or motion script: `title`, `description`, `scenes`, `voice`, `music`, `narration`, and `movement` for motion; 409 while building |
 | POST | `/api/video/{id}/render` | Build the reviewed script; poll `GET /api/artifacts/{id}` for `progress.stage`, play `GET /api/video/{id}` |
 | GET | `/api/motion` | `{ music }`: whether any background-music track is available |
-| POST | `/api/training` | `{ notebookId, topic?, sourceIds?, presenter?, voice?, background?, length?, narration?, music? }` → training transcript artifact |
-| PATCH | `/api/training/{id}` | Edit `title`, `description`, `objectives`, `sections`, `presenter`, `voice`, `background`, `music`, `narration`; 409 while rendering |
-| POST | `/api/training/{id}/render` | Start the avatar render; poll `GET /api/artifacts/{id}` for `progress.stage` |
+| POST | `/api/training` | `{ notebookId, topic?, sourceIds?, presenter?, voice?, background?, length?, narration?, music?, composition? }` → training transcript artifact. With `composition.mode: "composed"`, visuals are planned too; without `composition` the video is presenter only |
+| PATCH | `/api/training/{id}` | Edit `title`, `description`, `objectives`, `sections` (each with optional `cues`), `presenter`, `voice`, `background`, `music`, `narration`, `composition`; 409 while rendering |
+| POST | `/api/training/{id}/render` | Start the render; poll `GET /api/artifacts/{id}` for `progress.stage` (and `progress.clips` for composed videos). Composed videos return 409 until every visual is drawn (`/raster`) |
+| POST | `/api/training/{id}/visuals` | `{ section? }` → plan the visuals again for the whole video or one 0-based section |
+| GET | `/api/training/{id}/timing` | Per-section speech timing and preview voice tracks (rendered clips, measured speech, or estimates) |
+| GET, PUT | `/api/training/{id}/raster` | `GET` → `{ missing: [{ key, state }] }` visuals still to draw; `PUT { key, state, dataUrl }` stores one PNG |
+| POST | `/api/training/{id}/assets` | `{ dataUrl }` (PNG) → `{ imageId, url }` for screenshots, pictures and logos |
+| POST | `/api/training/{id}/assets/generate` | `{ prompt }` → `{ imageId, url }` drawn by the image model |
+| GET | `/api/training/{id}/infographics` | The notebook's infographics, for infographic visuals |
+| GET | `/api/training/{id}/clips/{hash}` | A rendered transparent presenter clip (WebM), with byte ranges |
+| GET | `/api/training/{id}/speech/{hash}` | A section's preview voice track (MP3), with byte ranges |
+| GET | `/api/training/{id}/captions` | WebVTT captions of the last composed render |
 | GET/POST | `/api/music` | List the music library / upload a track (multipart field `file`; MP3, M4A, AAC, WAV, OGG or FLAC, up to 50 MB) |
 | GET/DELETE | `/api/music/{id}` | Stream a track / delete an uploaded one (tracks from `MOTION_MUSIC_DIR` cannot be deleted) |
 | GET/DELETE | `/api/artifacts/{id}` | A saved artifact |

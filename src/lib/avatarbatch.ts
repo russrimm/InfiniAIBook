@@ -62,6 +62,11 @@ export function avatarConfigured(): boolean {
   return Boolean(config().endpoint);
 }
 
+export const avatarNotConfigured = () =>
+  new AvatarNotConfiguredError(
+    "Training videos need an Azure Speech resource. Set AZURE_SPEECH_RESOURCE_ID (Entra) or AZURE_SPEECH_ENDPOINT, or AZURE_SPEECH_KEY with AZURE_SPEECH_REGION. See .env.example."
+  );
+
 async function headers(): Promise<Record<string, string>> {
   const { key } = config();
   const h: Record<string, string> = {
@@ -79,11 +84,7 @@ async function headers(): Promise<Record<string, string>> {
 
 function url(synthesisId: string): string {
   const { endpoint } = config();
-  if (!endpoint) {
-    throw new AvatarNotConfiguredError(
-      "Training videos need an Azure Speech resource. Set AZURE_SPEECH_RESOURCE_ID (Entra) or AZURE_SPEECH_ENDPOINT, or AZURE_SPEECH_KEY with AZURE_SPEECH_REGION. See .env.example."
-    );
-  }
+  if (!endpoint) throw avatarNotConfigured();
   return `${endpoint}/avatar/batchsyntheses/${encodeURIComponent(
     synthesisId
   )}?api-version=${API_VERSION}`;
@@ -131,9 +132,14 @@ export type AvatarJob = {
 export type AvatarJobOptions = {
   character: string;
   style: string;
-  /** #RRGGBB; ignored when a background image is configured. */
+  /** #RRGGBB; ignored when a background image is configured or `transparent` is set. */
   background: string;
   description?: string;
+  /**
+   * WebM/VP9 with an alpha channel and no subtitles, for laying the presenter
+   * over slides. VP9 renders more slowly than H.264.
+   */
+  transparent?: boolean;
 };
 
 /**
@@ -141,7 +147,8 @@ export type AvatarJobOptions = {
  *
  * H.264 rather than the service's default HEVC, which Chrome and Firefox on
  * most machines cannot play. Subtitles are burned in so they survive download
- * and re-upload anywhere.
+ * and re-upload anywhere. Transparent clips are composited later, which draws
+ * its own captions.
  */
 export async function submitAvatarJob(
   synthesisId: string,
@@ -156,13 +163,23 @@ export async function submitAvatarJob(
     avatarConfig: {
       talkingAvatarCharacter: opts.character,
       talkingAvatarStyle: opts.style,
-      videoFormat: "mp4",
-      videoCodec: "h264",
-      subtitleType: "hard_embedded",
-      bitrateKbps: 2000,
-      ...(image && /^https:\/\//i.test(image)
-        ? { backgroundImage: image }
-        : { backgroundColor: `${opts.background}FF` }),
+      ...(opts.transparent
+        ? {
+            videoFormat: "webm",
+            videoCodec: "vp9",
+            subtitleType: "none",
+            bitrateKbps: 2000,
+            backgroundColor: "#00000000",
+          }
+        : {
+            videoFormat: "mp4",
+            videoCodec: "h264",
+            subtitleType: "hard_embedded",
+            bitrateKbps: 2000,
+            ...(image && /^https:\/\//i.test(image)
+              ? { backgroundImage: image }
+              : { backgroundColor: `${opts.background}FF` }),
+          }),
     },
   };
 

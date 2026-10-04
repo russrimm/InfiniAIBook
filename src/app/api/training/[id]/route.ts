@@ -7,6 +7,7 @@ import { isRendering } from "@/lib/trainingbuild";
 import type { TrainingContent } from "@/lib/types";
 import { readNarration } from "@/lib/narration";
 import { normalizeMusicChoice } from "@/lib/musicchoice";
+import { normalizeComposition } from "@/lib/trainingvisuals";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,10 +48,18 @@ export async function PATCH(req: Request, { params }: Ctx) {
       background: string;
       narration: unknown;
       music: unknown;
+      composition: unknown;
     }>;
 
     const next: TrainingContent = { ...current };
     let scriptChanged = false;
+    if (body.composition !== undefined) {
+      const composition = normalizeComposition(body.composition);
+      scriptChanged ||=
+        JSON.stringify(composition) !== JSON.stringify(normalizeComposition(current.composition));
+      next.composition = composition;
+    }
+    const layoutDefaults = normalizeComposition(next.composition);
 
     if (typeof body.title === "string") {
       next.title = cleanSpoken(body.title).slice(0, 120) || current.title;
@@ -66,15 +75,22 @@ export async function PATCH(req: Request, { params }: Ctx) {
         .slice(0, 6);
     }
     if (body.sections !== undefined) {
-      const sections = normaliseSections(body.sections);
+      const sections = normaliseSections(body.sections, layoutDefaults);
       if (!sections.length) {
         return NextResponse.json(
           { error: "Keep at least one section with something to say." },
           { status: 400 }
         );
       }
-      scriptChanged = JSON.stringify(sections) !== JSON.stringify(current.sections);
+      scriptChanged ||= JSON.stringify(sections) !== JSON.stringify(current.sections);
       next.sections = sections;
+    }
+    // Composed videos show the title, description and objectives on screen.
+    if (layoutDefaults.mode === "composed") {
+      scriptChanged ||=
+        next.title !== current.title ||
+        next.description !== current.description ||
+        JSON.stringify(next.objectives) !== JSON.stringify(current.objectives);
     }
     if (typeof body.presenter === "string") {
       const before = next.presenter;

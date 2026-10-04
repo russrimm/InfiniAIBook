@@ -80,6 +80,66 @@ http
         });
       }
 
+      // A training transcript.
+      if (system.includes("experienced corporate trainer")) {
+        last = { kind: "training", system: system.slice(0, 60) };
+        return reply({
+          title: "Running a garden pilot",
+          description: "Plan and staff a community garden pilot.",
+          objectives: ["Explain why volunteers matter", "Plan the build budget"],
+          sections: [
+            {
+              title: "Welcome",
+              text:
+                "Welcome to this session on garden pilots. Today you will learn two things. " +
+                "First, why steady volunteers matter. Second, how to plan the build budget.",
+            },
+            {
+              title: "The numbers",
+              text:
+                "The pilot built 24 raised beds in April. A drip kit costs about 640 dollars. " +
+                "It uses about 40 percent less water than hand watering. Take a moment to remember that number.",
+            },
+          ],
+        });
+      }
+
+      // Visuals for a training transcript; one anchor is deliberately not in the script.
+      if (system.includes("senior instructional designer and video editor")) {
+        last = { kind: "training-visuals", system: system.slice(0, 60) };
+        return reply({
+          sections: [
+            {
+              section: 1,
+              cues: [
+                { kind: "title", anchor: "Welcome to this session", layout: "side-left", title: "Garden pilots" },
+                {
+                  kind: "objectives",
+                  anchor: "Today you will learn two things",
+                  layout: "side-right",
+                  bullets: [
+                    { text: "Steady volunteers", anchor: "First, why steady volunteers matter" },
+                    { text: "Build budget", anchor: "Second, how to plan the build budget" },
+                  ],
+                },
+              ],
+            },
+            {
+              section: 2,
+              cues: [
+                {
+                  kind: "stat",
+                  anchor: "It uses about 40 percent less water",
+                  layout: "pip",
+                  stat: { value: "40%", label: "less water than hand watering" },
+                },
+                { kind: "quote", anchor: "words the presenter never says", quote: { text: "Dropped" } },
+              ],
+            },
+          ],
+        });
+      }
+
       last = {
         model: body.model,
         jsonMode: body.response_format?.type === "json_object",

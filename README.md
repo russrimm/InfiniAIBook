@@ -29,10 +29,13 @@ More in the [screenshot tour](docs/screenshots.md).
 
 The 🧑‍🏫 **Training video** generator turns a notebook's sources and notes into an
 editable trainer's script, then renders it with an Azure AI Foundry
-text-to-speech avatar: a lip-synced presenter with burned-in subtitles, signed
-in with Microsoft Entra ID. This 3:37 sample came from a notebook of two public
-"What's new in Copilot Studio" pages. It rendered in about four and a half
-minutes.
+text-to-speech avatar: a lip-synced presenter, signed in with Microsoft Entra ID.
+By default the presenter is composed with slides, key numbers, quotes,
+knowledge checks, pictures, screenshots and the notebook's infographics. Each
+visual slides in when the presenter says the words it illustrates, and you can
+plan, edit and preview them in the browser before anything is billed. This 3:37
+presenter-only sample came from a notebook of two public "What's new in Copilot
+Studio" pages. It rendered in about four and a half minutes.
 
 https://github.com/user-attachments/assets/7651fdca-42dd-45e4-8e56-f56f07c3b6d9
 
@@ -73,7 +76,7 @@ How it works, setup and costs: [Training videos](docs/training-videos.md).
   | 🎧 [Audio overview](docs/audio-overviews.md) | One to four speakers discuss your sources, with a synced transcript |
   | 🎬 [Whiteboard video](docs/whiteboard-videos.md) | A narrated, hand-drawn explainer, MP4 |
   | 🎞️ [Motion explainer](docs/motion-explainers.md) | A narrated 2D animated explainer (problem → solution → how → benefits → next step), MP4. [Customize](docs/motion-explainers.md#customizing-a-video) the length, tone, audience, illustration style, colors, character, closing call to action, resolution and character motion |
-  | 🧑‍🏫 [Training video](docs/training-videos.md) | An editable trainer's script from sources and notes, rendered by a lip-synced Azure avatar presenter, MP4 |
+  | 🧑‍🏫 [Training video](docs/training-videos.md) | An editable trainer's script from sources and notes, rendered by a lip-synced Azure avatar presenter with timed slides, pictures and infographics, MP4 |
   | 📽️ [PowerPoint deck](docs/studio.md#powerpoint-deck) | Title, agenda, content slides with speaker notes and a sources slide; download as PPTX |
   | 📊 [Infographic](docs/infographics.md) | **33 styles**, each with a live example in the style gallery before you generate — timelines, funnels, pyramids, cycles, myth vs fact, pros & cons, cheat sheets, kawaii, bricks and AI-drawn anime, retro print and paper craft among them. Pick the shape (landscape, portrait, square), the level of detail, describe what you want, or ask for styles that suit your sources |
   | 🕸️ [Mind map](docs/studio.md#mind-maps) | Interactive, expandable concept tree |
