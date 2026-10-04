@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chunkText, feedToText } from "@/lib/ingest";
+import { chunkText, describeUnreadableDocx, feedToText } from "@/lib/ingest";
 import { diffSummary } from "@/lib/refresh";
 import { safeEqual } from "@/lib/auth";
 
@@ -18,6 +18,43 @@ describe("chunkText", () => {
     const chunks = chunkText("x".repeat(3000), 1400, 200);
     expect(chunks.length).toBe(3);
     expect(chunks[0].length).toBe(1400);
+  });
+});
+
+describe("describeUnreadableDocx", () => {
+  const ole = (...streams: string[]) =>
+    Buffer.concat([
+      Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+      Buffer.alloc(504),
+      ...streams.map((s) => Buffer.from(s, "utf16le")),
+    ]);
+
+  it("accepts a ZIP-based document", () => {
+    expect(describeUnreadableDocx(Buffer.from("PK\x03\x04rest", "latin1"), "a.docx")).toBeNull();
+  });
+
+  it("explains sensitivity-label / IRM encryption", () => {
+    const msg = describeUnreadableDocx(
+      ole("\u0006DataSpaces", "DRMEncryptedDataSpace", "EncryptedPackage"),
+      "a.docx"
+    );
+    expect(msg).toMatch(/sensitivity label/);
+  });
+
+  it("explains password protection", () => {
+    const msg = describeUnreadableDocx(
+      ole("\u0006DataSpaces", "EncryptionInfo", "EncryptedPackage"),
+      "a.docx"
+    );
+    expect(msg).toMatch(/password-protected/);
+  });
+
+  it("explains a renamed legacy .doc", () => {
+    expect(describeUnreadableDocx(ole("WordDocument"), "a.docx")).toMatch(/Word 97/);
+  });
+
+  it("rejects arbitrary bytes", () => {
+    expect(describeUnreadableDocx(Buffer.from("hello"), "a.docx")).toMatch(/not a valid Word/);
   });
 });
 
