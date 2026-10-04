@@ -90,18 +90,37 @@ Only a **chat model** is required. Everything else is optional and turns on the
 features that need it. For Azure, each value is a deployment name; for any
 other provider it is a model id.
 
-| Model | Azure setting | Other providers | Default | Used for | Without it |
-|---|---|---|---|---|---|
-| **Chat** (required) | `AZURE_OPENAI_DEPLOYMENT` | `AI_MODEL` (or the `AI_PROVIDER` preset) | `gpt-4o` | Grounded chat, search **Ask**, transformations, source summaries and change summaries, source discovery, and every Studio text format: report, briefing, study guide, FAQ, timeline, quiz, flashcards, mind map and infographic content | Nothing works |
-| **Studio script** | `AI_STUDIO_MODEL`, plus `AI_STUDIO_ENDPOINT` if it lives on another resource | `AI_STUDIO_MODEL`; `AI_STUDIO_API=anthropic` for Claude | the chat model | Audio-overview scripts, whiteboard and motion-explainer scene plans, and training-video transcripts ([details](#studio-script-model)) | The chat model writes them |
-| **Embeddings** | `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | `AI_EMBEDDING_MODEL` (or `AI_EMBEDDING_PROVIDER`) | `text-embedding-3-small` | Semantic retrieval for chat and Studio, semantic search, and matching the Studio focus box | Retrieval falls back to keyword ranking |
-| **Image** | `AZURE_OPENAI_IMAGE_DEPLOYMENT` (`AZURE_OPENAI_IMAGE_API_VERSION` for its API version) | `AI_IMAGE_MODEL` | `gpt-image-2.5-sunburst` | The "AI image" infographic style, whiteboard-video scenes and the drawing hand, and motion-explainer backgrounds, character and props | Those three features fail unless a deployment with the default name exists |
-| **Vision** | `AZURE_OPENAI_VISION_DEPLOYMENT` | `AI_VISION_MODEL` | the chat model | Reading uploaded images so they can be indexed as sources, and the [screen helper](screen-helper.md) | Uses the chat model, which must then support images |
-| **Transcription** | `AZURE_OPENAI_REALTIME_DEPLOYMENT`, `AI_REALTIME_MODEL`, `AI_REALTIME_TRANSCRIPTION_MODEL`, `DISCUSSION_CONTEXT_CHARS` | Realtime voice model, transcription and starting context for [live discussions](discussions.md#setup) |
-| `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT` | `AI_TRANSCRIPTION_MODEL` (or `AI_TRANSCRIPTION_PROVIDER`) | the preset's, if any | Audio and video file sources | Audio and video uploads fail with a message saying what to set |
-| **Realtime voice** | `AZURE_OPENAI_REALTIME_DEPLOYMENT` | `AI_REALTIME_MODEL` (OpenAI only) | none (`gpt-realtime` with OpenAI) | [Live discussions](discussions.md): the spoken conversation itself, with `AI_REALTIME_TRANSCRIPTION_MODEL` (default `gpt-4o-mini-transcribe`) for what you say | The Live discussion card explains what to set |
-| **Speech** (Azure AI Speech, not a deployment) | `AZURE_SPEECH_REGION` + `AZURE_SPEECH_RESOURCE_ID`, or `AZURE_SPEECH_KEY` | same | `en-Multitalker:DragonHDLatestNeural` and the standalone neural voices | Audio overviews, voice previews, whiteboard and motion narration, and training-video avatars (`AZURE_SPEECH_ENDPOINT` for the avatar service) | Those features are unavailable |
-| **Gemini** | `GEMINI_API_KEY`, `GEMINI_MODEL` | same | `gemini-2.5-flash` | YouTube transcripts, fetched by Gemini on Google's side | The app tries YouTube's own captions, then falls back to the video description, clearly labeled |
+### What each model does
+
+| Model | Used for | Without it |
+|---|---|---|
+| **Chat** (required) | Grounded chat, search **Ask**, transformations, source summaries and change summaries, source discovery, and every Studio text format: report, briefing, study guide, FAQ, timeline, quiz, flashcards, mind map and infographic content | Nothing works |
+| **Studio script** | Audio-overview scripts, whiteboard and motion-explainer scene plans, and training-video transcripts ([details](#studio-script-model)) | The chat model writes them |
+| **Embeddings** | Semantic retrieval for chat and Studio, semantic search, and matching the Studio focus box | Retrieval falls back to keyword ranking |
+| **Image** | The "AI image" infographic style, whiteboard-video scenes and the drawing hand, and motion-explainer backgrounds, character and props | Those three features fail unless a deployment with the default name exists |
+| **Vision** | Reading uploaded images so they can be indexed as sources, and the [screen helper](screen-helper.md) | Uses the chat model, which must then support images |
+| **Transcription** | Audio and video file sources | Audio and video uploads fail with a message saying what to set |
+| **Realtime voice** | [Live discussions](discussions.md): the spoken conversation itself, plus a transcription model for what you say | The Live discussion card explains what to set |
+| **Speech** (Azure AI Speech, not a deployment) | Audio overviews, voice previews, whiteboard and motion narration, and training-video avatars | Those features are unavailable |
+| **Gemini** | YouTube transcripts, fetched by Gemini on Google's side | The app tries YouTube's own captions, then falls back to the video description, clearly labeled |
+
+### How to configure it
+
+| Model | Azure setting | Other providers | Default |
+|---|---|---|---|
+| **Chat** | `AZURE_OPENAI_DEPLOYMENT` | `AI_MODEL` (or the `AI_PROVIDER` preset) | `gpt-4o` |
+| **Studio script** | `AI_STUDIO_MODEL`<br>`AI_STUDIO_ENDPOINT` if on another resource | `AI_STUDIO_MODEL`<br>`AI_STUDIO_API=anthropic` for Claude | the chat model |
+| **Embeddings** | `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | `AI_EMBEDDING_MODEL` (or `AI_EMBEDDING_PROVIDER`) | `text-embedding-3-small` |
+| **Image** | `AZURE_OPENAI_IMAGE_DEPLOYMENT`<br>`AZURE_OPENAI_IMAGE_API_VERSION` for its API version | `AI_IMAGE_MODEL` | `gpt-image-2.5-sunburst` |
+| **Vision** | `AZURE_OPENAI_VISION_DEPLOYMENT` | `AI_VISION_MODEL` | the chat model |
+| **Transcription** | `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT` | `AI_TRANSCRIPTION_MODEL` (or `AI_TRANSCRIPTION_PROVIDER`) | the preset's, if any |
+| **Realtime voice** | `AZURE_OPENAI_REALTIME_DEPLOYMENT` | `AI_REALTIME_MODEL` (OpenAI only) | none (`gpt-realtime` with OpenAI) |
+| **Realtime transcription** | `AI_REALTIME_TRANSCRIPTION_MODEL` | same | `gpt-4o-mini-transcribe` |
+| **Speech** | `AZURE_SPEECH_REGION` + `AZURE_SPEECH_RESOURCE_ID`, or `AZURE_SPEECH_KEY`<br>`AZURE_SPEECH_ENDPOINT` for the avatar service | same | Multitalker HD and standalone neural voices |
+| **Gemini** | `GEMINI_API_KEY`, `GEMINI_MODEL` | same | `gemini-2.5-flash` |
+
+The default Speech voice is `en-Multitalker:DragonHDLatestNeural`, alongside the
+standalone neural voices.
 
 No model animates the videos. Whiteboard and motion explainers are assembled
 by the Python renderers in `scripts/`, which need Python 3 with `numpy`,
