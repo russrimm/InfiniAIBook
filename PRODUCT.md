@@ -40,7 +40,7 @@ Success means the user ends up with output they can use or share without re-chec
 - Stack: Next.js 15, TypeScript, Tailwind, SQLite (`node:sqlite`), and Node 22.13+.
 - Only a chat model is required. The embedding, image, vision, transcription, and Azure Speech models each switch on extra features, and the UI must degrade gracefully when one is missing. For example, retrieval falls back to keyword search alone.
 - Studio output is structured JSON, validated and normalized, so a malformed model response can never break the UI.
-- Sources: PDF, DOCX, TXT, MD, CSV, JSON, HTML, images, audio/video, pasted text, URLs, YouTube, RSS/Atom, web discovery, and an in-app browser. Linked sources are re-checked for changes.
+- Sources: PDF, DOCX, PPTX, TXT, MD, CSV, JSON, HTML, images, audio/video, ZIP archives (supported files inside are imported), pasted text, URLs, YouTube, RSS/Atom, web discovery, and an in-app browser. Linked sources are re-checked for changes.
 - Infographics come in 20 named styles. Videos render to MP4 and can take minutes.
 - Terminology: _notebook_, _source_, _Studio_, _artifact_, _transformation_, _note_, _session_, _audio overview_, _whiteboard video_, _motion explainer_, _training video_, _live discussion_, _screen helper_.
 - Undecided: whether multi-user or hosted use is ever in scope. The current design is explicitly single-user.

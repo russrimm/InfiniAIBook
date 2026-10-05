@@ -31,7 +31,7 @@ Tech stack I want:
 
 Main features:
 1. Notebooks – a home page listing my notebooks, and I can create/delete them.
-2. Sources – upload PDF, DOCX, TXT, MD, CSV, JSON, HTML and images (use a vision
+2. Sources – upload PDF, DOCX, PPTX, ZIP (import supported files inside), TXT, MD, CSV, JSON, HTML and images (use a vision
    model to describe images). Also let me paste text, add a website URL, a YouTube
    link (get the transcript with Gemini if I have a key), or an RSS feed. Add a
    "discover sources" button that searches the web for a topic (DuckDuckGo by

@@ -1,8 +1,17 @@
 import * as cheerio from "cheerio";
+import JSZip from "jszip";
 import mammoth from "mammoth";
 import { describeImage, imageMimeFor } from "./vision";
 import { BlockedHostError, readCapped, safeFetch } from "./safefetch";
 import { transcribe } from "./ai";
+import { pptxToText } from "./pptx";
+import {
+  MAX_ARCHIVE_DEPTH,
+  MAX_ARCHIVE_EXPANDED_BYTES,
+  MAX_ARCHIVE_FILES,
+  MAX_UPLOAD_BYTES,
+  mb,
+} from "./limits";
 
 export type Extracted = { title: string; text: string; kind: string };
 
@@ -71,42 +80,59 @@ function decodeEntities(s: string): string {
 
 const OLE_MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
 
+const OFFICE_FORMATS = {
+  docx: { app: "Word", noun: "Word document", protect: "Protect Document" },
+  pptx: { app: "PowerPoint", noun: "PowerPoint presentation", protect: "Protect Presentation" },
+} as const;
+
 /**
- * A real .docx is a ZIP. Encrypted ones (sensitivity labels, IRM, passwords)
- * and legacy .doc files renamed to .docx are OLE compound files instead, which
- * mammoth rejects with an opaque JSZip error. Explain what the user can do.
+ * A real .docx or .pptx is a ZIP. Encrypted ones (sensitivity labels, IRM,
+ * passwords) and legacy .doc/.ppt files renamed to the new extension are OLE
+ * compound files instead, which the ZIP reader rejects with an opaque error.
+ * Explain what the user can do.
  */
-export function describeUnreadableDocx(buf: Buffer, name: string): string | null {
+export function describeUnreadableOffice(
+  buf: Buffer,
+  name: string,
+  format: keyof typeof OFFICE_FORMATS
+): string | null {
   if (buf.subarray(0, 4).toString("latin1") === "PK\x03\x04") return null;
+  const { app, noun, protect } = OFFICE_FORMATS[format];
   if (!buf.subarray(0, 8).equals(OLE_MAGIC)) {
-    return `"${name}" is not a valid Word document. Re-save it as .docx and try again.`;
+    return `"${name}" is not a valid ${noun}. Re-save it as .${format} and try again.`;
   }
   // OLE directory entry names are stored as UTF-16LE.
   const has = (s: string) => buf.includes(Buffer.from(s, "utf16le"));
   if (has("DRMEncrypted")) {
-    return `"${name}" is protected by a sensitivity label or rights management (IRM), so its contents are encrypted. Remove the protection in Word, or copy the text and use "Paste".`;
+    return `"${name}" is protected by a sensitivity label or rights management (IRM), so its contents are encrypted. Remove the protection in ${app}, or copy the text and use "Paste".`;
   }
   if (has("EncryptedPackage") || has("EncryptionInfo")) {
-    return `"${name}" is password-protected. Remove the password in Word (File > Info > Protect Document) and try again.`;
+    return `"${name}" is password-protected. Remove the password in ${app} (File > Info > ${protect}) and try again.`;
   }
-  return `"${name}" is a legacy Word 97–2003 document with a .docx extension. Open it in Word and save it as .docx.`;
+  return `"${name}" is a legacy ${app} 97–2003 file with a .${format} extension. Open it in ${app} and save it as .${format}.`;
+}
+
+export function describeUnreadableDocx(buf: Buffer, name: string): string | null {
+  return describeUnreadableOffice(buf, name, "docx");
 }
 
 export async function extractFromFile(file: File): Promise<Extracted> {
-  const name = file.name || "Untitled";
-  const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  const buf = Buffer.from(await file.arrayBuffer());
+  return extractFromBuffer(Buffer.from(await file.arrayBuffer()), file.name || "Untitled", file.type);
+}
 
-  const imageMime = imageMimeFor(name, file.type);
+async function extractFromBuffer(buf: Buffer, name: string, type = ""): Promise<Extracted> {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+
+  const imageMime = imageMimeFor(name, type);
   if (imageMime) {
     const described = await describeImage(buf, imageMime, name);
     return { title: described.title, text: described.text, kind: "image" };
   }
 
-  const media = mediaTypeFor(name, file.type);
+  const media = mediaTypeFor(name, type);
   if (media) return transcribeMedia(buf, name, media);
 
-  if (ext === "pdf" || file.type === "application/pdf") {
+  if (ext === "pdf" || type === "application/pdf") {
     const { getDocumentProxy, extractText } = await import("unpdf");
     const pdf = await getDocumentProxy(new Uint8Array(buf));
     const { text } = await extractText(pdf, { mergePages: true });
@@ -120,12 +146,230 @@ export async function extractFromFile(file: File): Promise<Extracted> {
     return { title: name, text: clean(value), kind: "docx" };
   }
 
+  if (ext === "pptx") {
+    const problem = describeUnreadableOffice(buf, name, "pptx");
+    if (problem) throw new Error(problem);
+    const text = clean(await pptxToText(buf));
+    if (!text) {
+      throw new Error(`"${name}" has no text on its slides or in its speaker notes — it may contain only images.`);
+    }
+    return { title: name, text, kind: "pptx" };
+  }
+
   if (ext === "html" || ext === "htm") {
     return { title: name, text: htmlToText(buf.toString("utf8")).text, kind: "html" };
   }
 
   // txt, md, csv, json, code, ...
   return { title: name, text: clean(buf.toString("utf8")), kind: ext || "text" };
+}
+
+const ZIP_MIME_TYPES = new Set([
+  "application/zip",
+  "application/x-zip",
+  "application/x-zip-compressed",
+]);
+
+export function isZipUpload(name: string, type = ""): boolean {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "zip") return true;
+  // Office files are ZIPs too, and some browsers label them that way.
+  return ZIP_MIME_TYPES.has(type.toLowerCase()) && !(ext in OFFICE_FORMATS);
+}
+
+/** Text formats imported from an archive; anything else in it is skipped. */
+const ARCHIVE_TEXT_EXTENSIONS = new Set([
+  "txt",
+  "md",
+  "markdown",
+  "csv",
+  "tsv",
+  "json",
+  "html",
+  "htm",
+]);
+
+function isArchiveImportable(path: string): boolean {
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  return (
+    ext === "pdf" ||
+    ext in OFFICE_FORMATS ||
+    ARCHIVE_TEXT_EXTENSIONS.has(ext) ||
+    !!imageMimeFor(path) ||
+    !!mediaTypeFor(path)
+  );
+}
+
+/** OS and editor droppings that are never worth reporting as skipped. */
+function isArchiveJunk(path: string): boolean {
+  const base = path.split("/").pop() ?? "";
+  return (
+    path.startsWith("__MACOSX/") ||
+    path.split("/").some((seg) => seg.startsWith(".")) ||
+    base.startsWith("~$") ||
+    /^(thumbs\.db|desktop\.ini)$/i.test(base)
+  );
+}
+
+export type ArchiveEntry =
+  | { path: string; extracted: Extracted }
+  | { path: string; error: string }
+  | { path: string; skipped: true };
+
+class ArchiveLimitError extends Error {}
+
+/**
+ * Decompress one entry, giving up as soon as it passes `cap` bytes, so a
+ * small archive that inflates to gigabytes (a "zip bomb") is stopped early
+ * rather than after it has filled memory.
+ */
+function readEntryCapped(entry: JSZip.JSZipObject, cap: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const parts: Buffer[] = [];
+    let size = 0;
+    let done = false;
+    const stream = entry.nodeStream("nodebuffer");
+    stream
+      .on("data", (chunk: Buffer) => {
+        if (done) return;
+        size += chunk.length;
+        if (size > cap) {
+          done = true;
+          // Backpressure then pauses the inflater itself.
+          stream.pause();
+          reject(new ArchiveLimitError(`it expands to more than ${mb(cap)}`));
+          return;
+        }
+        parts.push(chunk);
+      })
+      .on("error", (e: Error) => {
+        if (done) return;
+        done = true;
+        reject(e);
+      })
+      .on("end", () => {
+        if (done) return;
+        done = true;
+        resolve(Buffer.concat(parts, size));
+      })
+      .resume();
+  });
+}
+
+async function openZip(buf: Buffer, name: string): Promise<JSZip> {
+  try {
+    return await JSZip.loadAsync(buf);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "";
+    if (/encrypt/i.test(msg)) {
+      throw new Error(`"${name}" is password-protected. Extract it, or re-create it without a password, and try again.`);
+    }
+    throw new Error(`"${name}" is not a valid ZIP archive.`);
+  }
+}
+
+/**
+ * Unpack a ZIP and extract every supported file inside it, one at a time.
+ * Nested archives are opened too, up to a few levels deep. Limits on file
+ * count and total expanded size apply to the whole upload, nested archives
+ * included.
+ */
+export async function* extractFromZip(buf: Buffer, name: string): AsyncGenerator<ArchiveEntry> {
+  const budget = { files: MAX_ARCHIVE_FILES, bytes: MAX_ARCHIVE_EXPANDED_BYTES, truncated: false };
+  yield* walkZip(buf, name, "", 0, budget);
+}
+
+async function* walkZip(
+  buf: Buffer,
+  name: string,
+  prefix: string,
+  depth: number,
+  budget: { files: number; bytes: number; truncated: boolean }
+): AsyncGenerator<ArchiveEntry> {
+  const zip = await openZip(buf, name);
+  const entries = Object.values(zip.files).filter(
+    (f) => !f.dir && !isArchiveJunk(f.name)
+  );
+
+  // A folder zipped from Explorer or Finder puts everything under one root
+  // folder, which adds nothing to each source's title.
+  const roots = new Set(entries.map((f) => (f.name.includes("/") ? f.name.split("/")[0] : "")));
+  const root = roots.size === 1 && !roots.has("") ? `${[...roots][0]}/` : "";
+
+  for (const entry of entries) {
+    const path = prefix + entry.name.slice(root.length);
+    const nested = /\.zip$/i.test(entry.name);
+
+    if (!nested && !isArchiveImportable(entry.name)) {
+      yield { path, skipped: true };
+      continue;
+    }
+    if (nested && depth >= MAX_ARCHIVE_DEPTH) {
+      yield { path, error: "archives nested this deeply are not opened." };
+      continue;
+    }
+    if (!nested && (budget.files <= 0 || budget.bytes <= 0)) {
+      // Reported once; listing every file left out would bury the real errors.
+      if (!budget.truncated) {
+        budget.truncated = true;
+        const limit =
+          budget.files <= 0
+            ? `only the first ${MAX_ARCHIVE_FILES} files in an archive are imported`
+            : `the archive expands to more than ${mb(MAX_ARCHIVE_EXPANDED_BYTES)} in total`;
+        yield { path, error: `${limit}; this and the remaining files were left out.` };
+      }
+      continue;
+    }
+
+    let data: Buffer;
+    try {
+      data = await readEntryCapped(entry, Math.min(MAX_UPLOAD_BYTES, budget.bytes));
+    } catch (e) {
+      if (e instanceof ArchiveLimitError && budget.bytes < MAX_UPLOAD_BYTES) {
+        budget.bytes = 0;
+        if (!budget.truncated) {
+          budget.truncated = true;
+          yield {
+            path,
+            error: `the archive expands to more than ${mb(MAX_ARCHIVE_EXPANDED_BYTES)} in total; this and the remaining files were left out.`,
+          };
+        }
+        continue;
+      }
+      yield {
+        path,
+        error:
+          e instanceof ArchiveLimitError
+            ? `${e.message}, which is over the per-file upload limit.`
+            : "it could not be decompressed.",
+      };
+      continue;
+    }
+    budget.bytes -= data.length;
+
+    if (nested) {
+      try {
+        yield* walkZip(data, path, `${path}/`, depth + 1, budget);
+      } catch (e) {
+        yield { path, error: e instanceof Error ? e.message : "could not be opened." };
+      }
+      continue;
+    }
+
+    budget.files--;
+    const base = entry.name.split("/").pop() || entry.name;
+    try {
+      const extracted = await extractFromBuffer(data, base);
+      // Keep the folder path so same-named files from different folders stay
+      // distinguishable; images keep the title their description gave them.
+      yield {
+        path,
+        extracted: extracted.kind === "image" ? extracted : { ...extracted, title: path },
+      };
+    } catch (e) {
+      yield { path, error: e instanceof Error ? e.message : "failed" };
+    }
+  }
 }
 
 /** Containers that usually hold the real article, best first. */

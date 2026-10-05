@@ -7,6 +7,8 @@ import type { DiscoverHit } from "./DiscoverModal";
 const ICONS: Record<string, string> = {
   pdf: "📕",
   docx: "📘",
+  pptx: "📙",
+  zip: "🗜️",
   url: "🌐",
   html: "🌐",
   youtube: "📺",
@@ -156,18 +158,21 @@ export default function SourcesPanel({
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json.error || "Could not add this source");
 
-        const warning: string | undefined = json.warnings?.[0];
-        const failure: string | undefined = json.errors?.[0];
-        if (failure) throw new Error(failure);
+        // An archive adds several sources in one request, so some may fail
+        // while the rest land; only fail the row if nothing was added.
+        const addedCount: number = json.added?.length ?? 0;
+        const errors: string[] = json.errors ?? [];
+        if (errors.length && !addedCount) throw new Error(errors[0]);
+        const notices: string[] = [...errors, ...(json.warnings ?? [])];
 
         await onChanged();
         refreshForSummaries();
         setJobs((prev) => prev.filter((j) => j.id !== id));
-        if (warning) {
-          // Not fatal, but the user should know the source is degraded.
+        if (notices.length) {
+          // Not fatal, but the user should know what was degraded or left out.
           setJobs((prev) => [
             ...prev,
-            { id: `${id}-warn`, label, icon: "⚠️", error: warning },
+            ...notices.map((error, n) => ({ id: `${id}-warn-${n}`, label, icon: "⚠️", error })),
           ]);
         }
       } catch (e) {
@@ -282,7 +287,7 @@ export default function SourcesPanel({
           </span>
           <span className="block text-xs font-medium">Drop files or click to upload</span>
           <span className="mt-1 block text-[11px] text-[var(--muted)]">
-            PDF · DOCX · TXT · MD · CSV · HTML · audio/video (transcribed)
+            PDF · DOCX · PPTX · TXT · MD · CSV · HTML · ZIP · audio/video (transcribed)
           </span>
         </button>
         <input
@@ -290,7 +295,7 @@ export default function SourcesPanel({
           type="file"
           multiple
           hidden
-          accept={`.pdf,.docx,.txt,.md,.csv,.json,.html,.htm,${MEDIA_ACCEPT}`}
+          accept={`.pdf,.docx,.pptx,.zip,.txt,.md,.csv,.json,.html,.htm,${MEDIA_ACCEPT}`}
           onChange={(e) => {
             if (e.target.files) uploadFiles(e.target.files);
             e.target.value = "";

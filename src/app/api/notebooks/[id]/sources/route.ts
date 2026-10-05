@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import { after, NextResponse } from "next/server";
 import { db, floatsToBlob, transaction } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
-import { chunkText, extractFromFile, extractFromUrl } from "@/lib/ingest";
+import { chunkText, extractFromFile, extractFromUrl, extractFromZip, isZipUpload } from "@/lib/ingest";
 import { fetchYouTubeTranscript, isYouTubeUrl } from "@/lib/youtube";
 import { chatText, embed, describeAuthError, embedModel } from "@/lib/ai";
 import { MAX_TITLE_CHARS, MAX_UPLOAD_BYTES, mb } from "@/lib/limits";
@@ -95,6 +95,54 @@ async function ingestOne(
 
   return { id: sourceId, title, kind, chars: text.length, chunks: chunks.length };
 }
+
+/**
+ * Unpack an uploaded ZIP and add each supported file in it as its own source.
+ * Files are processed one after another, so a large archive does not burst
+ * the embedding provider; a file that fails is reported and the rest go on.
+ */
+async function ingestArchive(
+  notebookId: string,
+  file: File,
+  added: unknown[],
+  errors: string[],
+  warnings: string[]
+) {
+  const buf = Buffer.from(await file.arrayBuffer());
+  const skipped: string[] = [];
+  let found = 0;
+  for await (const entry of extractFromZip(buf, file.name)) {
+    if ("skipped" in entry) {
+      skipped.push(entry.path);
+      continue;
+    }
+    found++;
+    if ("error" in entry) {
+      errors.push(`${file.name}/${entry.path}: ${entry.error}`);
+      continue;
+    }
+    try {
+      const ex = entry.extracted;
+      added.push(await ingestOne(notebookId, ex.title, ex.kind, null, ex.text, warnings));
+    } catch (e) {
+      errors.push(`${file.name}/${entry.path}: ${e instanceof Error ? e.message : "failed"}`);
+    }
+  }
+  if (!found) {
+    throw new Error(
+      skipped.length
+        ? `No supported files found in "${file.name}" (${skipped.length} other file${skipped.length === 1 ? "" : "s"} skipped).`
+        : `"${file.name}" is empty.`
+    );
+  }
+  if (skipped.length) {
+    const shown = skipped.slice(0, 5).join(", ");
+    const more = skipped.length > 5 ? ` and ${skipped.length - 5} more` : "";
+    warnings.push(
+      `Skipped ${skipped.length} unsupported file${skipped.length === 1 ? "" : "s"} in "${file.name}": ${shown}${more}.`
+    );
+  }
+}
 /**
  * Reuse a source from another notebook. Its text, summary and embeddings are
  * copied as they are, so nothing is re-fetched, re-embedded or re-summarised;
@@ -177,6 +225,8 @@ export async function POST(req: Request, { params }: Ctx) {
     const added: unknown[] = [];
     const errors: string[] = [];
     const warnings: string[] = [];
+    /** Names the notebook when an archive, not its first file, was the upload. */
+    let nameHint: string | undefined;
     const ctype = req.headers.get("content-type") ?? "";
 
     // Refused before the body is read: parsing it buffers the whole upload in
@@ -200,6 +250,12 @@ export async function POST(req: Request, { params }: Ctx) {
         try {
           if (f.size > MAX_UPLOAD_BYTES) {
             throw new Error(`${mb(f.size)} is over the ${mb(MAX_UPLOAD_BYTES)} limit.`);
+          }
+          if (isZipUpload(f.name, f.type)) {
+            const before = added.length;
+            await ingestArchive(notebookId, f, added, errors, warnings);
+            if (added.length > before) nameHint ??= f.name;
+            continue;
           }
           const ex = await extractFromFile(f);
           added.push(
@@ -289,8 +345,8 @@ export async function POST(req: Request, { params }: Ctx) {
         .prepare("SELECT COUNT(*) AS c FROM sources WHERE notebook_id = ?")
         .get(notebookId) as unknown as { c: number };
       if (count.c === added.length) {
-        const first = added[0] as { title: string };
-        const name = first.title.replace(/\.[a-z0-9]+$/i, "").slice(0, 60);
+        const first = nameHint ?? (added[0] as { title: string }).title;
+        const name = first.replace(/\.[a-z0-9]+$/i, "").slice(0, 60);
         db.prepare("UPDATE notebooks SET title = ? WHERE id = ?").run(name, notebookId);
       }
     }

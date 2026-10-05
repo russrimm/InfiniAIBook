@@ -47,8 +47,8 @@ How it works, setup and costs: [Training videos](docs/training-videos.md).
 
 ## Features
 
-- **Sources** — PDF, DOCX, TXT, MD, CSV, JSON, HTML, images, audio/video, pasted
-  text, URLs, YouTube links and RSS/Atom feeds; discover sources from a topic,
+- **Sources** — PDF, DOCX, PPTX, TXT, MD, CSV, JSON, HTML, images, audio/video, ZIP archives,
+  pasted text, URLs, YouTube links and RSS/Atom feeds; discover sources from a topic,
   browse the web in-app, or reuse a source from another notebook. Uploads are
   processed in the background, and linked sources are re-checked for changes.
   [More](docs/sources.md)
