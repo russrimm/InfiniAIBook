@@ -380,7 +380,10 @@ export async function importNotebookZip(buffer: Buffer): Promise<{ id: string; t
     );
     for (const artifact of artifacts) {
       const row = asRecord(artifact);
-      if (!row || typeof row.id !== "string" || !artifactIds.has(row.id)) continue;
+      if (!row || typeof row.id !== "string") continue;
+      // Map.has does not narrow Map.get, and node:sqlite rejects undefined binds.
+      const artifactId = artifactIds.get(row.id);
+      if (!artifactId) continue;
       let content = str(row.content, 2_000_000);
       try {
         content = JSON.stringify(remapSourceIds(JSON.parse(content), sourceIds));
@@ -388,7 +391,7 @@ export async function importNotebookZip(buffer: Buffer): Promise<{ id: string; t
         /* keep the original string if it is not JSON */
       }
       insertArtifact.run(
-        artifactIds.get(row.id),
+        artifactId,
         notebookId,
         str(row.type, 40) || "report",
         str(row.title, MAX_TITLE_CHARS) || "Artifact",
