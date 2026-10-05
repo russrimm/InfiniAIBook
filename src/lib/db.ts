@@ -29,10 +29,14 @@ function adoptLegacyDatabase() {
 function init(): DatabaseSync {
   adoptLegacyDatabase();
   const db = new DatabaseSync(path.join(DATA_DIR, DB_FILE));
-  db.exec("PRAGMA journal_mode = WAL");
+  // WAL needs shared memory that network file shares (such as the Azure Files
+  // volume a cloud container mounts) do not provide reliably; DELETE works there.
+  const journal = (process.env.SQLITE_JOURNAL_MODE || "WAL").trim().toUpperCase();
+  const mode = ["WAL", "DELETE", "TRUNCATE", "PERSIST"].includes(journal) ? journal : "WAL";
+  db.exec(`PRAGMA journal_mode = ${mode}`);
   // Safe under WAL: a power cut can lose the last commits but never corrupts
-  // the file, and it skips an fsync per commit.
-  db.exec("PRAGMA synchronous = NORMAL");
+  // the file, and it skips an fsync per commit. Other modes keep the default.
+  if (mode === "WAL") db.exec("PRAGMA synchronous = NORMAL");
   db.exec("PRAGMA busy_timeout = 8000");
   db.exec("PRAGMA foreign_keys = ON");
   db.exec(`

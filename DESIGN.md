@@ -266,8 +266,6 @@ Status colors use Tailwind's amber, red, emerald, and rose families. They're nev
 
 - **Notebook list:** a centered column up to 72rem wide, with 24px side padding and 56px of vertical padding. Below the header is a responsive grid of notebook cards (one column, two at `sm`, three at `lg`) with 16px gaps.
 - **Workspace:** fills the full viewport height. A 1px-bordered header (16px × 12px padding) sits above a three-column grid at `lg` and up: Sources (320px) | Chat (flexible) | Studio/Notes (380px). The columns are separated by hairline borders, not gutters. Studio and Notes share the right column through a small segmented tab bar.
-- **Side panels:** each side panel has a pin and a collapse control (`src/components/PanelChrome.tsx`, state in `src/lib/panelLayout.ts`, remembered in localStorage). Pinned and open, it's docked in its column. Unpinned and open, it floats over the chat as a `shadow-2xl` layer and folds away on an outside click or Escape. Collapsed, it leaves a 44px rail with an expand button and vertical labels. Panels are hidden, never unmounted, so uploads keep running while folded.
-- **Guided tour:** `src/components/GuidedTour.tsx` dims the page, rings the target in Lamplight, points a nudging Lamplight arrow at it and explains it in a floating card with Skip, Back and Next/Finish. Steps target `data-tour` attributes. It uses `useDialog` like every modal.
 - **Below `lg`:** the three panels collapse into a single column switched by a full-width tab bar. Header button labels collapse to emoji below `md`.
 - **Modals:** fill the viewport on small screens. From `sm` up they float with 24px of inset and Sheet corners.
 - **Rhythm:** a 4px base. Dense UI uses 8px gaps (`gap-2` is by far the most common) and 12px between groups. Cards use 20px of internal padding. Lists stack at 8px.
@@ -278,7 +276,6 @@ The surfaces are flat and use tonal layering. Depth is built by stepping up the 
 
 ### Shadow Vocabulary
 - **Floating toast** (Tailwind `shadow-xl`): undo and error toasts pinned to the bottom center.
-- **Floating panel and tour card** (Tailwind `shadow-2xl`): an unpinned side panel over the chat, and the guided-tour card.
 - **Modal scrim** (black at 65% with a small backdrop blur): behind every modal. The modal itself is a flat Slate Panel with a Hairline border.
 - **Focus halo** (`box-shadow: 0 0 0 3px rgba(124, 140, 255, 0.12)`): focused inputs.
 - **Cited passage** (`box-shadow: 0 0 0 2px rgba(124, 140, 255, 0.22)`): the highlighted excerpt behind an opened citation.
@@ -344,7 +341,7 @@ Every modal uses `useDialog` (`src/components/useDialog.ts`) and carries `role="
 - **Mind map:** nodes and links glide on `cubic-bezier(0.22, 1, 0.36, 1)` over 280ms.
 - **Busy states:** a 0.7s linear spinner (Lamplight arc on a Hairline Strong track) and a 1.4s shimmer sweep.
 - **Reduced motion:** under `prefers-reduced-motion: reduce`, spatial and decorative motion stops while state stays communicated:
-  - **Removed:** the fade-up rise (entrances become a 250ms opacity-only fade), the shimmer sweep, the mind-map glide (nodes and links jump into place), smooth scrolling from script (it jumps instead), the flashcard reveal rise (the answer fades in place), disclosure-chevron rotation easing, progress-bar width easing, the guided-tour arrow's nudge and its spotlight glide.
+  - **Removed:** the fade-up rise (entrances become a 250ms opacity-only fade), the shimmer sweep, the mind-map glide (nodes and links jump into place), smooth scrolling from script (it jumps instead), the flashcard reveal rise (the answer fades in place), disclosure-chevron rotation easing, and progress-bar width easing.
   - **Busy indicators stay visible:** the spinner stops rotating and becomes a still ring that breathes between full and 45% opacity every 1.6s. The shimmer glow fades in and out in place over 2s. The three typing dots keep their staggered pulse as an opacity-only fade, so they still read as "answer streaming". Tailwind `animate-pulse` status dots already change only opacity and are unchanged.
   - **Kept:** 150ms color and opacity transitions on hover and focus, because they change tone without moving anything. Buttons are limited to color, border, opacity, and shadow transitions so they can't animate geometry.
   - **Real-time visuals:** the discussion host orb still scales with the live voice level, and media and progress bars still track playback, but without smoothing transitions. The ping ring around a speaking host is already motion-safe only, so it rests as a static ring.

@@ -82,7 +82,6 @@ export default function SourcesPanel({
   onBrowse,
   onLibrary,
   addRef,
-  headerActions,
 }: {
   notebookId: string;
   sources: Source[];
@@ -101,8 +100,6 @@ export default function SourcesPanel({
   /** Reuse a source that already lives in another notebook. */
   onLibrary: () => void;
   addRef: React.MutableRefObject<((hits: DiscoverHit[]) => void) | null>;
-  /** Panel chrome (pin, collapse) shown beside the heading. */
-  headerActions?: React.ReactNode;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -239,8 +236,8 @@ export default function SourcesPanel({
       className="flex h-full min-h-0 flex-col bg-[var(--panel)]"
     >
       <div className="px-4 pt-4 pb-3">
-        <div className="flex items-center gap-2">
-          <h2 id="sources-heading" className="flex-1 text-sm font-semibold tracking-wide">
+        <div className="flex items-center justify-between">
+          <h2 id="sources-heading" className="text-sm font-semibold tracking-wide">
             Sources
           </h2>
           {sources.length > 0 && (
@@ -251,7 +248,6 @@ export default function SourcesPanel({
               {allSelected ? "Deselect all" : "Select all"}
             </button>
           )}
-          {headerActions}
         </div>
         <p className="mt-1 text-[11px] text-[var(--muted)]">
           {sources.length > 0
@@ -260,7 +256,7 @@ export default function SourcesPanel({
         </p>
       </div>
 
-      <div className="px-4 pb-3" data-tour="add-sources">
+      <div className="px-4 pb-3">
         <button
           type="button"
           id="add-sources"

@@ -7,6 +7,8 @@
   where your data lives, and troubleshooting
 - [Getting started](getting-started.md) — prerequisites, local install, Docker
   and password protection
+- [Running in Azure](azure-deployment.md) — Container Apps with private
+  storage and Key Vault, managed identity, and moving an existing library in
 - [Configuration](configuration.md) — model providers, custom endpoints, which
   model does what, environment variables, Entra ID sign-in, reasoning models and
   rate limits

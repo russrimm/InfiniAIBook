@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "iabook-prod-xxxx"
+    },
+    "location": {
+      "value": "eastus2"
+    },
+    "sessionId": {
+      "value": "manual"
+    },
+    "deployedBy": {
+      "value": "Your Name"
+    },
+    "createdAt": {
+      "value": "2026-01-01"
+    },
+    "aiAccountName": {
+      "value": "<your-ai-services-account>"
+    },
+    "aiAccountResourceGroup": {
+      "value": "<its-resource-group>"
+    },
+    "azureOpenAiEndpoint": {
+      "value": "https://<your-ai-services-account>.services.ai.azure.com"
+    }
+  }
+}

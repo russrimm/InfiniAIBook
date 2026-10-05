@@ -1,22 +1,5 @@
 # Sources
 
-## The Sources and Studio panels
-
-On wide screens, Sources sits in the left panel and Studio (with Notes) in the
-right. Each panel has two controls beside its heading:
-
-- **📌 Pin**: pinned (the default), the panel stays open beside the chat.
-  Unpinned, it floats over the chat and folds away when you click elsewhere or
-  press Escape.
-- **« / » Collapse**: folds the panel into a slim rail. Click the rail to open
-  it again; the right rail opens Studio or Notes directly.
-
-The choice is remembered in your browser. The first time you press **Add
-sources**, a short step-by-step walkthrough shows where to pin the panels,
-where to add sources, where Studio lives and where to ask questions. Replay it
-from **Help → Show me around**. On narrow screens the panels are switched with
-the tab bar instead.
-
 ## Adding sources
 
 **Audio and video files** (MP3, M4A, WAV, OGG, FLAC, WebM, MP4, up to 25 MB)
