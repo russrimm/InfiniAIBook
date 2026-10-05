@@ -49,8 +49,11 @@ The image is a standalone Next.js server on Node 22. Data lives in the
 `127.0.0.1:3000` only. Local model servers on the host are reachable at
 `http://host.docker.internal:<port>/v1`. Inside a container use API keys (or a
 service principal via `AZURE_CLIENT_ID`/`AZURE_TENANT_ID`/`AZURE_CLIENT_SECRET`)
-rather than `az login`. Whiteboard and motion videos need Python; uncomment the marked
-lines in the [`Dockerfile`](../Dockerfile) to include it.
+rather than `az login`. Whiteboard, motion and composed training videos need
+Python; build with `docker compose build --build-arg WITH_PYTHON=true` (or
+`docker build --build-arg WITH_PYTHON=true .`) to include it.
+
+To run it in Azure instead, see [Running in Azure](azure-deployment.md).
 
 ## Password protection
 

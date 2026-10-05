@@ -60,3 +60,9 @@ next-env.d.ts
 skills/
 skills-lock.json
 
+
+# Azure onboarding session artifacts (may hold deploy secrets)
+.copilot-azure/
+
+# Environment-specific Azure parameters
+infra/main.parameters.local.json
