@@ -8,6 +8,8 @@ import {
   readCapped,
   safeFetch,
 } from "@/lib/safefetch";
+import { refusesFrame } from "@/lib/access";
+import { requestIsHttps } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -107,10 +109,11 @@ export async function GET(req: Request) {
       clearTimeout(timer);
     }
 
-    const blocked = frameability(
-      res.headers.get("x-frame-options"),
-      res.headers.get("content-security-policy")
-    );
+    const host = req.headers.get("host") ?? new URL(req.url).host;
+    const appOrigin = `${requestIsHttps(req) ? "https" : "http"}://${host}`;
+    const blocked =
+      refusesFrame(finalUrl, appOrigin) ??
+      frameability(res.headers.get("x-frame-options"), res.headers.get("content-security-policy"));
     const ctype = res.headers.get("content-type") ?? "";
 
     // Already in this notebook? Worth knowing before adding it twice.

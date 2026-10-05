@@ -26,9 +26,9 @@ function refuse(pathname: string, status: number, error: string, code: string) {
  *    browsers and pass.
  *
  * With INFINIAIBOOK_PASSWORD set, every page and API route requires either the
- * signed session cookie from /login or a bearer token: INFINIAIBOOK_API_TOKEN,
- * or the password when no API token is set (deprecated). Without it, only the
- * two checks above apply.
+ * signed session cookie from /login or INFINIAIBOOK_API_TOKEN. The password is
+ * accepted as a bearer token only when INFINIAIBOOK_ALLOW_PASSWORD_BEARER is
+ * set. Without a password, only the two checks above apply.
  */
 export async function middleware(req: NextRequest) {
   const password = authPassword();

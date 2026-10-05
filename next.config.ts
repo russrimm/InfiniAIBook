@@ -3,17 +3,29 @@ import type { NextConfig } from "next";
 const dev = process.env.NODE_ENV !== "production";
 
 /**
- * Content Security Policy, shipped as Report-Only first: violations are logged
- * in the browser console without blocking anything, so a missed directive
- * cannot break a feature before it has been seen. Promote it to
- * `Content-Security-Policy` once a round of use shows no reports.
+ * Content Security Policy, enforced. Remote images and connections are refused
+ * so injected Markdown cannot beacon out. Live discussions still need the
+ * realtime host, which the browser reaches by WebRTC after the server
+ * exchanges SDP.
  *
  * - img-src / media-src: own routes plus data: and blob: (PNG export, voice
- *   previews). No remote images, so injected Markdown cannot beacon out.
- * - frame-src: the in-app browser frames arbitrary http(s) pages.
+ *   previews). Remote images in your own notes do not load.
+ * - frame-src: the in-app browser frames arbitrary http(s) pages. This app's
+ *   own origin is refused before the iframe is created.
  * - script-src 'unsafe-inline': Next's inline bootstrap; 'unsafe-eval' only in
  *   development, for React Refresh.
  */
+const connectSrc = [
+  "'self'",
+  "https://*.openai.azure.com",
+  "wss://*.openai.azure.com",
+  "https://*.cognitiveservices.azure.com",
+  "wss://*.cognitiveservices.azure.com",
+  "https://api.openai.com",
+  "wss://api.openai.com",
+  ...(dev ? ["ws:", "wss:"] : []),
+].join(" ");
+
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ""}`,
@@ -21,7 +33,7 @@ const csp = [
   "img-src 'self' data: blob:",
   "media-src 'self' blob:",
   "font-src 'self' data:",
-  `connect-src 'self'${dev ? " ws: wss:" : ""}`,
+  `connect-src ${connectSrc}`,
   "frame-src http: https:",
   "frame-ancestors 'none'",
   "object-src 'none'",
@@ -30,7 +42,7 @@ const csp = [
 ].join("; ");
 
 const securityHeaders = [
-  { key: "Content-Security-Policy-Report-Only", value: csp },
+  { key: "Content-Security-Policy", value: csp },
   // Enforced now: the app never frames itself, so clickjacking protection
   // costs nothing.
   { key: "X-Frame-Options", value: "DENY" },

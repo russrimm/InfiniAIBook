@@ -25,8 +25,8 @@ mind before running it anywhere other than your own machine:
   Setting the password puts every page and API route behind one shared password
   (`src/middleware.ts`). Browsers sign in at `/login` and get an HTTP-only
   cookie that holds a signed expiry (30 days), never the password. Scripts send
-  `INFINIAIBOOK_API_TOKEN` as a bearer token. Until you set one, the password
-  itself is accepted as the bearer token, with a warning in the server log.
+  `INFINIAIBOOK_API_TOKEN` as a bearer token. The password is not accepted as a
+  bearer token unless `INFINIAIBOOK_ALLOW_PASSWORD_BEARER=true`.
   Changing the password or `INFINIAIBOOK_SESSION_SECRET` signs everyone out;
   **Sign out** on the home page clears this browser's cookie. Sign-in attempts
   are handled one at a time, and each failure holds the next attempt for
@@ -59,12 +59,19 @@ mind before running it anywhere other than your own machine:
   rather than loaded (`src/components/Markdown.tsx`), and links show their real
   host. Only notes you write yourself render images. Every response also sends
   `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and
-  `Referrer-Policy: no-referrer`, and a Content Security Policy that allows no
-  remote images or connections (`next.config.ts`). The CSP is Report-Only for
-  now, so a violation is logged in the browser console rather than blocked.
-  Once it is enforced, remote images in your own notes will stop loading too.
+  `Referrer-Policy: no-referrer`,   and an enforced Content Security Policy that allows no remote images
+  (`next.config.ts`). Remote images in your own notes do not load. Live
+  discussions may connect to the configured Azure OpenAI or OpenAI realtime
+  host; other remote connections are refused. The in-app browser does not frame
+  this app's own origin or a loopback address.
 - **Secrets stay in `.env.local`.** It is git-ignored. Prefer Microsoft Entra ID
   (`az login` or a managed identity) over API keys for Azure services.
+- **Model spend has a daily ceiling.** When a cloud provider is configured and
+  `DAILY_BUDGET_USD` is unset, estimated chat, image, speech and discussion
+  calls stop at $25 per UTC day. Set `DAILY_BUDGET_USD=0` to turn that off, or
+  another number to change it. Local model endpoints are unlimited unless you
+  set a ceiling. Export a notebook from its header if you want a copy outside
+  `.data`.
 - **Data is stored unencrypted** under `DATA_DIR` (default `./.data`): sources,
   embeddings, chat history and generated media. Protect that directory as you
   would the documents themselves.

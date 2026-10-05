@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hostAllowed, hostnameOf, isCrossSiteWrite, parseAllowedHosts } from "@/lib/access";
+import { hostAllowed, hostnameOf, isCrossSiteWrite, parseAllowedHosts, refusesFrame } from "@/lib/access";
 
 describe("hostnameOf", () => {
   it("strips ports and brackets", () => {
@@ -26,6 +26,14 @@ describe("hostAllowed", () => {
     expect(hostAllowed("notes.example.com", allowed)).toBe(true);
     expect(hostAllowed("192.168.1.5:3000", allowed)).toBe(true);
     expect(hostAllowed("anything", parseAllowedHosts("*"))).toBe(true);
+  });
+});
+
+describe("refusesFrame", () => {
+  it("refuses this app and loopback addresses", () => {
+    expect(refusesFrame("https://notes.example/", "https://notes.example")).toMatch(/this app/);
+    expect(refusesFrame("http://127.0.0.1:3000/api", "http://localhost:3000")).toMatch(/loopback/);
+    expect(refusesFrame("https://example.com/paper", "https://notes.example")).toBeNull();
   });
 });
 

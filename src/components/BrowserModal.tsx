@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { refusesFrame } from "@/lib/access";
 import { useDialog } from "./useDialog";
 
 type Loaded =
@@ -119,6 +120,8 @@ export default function BrowserModal({
     if (prev) void load(prev, false);
   };
 
+  const frameBlock = page?.frameable ? refusesFrame(page.url, window.location.origin) : null;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/65 p-0 backdrop-blur-sm sm:p-6"
@@ -210,7 +213,16 @@ export default function BrowserModal({
             </div>
           )}
 
-          {page?.frameable && (
+          {page?.frameable && frameBlock && (
+            <div className="flex h-full items-center justify-center px-8 text-center">
+              <p className="max-w-md text-[13px] leading-relaxed text-[var(--muted)]">
+                {frameBlock} Add it as a source if you want the text indexed, or open it in a
+                separate tab.
+              </p>
+            </div>
+          )}
+
+          {page?.frameable && !frameBlock && (
             <iframe
               key={page.url}
               src={page.url}

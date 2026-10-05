@@ -5,6 +5,7 @@ import Markdown from "./Markdown";
 import GettingStarted from "./GettingStarted";
 import { useCitationHandler } from "./CitationContext";
 import { useDeferredDelete } from "./UndoToast";
+import { UNCITED_LABEL } from "@/lib/citations";
 import type { ChatSession, Citation, Message, Source } from "@/lib/types";
 
 /** Mirrors MAX_MESSAGE_CHARS in src/app/api/chat/route.ts. */
@@ -628,6 +629,9 @@ const MessageRow = memo(function MessageRow({
         </p>
       )}
       {!!m.citations?.length && <CiteFooter citations={m.citations} />}
+      {m.content.trim() && !m.citations?.length && (
+        <p className="mt-2 text-[12px] leading-snug text-amber-200/90">{UNCITED_LABEL}</p>
+      )}
       {m.content.trim() && (
         <button
           className="mt-2 text-[11px] text-[var(--muted)] transition hover:text-[var(--fg)] disabled:opacity-60"

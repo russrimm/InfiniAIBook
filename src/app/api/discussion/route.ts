@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { reserve } from "@/lib/budget";
 import { fail, noSourcesSelected } from "@/lib/http";
 import { DiscussionSetupSchema } from "@/lib/discussion";
 import { buildDiscussionSession, notebookTitle, openingExcerpts, sourceTitles } from "@/lib/discussionServer";
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
       excerpts,
       target,
     });
+    reserve("discussion", 20);
     const answer = await startRealtimeCall(session, sdp, target);
     return NextResponse.json({ answer, citations });
   } catch (e) {

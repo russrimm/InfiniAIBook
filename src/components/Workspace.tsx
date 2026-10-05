@@ -67,6 +67,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   /** Open live discussion, with the focus it started from. */
   const [discussing, setDiscussing] = useState<{ focus: string } | null>(null);
   const [model, setModel] = useState("");
+  const [budgetNote, setBudgetNote] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [tab, setTab] = useState<Tab>("chat");
   /** Which panel fills the right-hand column on wide screens. */
   const [right, setRight] = useState<"studio" | "notes">("studio");
@@ -233,6 +235,20 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     try {
       const res = await fetch("/api/models");
       if (res.ok) setModel((await res.json()).current.chat);
+      const budget = await fetch("/api/budget");
+      if (budget.ok) {
+        const status = (await budget.json()) as {
+          enabled?: boolean;
+          remainingCents?: number | null;
+        };
+        if (status.enabled && status.remainingCents != null && status.remainingCents < 500) {
+          setBudgetNote(
+            `$${(status.remainingCents / 100).toFixed(2)} left in today's model budget.`
+          );
+        } else {
+          setBudgetNote(null);
+        }
+      }
     } catch {
       /* the picker reports failures; the header just stays empty */
     }
@@ -241,6 +257,33 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   useEffect(() => {
     void loadModel();
   }, [loadModel]);
+
+  const exportNotebook = async () => {
+    setExporting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/notebooks/${notebookId}/export`);
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j.error || "Could not export this notebook.");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const name = (data?.notebook.title || "notebook")
+        .replace(/[^\w.-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 60);
+      a.href = url;
+      a.download = `${name || "notebook"}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not export this notebook.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Keep the browser tab in step with renames; the server sets it on first load.
   const notebookTitle = data?.notebook.title;
@@ -430,6 +473,14 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           </button>
           <button
             className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
+            disabled={exporting}
+            title="Download this notebook as a zip you can import later"
+            onClick={() => void exportNotebook()}
+          >
+            {exporting ? "Exporting…" : "Export"}
+          </button>
+          <button
+            className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
             onClick={() => setPickingModel(true)}
             title="Choose which models to use"
             aria-label={model ? `Models (chat: ${model})` : "Models"}
@@ -447,6 +498,12 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           </button>
         </div>
       </header>
+
+      {budgetNote && (
+        <p className="shrink-0 border-b border-amber-900/50 bg-amber-950/25 px-4 py-2 text-[13px] text-amber-100">
+          {budgetNote} Set DAILY_BUDGET_USD to raise it, or 0 to turn the ceiling off.
+        </p>
+      )}
 
       {pendingUpdates.length > 0 && (
         <button

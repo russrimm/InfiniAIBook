@@ -47,6 +47,7 @@ export default defineConfig({
         // Point every model call at the local mock in e2e/mock-llm.mjs.
         AI_PROVIDER: "",
         AI_BASE_URL: `${MOCK_LLM_URL}/v1`,
+        DAILY_BUDGET_USD: "0",
         AI_API_KEY: "e2e",
         AI_MODEL: "mock-chat",
         AI_VISION_MODEL: "mock-vision",

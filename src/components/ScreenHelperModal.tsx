@@ -79,7 +79,7 @@ export default function ScreenHelperModal({
   const [turns, setTurns] = useState<Turn[]>([]);
   const [busy, setBusy] = useState<Trigger | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [autoWatch, setAutoWatch] = useState(true);
+  const [autoWatch, setAutoWatch] = useState(false);
   const [speak, setSpeak] = useState(false);
   const [watchNote, setWatchNote] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -229,7 +229,7 @@ export default function ScreenHelperModal({
         const code = (e as { code?: string }).code;
         if (trigger === "watch") {
           // A configuration problem will not fix itself on the next sample.
-          if (code === "vision" || code === "auth" || code === "no_config") setAutoWatch(false);
+          if (code === "vision" || code === "auth" || code === "no_config" || code === "budget") setAutoWatch(false);
           setWatchNote(`Auto-watch: ${msg}`);
         } else {
           addTurn({ id: nextId(), role: "assistant", text: msg, error: true });
@@ -446,11 +446,12 @@ export default function ScreenHelperModal({
                 <ol className="mt-3 space-y-1.5 text-left text-[13px] text-[var(--muted)]">
                   <li>1. Type what you are trying to do, like “Add a column filter in this spreadsheet.”</li>
                   <li>2. Choose the app window to share. Sharing one window works better than the whole screen.</li>
-                  <li>3. Follow the highlighted step. With auto-watch on, the helper notices when you have done it.</li>
+                  <li>3. Follow the highlighted step. Auto-watch is off until you turn it on.</li>
                 </ol>
                 <p className="mt-4 rounded-lg border border-[var(--border)] bg-well p-3 text-left text-[12px] text-[var(--muted)]">
-                  🔒 Screenshots go to your configured vision model (Models → Image reading) only while you
-                  share, and are never stored. Avoid sharing passwords or other secrets.
+                  Screenshots leave this machine: each one is sent to your configured vision model
+                  (Models → Image reading) and is not stored here. Auto-watch sends another screenshot
+                  whenever the screen changes. Do not share passwords or other secrets.
                 </p>
                 {(unsupported || error) && (
                   <p role="alert" className="mt-3 text-[12px] text-rose-300">
@@ -468,7 +469,7 @@ export default function ScreenHelperModal({
 
           <section aria-label="Conversation" className="flex min-h-0 flex-col">
             <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] px-4 py-2 text-[12px]">
-              <label className="flex items-center gap-1.5" title="Check the screen every few seconds and suggest the next step when it changes">
+              <label className="flex items-center gap-1.5" title="Off until you turn it on. While on, a screenshot is sent to your vision model each time the screen changes. Nothing is stored here.">
                 <input type="checkbox" checked={autoWatch} onChange={(e) => setAutoWatch(e.target.checked)} />
                 Auto-watch
               </label>

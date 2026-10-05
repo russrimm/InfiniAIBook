@@ -39,6 +39,35 @@ export function parseAllowedHosts(raw: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Why a URL must not be shown in the in-app browser's iframe, or null when
+ * framing it is fine.
+ *
+ * `allow-scripts` plus `allow-same-origin` lets a framed page drop its sandbox
+ * when that page is this app. Loopback addresses are refused too: the iframe
+ * is loaded by the browser, so it bypasses the server-side private-network check.
+ */
+export function refusesFrame(pageUrl: string, appOrigin: string): string | null {
+  let page: URL;
+  try {
+    page = new URL(pageUrl);
+  } catch {
+    return "that address is not a web page";
+  }
+  const name = hostnameOf(page.hostname);
+  if (LOOPBACK.has(name) || name.endsWith(".localhost")) {
+    return "loopback addresses are opened in the reader, not a frame";
+  }
+  try {
+    if (page.origin === new URL(appOrigin).origin) {
+      return "that page is this app, so it is not framed";
+    }
+  } catch {
+    return "that address is not a web page";
+  }
+  return null;
+}
+
 export function hostAllowed(host: string | null, allowed: string[]): boolean {
   const name = hostnameOf(host);
   if (!name) return false;
