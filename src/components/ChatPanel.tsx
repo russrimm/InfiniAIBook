@@ -534,6 +534,7 @@ export default function ChatPanel({
 
       <div className="shrink-0 border-t border-[var(--border)] px-4 py-3 sm:px-8">
         <form
+          data-tour="chat-input"
           className="mx-auto flex max-w-3xl items-end gap-2"
           onSubmit={(e) => {
             e.preventDefault();
