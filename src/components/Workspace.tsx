@@ -17,10 +17,24 @@ import LibraryModal from "./LibraryModal";
 import AboutModal from "./AboutModal";
 import DiscussionModal from "./DiscussionModal";
 import ScreenHelperModal from "./ScreenHelperModal";
+import GuidedTour, { type TourStep } from "./GuidedTour";
+import { PanelControls, PanelRail } from "./PanelChrome";
 import { CitationContext } from "./CitationContext";
 import { useDeferredDelete } from "./UndoToast";
 import type { SourceHighlight } from "./SourceModal";
 import { studioIcon, studioLabel } from "@/lib/studio";
+import {
+  DEFAULT_LAYOUT,
+  LAYOUT_KEY,
+  TOUR_KEY,
+  columnWidth,
+  panelMode,
+  parseLayout,
+  setPanel,
+  type PanelLayout,
+  type PanelMode,
+  type PanelSide,
+} from "@/lib/panelLayout";
 import type {
   Artifact,
   ArtifactSummary,
@@ -44,6 +58,81 @@ type Data = {
 };
 
 type Tab = "sources" | "chat" | "studio" | "notes";
+
+/** Matches Tailwind's `lg`, where the three panels sit side by side. */
+const WIDE_QUERY = "(min-width: 1024px)";
+
+const isWide = () => typeof window !== "undefined" && window.matchMedia(WIDE_QUERY).matches;
+
+/** How each side panel's wrapper sits on wide screens, by mode. */
+const PANEL_CLASS: Record<PanelSide, Record<PanelMode, string>> = {
+  left: {
+    docked: "",
+    overlay:
+      "lg:absolute lg:inset-y-0 lg:left-0 lg:z-30 lg:w-[320px] lg:border-r lg:border-[var(--border)] lg:shadow-2xl",
+    collapsed: "lg:hidden",
+  },
+  right: {
+    docked: "",
+    overlay:
+      "lg:absolute lg:inset-y-0 lg:right-0 lg:z-30 lg:w-[380px] lg:border-l lg:border-[var(--border)] lg:bg-[var(--bg)] lg:shadow-2xl",
+    collapsed: "lg:hidden",
+  },
+};
+
+/** The first-run walkthrough, started from "Add sources" or from Help. */
+const TOUR: TourStep[] = [
+  {
+    target: "left-controls",
+    placement: "right",
+    title: "Pin or collapse Sources",
+    body: "Your sources live in this side panel. Keep the pin on to hold it open beside the chat, or turn it off so the panel floats and folds away when you click elsewhere. « collapses it to a slim rail you can reopen any time.",
+  },
+  {
+    target: "add-sources",
+    placement: "right",
+    title: "Add your sources here",
+    body: "Drop or upload files, add a link, paste text, search or browse the web, or reuse sources from other notebooks. Chat and Studio use only what you add here.",
+  },
+  {
+    target: "studio",
+    placement: "left",
+    title: "Studio is on the right",
+    body: "Turn your selected sources into reports, audio overviews, videos, infographics, quizzes and more. Notes, next to Studio, keeps saved answers and your own writing.",
+  },
+  {
+    target: "right-controls",
+    placement: "left",
+    title: "Pin or collapse Studio",
+    body: "Studio has the same controls: pin it open, let it float over the chat, or collapse it with » to give the conversation more room.",
+  },
+  {
+    target: "chat-input",
+    placement: "top",
+    title: "Then ask your sources anything",
+    body: "Once a source is added, ask questions here. Every answer cites the exact passage it came from.",
+  },
+];
+
+function tourSeen() {
+  try {
+    return localStorage.getItem(TOUR_KEY) === "done";
+  } catch {
+    return false;
+  }
+}
+
+/** Put the attention ring on the upload control and give it focus. */
+function highlightAddSources() {
+  const el = document.getElementById("add-sources");
+  if (!el) return;
+  el.focus();
+  el.scrollIntoView({ block: "nearest" });
+  el.classList.remove("attention");
+  void el.offsetWidth; // restart the animation if it is already running
+  el.classList.add("attention");
+  setTimeout(() => el.classList.remove("attention"), 1700);
+}
 
 export default function Workspace({ notebookId }: { notebookId: string }) {
   const [data, setData] = useState<Data | null>(null);
@@ -70,6 +159,13 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [tab, setTab] = useState<Tab>("chat");
   /** Which panel fills the right-hand column on wide screens. */
   const [right, setRight] = useState<"studio" | "notes">("studio");
+  /** Side panels on wide screens: open or railed, pinned or floating. */
+  const [layout, setLayout] = useState<PanelLayout>(DEFAULT_LAYOUT);
+  const layoutLoaded = useRef(false);
+  const leftPanelRef = useRef<HTMLDivElement>(null);
+  const rightPanelRef = useRef<HTMLDivElement>(null);
+  /** The running walkthrough, and whether it was started from "Add sources". */
+  const [tour, setTour] = useState<{ fromAddSources: boolean } | null>(null);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [managingTransformations, setManagingTransformations] = useState(false);
   const [pickingLibrary, setPickingLibrary] = useState(false);
@@ -148,6 +244,70 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     setOpenSourceId(id);
   }, []);
 
+  // The stored layout is read after mount (storage does not exist on the
+  // server), then every change is remembered.
+  useEffect(() => {
+    if (!layoutLoaded.current) {
+      layoutLoaded.current = true;
+      try {
+        setLayout(parseLayout(localStorage.getItem(LAYOUT_KEY)));
+      } catch {
+        /* storage unavailable: keep the default */
+      }
+      return;
+    }
+    try {
+      localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
+    } catch {
+      /* not remembered, but still applied */
+    }
+  }, [layout]);
+
+  const openPanel = useCallback((side: PanelSide) => {
+    setLayout((l) => setPanel(l, side, { open: true }));
+  }, []);
+
+  /** Show Studio or Notes, opening the right-hand panel if it was folded away. */
+  const showRight = useCallback(
+    (r: "studio" | "notes") => {
+      setRight(r);
+      setTab(r);
+      openPanel("right");
+    },
+    [openPanel]
+  );
+
+  // A floating (unpinned) panel folds away on a click elsewhere or on Escape,
+  // but not while a dialog or the walkthrough is in front of it.
+  useEffect(() => {
+    if (tour) return;
+    const floating = (["left", "right"] as const).filter(
+      (s) => panelMode(layout[s]) === "overlay"
+    );
+    if (floating.length === 0) return;
+    const refs = { left: leftPanelRef, right: rightPanelRef };
+    const fold = (sides: PanelSide[]) => {
+      if (sides.length === 0) return;
+      setLayout((l) => sides.reduce((acc, s) => setPanel(acc, s, { open: false }), l));
+    };
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target;
+      if (!isWide() || !(t instanceof Element) || t.closest('[role="dialog"]')) return;
+      fold(floating.filter((s) => !refs[s].current?.contains(t)));
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || !isWide()) return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      fold(floating);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [layout, tour]);
+
   /** Every citation in chat, artifacts and notes opens here, at its passage. */
   const openCitation = useCallback(
     (c: Citation) => openSource(c.sourceId, { part: c.part, snippet: c.snippet }),
@@ -165,12 +325,11 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       const part = Number(params.get("part"));
       openSource(source, Number.isInteger(part) && part > 0 ? { part } : null);
     } else if (note) {
-      setRight("notes");
-      setTab("notes");
+      showRight("notes");
       setOpenNoteId(note);
     }
     window.history.replaceState(null, "", window.location.pathname);
-  }, [openSource]);
+  }, [openSource, showRight]);
 
   /**
    * Linked sources are re-checked when the notebook opens. The request is
@@ -213,7 +372,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         showUpdates ||
         openNoteId ||
         managingTransformations ||
-        pickingLibrary
+        pickingLibrary ||
+        tour
     );
   }, [
     openArtifact,
@@ -226,6 +386,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     openNoteId,
     managingTransformations,
     pickingLibrary,
+    tour,
   ]);
 
   // Shown in the header so the active model is visible without opening a dialog.
@@ -248,10 +409,48 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     if (notebookTitle) document.title = `${notebookTitle} — InfiniAIBook`;
   }, [notebookTitle]);
 
-  /** Bring the Sources panel into view and put focus on its upload control. */
+  /**
+   * Bring the Sources panel into view and point at its upload control. On a
+   * wide screen the first time, this starts the walkthrough instead, which
+   * shows where everything lives and ends back at the upload control.
+   */
   const showSources = () => {
     setTab("sources");
-    setTimeout(() => document.getElementById("add-sources")?.focus(), 0);
+    if (isWide()) {
+      if (!tourSeen()) {
+        startTour(true);
+        return;
+      }
+      openPanel("left");
+    }
+    setTimeout(highlightAddSources, 0);
+  };
+
+  const startTour = (fromAddSources: boolean) => {
+    // Every step's target must be on screen.
+    setLayout((l) => setPanel(setPanel(l, "left", { open: true }), "right", { open: true }));
+    setRight("studio");
+    setTour({ fromAddSources });
+  };
+
+  const endTour = () => {
+    try {
+      localStorage.setItem(TOUR_KEY, "done");
+    } catch {
+      /* it may show again; nothing else is lost */
+    }
+    const fromAddSources = tour?.fromAddSources;
+    setTour(null);
+    if (fromAddSources) setTimeout(highlightAddSources, 0);
+  };
+
+  const togglePin = (side: PanelSide) =>
+    setLayout((l) => setPanel(l, side, { pinned: !l[side].pinned, open: true }));
+
+  const collapsePanel = (side: PanelSide) => {
+    setLayout((l) => setPanel(l, side, { open: false }));
+    // The button pressed is gone; keep focus where the panel was.
+    setTimeout(() => document.getElementById(`rail-${side}`)?.focus(), 0);
   };
 
   const selectedIds = [...selected].filter((id) => !hidden.has(id));
@@ -343,6 +542,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   }
 
   const sources = data.sources.filter((s) => !hidden.has(s.id));
+  const leftMode = panelMode(layout.left);
+  const rightMode = panelMode(layout.right);
   const artifacts = data.artifacts.filter((a) => !hidden.has(a.id));
   const notes = (data.notes ?? []).filter((n) => !hidden.has(n.id));
 
@@ -485,12 +686,37 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         ))}
       </nav>
 
-      <main className="grid min-h-0 flex-1 lg:grid-cols-[320px_minmax(0,1fr)_380px]">
+      <main
+        className="relative grid min-h-0 flex-1 lg:grid-cols-[var(--ws-left)_minmax(0,1fr)_var(--ws-right)]"
+        style={
+          {
+            "--ws-left": columnWidth("left", layout.left),
+            "--ws-right": columnWidth("right", layout.right),
+          } as React.CSSProperties
+        }
+      >
         <div
           className={`min-h-0 border-[var(--border)] lg:block lg:border-r ${
             tab === "sources" ? "block" : "hidden"
           }`}
         >
+          {leftMode !== "docked" && (
+            <PanelRail
+              side="left"
+              name="Sources"
+              onExpand={() => openPanel("left")}
+              items={[
+                {
+                  label: "Sources",
+                  icon: "🗂️",
+                  count: sources.length,
+                  onClick: () => openPanel("left"),
+                },
+              ]}
+            />
+          )}
+          {/* Hidden rather than unmounted when collapsed, so uploads keep going. */}
+          <div ref={leftPanelRef} className={`h-full ${PANEL_CLASS.left[leftMode]}`}>
           <SourcesPanel
             notebookId={notebookId}
             sources={sources}
@@ -517,7 +743,17 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             onBrowse={() => setBrowsing(true)}
             onLibrary={() => setPickingLibrary(true)}
             addRef={addSources}
+            headerActions={
+              <PanelControls
+                name="Sources"
+                side="left"
+                pinned={layout.left.pinned}
+                onTogglePin={() => togglePin("left")}
+                onCollapse={() => collapsePanel("left")}
+              />
+            }
           />
+          </div>
         </div>
 
         <div className={`min-h-0 lg:block ${tab === "chat" ? "block" : "hidden"}`}>
@@ -530,10 +766,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             onNoteSaved={() => void load()}
             onAddSources={showSources}
             onUseAll={() => setSelected(new Set(sources.map((s) => s.id)))}
-            onOpenStudio={() => {
-              setRight("studio");
-              setTab("studio");
-            }}
+            onOpenStudio={() => showRight("studio")}
           />
         </div>
 
@@ -542,7 +775,23 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             tab === "studio" || tab === "notes" ? "flex" : "hidden"
           }`}
         >
-          <div className="hidden shrink-0 gap-1 border-b border-[var(--border)] px-3 py-2 lg:flex">
+          {rightMode !== "docked" && (
+            <PanelRail
+              side="right"
+              name="Studio and Notes"
+              onExpand={() => openPanel("right")}
+              items={[
+                { label: "Studio", icon: "✨", onClick: () => showRight("studio") },
+                { label: "Notes", icon: "🗒️", count: notes.length, onClick: () => showRight("notes") },
+              ]}
+            />
+          )}
+          <div
+            ref={rightPanelRef}
+            data-tour="studio"
+            className={`flex min-h-0 flex-1 flex-col ${PANEL_CLASS.right[rightMode]}`}
+          >
+          <div className="hidden shrink-0 items-center gap-1 border-b border-[var(--border)] px-3 py-2 lg:flex">
             {(["studio", "notes"] as const).map((r) => (
               <button
                 key={r}
@@ -558,6 +807,13 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
                 {r === "notes" && notes.length ? ` (${notes.length})` : ""}
               </button>
             ))}
+            <PanelControls
+              name="Studio"
+              side="right"
+              pinned={layout.right.pinned}
+              onTogglePin={() => togglePin("right")}
+              onCollapse={() => collapsePanel("right")}
+            />
           </div>
           {/* On narrow screens the tab bar decides; on wide ones the toggle above. */}
           <div
@@ -611,6 +867,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
               onManageTransformations={() => setManagingTransformations(true)}
             />
           </div>
+          </div>
         </div>
       </main>
 
@@ -623,8 +880,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           onClose={() => setDiscussing(null)}
           onSaved={async (note) => {
             await load();
-            setRight("notes");
-            setTab("notes");
+            showRight("notes");
             setOpenNoteId(note.id);
           }}
         />
@@ -656,8 +912,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           onNoteCreated={async (note) => {
             await load();
             setOpenSourceId(null);
-            setRight("notes");
-            setTab("notes");
+            showRight("notes");
             setOpenNoteId(note.id);
           }}
         />
@@ -694,15 +949,23 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           }}
         />
       )}
-      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+      {aboutOpen && (
+        <AboutModal
+          onClose={() => setAboutOpen(false)}
+          onStartTour={() => {
+            setAboutOpen(false);
+            startTour(false);
+          }}
+        />
+      )}
+      {tour && <GuidedTour steps={TOUR} onClose={endTour} />}
       {helperOpen && (
         <ScreenHelperModal
           notebookId={notebookId}
           onClose={() => setHelperOpen(false)}
           onSaved={async (note) => {
             await load();
-            setRight("notes");
-            setTab("notes");
+            showRight("notes");
             setOpenNoteId(note.id);
           }}
         />

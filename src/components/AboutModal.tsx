@@ -42,7 +42,14 @@ const HELP: { title: string; body: string; doc?: string }[] = [
   },
 ];
 
-export default function AboutModal({ onClose }: { onClose: () => void }) {
+export default function AboutModal({
+  onClose,
+  onStartTour,
+}: {
+  onClose: () => void;
+  /** Offered inside a notebook, where the walkthrough's panels exist. */
+  onStartTour?: () => void;
+}) {
   const { dialogRef, backdropProps } = useDialog(onClose);
 
   return (
@@ -75,9 +82,20 @@ export default function AboutModal({ onClose }: { onClose: () => void }) {
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <section aria-labelledby="help-title">
-            <h3 id="help-title" className="text-[13px] font-semibold">
-              How InfiniAIBook works
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 id="help-title" className="flex-1 text-[13px] font-semibold">
+                How InfiniAIBook works
+              </h3>
+              {onStartTour && (
+                <button
+                  type="button"
+                  className="btn hidden !px-2.5 !py-1 !text-[11px] lg:inline-flex"
+                  onClick={onStartTour}
+                >
+                  Show me around
+                </button>
+              )}
+            </div>
             <ul className="mt-2 space-y-2">
               {HELP.map((h) => (
                 <li key={h.title} className="rounded-xl border border-[var(--border)] px-3 py-2">
