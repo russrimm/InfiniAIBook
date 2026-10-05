@@ -1,7 +1,7 @@
 # How grounding works
 
-1. **Ingest** — text is extracted (`unpdf` for PDF, `mammoth` for DOCX, `cheerio`
-   for HTML), normalized, and split into ~1400-character chunks with 200 characters
+1. **Ingest** — text is extracted (`unpdf` for PDF, `mammoth` for DOCX, `jszip` for PPTX and
+   ZIP archives, `cheerio` for HTML), normalized, and split into ~1400-character chunks with 200 characters
    of overlap on paragraph boundaries.
 2. **Embed** — each chunk is embedded and stored as a `Float32Array` blob in SQLite.
 3. **Retrieve** — queries are embedded and ranked by cosine similarity, blended

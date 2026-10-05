@@ -7,6 +7,26 @@ and direct links to them are transcribed with the configured speech-to-text
 model (`whisper-1` on OpenAI, `whisper-large-v3` on Groq, or an Azure
 transcription deployment) and indexed like any other text.
 
+**PowerPoint decks** (.pptx) are read slide by slide in presentation order:
+each slide's title, text and table rows, followed by its speaker notes, under a
+`Slide N` heading so answers can point at the slide. Text that exists only
+inside pictures is not read. Protected decks (sensitivity labels, IRM,
+passwords) and legacy .ppt files renamed to .pptx are refused with a message
+saying what to do.
+
+**ZIP archives** are unpacked on the server and every supported file inside
+(PDF, DOCX, PPTX, text, Markdown, CSV, JSON, HTML, images, audio and video)
+becomes its own source, titled with its path in the archive. Archives nested
+inside the ZIP are opened too, up to three levels. Other files are skipped and
+listed in a warning, and OS clutter such as `__MACOSX/`, dotfiles and
+`Thumbs.db` is ignored silently. A file that fails is reported on its own while
+the rest still import. Files are processed one after another, so a large
+archive can take a while. To guard against archives that expand enormously,
+each file inside is held to `MAX_UPLOAD_BYTES`, at most `MAX_ARCHIVE_FILES`
+(default 100) are imported, and the whole archive may expand to at most
+`MAX_ARCHIVE_EXPANDED_BYTES` (default 500 MB); decompression stops as soon as a
+limit is passed. Password-protected ZIPs are not supported.
+
 Ingestion is **non-blocking**. Each source is sent as its own request and shows
 a spinner in the Sources list while it is extracted, chunked and embedded.
 Three run at a time; the rest show as "Queued" so a large drop does not flood

@@ -163,6 +163,7 @@ commentary. Only a model provider is required.
 | `ALLOW_PRIVATE_NETWORK_FETCH` | Allow fetching private/loopback addresses (default off; see [SECURITY.md](../SECURITY.md)) |
 | `MAX_FETCH_BYTES`, `FETCH_MAX_REDIRECTS`, `FETCH_TIMEOUT_MS` | Limits on fetched pages and files |
 | `MAX_UPLOAD_BYTES` | Largest uploaded file or request body when adding sources (default 50 MB; larger requests get a 413) |
+| `MAX_ARCHIVE_FILES`, `MAX_ARCHIVE_EXPANDED_BYTES` | Most files imported from one uploaded ZIP (default 100) and the total size it may expand to (default 500 MB) |
 | `DATA_DIR` | Where the database and generated media live (default `./.data`) |
 | `SQLITE_JOURNAL_MODE` | SQLite journal mode: `WAL` (default) or `DELETE`. Use `DELETE` when `DATA_DIR` is on a network share such as Azure Files |
 | `INFINIAIBOOK_PASSWORD` | Require a password for the UI and API (default off) |

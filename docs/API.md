@@ -50,7 +50,8 @@ Two checks apply whether or not a password is set:
 `POST /api/notebooks/{id}/sources` accepts one of:
 
 - `multipart/form-data` with one or more `files` (documents, images, audio,
-  video — media is transcribed, up to 25 MB);
+  video — media is transcribed, up to 25 MB — PowerPoint decks, or ZIP
+  archives, whose supported files are each added as a source);
 - `{ url, title? }` — web page, YouTube link, RSS/Atom feed, or direct media link;
 - `{ text, title?, kind?: "note" }` — pasted text (`kind: "note"` marks a note
   turned into a source);
