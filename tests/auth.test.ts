@@ -11,6 +11,7 @@ const DAY = 24 * 60 * 60 * 1000;
 afterEach(() => {
   delete process.env.INFINIAIBOOK_SESSION_SECRET;
   delete process.env.INFINIAIBOOK_API_TOKEN;
+  delete process.env.INFINIAIBOOK_ALLOW_PASSWORD_BEARER;
   delete process.env.TRUST_PROXY;
 });
 
@@ -57,7 +58,9 @@ describe("session tokens", () => {
 });
 
 describe("bearerAllowed", () => {
-  it("falls back to the password without an API token", () => {
+  it("does not accept the password as a bearer token unless opted in", () => {
+    expect(bearerAllowed("pw", "pw")).toBe(false);
+    process.env.INFINIAIBOOK_ALLOW_PASSWORD_BEARER = "true";
     expect(bearerAllowed("pw", "pw")).toBe(true);
     expect(bearerAllowed("nope", "pw")).toBe(false);
   });

@@ -72,20 +72,25 @@ export async function verifySessionToken(
 
 let warnedPasswordBearer = false;
 
+/** Older scripts sent the password as a bearer token. Off unless explicitly enabled. */
+export function passwordBearerAllowed(): boolean {
+  return /^(1|true|yes)$/i.test(process.env.INFINIAIBOOK_ALLOW_PASSWORD_BEARER ?? "");
+}
+
 /**
- * Accepts INFINIAIBOOK_API_TOKEN, or — only when no API token is configured —
- * the password itself, which older scripts send.
+ * Accepts INFINIAIBOOK_API_TOKEN. The password itself is accepted only when no
+ * API token is set and INFINIAIBOOK_ALLOW_PASSWORD_BEARER=true.
  */
 export function bearerAllowed(bearer: string, password: string): boolean {
   const token = apiToken();
   if (token) return safeEqual(bearer, token);
-  if (!safeEqual(bearer, password)) return false;
+  if (!passwordBearerAllowed() || !safeEqual(bearer, password)) return false;
   if (!warnedPasswordBearer) {
     warnedPasswordBearer = true;
     console.warn(
       "[auth] A script authenticated with the password as its bearer token. " +
-        "Set INFINIAIBOOK_API_TOKEN and use that instead; the password fallback " +
-        "stops working once an API token is configured."
+        "Set INFINIAIBOOK_API_TOKEN and use that instead. This fallback exists " +
+        "only because INFINIAIBOOK_ALLOW_PASSWORD_BEARER is set."
     );
   }
   return true;

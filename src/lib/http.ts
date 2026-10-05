@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { BudgetExceededError } from "./budget";
 import { MissingConfigError, describeAuthError } from "./ai";
 
 export function ok(data: unknown, init?: number) {
@@ -6,6 +7,9 @@ export function ok(data: unknown, init?: number) {
 }
 
 export function fail(e: unknown) {
+  if (e instanceof BudgetExceededError) {
+    return NextResponse.json({ error: e.message, code: "budget" }, { status: 429 });
+  }
   if (e instanceof MissingConfigError) {
     return NextResponse.json({ error: e.message, code: "no_config" }, { status: 400 });
   }

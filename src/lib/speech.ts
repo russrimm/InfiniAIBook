@@ -4,6 +4,7 @@ import {
   getBearerTokenProvider,
   type TokenCredential,
 } from "@azure/identity";
+import { reserve } from "./budget";
 import { addBreaths, turnLeadIn } from "./prosody";
 import { VOICE_PRESETS, type SpeakerId, type VoiceSelection } from "./voices";
 export type { SpeakerId, VoicePair } from "./voices";
@@ -115,6 +116,7 @@ function buildSsml(
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function synthesize(ssml: string, format?: string): Promise<Buffer> {
+  reserve("speech", 4);
   const url = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
   const headers: Record<string, string> = {
     "Content-Type": "application/ssml+xml",

@@ -13,8 +13,8 @@ set, every route except `/api/auth/*` needs either the session cookie from
 Authorization: Bearer <INFINIAIBOOK_API_TOKEN>
 ```
 
-Until `INFINIAIBOOK_API_TOKEN` is set, the password is accepted in its place
-(deprecated; the server logs a warning). Once it is set, only the token works.
+Scripts should send `INFINIAIBOOK_API_TOKEN`. The password is not accepted as a
+bearer token unless `INFINIAIBOOK_ALLOW_PASSWORD_BEARER=true`.
 
 Unauthenticated API calls get `401 {"error": "..."}`.
 
@@ -42,6 +42,9 @@ Two checks apply whether or not a password is set:
 | GET | `/api/notebooks/{id}` | — | Notebook, `sources`, `artifacts` (summaries), `sessions`, `notes`, and `messages` of the latest session |
 | PATCH | `/api/notebooks/{id}` | `{ title?, narration? }` | Rename, or save the notebook's default narration instructions and replacements |
 | DELETE | `/api/notebooks/{id}` | — | Deletes it and everything in it |
+| GET | `/api/notebooks/{id}/export` | — | Zip of sources, notes, chats, artifacts and finished media |
+| POST | `/api/notebooks/import` | multipart `file` | Restores an export as a new notebook. Semantic search stays off until re-embed |
+| GET | `/api/budget` | — | `{ enabled, capCents, spentCents, remainingCents }` for today's model ceiling |
 | POST/GET | `/api/notebooks/{id}/check-sources` | — | Re-check linked sources for changes |
 | POST/GET | `/api/notebooks/{id}/reembed` | — | Re-embed chunks after changing embedding model |
 
@@ -86,7 +89,7 @@ newline-delimited JSON events:
 | `{"type":"citations","citations":[...]}` | Retrieved passages the answer may cite as `[n]` |
 | `{"type":"notice", ...}` | Non-fatal note, e.g. keyword fallback |
 | `{"type":"delta","v":"..."}` | Next piece of answer text |
-| `{"type":"done","id":"...","citations":[...],"stopped":false}` | Saved message id and the citations actually used |
+| `{"type":"done","id":"...","citations":[...],"stopped":false}` | Saved message id and only the citations the answer marked. An answer with no markers saves `[]` and the UI labels it not cited |
 | `{"type":"error","error":"..."}` | Failure |
 
 An unknown `sessionId` returns `404`; no configured model returns

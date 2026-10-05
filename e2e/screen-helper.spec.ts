@@ -177,6 +177,7 @@ test("auto-watch suggests the next step after the screen changes", async ({ page
   ]);
   await page.goto("/");
   const dialog = await openHelperAndAsk(page, "Share this document");
+  await dialog.getByLabel("Auto-watch").check();
   await advanceUntil(page, () => sent.length >= 1, 500);
   await expect(dialog.getByText("Click the blue Share button at the top right.")).toBeVisible();
 
@@ -198,6 +199,7 @@ test("hides unchanged check-ins and can be switched off", async ({ page }) => {
   const sent = await mockHelper(page, [FIRST_STEP, { status: "unchanged", say: "", step: null, target: null }]);
   await page.goto("/");
   const dialog = await openHelperAndAsk(page, "Share this document");
+  await dialog.getByLabel("Auto-watch").check();
   await advanceUntil(page, () => sent.length >= 1, 500);
   await expect(dialog.getByTestId("helper-turn")).toHaveCount(1);
 

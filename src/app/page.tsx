@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Notebook } from "@/lib/types";
@@ -13,6 +13,8 @@ export default function Home() {
   const [notebooks, setNotebooks] = useState<Notebook[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [authOn, setAuthOn] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -66,7 +68,32 @@ export default function Home() {
     }
   };
 
+  const importNotebook = async (file: File) => {
+    setImporting(true);
+    setCreateError(null);
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      const res = await fetch("/api/notebooks/import", { method: "POST", body });
+      const j = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      if (!res.ok || !j.id) throw new Error(j.error);
+      router.push(`/notebook/${j.id}`);
+    } catch (e) {
+      setCreateError(
+        e instanceof Error && e.message ? e.message : "Could not import that notebook."
+      );
+      setImporting(false);
+    }
+  };
+
   const remove = (id: string, title: string) => {
+    if (
+      !window.confirm(
+        `Delete “${title}” and everything in it? You can undo this for a few seconds.`
+      )
+    ) {
+      return;
+    }
     setHiddenNb((h) => new Set(h).add(id));
     const unhide = () =>
       setHiddenNb((h) => {
@@ -125,6 +152,26 @@ export default function Home() {
               Sign out
             </button>
           )}
+          <button
+            className="btn"
+            onClick={() => importRef.current?.click()}
+            disabled={importing}
+            title="Restore a notebook exported from this app"
+          >
+            {importing ? "Importing…" : "Import"}
+          </button>
+          <input
+            ref={importRef}
+            type="file"
+            accept=".zip,application/zip"
+            className="sr-only"
+            aria-label="Import a notebook export"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void importNotebook(file);
+            }}
+          />
           <button className="btn btn-primary" onClick={create} disabled={creating}>
             {creating ? "Creating…" : "+ New notebook"}
           </button>

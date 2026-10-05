@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import { fail, noSourcesSelected } from "@/lib/http";
 import { chatStream, describeAuthError, type ChatMsg } from "@/lib/ai";
+import { citationsUsed, historyForPrompt } from "@/lib/citations";
 import { buildContext, citationList, retrieveWithDiagnostics } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
 import { createSession, getSession, touchSession } from "@/lib/sessions";
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
           passages
         )}`,
       },
-      ...history.map((h) => ({ role: h.role, content: h.content }) as ChatMsg),
+      ...historyForPrompt(history),
       { role: "user", content: message },
     ];
 
@@ -103,9 +104,9 @@ export async function POST(req: Request) {
 
     /** Save what was said. A stopped answer keeps its text, marked as cut short. */
     const saveAnswer = (stopped: boolean) => {
-      const used = new Set([...full.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
-      const kept = citations.filter((c) => used.has(c.n));
-      const cites = kept.length ? kept : citations.slice(0, 4);
+      // Only markers the model wrote. An uncited answer must not borrow the
+      // top retrieved passages, or it looks grounded when it is not.
+      const cites = citationsUsed(full, citations);
       const id = nanoid(12);
       db.prepare(
         "INSERT INTO messages (id, notebook_id, session_id, role, content, citations, created_at) VALUES (?,?,?,?,?,?,?)"

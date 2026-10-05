@@ -5,6 +5,7 @@ import {
   getBearerTokenProvider,
   type TokenCredential,
 } from "@azure/identity";
+import { reserve } from "./budget";
 import { getSetting, SETTING_CHAT_MODEL, SETTING_EMBED_MODEL, SETTING_IMAGE_MODEL, SETTING_VISION_MODEL } from "./settings";
 import { resolveEndpoint, type ResolvedEndpoint } from "./providers";
 
@@ -225,6 +226,7 @@ export async function generateImage(
 }
 
 async function requestImage(prompt: string, opts: ImageOptions): Promise<GeneratedImage> {
+  reserve("image", 12);
   const model = imageModel();
   const size = opts.size || "1536x1024";
   const quality = opts.quality || "high";
@@ -479,6 +481,7 @@ async function createChat(
   options: { signal?: AbortSignal } = {},
   client: OpenAI | AzureOpenAI = getClient()
 ) {
+  reserve("chat", 4);
   const model = params.model;
   const withoutTemp = () => {
     const { temperature: _omit, ...rest } = params;
@@ -703,6 +706,7 @@ async function anthropicJSON<T>(
   messages: ChatMsg[],
   temperature: number
 ): Promise<T> {
+  reserve("studio", 8);
   const base = anthropicBaseURL();
   const url = `${base}/v1/messages`;
   const maxTokens = Number(process.env.AI_STUDIO_MAX_TOKENS) || 16000;
@@ -820,6 +824,7 @@ export async function embed(texts: string[]): Promise<number[][]> {
   const out: number[][] = [];
   const BATCH = 64;
   for (let i = 0; i < texts.length; i += BATCH) {
+    reserve("embed", 1);
     const slice = texts.slice(i, i + BATCH).map((t) => t.slice(0, 8000) || " ");
     const res = await withRetry(
       () => c.embeddings.create({ model: embedModel(), input: slice }),
@@ -856,6 +861,7 @@ export async function transcribe(
       `"${filename}" is ${(audio.length / 1024 / 1024).toFixed(1)} MB; transcription accepts up to 25 MB. Compress it (e.g. a mono 64 kbit/s MP3) or split it into parts.`
     );
   }
+  reserve("transcribe", 5);
   const c = sideClient(transcribeEndpoint) ?? getClient();
   const file = await toFile(audio, filename, { type: mime });
   const res = await withRetry(
