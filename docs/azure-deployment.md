@@ -59,6 +59,44 @@ az deployment sub create --name "iabook-$tag" --location eastus2 `
     containerImage="<registry>.azurecr.io/infiniaibook:$tag"
 ```
 
+## Deploy automatically from GitHub
+
+[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) deploys every
+commit on `main` once the CI workflow passes. It builds the image in the registry,
+tagged with the commit, and rolls the Container App to it. It can also be run by
+hand from the Actions tab. It signs in with OpenID Connect, so no Azure secret is
+stored in GitHub.
+
+The workflow only changes the app image. Run the Bicep deployment above when
+`infra/` changes, passing the `containerImage` that is currently running.
+
+One-time setup:
+
+```powershell
+$rg = "<resource group>"; $repo = "<owner>/<repo>"
+$app = az ad app create --display-name "infiniaibook-github-deploy" | ConvertFrom-Json
+az ad sp create --id $app.appId | Out-Null
+az ad app federated-credential create --id $app.appId --parameters (@{
+  name = "github-production"; issuer = "https://token.actions.githubusercontent.com"
+  subject = "repo:${repo}:environment:production"; audiences = @("api://AzureADTokenExchange")
+} | ConvertTo-Json)
+az role assignment create --assignee $app.appId --role Contributor `
+  --scope (az group show -n $rg --query id -o tsv)
+```
+
+Then, in the repository's **Settings > Environments**, create an environment named
+`production` (add required reviewers if you want an approval before each deploy),
+and under **Settings > Secrets and variables > Actions > Variables** add:
+
+| Variable | Value |
+|---|---|
+| `AZURE_CLIENT_ID` | The app registration's application (client) ID |
+| `AZURE_TENANT_ID` | Your Microsoft Entra tenant ID |
+| `AZURE_SUBSCRIPTION_ID` | The subscription that holds the resource group |
+| `AZURE_RESOURCE_GROUP` | The resource group |
+| `AZURE_CONTAINER_APP` | The Container App name, such as `ca-iabook-prod-a53b` |
+| `AZURE_REGISTRY` | The registry name (without `.azurecr.io`) |
+
 ## Bringing an existing library
 
 The share is reachable only from inside the virtual network, so a library is
