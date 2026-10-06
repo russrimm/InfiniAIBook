@@ -15,10 +15,9 @@ import { presenter, presenterVoice } from "./avatars";
 import { applyReplacements, readNarration } from "./narration";
 import { addBreaths } from "./prosody";
 import { synthesizeRawSsml } from "./speech";
-import { buildTrainingSsml } from "./training";
+import { buildTrainingSsml, voiceSsml } from "./training";
 import { mp3Duration } from "./motiontimeline";
 import { trainingClipPath, ttsCachePath } from "./paths";
-import { PINNED_VOICES } from "./voices";
 import { hashText } from "./trainingvisuals";
 import {
   PARAGRAPH_PAUSE,
@@ -51,7 +50,7 @@ export function sectionSsml(c: TrainingContent, index: number): string {
   const voice = presenterVoice(c.voice, preset.voice);
   const { replacements } = readNarration(c.narration);
   const s = c.sections[index];
-  return buildTrainingSsml([{ title: s.title, text: applyReplacements(s.text, replacements) }], voice);
+  return buildTrainingSsml([{ title: s.title, text: applyReplacements(s.text, replacements) }], voice, c.voiceStyle);
 }
 
 /**
@@ -88,8 +87,7 @@ export function saveClipDuration(id: string, hash: string, durationSec: number) 
 
 function voiceName(c: TrainingContent): string {
   const { preset } = presenter(c.presenter);
-  const voice = presenterVoice(c.voice, preset.voice);
-  return PINNED_VOICES[voice] ?? PINNED_VOICES.Ava;
+  return presenterVoice(c.voice, preset.voice);
 }
 
 async function cachedSpeech(ssml: string): Promise<{ hash: string; seconds: number }> {
@@ -163,10 +161,11 @@ export async function measureTraining(
       try {
         const sentences = splitSentences(section.text);
         const measured = await pool(sentences, 4, async (s) => {
-          const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='en-US'><voice name='${voice}'>${addBreaths(
-            escapeXml(applyReplacements(s.text, replacements)),
-            1
-          )}</voice></speak>`;
+          const ssml = voiceSsml(
+            voice,
+            addBreaths(escapeXml(applyReplacements(s.text, replacements)), 1),
+            c.voiceStyle
+          );
           const { seconds } = await cachedSpeech(ssml);
           return seconds + (s.paragraphEnd ? PARAGRAPH_PAUSE : 0);
         });

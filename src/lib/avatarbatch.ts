@@ -131,7 +131,8 @@ export type AvatarJob = {
 
 export type AvatarJobOptions = {
   character: string;
-  style: string;
+  /** Omitted for characters Microsoft lists without a style. */
+  style?: string;
   /** #RRGGBB; ignored when a background image is configured or `transparent` is set. */
   background: string;
   description?: string;
@@ -162,7 +163,7 @@ export async function submitAvatarJob(
     inputs: [{ content: ssml }],
     avatarConfig: {
       talkingAvatarCharacter: opts.character,
-      talkingAvatarStyle: opts.style,
+      ...(opts.style ? { talkingAvatarStyle: opts.style } : {}),
       ...(opts.transparent
         ? {
             videoFormat: "webm",
