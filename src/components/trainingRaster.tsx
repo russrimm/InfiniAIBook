@@ -17,11 +17,39 @@ import type { CaseVocabulary } from "@/lib/slidecase";
  * pictures and fonts, then captured with html-to-image.
  */
 
-const frames = (n: number) =>
+// Browsers never fire animation frames in a hidden tab, and throttle timers hard,
+// so a plain requestAnimationFrame wait would freeze drawing until the user comes
+// back. A message-channel tick is not throttled; hidden tabs do not paint anyway.
+const tick = () =>
   new Promise<void>((resolve) => {
-    const step = (left: number) => (left <= 0 ? resolve() : requestAnimationFrame(() => step(left - 1)));
-    step(n);
+    const { port1, port2 } = new MessageChannel();
+    port1.onmessage = () => {
+      port1.close();
+      resolve();
+    };
+    port2.postMessage(null);
   });
+
+const nextFrame = () =>
+  new Promise<void>((resolve) => {
+    if (document.hidden) return void tick().then(resolve);
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("visibilitychange", onHide);
+      resolve();
+    };
+    const onHide = () => {
+      if (document.hidden) void tick().then(finish);
+    };
+    document.addEventListener("visibilitychange", onHide);
+    requestAnimationFrame(finish);
+  });
+
+const frames = async (n: number) => {
+  for (let i = 0; i < n; i++) await nextFrame();
+};
 
 async function settle(host: HTMLElement) {
   await frames(2);
