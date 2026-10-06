@@ -274,8 +274,10 @@ export type TrainingContent = SpokenExtras & {
   sections: TrainingSection[];
   /** Key into AVATAR_PRESETS (src/lib/avatars.ts). */
   presenter: string;
-  /** Speaker name from PINNED_VOICES. */
+  /** Speaker name from PINNED_VOICES, or a full voice name from /api/voices. */
   voice: string;
+  /** express-as style the chosen voice supports; absent for its default delivery. */
+  voiceStyle?: string;
   /** #RRGGBB background behind the presenter. */
   background: string;
   length?: string;

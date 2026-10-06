@@ -59,6 +59,7 @@ next-env.d.ts
 !.github/ISSUE_TEMPLATE/
 skills/
 skills-lock.json
+.impeccable/
 
 
 # Azure onboarding session artifacts (may hold deploy secrets)

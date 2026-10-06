@@ -207,10 +207,16 @@ Optional settings:
 
 ## Presenters and voices
 
-Seven standard avatars are offered (Lisa, Lori, Meg, Harry and Max in several
-styles). Each has a default neural voice, and you can pick any of the pinned
-voices instead. The avatar called Jeff is left out because Microsoft retires it
-in December 2026.
+Every standard full-body avatar Microsoft lists is offered: Lisa, Lori, Meg, Harry
+and Max in all their styles, plus Rowan, Celine, Nia and Malik. Each has a default
+neural voice. The voice picker lists the en-US voices from the Speech `voices/list`
+API (cached for 24 hours; a built-in list is used if the service is unreachable),
+including HD and preview MAI voices. Voices with speaking styles offer a style
+menu, and a Sample button plays a short clip of the chosen voice and style. Styles
+that measurably do nothing are hidden. The talking-head
+(photo) avatars are not offered, because the compositor needs a transparent
+full-body presenter. Jeff is left out because Microsoft retires him in December
+2026.
 
 ## Limits and behavior
 

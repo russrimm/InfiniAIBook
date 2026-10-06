@@ -140,7 +140,7 @@ export async function startTrainingRender(id: string): Promise<void> {
     ...s,
     text: applyReplacements(s.text, replacements),
   }));
-  const ssml = buildTrainingSsml(spoken, voice);
+  const ssml = buildTrainingSsml(spoken, voice, c.voiceStyle);
   if (Buffer.byteLength(ssml) > 450_000) {
     throw userError("The transcript is too long for a single avatar job. Shorten it first.");
   }

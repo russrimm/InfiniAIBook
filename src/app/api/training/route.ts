@@ -24,6 +24,7 @@ import { notebookNarration } from "@/lib/narrationstore";
 import { normalizeMusicChoice } from "@/lib/musicchoice";
 import { normalizeComposition } from "@/lib/trainingvisuals";
 import { planTrainingVisuals } from "@/lib/trainingplan";
+import { resolveVoice } from "@/lib/voicelist";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +49,7 @@ export async function POST(req: Request) {
       sourceIds?: string[];
       presenter?: string;
       voice?: string;
+      voiceStyle?: string;
       background?: string;
       length?: string;
       narration?: unknown;
@@ -62,7 +64,11 @@ export async function POST(req: Request) {
     const topic = body.topic?.trim() ?? "";
     const wanted = audioLength(body.length);
     const { key: presenterKey, preset } = presenter(body.presenter);
-    const voice = presenterVoice(body.voice, preset.voice);
+    const { voice, style: voiceStyle } = await resolveVoice(
+      presenterVoice(body.voice, preset.voice),
+      body.voiceStyle,
+      preset.voice
+    );
 
     let budget = MAX_CONTEXT_CHARS;
     let passages: Passage[] = await researchPassages(notebookId, sourceIds, topic, budget);
@@ -160,6 +166,7 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"}, keeping the same structure. ${
       sections: script.sections.map((s) => ({ title: replace(s.title), text: replace(s.text) })),
       presenter: presenterKey,
       voice,
+      ...(voiceStyle ? { voiceStyle } : {}),
       background: backgroundColour(body.background),
       length: wanted,
       targetMinutes: AUDIO_LENGTHS[wanted].minutes,

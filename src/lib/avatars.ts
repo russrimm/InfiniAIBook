@@ -6,67 +6,55 @@
  * business in a client bundle.
  */
 import { PINNED_VOICES } from "./voices";
+import { isVoiceId } from "./voicecatalog";
 
 export type AvatarPreset = {
   label: string;
   /** Standard avatar character, as the batch API spells it. */
   character: string;
-  style: string;
+  /** Omitted for characters Microsoft lists without a style. */
+  style?: string;
   /** A PINNED_VOICES speaker that suits the presenter. */
   voice: string;
 };
 
 /**
- * Standard full-body video avatars suited to a seated or standing trainer.
+ * Every standard full-body video avatar Microsoft lists for batch synthesis
+ * (https://learn.microsoft.com/azure/ai-services/speech-service/text-to-speech-avatar/standard-avatars),
+ * one entry per character and style.
  *
- * Jeff is deliberately absent: Microsoft retires that avatar in December
- * 2026, and a saved transcript pointing at it would stop rendering.
+ * Keys of the first seven are saved in transcripts, so they never change.
+ * The talking-head (photo) avatars are not offered: they render head-only at
+ * 512x512 through a different model, and the training compositor lays a
+ * transparent full-body presenter over the slides.
+ *
+ * Jeff is absent because Microsoft retires him in December 2026 and no longer
+ * lists his styles.
  */
 export const AVATAR_PRESETS: Record<string, AvatarPreset> = {
-  "lisa-casual": {
-    label: "Lisa · casual, seated",
-    character: "lisa",
-    style: "casual-sitting",
-    voice: "Ava",
-  },
-  "lisa-technical": {
-    label: "Lisa · technical, seated",
-    character: "lisa",
-    style: "technical-sitting",
-    voice: "Ava",
-  },
-  "lori-formal": {
-    label: "Lori · formal",
-    character: "lori",
-    style: "formal",
-    voice: "Emma",
-  },
-  "meg-business": {
-    label: "Meg · business",
-    character: "meg",
-    style: "business",
-    voice: "Jenny",
-  },
-  "harry-casual": {
-    label: "Harry · casual",
-    character: "harry",
-    style: "casual",
-    voice: "Andrew",
-  },
-  "max-business": {
-    label: "Max · business",
-    character: "max",
-    style: "business",
-    voice: "Brian",
-  },
-  "max-casual": {
-    label: "Max · casual",
-    character: "max",
-    style: "casual",
-    voice: "Davis",
-  },
+  "lisa-casual": { label: "Lisa · casual, seated", character: "lisa", style: "casual-sitting", voice: "Ava" },
+  "lisa-technical": { label: "Lisa · technical, seated", character: "lisa", style: "technical-sitting", voice: "Ava" },
+  "lisa-graceful": { label: "Lisa · graceful, seated", character: "lisa", style: "graceful-sitting", voice: "Ava" },
+  "lisa-graceful-standing": { label: "Lisa · graceful, standing", character: "lisa", style: "graceful-standing", voice: "Ava" },
+  "lisa-technical-standing": { label: "Lisa · technical, standing", character: "lisa", style: "technical-standing", voice: "Ava" },
+  "lori-formal": { label: "Lori · formal", character: "lori", style: "formal", voice: "Emma" },
+  "lori-casual": { label: "Lori · casual", character: "lori", style: "casual", voice: "Emma" },
+  "lori-graceful": { label: "Lori · graceful", character: "lori", style: "graceful", voice: "Emma" },
+  "meg-business": { label: "Meg · business", character: "meg", style: "business", voice: "Jenny" },
+  "meg-formal": { label: "Meg · formal", character: "meg", style: "formal", voice: "Jenny" },
+  "meg-casual": { label: "Meg · casual", character: "meg", style: "casual", voice: "Jenny" },
+  "harry-casual": { label: "Harry · casual", character: "harry", style: "casual", voice: "Andrew" },
+  "harry-business": { label: "Harry · business", character: "harry", style: "business", voice: "Andrew" },
+  "harry-youthful": { label: "Harry · youthful", character: "harry", style: "youthful", voice: "Andrew" },
+  "max-business": { label: "Max · business", character: "max", style: "business", voice: "Brian" },
+  "max-casual": { label: "Max · casual", character: "max", style: "casual", voice: "Davis" },
+  "max-formal": { label: "Max · formal", character: "max", style: "formal", voice: "Brian" },
+  // Styleless characters: Microsoft lists no style for these, so none is sent.
+  rowan: { label: "Rowan", character: "rowan", voice: "Adam" },
+  celine: { label: "Celine", character: "celine", voice: "Serena" },
+  nia: { label: "Nia", character: "nia", voice: "Evelyn" },
+  malik: { label: "Malik", character: "malik", voice: "Steffan" },
 };
-
 export const DEFAULT_PRESENTER = "lisa-casual";
 
 export function presenter(key?: string): { key: string; preset: AvatarPreset } {
@@ -77,11 +65,15 @@ export function presenter(key?: string): { key: string; preset: AvatarPreset } {
 /** Voices a presenter can speak with: the standalone neural voices. */
 export const PRESENTER_VOICES = Object.keys(PINNED_VOICES);
 
+/**
+ * A stored voice is either a pinned speaker name (Ava) or a full service name
+ * (en-US-JennyNeural) chosen from the live list.
+ */
 export function presenterVoice(name?: string, fallback = "Ava"): string {
   const match = PRESENTER_VOICES.find(
     (v) => v.toLowerCase() === (name ?? "").toLowerCase()
   );
-  return match ?? fallback;
+  return match ?? (isVoiceId(name) ? name : fallback);
 }
 
 export const BACKGROUNDS: { label: string; value: string }[] = [

@@ -180,6 +180,29 @@ export async function synthesizeRawSsml(
   return synthesize(ssml, format);
 }
 
+export type ServiceVoice = {
+  ShortName: string;
+  DisplayName?: string;
+  Gender?: string;
+  Locale: string;
+  VoiceType?: string;
+  Status?: string;
+  StyleList?: string[];
+};
+
+/** Every voice the resource's region offers, with the styles each declares. */
+export async function listServiceVoices(): Promise<ServiceVoice[]> {
+  assertConfigured();
+  const headers: Record<string, string> = { "User-Agent": "InfiniAIBook" };
+  if (speechKey) headers["Ocp-Apim-Subscription-Key"] = speechKey;
+  else headers["Authorization"] = await authHeader();
+  const res = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/voices/list`, {
+    headers,
+  });
+  if (!res.ok) throw new Error(`Azure Speech could not list voices (${res.status}).`);
+  return (await res.json()) as ServiceVoice[];
+}
+
 export function wrapSsml(inner: string, voice = MULTITALKER_VOICE): string {
   return `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='en-US'><voice name='${voice}'><mstts:dialog><mstts:turn speaker='Ava'>${inner}</mstts:turn></mstts:dialog></voice></speak>`;
 }

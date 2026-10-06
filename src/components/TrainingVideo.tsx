@@ -7,7 +7,6 @@ import {
   AVATAR_PRESETS,
   BACKGROUNDS,
   MAX_AVATAR_MINUTES,
-  PRESENTER_VOICES,
 } from "@/lib/avatars";
 import { EMPTY_NARRATION, readNarration, type NarrationSettings } from "@/lib/narration";
 import { normalizeMusicChoice, type MusicChoice } from "@/lib/musicchoice";
@@ -30,6 +29,7 @@ import NarrationOptions from "./NarrationOptions";
 import TrainingCueEditor from "./TrainingCueEditor";
 import TrainingDesign from "./TrainingDesign";
 import TrainingPreview from "./TrainingPreview";
+import VoicePicker from "./VoicePicker";
 import type { VisualContext } from "./TrainingVisual";
 import { prepareRasters } from "./trainingRaster";
 
@@ -57,6 +57,8 @@ type Draft = {
   sections: TrainingSection[];
   presenter: string;
   voice: string;
+  /** Empty for the voice's default delivery. */
+  voiceStyle: string;
   background: string;
   music: MusicChoice | null;
   narration: NarrationSettings;
@@ -69,6 +71,7 @@ const toDraft = (c: TrainingContent): Draft => ({
   sections: c.sections.map((s) => ({ ...s, cues: s.cues?.map((q) => ({ ...q })) })),
   presenter: c.presenter,
   voice: c.voice,
+  voiceStyle: c.voiceStyle ?? "",
   background: c.background,
   music: normalizeMusicChoice(c.musicChoice),
   narration: c.narration ? readNarration(c.narration) : EMPTY_NARRATION,
@@ -284,6 +287,7 @@ export default function TrainingVideo({
       sections: draft.sections,
       presenter: draft.presenter,
       voice: draft.voice,
+      voiceStyle: draft.voiceStyle || null,
       background: draft.background,
       music: draft.music,
       narration: {
@@ -486,7 +490,7 @@ export default function TrainingVideo({
   // Sections whose presenter clip is already rendered for these exact words
   // cost nothing to render again; only the rest are billed.
   const presenterChanged =
-    draft.presenter !== content.presenter || draft.voice !== content.voice || JSON.stringify(draft.narration) !== JSON.stringify(content.narration ? readNarration(content.narration) : EMPTY_NARRATION);
+    draft.presenter !== content.presenter || draft.voice !== content.voice || draft.voiceStyle !== (content.voiceStyle ?? "") || JSON.stringify(draft.narration) !== JSON.stringify(content.narration ? readNarration(content.narration) : EMPTY_NARRATION);
   const uncached = composed
     ? draft.sections.filter((_, i) => presenterChanged || liveTimings[i]?.source !== "avatar")
     : draft.sections;
@@ -694,6 +698,7 @@ export default function TrainingVideo({
                     edit({
                       presenter: e.target.value,
                       voice: AVATAR_PRESETS[e.target.value]?.voice ?? draft.voice,
+                      voiceStyle: "",
                     })
                   }
                 >
@@ -703,19 +708,13 @@ export default function TrainingVideo({
                     </option>
                   ))}
                 </select>
-                <select
-                  aria-label="Voice"
+                <VoicePicker
+                  voice={draft.voice}
+                  style={draft.voiceStyle}
                   className={`${inputCls} !w-auto`}
-                  value={draft.voice}
                   disabled={locked}
-                  onChange={(e) => edit({ voice: e.target.value })}
-                >
-                  {PRESENTER_VOICES.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(voice, style) => edit({ voice, voiceStyle: style ?? "" })}
+                />
                 <select
                   aria-label="Background"
                   className={`${inputCls} !w-auto`}

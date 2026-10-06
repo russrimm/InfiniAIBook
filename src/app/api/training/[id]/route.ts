@@ -8,6 +8,7 @@ import type { TrainingContent } from "@/lib/types";
 import { readNarration } from "@/lib/narration";
 import { normalizeMusicChoice } from "@/lib/musicchoice";
 import { normalizeComposition } from "@/lib/trainingvisuals";
+import { resolveVoice } from "@/lib/voicelist";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,6 +46,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       sections: unknown;
       presenter: string;
       voice: string;
+      voiceStyle: string | null;
       background: string;
       narration: unknown;
       music: unknown;
@@ -97,10 +99,18 @@ export async function PATCH(req: Request, { params }: Ctx) {
       next.presenter = presenter(body.presenter).key;
       scriptChanged ||= before !== next.presenter;
     }
-    if (typeof body.voice === "string") {
-      const before = next.voice;
-      next.voice = presenterVoice(body.voice, presenter(next.presenter).preset.voice);
-      scriptChanged ||= before !== next.voice;
+    if (typeof body.voice === "string" || "voiceStyle" in body) {
+      const fallback = presenter(next.presenter).preset.voice;
+      const [beforeVoice, beforeStyle] = [next.voice, next.voiceStyle];
+      const picked = await resolveVoice(
+        typeof body.voice === "string" ? presenterVoice(body.voice, fallback) : next.voice,
+        "voiceStyle" in body ? body.voiceStyle : next.voiceStyle,
+        fallback
+      );
+      next.voice = picked.voice;
+      if (picked.style) next.voiceStyle = picked.style;
+      else delete next.voiceStyle;
+      scriptChanged ||= beforeVoice !== next.voice || beforeStyle !== next.voiceStyle;
     }
     if (typeof body.background === "string") {
       const before = next.background;

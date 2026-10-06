@@ -9,6 +9,8 @@ import MotionCustomize, {
 import MusicPicker from "@/components/MusicPicker";
 import NarrationOptions from "@/components/NarrationOptions";
 import StudioCard from "@/components/StudioCard";
+import VoicePicker from "@/components/VoicePicker";
+import { voiceNickname } from "@/lib/voicecatalog";
 import { STUDIO, STUDIO_SECTIONS, studioIcon, studioLabel } from "@/lib/studio";
 import { DEFAULT_SLIDE_THEME, SLIDE_THEMES } from "@/lib/slides";
 import { EMPTY_NARRATION, type NarrationSettings } from "@/lib/narration";
@@ -53,7 +55,6 @@ import {
   BACKGROUNDS,
   DEFAULT_BACKGROUND,
   DEFAULT_PRESENTER,
-  PRESENTER_VOICES,
 } from "@/lib/avatars";
 
 /** Speakers that can be pinned, listed when a chosen one cannot be. */
@@ -253,6 +254,7 @@ export default function StudioPanel({
   const [speed, setSpeed] = useState(1);
   const [trainer, setTrainer] = useState(DEFAULT_PRESENTER);
   const [trainerVoice, setTrainerVoice] = useState(AVATAR_PRESETS[DEFAULT_PRESENTER].voice);
+  const [trainerStyle, setTrainerStyle] = useState<string | undefined>();
   const [trainingLen, setTrainingLen] = useState<AudioLength>("short");
   const [trainingBg, setTrainingBg] = useState(DEFAULT_BACKGROUND);
   const [trainingMode, setTrainingMode] = useState<"composed" | "presenter">("composed");
@@ -406,6 +408,7 @@ export default function StudioPanel({
       sourceIds: selectedIds,
       presenter: trainer,
       voice: trainerVoice,
+      voiceStyle: trainerStyle,
       background: trainingBg,
       length: trainingLen,
       narration: narrationFor("training"),
@@ -875,7 +878,7 @@ export default function StudioPanel({
                 : "Writing the transcript from your sources and notes…"
               : "A presenter teaches your sources and notes. Nothing is billed until you render."
           }
-          summary={`${AVATAR_PRESETS[trainer]?.label ?? trainer} · ${trainerVoice} · about ${
+          summary={`${AVATAR_PRESETS[trainer]?.label ?? trainer} · ${voiceNickname(trainerVoice)}${trainerStyle ? ` (${trainerStyle})` : ""} · about ${
             AUDIO_LENGTHS[trainingLen].minutes
           } min · ${trainingMode === "composed" ? "with slides" : "presenter only"}${extras(
             "training"
@@ -893,6 +896,7 @@ export default function StudioPanel({
                 onChange={(e) => {
                   setTrainer(e.target.value);
                   setTrainerVoice(AVATAR_PRESETS[e.target.value]?.voice ?? trainerVoice);
+                  setTrainerStyle(undefined);
                 }}
               >
                 {Object.entries(AVATAR_PRESETS).map(([key, p]) => (
@@ -901,18 +905,21 @@ export default function StudioPanel({
                   </option>
                 ))}
               </select>
-              <select
-                aria-label="Presenter voice"
-                className="w-24 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                value={trainerVoice}
-                onChange={(e) => setTrainerVoice(e.target.value)}
-              >
-                {PRESENTER_VOICES.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                Voice
+              </span>
+              <VoicePicker
+                voiceLabelText="Presenter voice"
+                voice={trainerVoice}
+                style={trainerStyle}
+                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                onChange={(voice, style) => {
+                  setTrainerVoice(voice);
+                  setTrainerStyle(style);
+                }}
+              />
             </div>
             <div className="flex items-center gap-2">
               <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">

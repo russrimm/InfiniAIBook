@@ -1,6 +1,7 @@
 import { listNotes } from "./notes";
 import { retrieve, sampleCorpus, type Passage } from "./retrieve";
-import { AUDIO_LENGTHS, PINNED_VOICES, type AudioLength } from "./voices";
+import { AUDIO_LENGTHS, type AudioLength } from "./voices";
+import { cleanStyle, voiceServiceName } from "./voicecatalog";
 import { addBreaths } from "./prosody";
 import type { TrainingSection } from "./types";
 import { normalizeCues, type TrainingComposition } from "./trainingvisuals";
@@ -192,12 +193,22 @@ const escapeXml = (s: string) =>
     .replace(/'/g, "&apos;");
 
 /**
+ * Wrap already-escaped speech in one voice, and in one express-as style when
+ * the voice has it. Used for the avatar script and for the timing samples, so
+ * both are spoken the same way.
+ */
+export function voiceSsml(voice: string, inner: string, style?: string): string {
+  const s = cleanStyle(style);
+  const body = s ? `<mstts:express-as style='${s}'>${inner}</mstts:express-as>` : inner;
+  return `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='en-US'><voice name='${voiceServiceName(voice)}'>${body}</voice></speak>`;
+}
+
+/**
  * One continuous SSML document. Sections are separated by a longer break so
  * the presenter visibly moves on; paragraphs within a section get a shorter
  * one.
  */
-export function buildTrainingSsml(sections: TrainingSection[], voice: string): string {
-  const voiceName = PINNED_VOICES[voice] ?? PINNED_VOICES.Ava;
+export function buildTrainingSsml(sections: TrainingSection[], voice: string, style?: string): string {
   const body = sections
     .map((s) =>
       s.text
@@ -208,5 +219,5 @@ export function buildTrainingSsml(sections: TrainingSection[], voice: string): s
         .join(`<break time="450ms"/>`)
     )
     .join(`<break time="1100ms"/>`);
-  return `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='en-US'><voice name='${voiceName}'>${body}</voice></speak>`;
+  return voiceSsml(voice, body, style);
 }
