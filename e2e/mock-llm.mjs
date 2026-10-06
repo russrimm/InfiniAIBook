@@ -10,17 +10,42 @@ const send = (res, status, body) => {
   res.end(JSON.stringify(body));
 };
 
+const DIMS = 64;
+const embedText = (text) => {
+  const v = new Array(DIMS).fill(0);
+  for (const w of text.toLowerCase().match(/[a-z0-9]+/g) ?? []) {
+    let h = 0;
+    for (const ch of w) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    v[h % DIMS] += 1;
+  }
+  const norm = Math.hypot(...v) || 1;
+  return v.map((x) => x / norm);
+};
+
 http
   .createServer((req, res) => {
     if (req.method === "GET" && req.url === "/health") return send(res, 200, { ok: true });
     if (req.method === "GET" && req.url === "/last") return send(res, 200, last ?? {});
-    if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {
+    const isEmbeddings = req.url?.endsWith("/embeddings");
+    if (req.method !== "POST" || !(isEmbeddings || req.url?.endsWith("/chat/completions"))) {
       return send(res, 404, { error: { message: "not found" } });
     }
     let raw = "";
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
       const body = JSON.parse(raw);
+
+      // Embeddings: a deterministic hashed bag-of-words vector per input.
+      if (isEmbeddings) {
+        const inputs = Array.isArray(body.input) ? body.input : [body.input];
+        return send(res, 200, {
+          object: "list",
+          model: body.model,
+          data: inputs.map((t, index) => ({ object: "embedding", index, embedding: embedText(String(t)) })),
+          usage: { prompt_tokens: 1, total_tokens: 1 },
+        });
+      }
+
       const user = body.messages.at(-1);
       const parts = Array.isArray(user.content) ? user.content : [{ type: "text", text: user.content }];
       const text = parts.filter((p) => p.type === "text").map((p) => p.text).join("\n");
