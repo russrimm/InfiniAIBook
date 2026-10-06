@@ -1,0 +1,81 @@
+name: Deploy to Azure
+
+# Runs after CI passes on main, or by hand. Builds the image in Azure Container
+# Registry and points the existing Container App at it. Infrastructure changes
+# still go through infra/main.bicep (see docs/azure-deployment.md).
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-azure
+  cancel-in-progress: false
+
+env:
+  AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+  AZURE_CONTAINER_APP: ${{ vars.AZURE_CONTAINER_APP }}
+  AZURE_REGISTRY: ${{ vars.AZURE_REGISTRY }}
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build the image in the registry
+        id: image
+        run: |
+          sha="${{ github.event.workflow_run.head_sha || github.sha }}"
+          tag="${sha:0:12}"
+          az acr build --registry "$AZURE_REGISTRY" \
+            --image "infiniaibook:$tag" \
+            --build-arg WITH_PYTHON=true --no-logs .
+          echo "ref=$AZURE_REGISTRY.azurecr.io/infiniaibook:$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Roll the Container App to the new image
+        run: |
+          az containerapp update \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_CONTAINER_APP" \
+            --image "${{ steps.image.outputs.ref }}" \
+            --revision-suffix "r${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}" \
+            --output none
+
+      - name: Check the new revision is healthy
+        run: |
+          for i in $(seq 1 30); do
+            state=$(az containerapp revision show \
+              --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_CONTAINER_APP" \
+              --revision "$AZURE_CONTAINER_APP--r${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}" \
+              --query "properties.{h:healthState,p:provisioningState,r:runningState}" -o tsv)
+            echo "attempt $i: $state"
+            case "$state" in
+              Healthy*Provisioned*Running*) exit 0 ;;
+              *Failed*) echo "::error::Revision failed to start"; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::Revision did not become healthy in time"
+          exit 1
