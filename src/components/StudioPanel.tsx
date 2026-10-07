@@ -459,31 +459,29 @@ export default function StudioPanel({
       className="flex h-full min-h-0 flex-col bg-[var(--panel)]"
     >
       <div className="px-4 pt-4 pb-3">
-        <div className="flex items-center gap-2">
-          <h2 id="studio-heading" className="flex-1 text-sm font-semibold tracking-wide">
-            Studio
-          </h2>
-          <div
-            role="group"
-            aria-label="Studio view"
-            className="flex overflow-hidden rounded-lg border border-[var(--border)]"
-          >
-            {(["create", "library"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={view === v}
-                onClick={() => setView(v)}
-                className={`px-2.5 py-1 text-[11px] transition ${
-                  view === v
-                    ? "bg-hover text-[var(--fg)]"
-                    : "text-[var(--muted)] hover:text-[var(--fg)]"
-                }`}
-              >
-                {v === "create" ? "Create" : `Library (${artifacts.length})`}
-              </button>
-            ))}
-          </div>
+        <h2 id="studio-heading" className="text-sm font-semibold tracking-wide">
+          Studio
+        </h2>
+        <div
+          role="group"
+          aria-label="Studio view"
+          className="mt-2 grid grid-cols-2 gap-1 rounded-xl border border-[var(--border)] bg-well p-1"
+        >
+          {(["create", "library"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={view === v}
+              onClick={() => setView(v)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                view === v
+                  ? "btn-primary shadow-sm"
+                  : "text-[var(--muted)] hover:bg-hover hover:text-[var(--fg)]"
+              }`}
+            >
+              {v === "create" ? "Create" : `Library (${artifacts.length})`}
+            </button>
+          ))}
         </div>
         <p className="mt-1 text-[11px] text-[var(--muted)]">
           {view === "create"
