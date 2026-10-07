@@ -37,7 +37,9 @@ are still processing; a failure affects only its own row, which explains what
 happened and can be dismissed. Sources join the chat context automatically as
 they land.
 
-Files over 50 MB (`MAX_UPLOAD_BYTES`) are refused before they are sent. A
+Files over 50 MB (`MAX_UPLOAD_BYTES`) are refused before they are sent, except
+PowerPoint decks: the browser reads their slide text and speaker notes itself and
+sends only that text (images and video are skipped, and a notice says so). A
 source and all of its chunks are written in one transaction, so an interrupted
 upload never leaves a half-indexed source behind.
 
