@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ok, fail, noSourcesSelected } from "@/lib/http";
+import { keepAliveJSON } from "@/lib/keepalive";
 import { studioJSON, type ChatMsg } from "@/lib/ai";
 import {
   buildContext,
@@ -50,7 +51,11 @@ const MIN_CONTEXT_CHARS = 6000;
  * Write an audio-overview script and stop. Nothing is narrated until the user
  * has reviewed it and pressed Narrate (POST /api/podcast/[id]/narrate).
  */
-export async function POST(req: Request) {
+export function POST(req: Request) {
+  return keepAliveJSON(() => writePodcast(req));
+}
+
+async function writePodcast(req: Request) {
   try {
     const body = (await req.json()) as {
       notebookId: string;

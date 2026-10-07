@@ -3,6 +3,7 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import { ok, fail, noSourcesSelected } from "@/lib/http";
+import { keepAliveJSON } from "@/lib/keepalive";
 import { chatJSON, generateImage, type ChatMsg } from "@/lib/ai";
 import { imageDir } from "@/lib/paths";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
@@ -170,7 +171,11 @@ const OWN_ROUTE = new Set<string>(["podcast", "video", "motion", "training"]);
 
 const bad = (error: string) => NextResponse.json({ error, code: "invalid" }, { status: 400 });
 
-export async function POST(req: Request) {
+export function POST(req: Request) {
+  return keepAliveJSON(() => generateArtifact(req));
+}
+
+async function generateArtifact(req: Request) {
   try {
     const body = (await req.json().catch(() => null)) as Loose | null;
     if (!body || typeof body !== "object" || Array.isArray(body)) {
