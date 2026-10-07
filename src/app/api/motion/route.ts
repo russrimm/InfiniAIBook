@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ok, fail, noSourcesSelected } from "@/lib/http";
+import { keepAliveJSON } from "@/lib/keepalive";
 import { studioJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
@@ -32,7 +33,11 @@ export async function GET() {
  * Write the scene plan and stop. Artwork, narration and animation only start
  * when the user presses Render (POST /api/video/[id]/render).
  */
-export async function POST(req: Request) {
+export function POST(req: Request) {
+  return keepAliveJSON(() => planMotion(req));
+}
+
+async function planMotion(req: Request) {
   try {
     const body = (await req.json()) as {
       notebookId: string;

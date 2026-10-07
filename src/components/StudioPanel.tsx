@@ -17,6 +17,7 @@ import { EMPTY_NARRATION, type NarrationSettings } from "@/lib/narration";
 import type { MusicChoice } from "@/lib/musicchoice";
 import { MOTION_PALETTES } from "@/lib/motion";
 import { DEFAULT_COMPOSITION } from "@/lib/trainingvisuals";
+import { readJSONReply } from "@/lib/jsonreply";
 import {
   DEFAULT_STYLE,
   DETAIL_LEVELS,
@@ -323,8 +324,10 @@ export default function StudioPanel({
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Generation failed");
+      const json = await readJSONReply<ArtifactSummary & { error?: string }>(
+        res,
+        "Generation failed"
+      );
       await onChanged();
       // Opened through the same path as a list entry so the modal always shows
       // the stored row rather than whatever the POST happened to return.

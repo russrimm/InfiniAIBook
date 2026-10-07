@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ok, fail, noSourcesSelected } from "@/lib/http";
+import { keepAliveJSON } from "@/lib/keepalive";
 import { studioJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
@@ -40,7 +41,12 @@ type Loose = Record<string, unknown>;
  * billed per minute, so the transcript is saved for review and the video is
  * made only when the user asks for it (POST /api/training/:id/render).
  */
-export async function POST(req: Request) {
+export function POST(req: Request) {
+  // A long transcript plus visual planning can outlast an idle-proxy timeout.
+  return keepAliveJSON(() => writeTranscript(req));
+}
+
+async function writeTranscript(req: Request) {
   const started = Date.now();
   try {
     const body = (await req.json()) as {
