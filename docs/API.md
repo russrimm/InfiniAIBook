@@ -56,8 +56,9 @@ Two checks apply whether or not a password is set:
   video — media is transcribed, up to 25 MB — PowerPoint decks, or ZIP
   archives, whose supported files are each added as a source);
 - `{ url, title? }` — web page, YouTube link, RSS/Atom feed, or direct media link;
-- `{ text, title?, kind?: "note" }` — pasted text (`kind: "note"` marks a note
-  turned into a source);
+- `{ text, title?, kind?: "note" | "pptx" }` — pasted text (`kind: "note"` marks a
+  note turned into a source; `kind: "pptx"` marks text the browser extracted
+  from a deck too large to upload);
 - `{ copyFrom: "<sourceId>" }` — copy a source from another notebook, with its
   chunks and embeddings.
 

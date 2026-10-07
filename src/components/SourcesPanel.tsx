@@ -69,6 +69,25 @@ function formatMb(n: number) {
   return `${Math.round((n / 1024 / 1024) * 10) / 10} MB`;
 }
 
+/** Slide text and speaker notes from a deck too large to upload. */
+async function readLargeDeck(file: File): Promise<string> {
+  const data = new Uint8Array(await file.arrayBuffer());
+  // A real .pptx is a ZIP; anything else is encrypted, legacy or not a deck.
+  if (data[0] !== 0x50 || data[1] !== 0x4b) {
+    throw new Error(
+      `"${file.name}" cannot be read. It may be password-protected, rights-managed or an old .ppt file; re-save it as an unprotected .pptx and try again.`
+    );
+  }
+  const { pptxToText } = await import("@/lib/pptx");
+  const text = (await pptxToText(data)).trim();
+  if (!text) {
+    throw new Error(
+      `"${file.name}" has no text on its slides or in its speaker notes; it may contain only images.`
+    );
+  }
+  return text;
+}
+
 export default function SourcesPanel({
   notebookId,
   sources,
@@ -144,7 +163,17 @@ export default function SourcesPanel({
     summaryTimer.current = setTimeout(() => void onChanged(), 8000);
   };
 
-  const startJob = (label: string, icon: string, init: RequestInit) => {
+  /**
+   * `init` may be a function, for requests that need work first (such as
+   * reading a deck in the browser); it runs once the job leaves the queue.
+   * `notice` is shown after a successful add, for anything the user should know.
+   */
+  const startJob = (
+    label: string,
+    icon: string,
+    init: RequestInit | (() => Promise<RequestInit>),
+    notice?: string
+  ) => {
     const id = `job-${++jobSeq}`;
     setJobs((prev) => [...prev, { id, label, icon, queued: true }]);
 
@@ -153,7 +182,7 @@ export default function SourcesPanel({
       try {
         const res = await fetch(`/api/notebooks/${notebookId}/sources`, {
           method: "POST",
-          ...init,
+          ...(typeof init === "function" ? await init() : init),
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json.error || "Could not add this source");
@@ -163,7 +192,11 @@ export default function SourcesPanel({
         const addedCount: number = json.added?.length ?? 0;
         const errors: string[] = json.errors ?? [];
         if (errors.length && !addedCount) throw new Error(errors[0]);
-        const notices: string[] = [...errors, ...(json.warnings ?? [])];
+        const notices: string[] = [
+          ...errors,
+          ...(json.warnings ?? []),
+          ...(notice ? [notice] : []),
+        ];
 
         await onChanged();
         refreshForSummaries();
@@ -188,6 +221,24 @@ export default function SourcesPanel({
   const uploadFiles = (files: FileList | File[]) => {
     for (const file of Array.from(files)) {
       if (maxUploadBytes && file.size > maxUploadBytes) {
+        // Only the text is wanted from a deck, and that is small however large
+        // the images and video make the file, so read it here instead.
+        if (/\.pptx$/i.test(file.name)) {
+          startJob(
+            file.name,
+            iconFor(file.name),
+            async () => ({
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                title: file.name,
+                kind: "pptx",
+                text: await readLargeDeck(file),
+              }),
+            }),
+            `${formatMb(file.size)} is over the ${formatMb(maxUploadBytes)} upload limit, so only the slide text and speaker notes were imported.`
+          );
+          continue;
+        }
         setJobs((prev) => [
           ...prev,
           {

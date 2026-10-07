@@ -273,7 +273,7 @@ export async function POST(req: Request, { params }: Ctx) {
         /** Id of a source in another notebook to reuse here. */
         copyFrom?: string;
         /** Marks pasted text that came from one of the notebook's notes. */
-        kind?: "note";
+        kind?: "note" | "pptx";
       };
       if (body.url) {
         try {
@@ -320,7 +320,7 @@ export async function POST(req: Request, { params }: Ctx) {
             await ingestOne(
               notebookId,
               body.title || "Pasted text",
-              body.kind === "note" ? "note" : "text",
+              body.kind === "note" || body.kind === "pptx" ? body.kind : "text",
               null,
               body.text,
               warnings
