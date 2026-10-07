@@ -12,6 +12,16 @@ see [Customizing a video](#customizing-a-video).
 The **focus box** at the top of the Studio panel steers it, like every other
 generator.
 
+## Sample
+
+[![A cartoon gardener in overalls stands among rows of raised beds under the headline "Meet Riverside Garden", with a "24 raised beds" stat card and callout chips](screenshots/motion-explainer.jpg)](https://github.com/user-attachments/assets/9df785be-160a-4b0b-879d-531a4749b538)
+
+*Click the image to play the 1:50 sample, shown here at 720p.* It was generated
+from the fictional community-garden notebook used throughout these docs, with
+every setting left at its default, and the seven-scene plan was rendered
+unedited. It took about nine minutes: almost eight drawing 14 pictures, a few
+seconds of narration and under a minute of rendering.
+
 ## What you need
 
 | Piece | Setting | Used for |
