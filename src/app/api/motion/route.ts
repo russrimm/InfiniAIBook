@@ -13,6 +13,7 @@ import {
 } from "@/lib/motion";
 import { musicAvailable } from "@/lib/music";
 import { normalizeMusicChoice } from "@/lib/musicchoice";
+import { normalizeWatermark } from "@/lib/watermarkchoice";
 import { narrationPromptBlock, readNarration } from "@/lib/narration";
 import { notebookNarration } from "@/lib/narrationstore";
 import { motionScenes, replaceInMotionPlan } from "@/lib/videoscript";
@@ -46,6 +47,7 @@ async function planMotion(req: Request) {
       voice?: string;
       /** { track, volume }; `true` from older clients means a random track. */
       music?: unknown;
+      watermark?: unknown;
       narration?: unknown;
       // Customization; see normalizeMotionOptions for the accepted values.
       length?: string;
@@ -117,6 +119,7 @@ async function planMotion(req: Request) {
       voice: speaker,
       music: false,
       musicChoice,
+      watermarkChoice: normalizeWatermark(body.watermark),
       narration,
       options,
       plan,

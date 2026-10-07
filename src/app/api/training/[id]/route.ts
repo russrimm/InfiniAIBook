@@ -7,6 +7,7 @@ import { isRendering } from "@/lib/trainingbuild";
 import type { TrainingContent } from "@/lib/types";
 import { readNarration } from "@/lib/narration";
 import { normalizeMusicChoice } from "@/lib/musicchoice";
+import { normalizeWatermark } from "@/lib/watermarkchoice";
 import { normalizeComposition } from "@/lib/trainingvisuals";
 import { resolveVoice } from "@/lib/voicelist";
 
@@ -50,6 +51,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       background: string;
       narration: unknown;
       music: unknown;
+      watermark: unknown;
       composition: unknown;
     }>;
 
@@ -126,6 +128,11 @@ export async function PATCH(req: Request, { params }: Ctx) {
       next.musicChoice = normalizeMusicChoice(body.music);
       scriptChanged ||=
         JSON.stringify(next.musicChoice) !== JSON.stringify(current.musicChoice ?? null);
+    }
+    if ("watermark" in body) {
+      next.watermarkChoice = normalizeWatermark(body.watermark);
+      scriptChanged ||=
+        JSON.stringify(next.watermarkChoice) !== JSON.stringify(current.watermarkChoice ?? null);
     }
     // The existing video no longer matches what is on screen.
     if (scriptChanged && current.videoUrl) next.editedSinceRender = true;

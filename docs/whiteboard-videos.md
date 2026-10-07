@@ -43,7 +43,8 @@ Nothing blocks on it. The scene plan is saved for review first; once you press
 **Render video** the build carries on in the background, writing its stage onto
 the row, and the player shows the progress. Close it, keep working, come back.
 If background music was chosen, it is mixed in after the render and ducked
-under the narration.
+under the narration. A text or image watermark, if chosen, is stamped last; see
+[Watermark](studio.md#watermark).
 
 ## Two renderer details worth knowing
 

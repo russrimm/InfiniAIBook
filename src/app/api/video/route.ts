@@ -11,6 +11,7 @@ import { ALL_SPEAKERS } from "@/lib/voices";
 import { narrationPromptBlock, readNarration } from "@/lib/narration";
 import { notebookNarration } from "@/lib/narrationstore";
 import { normalizeMusicChoice } from "@/lib/musicchoice";
+import { normalizeWatermark } from "@/lib/watermarkchoice";
 import { replaceInScenePlan, whiteboardScenes } from "@/lib/videoscript";
 
 export const runtime = "nodejs";
@@ -39,6 +40,7 @@ async function planVideo(req: Request) {
       voice?: string;
       narration?: unknown;
       music?: unknown;
+      watermark?: unknown;
     };
     const { notebookId, topic, sourceIds, voice } = body;
 
@@ -94,6 +96,7 @@ async function planVideo(req: Request) {
       plan,
       narration,
       musicChoice: normalizeMusicChoice(body.music),
+      watermarkChoice: normalizeWatermark(body.watermark),
       scenes: whiteboardScenes(plan),
       progress: { stage: "script", done: 0, total: plan.scenes.length },
       citations: citationList(passages),

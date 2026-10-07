@@ -7,6 +7,7 @@ import MotionCustomize, {
   type MotionForm,
 } from "@/components/MotionCustomize";
 import MusicPicker from "@/components/MusicPicker";
+import WatermarkPicker from "@/components/WatermarkPicker";
 import NarrationOptions from "@/components/NarrationOptions";
 import StudioCard from "@/components/StudioCard";
 import VoicePicker from "@/components/VoicePicker";
@@ -15,6 +16,7 @@ import { STUDIO, STUDIO_SECTIONS, studioIcon, studioLabel } from "@/lib/studio";
 import { DEFAULT_SLIDE_THEME, SLIDE_THEMES } from "@/lib/slides";
 import { EMPTY_NARRATION, type NarrationSettings } from "@/lib/narration";
 import type { MusicChoice } from "@/lib/musicchoice";
+import type { WatermarkChoice } from "@/lib/watermarkchoice";
 import { MOTION_PALETTES } from "@/lib/motion";
 import { DEFAULT_COMPOSITION } from "@/lib/trainingvisuals";
 import { readJSONReply } from "@/lib/jsonreply";
@@ -64,6 +66,8 @@ const PINNABLE = Object.keys(PINNED_VOICES);
 /** The formats that are spoken aloud and so take instructions and music. */
 const SPOKEN = ["podcast", "video", "motion", "training"] as const;
 type SpokenType = (typeof SPOKEN)[number];
+/** The spoken formats that render a video and so can carry a watermark. */
+type VideoType = Exclude<SpokenType, "podcast">;
 const spokenRecord = <T,>(v: T): Record<SpokenType, T> => ({
   podcast: v,
   video: v,
@@ -248,6 +252,13 @@ export default function StudioPanel({
   });
   const setMusicFor = (t: SpokenType) => (v: MusicChoice | null) =>
     setMusic((prev) => (prev[t] === v ? prev : { ...prev, [t]: v }));
+  const [watermark, setWatermark] = useState<Record<VideoType, WatermarkChoice | null>>({
+    video: null,
+    motion: null,
+    training: null,
+  });
+  const setWatermarkFor = (t: VideoType) => (v: WatermarkChoice | null) =>
+    setWatermark((prev) => (prev[t] === v ? prev : { ...prev, [t]: v }));
   const [episodeProfile, setEpisodeProfile] = useState("deep-dive");
   const [speakers, setSpeakers] = useState<SpeakerConfig[]>(() =>
     profileSpeakers("deep-dive")
@@ -391,6 +402,7 @@ export default function StudioPanel({
       voice: narrator,
       narration: narrationFor("video"),
       music: music.video,
+      watermark: watermark.video,
     });
 
   const generateMotion = () =>
@@ -400,6 +412,7 @@ export default function StudioPanel({
       sourceIds: selectedIds,
       voice: motionNarrator,
       music: music.motion,
+      watermark: watermark.motion,
       narration: narrationFor("motion"),
       ...motionRequest(motionForm),
     });
@@ -416,6 +429,7 @@ export default function StudioPanel({
       length: trainingLen,
       narration: narrationFor("training"),
       music: music.training,
+      watermark: watermark.training,
       composition: { ...DEFAULT_COMPOSITION, mode: trainingMode, palette: trainingPalette },
     });
 
@@ -451,7 +465,11 @@ export default function StudioPanel({
     speed === 1 ? "normal speed" : `${speed}× speed`
   } · ${deliveryLabel}`;
   const extras = (t: SpokenType) =>
-    [music[t] ? "music" : "", narration[t].instructions.trim() ? "instructions" : ""]
+    [
+      music[t] ? "music" : "",
+      t !== "podcast" && watermark[t] ? "watermark" : "",
+      narration[t].instructions.trim() ? "instructions" : "",
+    ]
       .filter(Boolean)
       .map((x) => ` · ${x}`)
       .join("");
@@ -814,6 +832,7 @@ export default function StudioPanel({
               <p className="text-[10px] leading-snug text-red-300">{previewError}</p>
             )}
             <MusicPicker value={music.video} onChange={setMusicFor("video")} />
+            <WatermarkPicker value={watermark.video} onChange={setWatermarkFor("video")} />
             <NarrationOptions
               value={narration.video}
               onChange={editNarration("video")}
@@ -853,6 +872,7 @@ export default function StudioPanel({
               <p className="text-[10px] leading-snug text-red-300">{previewError}</p>
             )}
             <MusicPicker value={music.motion} onChange={setMusicFor("motion")} />
+            <WatermarkPicker value={watermark.motion} onChange={setWatermarkFor("motion")} />
             <NarrationOptions
               value={narration.motion}
               onChange={editNarration("motion")}
@@ -979,6 +999,7 @@ export default function StudioPanel({
               </select>
             </div>
             <MusicPicker value={music.training} onChange={setMusicFor("training")} />
+            <WatermarkPicker value={watermark.training} onChange={setWatermarkFor("training")} />
             <NarrationOptions
               value={narration.training}
               onChange={editNarration("training")}

@@ -19,6 +19,7 @@ import {
   touch,
   type VideoProgress,
 } from "./videobuild";
+import { stampWatermark } from "./watermark";
 
 type AssetJob = {
   key: string;
@@ -29,6 +30,8 @@ type AssetJob = {
 type BuildOptions = {
   /** A resolved track and its gain, or null for no music. */
   music: { file: string; gain: number; name?: string } | null;
+  /** The stored watermark choice; stamped after the render. */
+  watermark?: unknown;
   /** Output frame size; the timeline scales every layer to it. */
   width?: number;
   height?: number;
@@ -201,15 +204,18 @@ async function runBuild(
     /* already cleaned up by the renderer */
   }
 
+  const mark = await stampWatermark(out, opts.watermark ?? null, "motion");
+
   const final = videoPath(id);
   fs.mkdirSync(path.dirname(final), { recursive: true });
   fs.renameSync(out, final);
 
   setProgress(id, {
-    progress: { stage: "done", done: 1, total: 1 } satisfies VideoProgress,
+    progress: { stage: "done", done: 1, total: 1, note: mark.note } satisfies VideoProgress,
     videoUrl: `/api/video/${id}?v=${Date.now()}`,
     bytes: fs.statSync(final).size,
     music: Boolean(music),
+    watermarked: mark.watermarked,
     editedSinceRender: false,
   });
 

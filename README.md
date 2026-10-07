@@ -87,7 +87,8 @@ How it works, setup and costs: [Training videos](docs/training-videos.md).
   Audio overviews and all three video formats stop at an **editable script**
   before anything is narrated or rendered, accept **narration instructions**
   and a **word-replacement list** (for terms to avoid, translation or a
-  different register), and can add **background music** you upload.
+  different register), and can add **background music** you upload. Videos
+  can also carry a text or image **watermark** in any of nine positions.
   [More](docs/studio.md#spoken-formats-script-review-instructions-and-music)
 
 - **Exports** — Markdown, PPTX, MP3, MP4, PNG and Anki/Quizlet CSV. [More](docs/studio.md#exporting)

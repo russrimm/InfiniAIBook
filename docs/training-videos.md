@@ -33,6 +33,8 @@ panel. Music is mixed into the MP4 after the video is finished, lowered whenever
 the presenter speaks. The replacement list is applied to the transcript each
 time it is sent for rendering. See
 [Spoken formats](studio.md#spoken-formats-script-review-instructions-and-music).
+The **Mark** picker stamps an optional text or image watermark in one of nine
+positions after the music is mixed; see [Watermark](studio.md#watermark).
 
 ## Presenter with visuals
 

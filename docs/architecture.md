@@ -30,6 +30,7 @@ src/
       video/                       plan a whiteboard video; video/[id] edits a whiteboard or motion script, [id]/render builds it
       motion/                      plan a motion explainer
       music/                       background-music library: list, upload, stream, delete
+      watermark/                   watermark image library: list, upload, serve, delete
       models/                      list deployments, read/set the active models
       audio/[id]/  video/[id]/     MP3 / MP4 streaming with byte-range support
       image/[id]/                  generated infographic PNGs
@@ -43,7 +44,7 @@ src/
     PodcastPlayer  VideoPlayer  MotionCustomize  Markdown
     DiscussionModal  useDiscussion (WebRTC call, tool calls, cancellation)
     ScreenHelperModal  useScreenCapture (getDisplayMedia frames, auto-watch)
-    MusicPicker  NarrationOptions  SlideDeck  AboutModal
+    MusicPicker  WatermarkPicker  NarrationOptions  SlideDeck  AboutModal
   lib/
     db.ts        SQLite schema (node:sqlite, no native build step)
     ai.ts        model client (Azure OpenAI with Entra ID, or OpenAI-compatible): chat / JSON / studio scripts / embeddings / images / transcription
@@ -75,6 +76,7 @@ src/
     videoscript.ts  podcastscript.ts  podcaststore.ts   script editing for videos and audio overviews
     narration.ts narration instructions and word replacements; narrationstore.ts keeps the notebook defaults
     music.ts     background-music library and ducked mixing; musicchoice.ts is the client-safe choice type
+    watermark.ts watermark image library and post-render stamping; watermarkchoice.ts is the client-safe choice type
     slides.ts    PowerPoint deck themes, normalization and PPTX export
     python.ts    runs the Python renderers and mixer under scripts/
     paths.ts     data/audio, images, voices and video paths, traversal-safe resolution
@@ -87,6 +89,7 @@ scripts/
   whiteboard/render.py  Python renderer that composites and encodes whiteboard videos
   motion/render.py    Python renderer that animates layered motion explainers
   audio/mix.py        mixes a ducked music bed under an MP3 or an MP4's soundtrack
+  video/watermark.py  stamps a text or image watermark onto a finished MP4
 ```
 
 **Storage note:** the database uses Node's built-in `node:sqlite` (Node 22.13+),

@@ -169,6 +169,13 @@ fades in and out and is ducked under the narration. No music ships with the
 app. Royalty-free doesn't always mean free to redistribute, so check each
 track's license before you publish a video.
 
+## Watermark
+
+The **Mark** picker on the card or in the script editor adds an optional text
+or image watermark in one of nine positions, with a size and opacity. It is
+stamped onto the MP4 after the music is mixed; see
+[Watermark](studio.md#watermark).
+
 ## Timings, measured
 
 A seven-scene video about a one-page source took **12 minutes** end to end:

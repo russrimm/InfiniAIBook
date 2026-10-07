@@ -12,9 +12,11 @@ import type { VideoContent } from "@/lib/types";
 import type { ScenePlan } from "@/lib/whiteboard";
 import { EMPTY_NARRATION, readNarration, type NarrationSettings } from "@/lib/narration";
 import { normalizeMusicChoice, type MusicChoice } from "@/lib/musicchoice";
+import { normalizeWatermark, type WatermarkChoice } from "@/lib/watermarkchoice";
 import { MULTITALKER_SPEAKERS, WORDS_PER_MINUTE } from "@/lib/voices";
 import MusicPicker from "./MusicPicker";
 import NarrationOptions from "./NarrationOptions";
+import WatermarkPicker from "./WatermarkPicker";
 
 const STAGES: Record<"whiteboard" | "motion", { key: string; label: string }[]> = {
   whiteboard: [
@@ -218,11 +220,15 @@ export default function VideoPlayer({
           Download
         </a>
       </div>
+      {progress?.note && (
+        <p className="mt-2 text-[11px] text-amber-200/90">{progress.note}</p>
+      )}
       {editButton}
       <SceneList content={content} />
       <p className="mt-4 text-[10px] text-[var(--muted)]">
         Narrated by {content.voice ?? "Ava"}
         {content.music ? " · with music" : ""}
+        {content.watermarked ? " · watermarked" : ""}
         {describeMotionOptions(content.options).map((d) => ` · ${d}`).join("")}
         {content.bytes ? ` · ${(content.bytes / 1_048_576).toFixed(1)} MB` : ""}
       </p>
@@ -289,6 +295,7 @@ type ScriptDraft = {
   scenes: EditScene[];
   voice: string;
   music: MusicChoice | null;
+  watermark: WatermarkChoice | null;
   narration: NarrationSettings;
   /** Motion explainers only. */
   movement: MotionMovement;
@@ -317,6 +324,7 @@ function toScriptDraft(c: VideoContent, variant: "whiteboard" | "motion"): Scrip
     scenes,
     voice: c.voice ?? "Ava",
     music: normalizeMusicChoice(c.musicChoice),
+    watermark: normalizeWatermark(c.watermarkChoice),
     narration: c.narration ? readNarration(c.narration) : EMPTY_NARRATION,
     movement: normalizeMotionOptions(c.options ?? {}).movement,
   };
@@ -369,6 +377,7 @@ function ScriptEditor({
     content.plan,
     content.voice,
     content.musicChoice,
+    content.watermarkChoice,
     content.narration,
     content.options,
   ]);
@@ -401,6 +410,7 @@ function ScriptEditor({
         scenes: fromScriptDraft(draft, variant),
         voice: draft.voice,
         music: draft.music,
+        watermark: draft.watermark,
         ...(variant === "motion" ? { movement: draft.movement } : {}),
         narration: {
           instructions: draft.narration.instructions,
@@ -456,7 +466,7 @@ function ScriptEditor({
 
       <section className="space-y-2 rounded-2xl border border-[var(--border)] p-4">
         <h3 className="text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
-          Voice &amp; sound
+          Voice, sound &amp; watermark
         </h3>
         <div className="flex items-center gap-2">
           <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
@@ -497,6 +507,11 @@ function ScriptEditor({
           </div>
         )}
         <MusicPicker value={draft.music} onChange={(music) => edit({ music })} disabled={locked} />
+        <WatermarkPicker
+          value={draft.watermark}
+          onChange={(watermark) => edit({ watermark })}
+          disabled={locked}
+        />
         <NarrationOptions
           value={draft.narration}
           onChange={(narration) => edit({ narration })}

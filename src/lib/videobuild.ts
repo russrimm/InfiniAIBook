@@ -3,6 +3,7 @@ import path from "node:path";
 import { db } from "./db";
 import { runPythonRenderer } from "./python";
 import { mixMusicInto } from "./music";
+import { stampWatermark } from "./watermark";
 import { generateImage } from "./ai";
 import { synthesizeRawSsml } from "./speech";
 import { addBreaths } from "./prosody";
@@ -198,7 +199,7 @@ export async function buildVideo(
   id: string,
   plan: ScenePlan,
   voice: string,
-  opts: { music?: { file: string; gain: number } | null } = {}
+  opts: { music?: { file: string; gain: number } | null; watermark?: unknown } = {}
 ): Promise<void> {
   const work = videoWorkDir(id);
   fs.mkdirSync(work, { recursive: true });
@@ -208,7 +209,7 @@ export async function buildVideo(
   const beat = setInterval(() => touch(id), HEARTBEAT_MS);
 
   try {
-    await runBuild(id, plan, voice, work, opts.music ?? null);
+    await runBuild(id, plan, voice, work, opts.music ?? null, opts.watermark ?? null);
   } finally {
     clearInterval(beat);
   }
@@ -219,7 +220,8 @@ async function runBuild(
   plan: ScenePlan,
   voice: string,
   work: string,
-  music: { file: string; gain: number } | null
+  music: { file: string; gain: number } | null,
+  watermark: unknown
 ): Promise<void> {
   const scenes = plan.scenes;
   const images: string[] = new Array(scenes.length);
@@ -311,15 +313,18 @@ async function runBuild(
     }
   }
 
+  const mark = await stampWatermark(out, watermark, "video");
+
   const final = videoPath(id);
   fs.mkdirSync(videoDir(), { recursive: true });
   fs.renameSync(out, final);
 
   setProgress(id, {
-    progress: { stage: "done", done: 1, total: 1 } satisfies VideoProgress,
+    progress: { stage: "done", done: 1, total: 1, note: mark.note } satisfies VideoProgress,
     videoUrl: `/api/video/${id}?v=${Date.now()}`,
     bytes: fs.statSync(final).size,
     music: withMusic,
+    watermarked: mark.watermarked,
     editedSinceRender: false,
   });
 

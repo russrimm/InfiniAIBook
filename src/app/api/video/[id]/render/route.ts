@@ -10,6 +10,7 @@ import {
 import { buildMotionVideo } from "@/lib/motionbuild";
 import { resolveMusic } from "@/lib/music";
 import { normalizeMusicChoice } from "@/lib/musicchoice";
+import { normalizeWatermark } from "@/lib/watermarkchoice";
 import { readNarration } from "@/lib/narration";
 import { buildVideo, setProgress } from "@/lib/videobuild";
 import { replaceInMotionPlan, replaceInScenePlan } from "@/lib/videoscript";
@@ -41,6 +42,7 @@ export async function POST(_req: Request, { params }: Ctx) {
       voice?: string;
       options?: unknown;
       musicChoice?: unknown;
+      watermarkChoice?: unknown;
       narration?: unknown;
     };
     if (!content.plan) {
@@ -56,6 +58,7 @@ export async function POST(_req: Request, { params }: Ctx) {
     const { replacements } = readNarration(content.narration);
     const voice = content.voice || "Ava";
     const music = resolveMusic(normalizeMusicChoice(content.musicChoice));
+    const watermark = normalizeWatermark(content.watermarkChoice);
     const total = content.plan.scenes.length;
 
     // The previous video (if any) stays playable until the new one is done;
@@ -80,7 +83,7 @@ export async function POST(_req: Request, { params }: Ctx) {
     // Deliberately not awaited: artwork alone runs for minutes.
     if (row.type === "video") {
       const plan = replaceInScenePlan(content.plan as ScenePlan, replacements);
-      void buildVideo(id, plan, voice, { music }).catch(onFail);
+      void buildVideo(id, plan, voice, { music, watermark }).catch(onFail);
     } else {
       const options = normalizeMotionOptions(content.options ?? {});
       const plan = applyMovement(
@@ -88,7 +91,7 @@ export async function POST(_req: Request, { params }: Ctx) {
         options.movement
       );
       const { width, height } = MOTION_RESOLUTIONS[options.resolution];
-      void buildMotionVideo(id, plan, voice, { music, width, height }).catch(onFail);
+      void buildMotionVideo(id, plan, voice, { music, watermark, width, height }).catch(onFail);
     }
 
     const fresh = db.prepare("SELECT content FROM artifacts WHERE id = ?").get(id) as unknown as {
