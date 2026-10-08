@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AVATAR_PRESETS } from "@/lib/avatars";
 import {
+  HD_ALTERNATES,
   hdCandidates,
   omniVoice,
   PINNED_GENDER,
@@ -48,5 +49,17 @@ describe("HD voice candidates", () => {
       "en-US-Ava:DragonHDOmniLatestNeural",
     ]);
     expect(hdCandidates("Bree")).toEqual([]);
+  });
+});
+
+describe("HD alternates", () => {
+  it("only offers alternates for pinned voices", () => {
+    for (const k of Object.keys(HD_ALTERNATES))
+      expect(PINNED_VOICES[k], k).toBeTruthy();
+  });
+
+  it("does not pin Flash voices that are limited to a few regions", () => {
+    for (const id of Object.values(PINNED_VOICES))
+      expect(id).not.toContain("DragonHDFlash");
   });
 });

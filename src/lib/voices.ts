@@ -88,7 +88,7 @@ export const VOICE_PRESETS: Record<string, VoiceSelection> = {
  * The multitalker renders a whole dialogue from one generative model and takes
  * the speaker name as *conditioning*, not as a selection — so a voice can
  * wander within a turn. Naming a standalone voice instead pins the exact model
- * for that turn, which cannot drift. Only these eighteen of the twenty-five
+ * for that turn, which cannot drift. Only these fifteen of the twenty-five
  * speaker names have one; the rest exist only inside the multitalker.
  */
 export const PINNED_VOICES: Record<string, string> = {
@@ -106,11 +106,10 @@ export const PINNED_VOICES: Record<string, string> = {
   Davis: "en-US-DavisMultilingualNeural",
   Steffan: "en-US-SteffanMultilingualNeural",
   // Dragon HD standalone voices: higher quality, but only in regions that host Dragon HD.
+  // Tiana, Tyler and Jimmie are left out on purpose: their Flash edition runs only in eastus,
+  // westeurope and southeastasia, so pinning them would fail in other regions.
   Nova: "en-US-Nova:DragonHDLatestNeural",
   Alloy: "en-US-Alloy:DragonHDLatestNeural",
-  Tiana: "en-US-Tiana:DragonHDFlashLatestNeural",
-  Tyler: "en-US-Tyler:DragonHDFlashLatestNeural",
-  Jimmie: "en-US-Jimmie:DragonHDFlashLatestNeural",
 };
 
 export const canPin = (speaker: string): boolean => speaker in PINNED_VOICES;
@@ -151,6 +150,18 @@ export const hdCandidates = (speaker: string): string[] => {
   return pinned.includes(":")
     ? [pinned, ...ids.filter((x) => x !== pinned)]
     : ids;
+};
+/**
+ * Dragon HD editions tuned for a use, listed on Microsoft's HD voices page.
+ * The podcast ones are in preview. Offered only when the live list has them.
+ */
+export const HD_ALTERNATES: Record<string, { id: string; label: string }[]> = {
+  Andrew: [
+    { id: "en-US-Andrew2:DragonHDLatestNeural", label: "conversational" },
+    { id: "en-US-Andrew3:DragonHDLatestNeural", label: "podcast" },
+  ],
+  Emma: [{ id: "en-US-Emma2:DragonHDLatestNeural", label: "conversational" }],
+  Ava: [{ id: "en-US-Ava3:DragonHDLatestNeural", label: "podcast" }],
 };
 /** Gender of each pinned voice, as listed in Microsoft's Speech language support table. */
 export const PINNED_GENDER: Record<string, "Female" | "Male"> = {

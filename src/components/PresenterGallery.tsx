@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AVATAR_PRESETS } from "@/lib/avatars";
-import { hdCandidates, PINNED_VOICES } from "@/lib/voices";
+import { HD_ALTERNATES, hdCandidates, PINNED_VOICES } from "@/lib/voices";
 import type { CatalogVoice } from "@/lib/voicecatalog";
 import { loadVoices } from "./VoicePicker";
 import { useDialog } from "./useDialog";
@@ -40,17 +40,22 @@ export default function PresenterGallery({
     };
   }, []);
 
-  /** The HD voice for a presenter, only when the Speech resource offers it. */
-  const hdFor = (key: string) => {
-    const ids = new Set(live.map((v) => v.id.toLowerCase()));
-    const hit = hdCandidates(AVATAR_PRESETS[key].voice).find((c) =>
-      ids.has(c.toLowerCase()),
-    );
-    return hit
-      ? (live.find((v) => v.id.toLowerCase() === hit.toLowerCase())?.id ?? null)
-      : null;
+  /** HD voices for a presenter that the Speech resource offers, best first. */
+  const hdOptions = (key: string) => {
+    const voice = AVATAR_PRESETS[key].voice;
+    const byLower = new Map(live.map((v) => [v.id.toLowerCase(), v.id]));
+    const base = hdCandidates(voice)
+      .map((c) => byLower.get(c.toLowerCase()))
+      .find(Boolean);
+    const out: { id: string; label: string }[] = base
+      ? [{ id: base, label: "HD" }]
+      : [];
+    for (const alt of HD_ALTERNATES[voice] ?? []) {
+      const id = byLower.get(alt.id.toLowerCase());
+      if (id) out.push({ id, label: `HD ${alt.label}` });
+    }
+    return out;
   };
-
   const stop = () => {
     run.current++;
     audio.current?.pause();
@@ -68,11 +73,11 @@ export default function PresenterGallery({
   );
 
   /** Resolves true when the sample played to its end. */
-  const sample = (key: string, token: number, hd = false) =>
+  const sample = (key: string, token: number, hd: string | null = null) =>
     new Promise<boolean>((resolve) => {
       const voice = AVATAR_PRESETS[key].voice;
-      const id = (hd && hdFor(key)) || PINNED_VOICES[voice] || voice;
-      const tag = hd ? `${key}|hd` : key;
+      const id = hd || PINNED_VOICES[voice] || voice;
+      const tag = hd ? `${key}|${hd}` : key;
       const a = new Audio(
         `/api/voices/preview?${new URLSearchParams({ voice: id })}`,
       );
@@ -89,8 +94,8 @@ export default function PresenterGallery({
       a.play().catch(() => done(false));
     });
 
-  const playOne = async (key: string, hd = false) => {
-    if (playing === (hd ? `${key}|hd` : key) && !all) return stop();
+  const playOne = async (key: string, hd: string | null = null) => {
+    if (playing === (hd ? `${key}|${hd}` : key) && !all) return stop();
     stop();
     const token = run.current;
     await sample(key, token, hd);
@@ -108,11 +113,14 @@ export default function PresenterGallery({
       )?.[0];
       if (first !== key) continue;
       if (run.current !== token || !(await sample(key, token))) break;
-      if (
-        hdFor(key) &&
-        (run.current !== token || !(await sample(key, token, true)))
-      )
-        break;
+      let aborted = false;
+      for (const o of hdOptions(key)) {
+        if (run.current !== token || !(await sample(key, token, o.id))) {
+          aborted = true;
+          break;
+        }
+      }
+      if (aborted) break;
     }
     if (run.current === token) stop();
   };
@@ -156,7 +164,7 @@ export default function PresenterGallery({
         <ul className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto p-4 sm:grid-cols-3">
           {entries.map(([key, p]) => {
             const selected = key === current;
-            const hd = hdFor(key);
+            const hds = hdOptions(key);
             return (
               <li
                 key={key}
@@ -198,27 +206,33 @@ export default function PresenterGallery({
                   >
                     {selected ? "Selected" : "Use"}
                   </button>
-                  {hd && (
-                    <>
-                      <button
-                        className="btn !px-2 !py-1 !text-[11px]"
-                        aria-label={`${playing === `${key}|hd` ? "Stop" : "Play"} the HD voice of ${p.label}`}
-                        onClick={() => void playOne(key, true)}
-                      >
-                        {playing === `${key}|hd` ? "■ Stop HD" : "▶ HD"}
-                      </button>
-                      <button
-                        className="btn !px-2 !py-1 !text-[11px]"
-                        onClick={() => {
-                          stop();
-                          onPick(key, hd);
-                          onClose();
-                        }}
-                      >
-                        Use HD
-                      </button>
-                    </>
-                  )}
+                  {hds.map((o) => {
+                    const tag = `${key}|${o.id}`;
+                    return (
+                      <span key={o.id} className="flex gap-1.5">
+                        <button
+                          className="btn !px-2 !py-1 !text-[11px]"
+                          aria-label={`${playing === tag ? "Stop" : "Play"} the ${o.label} voice of ${p.label}`}
+                          onClick={() => void playOne(key, o.id)}
+                        >
+                          {playing === tag
+                            ? `■ Stop ${o.label}`
+                            : `▶ ${o.label}`}
+                        </button>
+                        <button
+                          className="btn !px-2 !py-1 !text-[11px]"
+                          aria-label={`Use the ${o.label} voice for ${p.label}`}
+                          onClick={() => {
+                            stop();
+                            onPick(key, o.id);
+                            onClose();
+                          }}
+                        >
+                          Use
+                        </button>
+                      </span>
+                    );
+                  })}{" "}
                 </div>
                 {failed?.split("|")[0] === key && (
                   <span className="text-[10px] text-red-300">
