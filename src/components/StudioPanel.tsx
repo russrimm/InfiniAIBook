@@ -11,6 +11,7 @@ import WatermarkPicker from "@/components/WatermarkPicker";
 import NarrationOptions from "@/components/NarrationOptions";
 import StudioCard from "@/components/StudioCard";
 import VoicePicker from "@/components/VoicePicker";
+import PresenterGallery from "@/components/PresenterGallery";
 import { voiceNickname } from "@/lib/voicecatalog";
 import { STUDIO, STUDIO_SECTIONS, studioIcon, studioLabel } from "@/lib/studio";
 import { DEFAULT_SLIDE_THEME, SLIDE_THEMES } from "@/lib/slides";
@@ -60,6 +61,7 @@ import {
   BACKGROUNDS,
   DEFAULT_BACKGROUND,
   DEFAULT_PRESENTER,
+  avatarPicture,
 } from "@/lib/avatars";
 
 /** Speakers that can be pinned, listed when a chosen one cannot be. */
@@ -306,6 +308,7 @@ export default function StudioPanel({
     AVATAR_PRESETS[DEFAULT_PRESENTER].voice,
   );
   const [trainerStyle, setTrainerStyle] = useState<string | undefined>();
+  const [trainerGallery, setTrainerGallery] = useState(false);
   const [trainingLen, setTrainingLen] = useState<AudioLength>("short");
   const [trainingBg, setTrainingBg] = useState(DEFAULT_BACKGROUND);
   const [trainingMode, setTrainingMode] = useState<"composed" | "presenter">(
@@ -1062,6 +1065,31 @@ export default function StudioPanel({
                         </optgroup>
                       ))}
                     </select>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={avatarPicture(trainer)}
+                      alt={`${AVATAR_PRESETS[trainer]?.label ?? trainer} avatar`}
+                      className="h-12 w-9 shrink-0 rounded-md bg-white object-cover object-top"
+                    />
+                    <button
+                      className="btn !px-2 !py-1 !text-[11px]"
+                      onClick={() => setTrainerGallery(true)}
+                    >
+                      Compare
+                    </button>
+                    {trainerGallery && (
+                      <PresenterGallery
+                        current={trainer}
+                        onClose={() => setTrainerGallery(false)}
+                        onPick={(key, voice) => {
+                          setTrainer(key);
+                          setTrainerVoice(
+                            voice ?? AVATAR_PRESETS[key]?.voice ?? trainerVoice,
+                          );
+                          setTrainerStyle(undefined);
+                        }}
+                      />
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
