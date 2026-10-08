@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AVATAR_PRESETS } from "@/lib/avatars";
-import { HD_VARIANTS, PINNED_VOICES } from "@/lib/voices";
+import { hdCandidates, PINNED_VOICES } from "@/lib/voices";
 import type { CatalogVoice } from "@/lib/voicecatalog";
 import { loadVoices } from "./VoicePicker";
 import { useDialog } from "./useDialog";
@@ -42,8 +42,13 @@ export default function PresenterGallery({
 
   /** The HD voice for a presenter, only when the Speech resource offers it. */
   const hdFor = (key: string) => {
-    const id = HD_VARIANTS[AVATAR_PRESETS[key].voice];
-    return id && live.some((v) => v.id === id) ? id : null;
+    const ids = new Set(live.map((v) => v.id.toLowerCase()));
+    const hit = hdCandidates(AVATAR_PRESETS[key].voice).find((c) =>
+      ids.has(c.toLowerCase()),
+    );
+    return hit
+      ? (live.find((v) => v.id.toLowerCase() === hit.toLowerCase())?.id ?? null)
+      : null;
   };
 
   const stop = () => {
@@ -59,7 +64,7 @@ export default function PresenterGallery({
       run.current++;
       audio.current?.pause();
     },
-    []
+    [],
   );
 
   /** Resolves true when the sample played to its end. */
@@ -68,7 +73,9 @@ export default function PresenterGallery({
       const voice = AVATAR_PRESETS[key].voice;
       const id = (hd && hdFor(key)) || PINNED_VOICES[voice] || voice;
       const tag = hd ? `${key}|hd` : key;
-      const a = new Audio(`/api/voices/preview?${new URLSearchParams({ voice: id })}`);
+      const a = new Audio(
+        `/api/voices/preview?${new URLSearchParams({ voice: id })}`,
+      );
       audio.current = a;
       setPlaying(tag);
       setFailed(null);
@@ -96,16 +103,25 @@ export default function PresenterGallery({
     setAll(true);
     for (const [key] of entries) {
       // A voice shared by several styles is heard once.
-      const first = entries.find(([, p]) => p.voice === AVATAR_PRESETS[key].voice)?.[0];
+      const first = entries.find(
+        ([, p]) => p.voice === AVATAR_PRESETS[key].voice,
+      )?.[0];
       if (first !== key) continue;
       if (run.current !== token || !(await sample(key, token))) break;
-      if (hdFor(key) && (run.current !== token || !(await sample(key, token, true)))) break;
+      if (
+        hdFor(key) &&
+        (run.current !== token || !(await sample(key, token, true)))
+      )
+        break;
     }
     if (run.current === token) stop();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm" {...backdropProps}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+      {...backdropProps}
+    >
       <div
         ref={dialogRef}
         tabIndex={-1}
@@ -120,13 +136,19 @@ export default function PresenterGallery({
               Compare presenters
             </h2>
             <p className="text-[11px] text-[var(--muted)]">
-              Listen to each presenter&apos;s voice and choose one. Pictures are from Microsoft Learn; the voice samples are audio only, so no avatar video is rendered or billed here.
+              Listen to each presenter&apos;s voice and choose one. Pictures are
+              from Microsoft Learn; the voice samples are audio only, so no
+              avatar video is rendered or billed here.
             </p>
           </div>
           <button className="btn !text-[11px]" onClick={all ? stop : playAll}>
             {all ? "Stop" : "Play all voices"}
           </button>
-          <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={onClose}>
+          <button
+            aria-label="Close"
+            className="btn !px-2.5 !py-1.5 !text-xs"
+            onClick={onClose}
+          >
             ✕
           </button>
         </header>
@@ -139,7 +161,9 @@ export default function PresenterGallery({
               <li
                 key={key}
                 className={`flex flex-col items-center gap-2 rounded-xl border p-3 text-center ${
-                  selected ? "border-[var(--accent)] bg-well" : "border-[var(--border)]"
+                  selected
+                    ? "border-[var(--accent)] bg-well"
+                    : "border-[var(--border)]"
                 } ${playing?.split("|")[0] === key ? "ring-1 ring-[var(--accent)]" : ""}`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -148,7 +172,9 @@ export default function PresenterGallery({
                   alt={`${p.label} avatar`}
                   className="h-40 w-full rounded-lg bg-white object-cover object-top"
                 />
-                <span className="text-[13px] leading-tight font-medium">{p.label}</span>
+                <span className="text-[13px] leading-tight font-medium">
+                  {p.label}
+                </span>
                 <span className="text-[10px] text-[var(--muted)]">
                   {p.gender} · voice: {p.voice}
                 </span>
@@ -194,7 +220,11 @@ export default function PresenterGallery({
                     </>
                   )}
                 </div>
-                {failed?.split("|")[0] === key && <span className="text-[10px] text-red-300">No sample available.</span>}
+                {failed?.split("|")[0] === key && (
+                  <span className="text-[10px] text-red-300">
+                    No sample available.
+                  </span>
+                )}
               </li>
             );
           })}

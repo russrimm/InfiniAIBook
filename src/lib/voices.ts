@@ -57,10 +57,22 @@ export const ALL_SPEAKERS: string[] = [
 export const VOICE_PRESETS: Record<string, VoiceSelection> = {
   // Azure's purpose-built multi-speaker voice: one request renders a whole
   // exchange, so turn-to-turn prosody actually sounds like a conversation.
-  conversational: { a: "Andrew", b: "Ava", c: "Brian", d: "Emma", multitalker: true },
+  conversational: {
+    a: "Andrew",
+    b: "Ava",
+    c: "Brian",
+    d: "Emma",
+    multitalker: true,
+  },
   warm: { a: "Davis", b: "Emma", c: "Andrew", d: "Serena", multitalker: true },
   bright: { a: "Tyler", b: "Nova", c: "Brian", d: "Phoebe", multitalker: true },
-  measured: { a: "Steffan", b: "Serena", c: "Adam", d: "Jane", multitalker: true },
+  measured: {
+    a: "Steffan",
+    b: "Serena",
+    c: "Adam",
+    d: "Jane",
+    multitalker: true,
+  },
   classic: {
     a: "en-US-AndrewMultilingualNeural",
     b: "en-US-AvaMultilingualNeural",
@@ -121,6 +133,25 @@ export const HD_VARIANTS: Record<string, string> = {
   Steffan: "en-US-Steffan:DragonHDLatestNeural",
 };
 
+/**
+ * Dragon HD Omni name for any released voice: the same persona with the
+ * `:DragonHDOmniLatestNeural` suffix (Microsoft's HD voices page). It covers
+ * voices with no DragonHD edition, such as Evelyn and Jane.
+ */
+export const omniVoice = (pinned: string): string => {
+  const m = /^(.+?)(?:Multilingual)?Neural$/.exec(pinned.split(":")[0]);
+  return `${m ? m[1] : pinned}:DragonHDOmniLatestNeural`;
+};
+
+/** HD ids to try for a speaker, best first: DragonHD, then Dragon HD Omni. */
+export const hdCandidates = (speaker: string): string[] => {
+  const pinned = PINNED_VOICES[speaker];
+  if (!pinned) return [];
+  const ids = [HD_VARIANTS[speaker], omniVoice(pinned)].filter(Boolean);
+  return pinned.includes(":")
+    ? [pinned, ...ids.filter((x) => x !== pinned)]
+    : ids;
+};
 /** Gender of each pinned voice, as listed in Microsoft's Speech language support table. */
 export const PINNED_GENDER: Record<string, "Female" | "Male"> = {
   Ava: "Female",
@@ -155,10 +186,14 @@ export const RATE_CHOICES = [0.8, 0.9, 1, 1.1, 1.25];
 export function resolveVoices(
   preset?: string,
   custom?: Partial<Record<SpeakerId, string>>,
-  speakerCount = 2
+  speakerCount = 2,
 ): VoiceSelection {
-  const base = VOICE_PRESETS[preset ?? "conversational"] ?? VOICE_PRESETS.conversational;
-  const activeIds = SPEAKER_IDS.slice(0, Math.min(4, Math.max(1, speakerCount)));
+  const base =
+    VOICE_PRESETS[preset ?? "conversational"] ?? VOICE_PRESETS.conversational;
+  const activeIds = SPEAKER_IDS.slice(
+    0,
+    Math.min(4, Math.max(1, speakerCount)),
+  );
 
   // Pinned mode: the chosen hosts are rendered as standalone voices rather
   // than as speaker names inside the multitalker, so identity cannot wander.
@@ -170,8 +205,8 @@ export function resolveVoices(
       if (/^[a-z]{2}-[A-Z]{2}-/.test(name)) return name;
       throw new Error(
         `"${name}" has no standalone voice, so it cannot be used with fixed voices. Pick one of: ${Object.keys(
-          PINNED_VOICES
-        ).join(", ")}.`
+          PINNED_VOICES,
+        ).join(", ")}.`,
       );
     };
     return {
@@ -188,10 +223,12 @@ export function resolveVoices(
   const pick = (name: string | undefined, fallback: string) => {
     if (!name) return fallback;
     if (!base.multitalker) return name; // full voice names are not a fixed set
-    const match = ALL_SPEAKERS.find((s) => s.toLowerCase() === name.toLowerCase());
+    const match = ALL_SPEAKERS.find(
+      (s) => s.toLowerCase() === name.toLowerCase(),
+    );
     if (!match) {
       throw new Error(
-        `"${name}" is not a valid speaker. Choose one of: ${ALL_SPEAKERS.join(", ")}.`
+        `"${name}" is not a valid speaker. Choose one of: ${ALL_SPEAKERS.join(", ")}.`,
       );
     }
     return match;
