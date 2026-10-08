@@ -542,7 +542,7 @@ export default function StudioPanel({
       className="flex h-full min-h-0 flex-col bg-[var(--panel)]"
     >
       <div className="px-4 pt-4 pb-3">
-        <h2 id="studio-heading" className="text-sm font-semibold tracking-wide">
+        <h2 id="studio-heading" className="sr-only">
           Studio
         </h2>
         <div

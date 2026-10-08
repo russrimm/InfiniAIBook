@@ -93,3 +93,16 @@ test("login and search pages label their fields", async ({ page }) => {
   await page.goto("/login?next=/search");
   await page.waitForURL((u) => u.pathname === "/search");
 });
+test("Escape dismisses the inline add-source forms and returns focus", async ({ page }) => {
+  const id = await createNotebook(page, "Inline forms notebook");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/notebook/${id}`);
+  for (const name of ["Add link", "Paste text"]) {
+    const opener = page.getByRole("button", { name });
+    await opener.click();
+    await expect(opener).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Escape");
+    await expect(opener).toHaveAttribute("aria-expanded", "false");
+    await expect(opener).toBeFocused();
+  }
+});

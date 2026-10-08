@@ -2,6 +2,7 @@
 
 import { useConfirm } from "./ConfirmDialog";
 import { useEffect, useState } from "react";
+import LoadingRows from "./LoadingRows";
 import { useDialog } from "./useDialog";
 import type { Transformation } from "@/lib/types";
 
@@ -129,7 +130,7 @@ export default function TransformationsModal({ onClose }: { onClose: () => void 
               </div>
             </div>
           ) : !list ? (
-            <p className="text-sm text-[var(--muted)]">Loading…</p>
+            <LoadingRows rows={3} label="Loading transformations" />
           ) : (
             <ul className="space-y-2">
               {list.map((t) => (

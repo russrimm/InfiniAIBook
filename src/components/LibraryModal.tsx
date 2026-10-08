@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import LoadingRows from "./LoadingRows";
 import { useDialog } from "./useDialog";
 
 type LibrarySource = {
@@ -124,7 +125,7 @@ export default function LibraryModal({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
           {!all ? (
-            <p className="text-sm text-[var(--muted)]">Loading…</p>
+            <LoadingRows label="Loading sources" />
           ) : groups.length === 0 ? (
             <p className="text-sm text-[var(--muted)]">
               {all.length ? "Nothing matches." : "Your other notebooks have no sources yet."}

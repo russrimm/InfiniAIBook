@@ -130,6 +130,15 @@ export default function SourcesPanel({
   const fileRef = useRef<HTMLInputElement>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [mode, setMode] = useState<"none" | "url" | "text">("none");
+  const linkBtn = useRef<HTMLButtonElement>(null);
+  const textBtn = useRef<HTMLButtonElement>(null);
+  // Escape dismisses the inline form and hands focus back to the button that opened it.
+  const closeInline = (e: React.KeyboardEvent) => {
+    if (e.key !== "Escape") return;
+    e.stopPropagation();
+    (mode === "url" ? linkBtn : textBtn).current?.focus();
+    setMode("none");
+  };
   const [urlValue, setUrlValue] = useState("");
   const [textValue, setTextValue] = useState("");
   const [textTitle, setTextTitle] = useState("");
@@ -360,6 +369,7 @@ export default function SourcesPanel({
 
         <div className="mt-2 grid grid-cols-2 gap-2">
           <button
+            ref={linkBtn}
             className="btn !px-2 !py-1.5 !text-xs"
             onClick={() => setMode(mode === "url" ? "none" : "url")}
             aria-expanded={mode === "url"}
@@ -368,6 +378,7 @@ export default function SourcesPanel({
             <span aria-hidden>🔗</span> Add link
           </button>
           <button
+            ref={textBtn}
             className="btn !px-2 !py-1.5 !text-xs"
             onClick={() => setMode(mode === "text" ? "none" : "text")}
             aria-expanded={mode === "text"}
@@ -401,6 +412,7 @@ export default function SourcesPanel({
         {mode === "url" && (
           <form
             className="fade-up mt-2 flex gap-2"
+            onKeyDown={closeInline}
             onSubmit={(e) => {
               e.preventDefault();
               const v = urlValue.trim();
@@ -413,7 +425,7 @@ export default function SourcesPanel({
             <input
               className="input"
               inputMode="url"
-              placeholder="https://example.com or a YouTube link"
+              placeholder="Web page or YouTube link"
               aria-label="Link to add"
               value={urlValue}
               onChange={(e) => setUrlValue(e.target.value)}
@@ -426,6 +438,7 @@ export default function SourcesPanel({
         {mode === "text" && (
           <form
             className="fade-up mt-2 space-y-2"
+            onKeyDown={closeInline}
             onSubmit={(e) => {
               e.preventDefault();
               if (!textValue.trim()) return;
