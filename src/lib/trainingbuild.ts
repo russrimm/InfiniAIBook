@@ -22,7 +22,12 @@ import {
   getAvatarJob,
   submitAvatarJob,
 } from "./avatarbatch";
-import { presenter, presenterVoice, backgroundColour, MAX_AVATAR_MINUTES } from "./avatars";
+import {
+  presenter,
+  presenterVoice,
+  backgroundColor,
+  MAX_AVATAR_MINUTES,
+} from "./avatars";
 import { buildTrainingSsml, countWords } from "./training";
 import { WORDS_PER_MINUTE } from "./voices";
 import type { TrainingClip, TrainingContent, TrainingStage } from "./types";
@@ -41,7 +46,13 @@ import {
   toWebVtt,
   type ComposeInput,
 } from "./trainingtimeline";
-import { clipDuration, measureTraining, saveClipDuration, sectionClipHash, sectionSsml } from "./trainingtiming";
+import {
+  clipDuration,
+  measureTraining,
+  saveClipDuration,
+  sectionClipHash,
+  sectionSsml,
+} from "./trainingtiming";
 
 /**
  * The render lifecycle for training videos.
@@ -56,7 +67,13 @@ const STALL_MS = 60_000;
 /** Longer than any plausible render of a 20-minute script. */
 const GIVE_UP_MS = 90 * 60_000;
 
-const IN_FLIGHT: TrainingStage[] = ["submitting", "submitted", "rendering", "downloading", "composing"];
+const IN_FLIGHT: TrainingStage[] = [
+  "submitting",
+  "submitted",
+  "rendering",
+  "downloading",
+  "composing",
+];
 
 // Survives Next's dev-mode module reloads, which would otherwise start a
 // second watcher for a job the first one is still polling.
@@ -97,7 +114,7 @@ export function writeTraining(id: string, patch: Partial<TrainingContent>) {
   db.prepare("UPDATE artifacts SET content = ?, title = ? WHERE id = ?").run(
     JSON.stringify(next),
     next.title,
-    id
+    id,
   );
 }
 
@@ -121,12 +138,14 @@ export async function startTrainingRender(id: string): Promise<void> {
   if (!c) throw userError("Training video not found.", 404);
   if (isRendering(c)) throw userError("This video is already rendering.", 409);
   if (!c.sections?.some((s) => s.text.trim())) {
-    throw userError("The transcript is empty — write something for the presenter to say.");
+    throw userError(
+      "The transcript is empty — write something for the presenter to say.",
+    );
   }
   const minutes = estimateMinutes(c);
   if (minutes > MAX_AVATAR_MINUTES * 0.95) {
     throw userError(
-      `The transcript runs about ${Math.round(minutes)} minutes; avatar videos are limited to ${MAX_AVATAR_MINUTES}. Shorten it first.`
+      `The transcript runs about ${Math.round(minutes)} minutes; avatar videos are limited to ${MAX_AVATAR_MINUTES}. Shorten it first.`,
     );
   }
   if (normalizeComposition(c.composition).mode === "composed") {
@@ -143,18 +162,28 @@ export async function startTrainingRender(id: string): Promise<void> {
   }));
   const ssml = buildTrainingSsml(spoken, voice, c.voiceStyle);
   if (Buffer.byteLength(ssml) > 450_000) {
-    throw userError("The transcript is too long for a single avatar job. Shorten it first.");
+    throw userError(
+      "The transcript is too long for a single avatar job. Shorten it first.",
+    );
   }
 
   const previous = c.progress?.synthesisId;
   const synthesisId = synthesisIdFor(id);
-  writeTraining(id, { progress: { stage: "submitting", synthesisId, note: undefined, clips: undefined } });
+  writeTraining(id, {
+    progress: {
+      stage: "submitting",
+      synthesisId,
+      note: undefined,
+      clips: undefined,
+    },
+  });
 
   try {
     await submitAvatarJob(synthesisId, ssml, {
       character: preset.character,
       style: preset.style,
-      background: backgroundColour(c.background),
+      photo: preset.photo,
+      background: backgroundColor(c.background),
       description: c.title,
     });
   } catch (e) {
@@ -169,7 +198,12 @@ export async function startTrainingRender(id: string): Promise<void> {
   }
 
   writeTraining(id, {
-    progress: { stage: "submitted", synthesisId, submittedAt: Date.now(), note: undefined },
+    progress: {
+      stage: "submitted",
+      synthesisId,
+      submittedAt: Date.now(),
+      note: undefined,
+    },
   });
   if (previous && previous !== synthesisId) void deleteAvatarJob(previous);
   watch(id);
@@ -197,10 +231,16 @@ async function poll(id: string): Promise<void> {
     // Deleted, or superseded by something that is no longer a render.
     if (!c || !isRendering(c)) return;
     const synthesisId = c.progress.synthesisId;
-    if (!synthesisId) throw new Error("The render lost track of its Azure job.");
+    if (!synthesisId)
+      throw new Error("The render lost track of its Azure job.");
 
-    if (c.progress.submittedAt && Date.now() - c.progress.submittedAt > GIVE_UP_MS) {
-      throw new Error("Azure did not finish the render within 90 minutes. Try again.");
+    if (
+      c.progress.submittedAt &&
+      Date.now() - c.progress.submittedAt > GIVE_UP_MS
+    ) {
+      throw new Error(
+        "Azure did not finish the render within 90 minutes. Try again.",
+      );
     }
 
     let job;
@@ -221,7 +261,8 @@ async function poll(id: string): Promise<void> {
 
     if (job.status === "Succeeded") {
       const result = job.outputs?.result;
-      if (!result) throw new Error("Azure finished the render but returned no video.");
+      if (!result)
+        throw new Error("Azure finished the render but returned no video.");
       writeTraining(id, { progress: { stage: "downloading", synthesisId } });
       fs.mkdirSync(videoDir(), { recursive: true });
       const bytes = await downloadAvatarResult(result, videoPath(id));
@@ -233,11 +274,19 @@ async function poll(id: string): Promise<void> {
           await mixMusicInto(videoPath(id), music, "video");
           withMusic = true;
         } catch (e) {
-          console.warn("[training] music mix failed, keeping the video without it", e);
-          note = "The music could not be mixed in, so the video was saved without it.";
+          console.warn(
+            "[training] music mix failed, keeping the video without it",
+            e,
+          );
+          note =
+            "The music could not be mixed in, so the video was saved without it.";
         }
       }
-      const mark = await stampWatermark(videoPath(id), c.watermarkChoice, "training");
+      const mark = await stampWatermark(
+        videoPath(id),
+        c.watermarkChoice,
+        "training",
+      );
       note = [note, mark.note].filter(Boolean).join(" ") || undefined;
       const ms = job.properties?.durationInMilliseconds;
       const renderedAt = Date.now();
@@ -246,11 +295,15 @@ async function poll(id: string): Promise<void> {
         // Cache-busted so a re-render is not served from the browser's copy.
         videoUrl: `/api/video/${id}?v=${renderedAt}`,
         captionsUrl: undefined,
-        bytes: withMusic || mark.watermarked ? fs.statSync(videoPath(id)).size : bytes,
+        bytes:
+          withMusic || mark.watermarked
+            ? fs.statSync(videoPath(id)).size
+            : bytes,
         music: withMusic,
         watermarked: mark.watermarked,
         durationSec: ms ? Math.round(ms / 100) / 10 : undefined,
-        billedSeconds: job.properties?.billingDetails?.talkingAvatarDurationSeconds,
+        billedSeconds:
+          job.properties?.billingDetails?.talkingAvatarDurationSeconds,
         renderedAt,
         editedSinceRender: false,
       });
@@ -259,7 +312,8 @@ async function poll(id: string): Promise<void> {
       return;
     }
 
-    const stage: TrainingStage = job.status === "Running" ? "rendering" : "submitted";
+    const stage: TrainingStage =
+      job.status === "Running" ? "rendering" : "submitted";
     writeTraining(id, { progress: { stage, synthesisId } });
     await sleep(POLL_MS);
   }
@@ -297,7 +351,9 @@ export function resumeStalledTraining(id: string): void {
 
 export function resumeStalledTrainings(notebookId: string): void {
   const rows = db
-    .prepare("SELECT id FROM artifacts WHERE type = 'training' AND notebook_id = ?")
+    .prepare(
+      "SELECT id FROM artifacts WHERE type = 'training' AND notebook_id = ?",
+    )
     .all(notebookId) as unknown as { id: string }[];
   for (const r of rows) resumeStalledTraining(r.id);
 }
@@ -314,7 +370,8 @@ export function forgetTraining(content: string): void {
       if (clip.synthesisId) void deleteAvatarJob(clip.synthesisId);
     }
     const images = new Set<string>();
-    for (const s of c.sections ?? []) for (const q of s.cues ?? []) if (q.imageId) images.add(q.imageId);
+    for (const s of c.sections ?? [])
+      for (const q of s.cues ?? []) if (q.imageId) images.add(q.imageId);
     if (c.composition?.logoId) images.add(c.composition.logoId);
     for (const img of images) removeImage(img);
   } catch {
@@ -337,11 +394,15 @@ export function composeInput(c: TrainingContent): ComposeInput {
 }
 
 /** Raster keys and states the compositor needs that the browser has not drawn. */
-export function missingRasters(id: string, c: TrainingContent): { key: string; state: number }[] {
+export function missingRasters(
+  id: string,
+  c: TrainingContent,
+): { key: string; state: number }[] {
   const out: { key: string; state: number }[] = [];
   for (const job of rasterJobs(composeInput(c))) {
     for (let s = 0; s < job.states; s++) {
-      if (!fs.existsSync(trainingRasterPath(id, job.key, s))) out.push({ key: job.key, state: s });
+      if (!fs.existsSync(trainingRasterPath(id, job.key, s)))
+        out.push({ key: job.key, state: s });
     }
   }
   return out;
@@ -352,7 +413,7 @@ function startComposedRender(id: string, c: TrainingContent): void {
   if (missing.length) {
     throw userError(
       `${missing.length} visual${missing.length === 1 ? " has" : "s have"} not been drawn yet. Render from the training editor, which prepares them first.`,
-      409
+      409,
     );
   }
   const clips: TrainingClip[] = c.sections.map((_, i) => {
@@ -415,25 +476,44 @@ async function pollComposed(id: string): Promise<void> {
 
     // Another section with the same words may already have produced this clip.
     for (const k of clips) {
-      if ((k.status === "pending" || k.status === "failed") && clipDuration(id, k.hash)) k.status = "cached";
+      if (
+        (k.status === "pending" || k.status === "failed") &&
+        clipDuration(id, k.hash)
+      )
+        k.status = "cached";
     }
 
-    let active = clips.filter((k) => k.status === "submitted" || k.status === "rendering").length;
+    let active = clips.filter(
+      (k) => k.status === "submitted" || k.status === "rendering",
+    ).length;
     for (let i = 0; i < clips.length && active < avatarConcurrency(); i++) {
       const k = clips[i];
       if (k.status !== "pending" && k.status !== "failed") continue;
-      if (clips.some((o, j) => j < i && o.hash === k.hash && o.status !== "cached" && o.status !== "done")) {
+      if (
+        clips.some(
+          (o, j) =>
+            j < i &&
+            o.hash === k.hash &&
+            o.status !== "cached" &&
+            o.status !== "done",
+        )
+      ) {
         continue;
       }
       const synthesisId = `${synthesisIdFor(id)}-s${i + 1}`;
       await submitAvatarJob(synthesisId, sectionSsml(c, i), {
         character: preset.character,
         style: preset.style,
-        background: backgroundColour(c.background),
+        photo: preset.photo,
+        background: backgroundColor(c.background),
         description: `${c.title} — section ${i + 1}`,
         transparent: true,
       });
-      Object.assign(k, { status: "submitted", synthesisId, submittedAt: Date.now() });
+      Object.assign(k, {
+        status: "submitted",
+        synthesisId,
+        submittedAt: Date.now(),
+      });
       // Record each accepted job at once, so a later failure or a restart can still find and cancel it.
       writeTraining(id, { progress: { stage: "submitted", clips } });
       active++;
@@ -442,9 +522,15 @@ async function pollComposed(id: string): Promise<void> {
 
     for (let i = 0; i < clips.length; i++) {
       const k = clips[i];
-      if ((k.status !== "submitted" && k.status !== "rendering") || !k.synthesisId) continue;
+      if (
+        (k.status !== "submitted" && k.status !== "rendering") ||
+        !k.synthesisId
+      )
+        continue;
       if (k.submittedAt && Date.now() - k.submittedAt > GIVE_UP_MS) {
-        throw new Error(`Azure did not finish section ${i + 1} within 90 minutes. Try again.`);
+        throw new Error(
+          `Azure did not finish section ${i + 1} within 90 minutes. Try again.`,
+        );
       }
       let job;
       try {
@@ -459,14 +545,22 @@ async function pollComposed(id: string): Promise<void> {
       }
       if (job.status === "Succeeded") {
         const result = job.outputs?.result;
-        if (!result) throw new Error(`Azure finished section ${i + 1} but returned no video.`);
+        if (!result)
+          throw new Error(
+            `Azure finished section ${i + 1} but returned no video.`,
+          );
         await downloadAvatarResult(result, trainingClipPath(id, k.hash));
         const ms = job.properties?.durationInMilliseconds;
-        saveClipDuration(id, k.hash, ms ? ms / 1000 : estimateSectionTiming(c.sections[i].text).duration);
+        saveClipDuration(
+          id,
+          k.hash,
+          ms ? ms / 1000 : estimateSectionTiming(c.sections[i].text).duration,
+        );
         Object.assign(k, {
           status: "done",
           durationSec: ms ? ms / 1000 : undefined,
-          billedSec: job.properties?.billingDetails?.talkingAvatarDurationSeconds,
+          billedSec:
+            job.properties?.billingDetails?.talkingAvatarDurationSeconds,
         });
         void deleteAvatarJob(k.synthesisId);
         delete k.synthesisId;
@@ -477,10 +571,15 @@ async function pollComposed(id: string): Promise<void> {
 
     // Re-read so a deletion while polling is honored.
     if (!read(id)) return;
-    const allDone = clips.every((k) => k.status === "cached" || k.status === "done");
+    const allDone = clips.every(
+      (k) => k.status === "cached" || k.status === "done",
+    );
     const anyRendering = clips.some((k) => k.status === "rendering");
     writeTraining(id, {
-      progress: { stage: allDone ? "composing" : anyRendering ? "rendering" : "submitted", clips },
+      progress: {
+        stage: allDone ? "composing" : anyRendering ? "rendering" : "submitted",
+        clips,
+      },
     });
     if (allDone) continue;
     await sleep(POLL_MS);
@@ -496,7 +595,10 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
   try {
     const { timings } = await measureTraining(id, c);
     const missing = timings.findIndex((t) => t.source !== "avatar");
-    if (missing >= 0) throw new Error(`The presenter clip for section ${missing + 1} is missing. Render again.`);
+    if (missing >= 0)
+      throw new Error(
+        `The presenter clip for section ${missing + 1} is missing. Render again.`,
+      );
     const tl = compileTrainingTimeline(input, timings);
     const slash = (p: string) => p.replace(/\\/g, "/");
     const hashes = c.sections.map((_, i) => sectionClipHash(c, i));
@@ -505,7 +607,7 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
 
     const config = renderConfig(tl, {
       output: slash(out),
-      background: backgroundColour(c.background),
+      background: backgroundColor(c.background),
       palette: compositionPalette(comp),
       clip: (i) => slash(trainingClipPath(id, hashes[i])),
       raster: (key, state) => slash(trainingRasterPath(id, key, state)),
@@ -515,7 +617,8 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
     const configPath = path.join(work, "training.json");
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
     await runPythonRenderer(["training", "render.py"], configPath);
-    if (!fs.existsSync(out)) throw new Error("The compositor finished but produced no file.");
+    if (!fs.existsSync(out))
+      throw new Error("The compositor finished but produced no file.");
 
     let withMusic = false;
     let note: string | undefined;
@@ -525,8 +628,12 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
         await mixMusicInto(out, music, "video");
         withMusic = true;
       } catch (e) {
-        console.warn("[training] music mix failed, keeping the video without it", e);
-        note = "The music could not be mixed in, so the video was saved without it.";
+        console.warn(
+          "[training] music mix failed, keeping the video without it",
+          e,
+        );
+        note =
+          "The music could not be mixed in, so the video was saved without it.";
       }
     }
     const mark = await stampWatermark(out, c.watermarkChoice, "training");
@@ -551,11 +658,18 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
     }
     pruneComposedFiles(id, c, hashes);
 
-    const billed = (c.progress.clips ?? []).reduce((n, k) => n + (k.billedSec ?? 0), 0);
+    const billed = (c.progress.clips ?? []).reduce(
+      (n, k) => n + (k.billedSec ?? 0),
+      0,
+    );
     writeTraining(id, {
       progress: {
         stage: "done",
-        clips: (c.progress.clips ?? []).map((k) => ({ hash: k.hash, status: "cached" as const, durationSec: k.durationSec })),
+        clips: (c.progress.clips ?? []).map((k) => ({
+          hash: k.hash,
+          status: "cached" as const,
+          durationSec: k.durationSec,
+        })),
         note,
       },
       videoUrl: `/api/video/${id}?v=${renderedAt}`,
@@ -583,7 +697,8 @@ function pruneComposedFiles(id: string, c: TrainingContent, hashes: string[]) {
   const keepClips = new Set(hashes);
   try {
     for (const f of fs.readdirSync(trainingClipsDir(id))) {
-      if (!keepClips.has(f.replace(/\.(webm|json|part)$/, ""))) fs.rmSync(path.join(trainingClipsDir(id), f), { force: true });
+      if (!keepClips.has(f.replace(/\.(webm|json|part)$/, "")))
+        fs.rmSync(path.join(trainingClipsDir(id), f), { force: true });
     }
   } catch {
     /* nothing to prune */
@@ -591,7 +706,8 @@ function pruneComposedFiles(id: string, c: TrainingContent, hashes: string[]) {
   const keepKeys = new Set(rasterJobs(composeInput(c)).map((j) => j.key));
   try {
     for (const f of fs.readdirSync(trainingVisualsDir(id))) {
-      if (!keepKeys.has(f.split("-")[0])) fs.rmSync(path.join(trainingVisualsDir(id), f), { force: true });
+      if (!keepKeys.has(f.split("-")[0]))
+        fs.rmSync(path.join(trainingVisualsDir(id), f), { force: true });
     }
   } catch {
     /* nothing to prune */

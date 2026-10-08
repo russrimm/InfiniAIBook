@@ -95,7 +95,7 @@ Write a thorough description covering, where present:
 - for charts: the type, what each axis measures, the series, and the values or
   trend
 - for diagrams: the components and how they connect
-- notable colours, layout and anything that carries meaning
+- notable colors, layout and anything that carries meaning
 
 Write plain prose and lists. Do not speculate about what is not visible, do not
 guess at illegible text, and do not add context from outside the image. If part

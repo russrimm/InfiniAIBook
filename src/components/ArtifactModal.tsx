@@ -307,7 +307,7 @@ export default function ArtifactModal({
       const dataUrl = await toPng(node, {
         pixelRatio: 2,
         // Transparent areas pick up whatever sits behind them in a viewer, so
-        // the panel colour is painted in explicitly.
+        // the panel color is painted in explicitly.
         backgroundColor: getComputedStyle(node).backgroundColor || "#0e1116",
         // Web fonts are already loaded in the document; re-inlining them costs
         // seconds and occasionally fails on cross-origin CSS.

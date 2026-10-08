@@ -60,7 +60,7 @@ export const BUILTIN_TRANSFORMATIONS: Transformation[] = [
     name: "Glossary",
     description: "Terms and their meanings, as the source uses them.",
     prompt:
-      "Build a glossary of the specialised terms, acronyms, and named concepts in the source, alphabetically, as a Markdown list: **Term** — definition as used in the source.",
+      "Build a glossary of the specialized terms, acronyms, and named concepts in the source, alphabetically, as a Markdown list: **Term** — definition as used in the source.",
     builtin: true,
   },
   {

@@ -1,5 +1,5 @@
 /**
- * Serialised back-off for failed credential checks.
+ * Serialized back-off for failed credential checks.
  *
  * Every check runs one at a time, and each failure holds the queue for a
  * growing delay (0.6 s, doubling, capped at 30 s) until a check succeeds.

@@ -1,5 +1,5 @@
 /**
- * Voices a presenter can speak with, beyond the thirteen pinned speakers.
+ * Voices a presenter can speak with, beyond the pinned speakers.
  *
  * Client-safe on purpose (see voices.ts): the live list is fetched by
  * voicelist.ts on the server and served from /api/voices.

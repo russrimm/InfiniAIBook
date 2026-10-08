@@ -32,7 +32,7 @@ function buildCredential(): TokenCredential {
     return new ClientSecretCredential(tenantId, clientId, clientSecret);
   }
   return new DefaultAzureCredential(
-    clientId ? { managedIdentityClientId: clientId } : undefined
+    clientId ? { managedIdentityClientId: clientId } : undefined,
   );
 }
 
@@ -43,14 +43,18 @@ function config() {
   const key = process.env.AZURE_SPEECH_KEY?.trim();
   const region = process.env.AZURE_SPEECH_REGION?.trim();
   const resourceId = process.env.AZURE_SPEECH_RESOURCE_ID?.trim();
-  const explicit = process.env.AZURE_SPEECH_ENDPOINT?.trim().replace(/\/+$/, "");
+  const explicit = process.env.AZURE_SPEECH_ENDPOINT?.trim().replace(
+    /\/+$/,
+    "",
+  );
 
   let endpoint = explicit;
   if (!endpoint && resourceId) {
     // Foundry and AI Services resources get a custom subdomain named after the
     // account, which is the last segment of the resource id.
     const name = resourceId.split("/").filter(Boolean).pop();
-    if (name) endpoint = `https://${name.toLowerCase()}.cognitiveservices.azure.com`;
+    if (name)
+      endpoint = `https://${name.toLowerCase()}.cognitiveservices.azure.com`;
   }
   if (!endpoint && key && region) {
     endpoint = `https://${region}.api.cognitive.microsoft.com`;
@@ -64,7 +68,7 @@ export function avatarConfigured(): boolean {
 
 export const avatarNotConfigured = () =>
   new AvatarNotConfiguredError(
-    "Training videos need an Azure Speech resource. Set AZURE_SPEECH_RESOURCE_ID (Entra) or AZURE_SPEECH_ENDPOINT, or AZURE_SPEECH_KEY with AZURE_SPEECH_REGION. See .env.example."
+    "Training videos need an Azure Speech resource. Set AZURE_SPEECH_RESOURCE_ID (Entra) or AZURE_SPEECH_ENDPOINT, or AZURE_SPEECH_KEY with AZURE_SPEECH_REGION. See .env.example.",
   );
 
 async function headers(): Promise<Record<string, string>> {
@@ -76,7 +80,8 @@ async function headers(): Promise<Record<string, string>> {
   if (key) {
     h["Ocp-Apim-Subscription-Key"] = key;
   } else {
-    if (!tokenProvider) tokenProvider = getBearerTokenProvider(buildCredential(), SCOPE);
+    if (!tokenProvider)
+      tokenProvider = getBearerTokenProvider(buildCredential(), SCOPE);
     h.Authorization = `Bearer ${await tokenProvider()}`;
   }
   return h;
@@ -86,7 +91,7 @@ function url(synthesisId: string): string {
   const { endpoint } = config();
   if (!endpoint) throw avatarNotConfigured();
   return `${endpoint}/avatar/batchsyntheses/${encodeURIComponent(
-    synthesisId
+    synthesisId,
   )}?api-version=${API_VERSION}`;
 }
 
@@ -95,7 +100,9 @@ async function failure(res: Response, action: string): Promise<Error> {
   const body = await res.text().catch(() => "");
   let message = body.slice(0, 400);
   try {
-    const j = JSON.parse(body) as { error?: { code?: string; message?: string } };
+    const j = JSON.parse(body) as {
+      error?: { code?: string; message?: string };
+    };
     if (j.error?.message) message = j.error.message;
   } catch {
     /* not JSON */
@@ -103,14 +110,16 @@ async function failure(res: Response, action: string): Promise<Error> {
   let error: Error;
   if (res.status === 401 || res.status === 403) {
     error = new Error(
-      `Azure Speech refused to ${action} (${res.status}). The signed-in identity needs the "Cognitive Services Speech User" role on the Speech resource — subscription Owner is not enough, because avatar synthesis is a data action. ${message}`
+      `Azure Speech refused to ${action} (${res.status}). The signed-in identity needs the "Cognitive Services Speech User" role on the Speech resource — subscription Owner is not enough, because avatar synthesis is a data action. ${message}`,
     );
   } else if (res.status === 404) {
     error = new Error(
-      `Azure Speech could not ${action} (404). Check AZURE_SPEECH_ENDPOINT points at the resource's custom domain, and that the resource's region offers text to speech avatar. ${message}`
+      `Azure Speech could not ${action} (404). Check AZURE_SPEECH_ENDPOINT points at the resource's custom domain, and that the resource's region offers text to speech avatar. ${message}`,
     );
   } else {
-    error = new Error(`Azure Speech could not ${action} (${res.status}). ${message}`);
+    error = new Error(
+      `Azure Speech could not ${action} (${res.status}). ${message}`,
+    );
   }
   return Object.assign(error, { status: res.status });
 }
@@ -133,6 +142,8 @@ export type AvatarJobOptions = {
   character: string;
   /** Omitted for characters Microsoft lists without a style. */
   style?: string;
+  /** A head-only photo avatar, driven by the VASA-1 model. */
+  photo?: boolean;
   /** #RRGGBB; ignored when a background image is configured or `transparent` is set. */
   background: string;
   description?: string;
@@ -154,7 +165,7 @@ export type AvatarJobOptions = {
 export async function submitAvatarJob(
   synthesisId: string,
   ssml: string,
-  opts: AvatarJobOptions
+  opts: AvatarJobOptions,
 ): Promise<AvatarJob> {
   const image = process.env.AZURE_AVATAR_BACKGROUND_URL?.trim();
   const body = {
@@ -164,6 +175,7 @@ export async function submitAvatarJob(
     avatarConfig: {
       talkingAvatarCharacter: opts.character,
       ...(opts.style ? { talkingAvatarStyle: opts.style } : {}),
+      ...(opts.photo ? { photoAvatarBaseModel: "vasa-1" } : {}),
       ...(opts.transparent
         ? {
             videoFormat: "webm",
@@ -202,7 +214,10 @@ export async function getAvatarJob(synthesisId: string): Promise<AvatarJob> {
 /** Best effort: the service keeps results for 31 days otherwise. */
 export async function deleteAvatarJob(synthesisId: string): Promise<void> {
   try {
-    await fetch(url(synthesisId), { method: "DELETE", headers: await headers() });
+    await fetch(url(synthesisId), {
+      method: "DELETE",
+      headers: await headers(),
+    });
   } catch {
     /* already gone, or never existed */
   }
@@ -212,7 +227,10 @@ export async function deleteAvatarJob(synthesisId: string): Promise<void> {
  * Stream the finished video to disk. The result link is a pre-signed blob URL,
  * so it takes no credential — and must not be sent one.
  */
-export async function downloadAvatarResult(resultUrl: string, file: string): Promise<number> {
+export async function downloadAvatarResult(
+  resultUrl: string,
+  file: string,
+): Promise<number> {
   if (!/^https:\/\//i.test(resultUrl)) {
     throw new Error("The avatar service returned an unexpected result link.");
   }
@@ -223,7 +241,7 @@ export async function downloadAvatarResult(resultUrl: string, file: string): Pro
   const tmp = `${file}.part`;
   await pipeline(
     Readable.fromWeb(res.body as import("node:stream/web").ReadableStream),
-    fs.createWriteStream(tmp)
+    fs.createWriteStream(tmp),
   );
   try {
     fs.renameSync(tmp, file);
@@ -245,7 +263,9 @@ export async function avatarFailureReason(job: AvatarJob): Promise<string> {
     try {
       const res = await fetch(summary);
       if (res.ok) {
-        const j = (await res.json()) as { results?: { status?: string; error?: string }[] };
+        const j = (await res.json()) as {
+          results?: { status?: string; error?: string }[];
+        };
         const err = j.results?.find((r) => r.error)?.error;
         if (err) return err;
       }

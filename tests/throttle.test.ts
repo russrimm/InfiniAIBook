@@ -10,7 +10,7 @@ describe("FailureThrottle", () => {
     expect(t.backoffMs(20)).toBe(30_000);
   });
 
-  it("serialises attempts and holds the queue after each failure", async () => {
+  it("serializes attempts and holds the queue after each failure", async () => {
     const sleeps: number[] = [];
     const order: string[] = [];
     const t = new FailureThrottle(100, 1000, async (ms) => {

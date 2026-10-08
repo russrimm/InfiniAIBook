@@ -39,7 +39,7 @@ export default function Infographic({ content, citations }: Props) {
   const cite = (text: string) => <InlineCited text={text} citations={citations} />;
 
   /**
-   * Header text sits on a themed, often accent-coloured band where a citation
+   * Header text sits on a themed, often accent-colored band where a citation
    * pill is illegible. Newly generated artifacts have these stripped already;
    * this also cleans up ones stored before that.
    */
@@ -465,7 +465,7 @@ export default function Infographic({ content, citations }: Props) {
     const regions = content.regions ?? [];
     if (!regions.length) return <StackBody />;
 
-    // Alternate the two theme colours so regions read as distinct bands.
+    // Alternate the two theme colors so regions read as distinct bands.
     const tint = (i: number) => (i % 2 === 0 ? t.accent : t.accent2);
 
     return (

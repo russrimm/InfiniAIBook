@@ -76,6 +76,34 @@ export const TRANSITION_LABELS: Record<CueTransition, string> = {
 export const PIP_CORNERS = ["bottom-right", "bottom-left", "top-right", "top-left"] as const;
 export type PipCorner = (typeof PIP_CORNERS)[number];
 
+/** Screen location setting: a fixed corner, or "random" (picked per visual). */
+export const PIP_CORNER_SETTINGS = [...PIP_CORNERS, "random"] as const;
+export type PipCornerSetting = (typeof PIP_CORNER_SETTINGS)[number];
+
+export const PIP_SIZES = ["small", "medium", "large"] as const;
+export type PipSize = (typeof PIP_SIZES)[number];
+export const PIP_SIZE_SETTINGS = [...PIP_SIZES, "random"] as const;
+export type PipSizeSetting = (typeof PIP_SIZE_SETTINGS)[number];
+
+/** Share of the frame the corner presenter occupies. */
+export const PIP_SCALES: Record<PipSize, number> = { small: 0.3, medium: 0.42, large: 0.56 };
+
+/**
+ * The corner and size one visual uses. "random" settings are chosen from the
+ * cue id, so the preview, the plan and the render all agree.
+ */
+export function resolvePip(
+  c: { pipCorner: PipCornerSetting; pipSize?: PipSizeSetting },
+  seed = ""
+): { corner: PipCorner; size: PipSize } {
+  let h = 2166136261;
+  for (const ch of seed) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  const corner = c.pipCorner === "random" ? PIP_CORNERS[h % PIP_CORNERS.length] : c.pipCorner;
+  const sizeSetting = c.pipSize ?? "medium";
+  const size = sizeSetting === "random" ? PIP_SIZES[((h >>> 8) + 1) % PIP_SIZES.length] : sizeSetting;
+  return { corner, size };
+}
+
 export const CAPTION_MODES = ["burned", "sidecar", "off"] as const;
 export type CaptionMode = (typeof CAPTION_MODES)[number];
 
@@ -144,7 +172,9 @@ export type TrainingComposition = {
   lowerThird: { enabled: boolean; name: string; role: string };
   captions: CaptionMode;
   resolution: TrainingResolution;
-  pipCorner: PipCorner;
+  pipCorner: PipCornerSetting;
+  /** Absent on videos made before this setting: medium. */
+  pipSize: PipSizeSetting;
   /** Small logo in a corner of every frame. */
   logoId?: string;
 };
@@ -161,6 +191,7 @@ export const DEFAULT_COMPOSITION: TrainingComposition = {
   captions: "burned",
   resolution: "720p",
   pipCorner: "bottom-right",
+  pipSize: "medium",
 };
 
 /** What a training video made before composition existed renders as. */
@@ -208,7 +239,8 @@ export function normalizeComposition(raw: unknown): TrainingComposition {
       Object.keys(TRAINING_RESOLUTIONS) as TrainingResolution[],
       d.resolution
     ),
-    pipCorner: pick(o.pipCorner, PIP_CORNERS, d.pipCorner),
+    pipCorner: pick(o.pipCorner, PIP_CORNER_SETTINGS, d.pipCorner),
+    pipSize: pick(o.pipSize, PIP_SIZE_SETTINGS, d.pipSize),
     ...(isId(o.logoId) ? { logoId: o.logoId } : {}),
   };
 }
@@ -435,7 +467,15 @@ export type PlannerInfographic = { id: string; title: string };
 export function TRAINING_VISUALS_INSTRUCTION(opts: {
   images: boolean;
   infographics: PlannerInfographic[];
+  presenter?: Pick<TrainingComposition, "pipCorner" | "pipSize">;
 }): string {
+  const where = opts.presenter?.pipCorner ?? DEFAULT_COMPOSITION.pipCorner;
+  const howBig = opts.presenter?.pipSize ?? DEFAULT_COMPOSITION.pipSize;
+  const pipRule =
+    (where === "random"
+      ? "the presenter moves between corners from visual to visual"
+      : `the presenter sits in the ${where.replace("-", " ")} corner`) +
+    (howBig === "random" ? " at varying sizes" : ` at ${howBig} size`);
   const kinds = [
     `"title" — section title card: title, optional subtitle`,
     `"objectives" — the learning objectives as a list: bullets`,
@@ -498,7 +538,7 @@ shown beside a picture of the idea it teaches, so give each of them:
 LAYOUTS
 - "side-left": presenter on the left, visual on the right. The default for teaching.
 - "side-right": presenter on the right, visual on the left. Alternate with side-left for variety.
-- "pip": the visual fills the frame, presenter small in a corner. For dense visuals and infographics.
+- "pip": the visual fills the frame, presenter small in a corner (${pipRule}; keep key content away from that spot). For dense visuals and infographics.
 - "full": visual only, the presenter's voice continues. Sparingly, for a big moment.
 
 TIMING

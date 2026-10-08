@@ -42,7 +42,7 @@ export async function planTrainingVisuals(
   const composition = normalizeComposition(c.composition);
   const infographics = notebookInfographics(notebookId);
   const images = trainingImagesEnabled();
-  const system = TRAINING_VISUALS_INSTRUCTION({ images, infographics });
+  const system = TRAINING_VISUALS_INSTRUCTION({ images, infographics, presenter: composition });
   const sections = c.sections
     .map((s, i) =>
       only === undefined || only === i

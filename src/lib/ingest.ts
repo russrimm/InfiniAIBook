@@ -634,7 +634,7 @@ export async function extractFromUrl(url: string): Promise<Extracted> {
       return { title: feed.title || host, text: feed.text, kind: "feed" };
     }
     // An empty feed is not an error worth failing on — fall through and let
-    // the HTML reader try, in case it was mislabelled.
+    // the HTML reader try, in case it was mislabeled.
   }
 
   if (ctype.includes("text/html") || raw.trimStart().startsWith("<")) {

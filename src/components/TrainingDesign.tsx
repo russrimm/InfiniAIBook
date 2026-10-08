@@ -8,7 +8,9 @@ import {
   CUE_TRANSITIONS,
   LAYOUTS,
   LAYOUT_LABELS,
-  PIP_CORNERS,
+  PIP_CORNER_SETTINGS,
+  PIP_SCALES,
+  PIP_SIZE_SETTINGS,
   TRAINING_RESOLUTIONS,
   TRANSITION_LABELS,
   type TrainingComposition,
@@ -20,12 +22,78 @@ const inputCls =
   "w-full rounded-md border border-[var(--border)] bg-well px-2.5 py-1.5 text-[13px] text-[var(--fg)] outline-none placeholder:text-faint focus:border-focus disabled:opacity-60";
 const labelCls = "mb-1 block text-[10px] tracking-wide text-[var(--muted)] uppercase";
 
-const CORNER_LABELS: Record<(typeof PIP_CORNERS)[number], string> = {
+const CORNER_LABELS: Record<(typeof PIP_CORNER_SETTINGS)[number], string> = {
   "bottom-right": "Bottom right",
   "bottom-left": "Bottom left",
   "top-right": "Top right",
   "top-left": "Top left",
+  random: "Random",
 };
+
+const SIZE_LABELS: Record<(typeof PIP_SIZE_SETTINGS)[number], string> = {
+  small: "Small",
+  medium: "Medium",
+  large: "Large",
+  random: "Random",
+};
+
+const SPOTS = ["top-left", "top-right", "bottom-left", "bottom-right"] as const;
+
+/** A miniature screen: the dot is where the presenter will appear, the box how big. */
+function PresenterLocator({
+  value,
+  disabled,
+  onPick,
+}: {
+  value: Pick<TrainingComposition, "pipCorner" | "pipSize">;
+  disabled: boolean;
+  onPick: (corner: (typeof SPOTS)[number]) => void;
+}) {
+  const randomCorner = value.pipCorner === "random";
+  const sizes = value.pipSize === "random" ? (["small", "medium", "large"] as const) : [value.pipSize];
+  return (
+    <div
+      className="relative aspect-video w-48 shrink-0 overflow-hidden rounded-md border border-[var(--border)] bg-well"
+      role="group"
+      aria-label="Presenter position preview"
+    >
+      {SPOTS.map((spot) => {
+        const active = randomCorner || value.pipCorner === spot;
+        const right = spot.endsWith("right");
+        const low = spot.startsWith("bottom");
+        const pos = { [right ? "right" : "left"]: 4, [low ? "bottom" : "top"]: 4 };
+        return (
+          <div key={spot}>
+            {active &&
+              sizes.map((s) => {
+                const side = PIP_SCALES[s] * 100;
+                return (
+                  <span
+                    key={s}
+                    aria-hidden
+                    className={`absolute rounded-sm border border-dashed border-[var(--accent)] ${randomCorner || sizes.length > 1 ? "opacity-50" : "bg-[var(--accent)]/15"}`}
+                    style={{ ...pos, width: `${side * 0.55}%`, height: `${side}%` }}
+                  />
+                );
+              })}
+            <button
+              type="button"
+              disabled={disabled}
+              aria-label={`Place the presenter ${CORNER_LABELS[spot].toLowerCase()}`}
+              aria-pressed={value.pipCorner === spot}
+              onClick={() => onPick(spot)}
+              className={`absolute h-3.5 w-3.5 rounded-full border-2 ${
+                active ? "border-white bg-[var(--accent)] shadow" : "border-[var(--border)] bg-transparent hover:bg-[var(--accent)]/40"
+              }`}
+              style={{ [right ? "right" : "left"]: 6, [low ? "bottom" : "top"]: 6 }}
+            />
+          </div>
+        );
+      })}
+      <span className="absolute inset-0 grid place-items-center text-[10px] text-faint">Visual</span>
+    </div>
+  );
+}
 
 /** Video-level look of a composed training video. */
 export default function TrainingDesign({
@@ -137,21 +205,45 @@ export default function TrainingDesign({
               ))}
             </select>
           </label>
-          <label>
-            <span className={labelCls}>Corner presenter position</span>
-            <select
-              className={inputCls}
-              value={value.pipCorner}
-              disabled={off}
-              onChange={(e) => set({ pipCorner: e.target.value as TrainingComposition["pipCorner"] })}
-            >
-              {PIP_CORNERS.map((c) => (
-                <option key={c} value={c}>
-                  {CORNER_LABELS[c]}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="flex items-start gap-3 sm:col-span-2">
+            <PresenterLocator value={value} disabled={off} onPick={(c) => set({ pipCorner: c })} />
+            <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+              <label>
+                <span className={labelCls}>Presenter screen location</span>
+                <select
+                  className={inputCls}
+                  value={value.pipCorner}
+                  disabled={off}
+                  onChange={(e) => set({ pipCorner: e.target.value as TrainingComposition["pipCorner"] })}
+                >
+                  {PIP_CORNER_SETTINGS.map((c) => (
+                    <option key={c} value={c}>
+                      {CORNER_LABELS[c]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span className={labelCls}>Presenter size</span>
+                <select
+                  className={inputCls}
+                  value={value.pipSize}
+                  disabled={off}
+                  onChange={(e) => set({ pipSize: e.target.value as TrainingComposition["pipSize"] })}
+                >
+                  {PIP_SIZE_SETTINGS.map((s) => (
+                    <option key={s} value={s}>
+                      {SIZE_LABELS[s]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="text-[10px] leading-snug text-[var(--muted)] sm:col-span-2">
+                Applies to visuals that show the presenter in a corner. Random picks a different spot or size for each visual.
+                The planner is told where the presenter will be.
+              </p>
+            </div>
+          </div>
           <label>
             <span className={labelCls}>Captions</span>
             <select

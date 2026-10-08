@@ -237,7 +237,7 @@ ${guidance}`;
     blurb: "Hierarchical concept tree",
     icon: "🕸️",
     json: true,
-    instruction: (topic) => `Build a mind map of the source material${topic ? ` centred on: ${topic}` : ""}.
+    instruction: (topic) => `Build a mind map of the source material${topic ? ` centered on: ${topic}` : ""}.
 ${jsonNote}
 Schema:
 {
