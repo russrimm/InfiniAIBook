@@ -3,6 +3,14 @@ import { retrieve, sampleCorpus, type Passage } from "./retrieve";
 import { AUDIO_LENGTHS, type AudioLength } from "./voices";
 import { cleanStyle, voiceServiceName } from "./voicecatalog";
 import { addBreaths } from "./prosody";
+import {
+  cleanGesture,
+  gestureBookmark,
+  paragraphSentences,
+  planGestures,
+  speechUnits,
+  type GestureMode,
+} from "./gestures";
 import type { TrainingSection } from "./types";
 import { normalizeCues, type TrainingComposition } from "./trainingvisuals";
 
@@ -160,6 +168,8 @@ export function normalizeSections(
       };
       const cues = normalizeCues(o.cues, composition, true);
       if (cues.length) section.cues = cues;
+      const gesture = cleanGesture(o.gesture);
+      if (gesture) section.gesture = gesture;
       return section;
     })
     .filter((s) => s.text)
@@ -208,16 +218,45 @@ export function voiceSsml(voice: string, inner: string, style?: string): string 
  * the presenter visibly moves on; paragraphs within a section get a shorter
  * one.
  */
-export function buildTrainingSsml(sections: TrainingSection[], voice: string, style?: string): string {
+export function buildTrainingSsml(
+  sections: TrainingSection[],
+  voice: string,
+  style?: string,
+  /** Gestures for the presenter; `index` and `count` place `sections` within the whole video. */
+  gestures?: { presenter: string; mode: GestureMode; index?: number; count?: number }
+): string {
   const body = sections
-    .map((s) =>
-      s.text
+    .map((s, i) => {
+      const paragraphs = s.text
         .split(/\n\s*\n/)
         .map((p) => p.trim())
-        .filter(Boolean)
-        .map((p) => addBreaths(escapeXml(p), 1))
-        .join(`<break time="450ms"/>`)
-    )
+        .filter(Boolean);
+      const plan = gestures
+        ? planGestures(speechUnits(s.text), {
+            presenter: gestures.presenter,
+            mode: gestures.mode,
+            gesture: s.gesture,
+            index: (gestures.index ?? 0) + i,
+            count: gestures.count ?? sections.length,
+          })
+        : [];
+      if (!plan.some(Boolean)) return paragraphs.map((p) => addBreaths(escapeXml(p), 1)).join(`<break time="450ms"/>`);
+
+      // Same units speechUnits made, so plan[] lines up with them.
+      let unit = 0;
+      return paragraphs
+        .map((p) => {
+          const sentences = paragraphSentences(p);
+          const runs: string[] = [];
+          for (let k = 0; k < sentences.length; k += 2) {
+            const mark = plan[unit++];
+            const spoken = addBreaths(escapeXml(sentences.slice(k, k + 2).join(" ")), 1);
+            runs.push(mark ? `${gestureBookmark(mark)}${spoken}` : spoken);
+          }
+          return runs.join(" ");
+        })
+        .join(`<break time="450ms"/>`);
+    })
     .join(`<break time="1100ms"/>`);
   return voiceSsml(voice, body, style);
 }

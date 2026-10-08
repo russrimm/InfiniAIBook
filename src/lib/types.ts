@@ -262,6 +262,8 @@ export type TrainingSection = {
   text: string;
   /** Visuals timed to phrases of `text`; composed videos only. */
   cues?: TrainingCue[];
+  /** A gesture the presenter starts with ("none" for stillness); absent follows TrainingContent.gestureMode. */
+  gesture?: string;
 };
 
 /** One section's presenter clip in a composed render. */
@@ -287,6 +289,8 @@ export type TrainingContent = SpokenExtras & VideoExtras & {
   voice: string;
   /** express-as style the chosen voice supports; absent for its default delivery. */
   voiceStyle?: string;
+  /** "auto" adds varied gestures through the speech; absent or "off" leaves only the ones chosen per section. */
+  gestureMode?: "auto" | "off";
   /** #RRGGBB background behind the presenter. */
   background: string;
   length?: string;
