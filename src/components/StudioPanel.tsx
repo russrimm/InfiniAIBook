@@ -31,7 +31,9 @@ import {
   isImageStyle,
   type InfographicStyle,
 } from "@/lib/infographic";
-import InfographicGallery, { ScaledExample } from "@/components/InfographicGallery";
+import InfographicGallery, {
+  ScaledExample,
+} from "@/components/InfographicGallery";
 import type { StyleSuggestion } from "@/lib/styleSuggest";
 import {
   VOICE_PRESETS,
@@ -94,7 +96,10 @@ const EPISODE_PROFILES: EpisodeProfile[] = [
     key: "deep-dive",
     label: "Deep dive (2 hosts)",
     speakers: [
-      { name: "", role: "curious host who drives the conversation and asks questions" },
+      {
+        name: "",
+        role: "curious host who drives the conversation and asks questions",
+      },
       { name: "", role: "analyst who explains the details and implications" },
     ],
   },
@@ -102,32 +107,57 @@ const EPISODE_PROFILES: EpisodeProfile[] = [
     key: "solo",
     label: "Solo explainer (1)",
     speakers: [
-      { name: "Narrator", role: "clear, curious narrator who explains the material directly" },
+      {
+        name: "Narrator",
+        role: "clear, curious narrator who explains the material directly",
+      },
     ],
   },
   {
     key: "expert-panel",
     label: "Expert panel (3: host + two experts)",
     speakers: [
-      { name: "Host", role: "moderator who frames the questions and keeps the pace" },
-      { name: "Technical expert", role: "technical expert who explains mechanisms and tradeoffs" },
-      { name: "Policy expert", role: "domain expert who explains consequences and caveats" },
+      {
+        name: "Host",
+        role: "moderator who frames the questions and keeps the pace",
+      },
+      {
+        name: "Technical expert",
+        role: "technical expert who explains mechanisms and tradeoffs",
+      },
+      {
+        name: "Policy expert",
+        role: "domain expert who explains consequences and caveats",
+      },
     ],
   },
   {
     key: "debate",
     label: "Debate (4: moderator + 2 sides + fact-checker)",
     speakers: [
-      { name: "Moderator", role: "moderator who keeps the discussion grounded" },
-      { name: "Advocate", role: "optimistic advocate who argues for the strongest upside" },
-      { name: "Skeptic", role: "skeptical challenger who tests assumptions and risks" },
-      { name: "Fact-checker", role: "fact-checker who resolves claims against the sources" },
+      {
+        name: "Moderator",
+        role: "moderator who keeps the discussion grounded",
+      },
+      {
+        name: "Advocate",
+        role: "optimistic advocate who argues for the strongest upside",
+      },
+      {
+        name: "Skeptic",
+        role: "skeptical challenger who tests assumptions and risks",
+      },
+      {
+        name: "Fact-checker",
+        role: "fact-checker who resolves claims against the sources",
+      },
     ],
   },
 ];
 
 const profileSpeakers = (key: string): SpeakerConfig[] => {
-  const profile = EPISODE_PROFILES.find((p) => p.key === key) ?? EPISODE_PROFILES[0]!;
+  const profile =
+    EPISODE_PROFILES.find((p) => p.key === key) ?? EPISODE_PROFILES[0]!;
   return profile.speakers.map((s, i) => {
     const id = SPEAKER_IDS[i] ?? "a";
     return {
@@ -173,12 +203,15 @@ export default function StudioPanel({
   const [view, setView] = useState<"create" | "library">("create");
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState<InfographicStyle>(DEFAULT_STYLE);
-  const [orientation, setOrientation] = useState<InfographicOrientation>("landscape");
+  const [orientation, setOrientation] =
+    useState<InfographicOrientation>("landscape");
   const [detail, setDetail] = useState<InfographicDetail>("standard");
   const [instructions, setInstructions] = useState("");
   const [describeOpen, setDescribeOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
-  const [suggestions, setSuggestions] = useState<StyleSuggestion[] | null>(null);
+  const [suggestions, setSuggestions] = useState<StyleSuggestion[] | null>(
+    null,
+  );
   const [suggesting, setSuggesting] = useState(false);
   const [suggestError, setSuggestError] = useState<string | null>(null);
 
@@ -203,7 +236,9 @@ export default function StudioPanel({
       if (!res.ok) throw new Error(json.error || "Could not suggest a style.");
       setSuggestions(json.suggestions ?? []);
     } catch (e) {
-      setSuggestError(e instanceof Error ? e.message : "Could not suggest a style.");
+      setSuggestError(
+        e instanceof Error ? e.message : "Could not suggest a style.",
+      );
     } finally {
       setSuggesting(false);
     }
@@ -218,13 +253,13 @@ export default function StudioPanel({
   const [motionNarrator, setMotionNarrator] = useState("Ava");
   const [motionForm, setMotionForm] = useState<MotionForm>(DEFAULT_MOTION_FORM);
   const defaults = narrationDefaults ?? EMPTY_NARRATION;
-  const [narration, setNarration] = useState<Record<SpokenType, NarrationSettings>>(() =>
-    spokenRecord(defaults)
-  );
+  const [narration, setNarration] = useState<
+    Record<SpokenType, NarrationSettings>
+  >(() => spokenRecord(defaults));
   /** Cards whose instructions were edited here are not overwritten by the saved default. */
   const touched = useRef<Set<SpokenType>>(new Set());
-  const [music, setMusic] = useState<Record<SpokenType, MusicChoice | null>>(() =>
-    spokenRecord<MusicChoice | null>(null)
+  const [music, setMusic] = useState<Record<SpokenType, MusicChoice | null>>(
+    () => spokenRecord<MusicChoice | null>(null),
   );
   const defaultsKey = JSON.stringify(defaults);
   useEffect(() => {
@@ -252,7 +287,9 @@ export default function StudioPanel({
   });
   const setMusicFor = (t: SpokenType) => (v: MusicChoice | null) =>
     setMusic((prev) => (prev[t] === v ? prev : { ...prev, [t]: v }));
-  const [watermark, setWatermark] = useState<Record<VideoType, WatermarkChoice | null>>({
+  const [watermark, setWatermark] = useState<
+    Record<VideoType, WatermarkChoice | null>
+  >({
     video: null,
     motion: null,
     training: null,
@@ -261,20 +298,26 @@ export default function StudioPanel({
     setWatermark((prev) => (prev[t] === v ? prev : { ...prev, [t]: v }));
   const [episodeProfile, setEpisodeProfile] = useState("deep-dive");
   const [speakers, setSpeakers] = useState<SpeakerConfig[]>(() =>
-    profileSpeakers("deep-dive")
+    profileSpeakers("deep-dive"),
   );
   const [speed, setSpeed] = useState(1);
   const [trainer, setTrainer] = useState(DEFAULT_PRESENTER);
-  const [trainerVoice, setTrainerVoice] = useState(AVATAR_PRESETS[DEFAULT_PRESENTER].voice);
+  const [trainerVoice, setTrainerVoice] = useState(
+    AVATAR_PRESETS[DEFAULT_PRESENTER].voice,
+  );
   const [trainerStyle, setTrainerStyle] = useState<string | undefined>();
   const [trainingLen, setTrainingLen] = useState<AudioLength>("short");
   const [trainingBg, setTrainingBg] = useState(DEFAULT_BACKGROUND);
-  const [trainingMode, setTrainingMode] = useState<"composed" | "presenter">("composed");
-  const [trainingPalette, setTrainingPalette] = useState<keyof typeof MOTION_PALETTES>(
-    DEFAULT_COMPOSITION.palette
+  const [trainingMode, setTrainingMode] = useState<"composed" | "presenter">(
+    "composed",
   );
+  const [trainingPalette, setTrainingPalette] = useState<
+    keyof typeof MOTION_PALETTES
+  >(DEFAULT_COMPOSITION.palette);
   const [running, setRunning] = useState<Set<ArtifactType>>(new Set());
-  const [errors, setErrors] = useState<Partial<Record<ArtifactType, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<ArtifactType, string>>>(
+    {},
+  );
   const previewAudio = useRef<HTMLAudioElement | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState<string | null>(null);
@@ -307,7 +350,9 @@ export default function StudioPanel({
       setPreviewLoading(null);
       setPreviewing(name);
     } catch (e) {
-      setPreviewError(e instanceof Error ? e.message : "Could not play that voice.");
+      setPreviewError(
+        e instanceof Error ? e.message : "Could not play that voice.",
+      );
       setPreviewing(null);
       setPreviewLoading(null);
     }
@@ -321,7 +366,7 @@ export default function StudioPanel({
   const run = async (
     type: ArtifactType,
     url: string,
-    body: Record<string, unknown>
+    body: Record<string, unknown>,
   ) => {
     setRunning((prev) => new Set(prev).add(type));
     setErrors((prev) => {
@@ -337,7 +382,7 @@ export default function StudioPanel({
       });
       const json = await readJSONReply<ArtifactSummary & { error?: string }>(
         res,
-        "Generation failed"
+        "Generation failed",
       );
       await onChanged();
       // Opened through the same path as a list entry so the modal always shows
@@ -357,7 +402,10 @@ export default function StudioPanel({
     }
   };
 
-  const generate = (type: ArtifactType, override?: { style?: InfographicStyle }) =>
+  const generate = (
+    type: ArtifactType,
+    override?: { style?: InfographicStyle },
+  ) =>
     run(type, "/api/generate", {
       notebookId,
       type,
@@ -430,11 +478,17 @@ export default function StudioPanel({
       narration: narrationFor("training"),
       music: music.training,
       watermark: watermark.training,
-      composition: { ...DEFAULT_COMPOSITION, mode: trainingMode, palette: trainingPalette },
+      composition: {
+        ...DEFAULT_COMPOSITION,
+        mode: trainingMode,
+        palette: trainingPalette,
+      },
     });
 
   const updateSpeaker = (i: number, patch: Partial<SpeakerConfig>) =>
-    setSpeakers((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+    setSpeakers((prev) =>
+      prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)),
+    );
 
   const applyEpisodeProfile = (key: string) => {
     setEpisodeProfile(key);
@@ -453,12 +507,17 @@ export default function StudioPanel({
     : [];
   const sharedVoices = speakers
     .map((s) => s.voice)
-    .filter((voice, i, all) => all.indexOf(voice) !== i && all.lastIndexOf(voice) === i);
+    .filter(
+      (voice, i, all) =>
+        all.indexOf(voice) !== i && all.lastIndexOf(voice) === i,
+    );
 
   const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-  const deliveryLabel = { natural: "natural dialogue", even: "even delivery", pinned: "fixed voices" }[
-    delivery
-  ];
+  const deliveryLabel = {
+    natural: "natural dialogue",
+    even: "even delivery",
+    pinned: "fixed voices",
+  }[delivery];
   const audioSummary = `${
     EPISODE_PROFILES.find((p) => p.key === episodeProfile)?.label ?? "Custom"
   } · about ${AUDIO_LENGTHS[audioLen].minutes} min · ${
@@ -522,8 +581,9 @@ export default function StudioPanel({
           />
           <span>
             Generating{" "}
-            {[...running].map((t) => studioLabel(t).toLowerCase()).join(", ")} in the
-            background. It opens when ready, and you can keep working meanwhile.
+            {[...running].map((t) => studioLabel(t).toLowerCase()).join(", ")}{" "}
+            in the background. It opens when ready, and you can keep working
+            meanwhile.
           </span>
         </p>
       )}
@@ -534,7 +594,10 @@ export default function StudioPanel({
             <div className="card px-4 py-6 text-center text-[11px] leading-relaxed text-[var(--muted)]">
               Nothing generated yet.
               <div className="mt-3">
-                <button className="btn !px-2.5 !py-1 !text-[11px]" onClick={() => setView("create")}>
+                <button
+                  className="btn !px-2.5 !py-1 !text-[11px]"
+                  onClick={() => setView("create")}
+                >
                   Choose a format to create
                 </button>
               </div>
@@ -554,12 +617,14 @@ export default function StudioPanel({
                     onClick={() => onOpen(a)}
                     disabled={openingId === a.id}
                   >
-                    <div className="truncate text-[13px] font-medium">{a.title}</div>
+                    <div className="truncate text-[13px] font-medium">
+                      {a.title}
+                    </div>
                     <div className="text-[10px] text-dim">
                       {openingId === a.id
                         ? "Opening…"
                         : `${studioLabel(a.type)} · ${new Date(
-                            a.createdAt
+                            a.createdAt,
                           ).toLocaleString()}`}
                     </div>
                   </button>
@@ -576,783 +641,916 @@ export default function StudioPanel({
           )}
         </div>
       ) : (
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        {blocked && (
-          <div className="mb-3 flex items-center gap-2 rounded-lg border border-[var(--border)] bg-well px-3 py-2 text-[11px] text-[var(--muted)]">
-            <span className="flex-1">
-              {hasSources
-                ? "Tick at least one source to generate. Studio uses only the sources you tick."
-                : "Add a source to start creating. Everything here is built from your sources."}
-            </span>
-            {onShowSources && (
-              <button className="btn shrink-0 !px-2.5 !py-1 !text-[11px]" onClick={onShowSources}>
-                Go to Sources
-              </button>
-            )}
-          </div>
-        )}
-
-        <label
-          htmlFor="studio-focus"
-          className="mb-1 block text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase"
-        >
-          Focus{" "}
-          <span className="font-normal tracking-normal normal-case">
-            (optional): steers everything below
-          </span>
-        </label>
-        <input
-          id="studio-focus"
-          className="input mb-4"
-          placeholder="e.g. 'funding risks' or 'for new volunteers'"
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-        />
-
-        {onDiscuss && (
-          <>
-            <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
-              Live
-            </h3>
-            <button
-              type="button"
-              disabled={blocked}
-              onClick={() => onDiscuss(topic)}
-              className="card mb-4 flex w-full items-center gap-3 px-3 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <span aria-hidden className="text-xl">🎙️</span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-medium">Live discussion</span>
-                <span className="block text-[10px] leading-snug text-[var(--muted)]">
-                  Talk it through out loud: discuss, debate, Q&amp;A, interview or quiz, with cited answers
-                </span>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+          {blocked && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-[var(--border)] bg-well px-3 py-2 text-[11px] text-[var(--muted)]">
+              <span className="flex-1">
+                {hasSources
+                  ? "Tick at least one source to generate. Studio uses only the sources you tick."
+                  : "Add a source to start creating. Everything here is built from your sources."}
               </span>
-              <span className="shrink-0 text-[11px] text-[var(--muted)]">Start →</span>
-            </button>
-          </>
-        )}
-
-        <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
-          Audio &amp; video
-        </h3>
-        <p className="mb-2 text-[10px] leading-snug text-[var(--muted)]">
-          Each one stops at an editable script, so nothing is narrated or rendered until you
-          approve it.
-        </p>
-
-        <div className="space-y-2">
-        <StudioCard
-          icon="🎧"
-          label="Audio overview"
-          testId="audio-card"
-          busy={audioBusy}
-          blocked={blocked}
-          error={errors.podcast}
-          onGenerate={() => void generateAudio()}
-          status={
-            audioBusy
-              ? `Writing a script for about ${AUDIO_LENGTHS[audioLen].minutes} minutes…`
-              : speakers.length === 1
-                ? "A solo narration explains your sources"
-                : `${speakers.length} speakers discuss your sources`
-          }
-          summary={audioSummary + extras("podcast")}
-          options={
-            <>
-            <div className="flex items-center gap-2">
-              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                Profile
-              </span>
-              <select
-                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                aria-label="Audio profile"
-                value={episodeProfile}
-                onChange={(e) => applyEpisodeProfile(e.target.value)}
-              >
-                {EPISODE_PROFILES.map((p) => (
-                  <option key={p.key} value={p.key}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              {speakers.map((speaker, i) => (
-                <div
-                  key={speaker.id}
-                  className="rounded-lg border border-[var(--border)] bg-[#0b0e12]/50 p-2"
+              {onShowSources && (
+                <button
+                  className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
+                  onClick={onShowSources}
                 >
-                  <div className="mb-1.5 flex items-center gap-2">
-                    <span className="w-5 shrink-0 text-[10px] font-semibold tracking-wide text-[var(--muted)] uppercase">
-                      {speaker.id}
+                  Go to Sources
+                </button>
+              )}
+            </div>
+          )}
+
+          <label
+            htmlFor="studio-focus"
+            className="mb-1 block text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase"
+          >
+            Focus{" "}
+            <span className="font-normal tracking-normal normal-case">
+              (optional): steers everything below
+            </span>
+          </label>
+          <input
+            id="studio-focus"
+            className="input mb-4"
+            placeholder="e.g. 'funding risks' or 'for new volunteers'"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+          />
+
+          {onDiscuss && (
+            <>
+              <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
+                Live
+              </h3>
+              <button
+                type="button"
+                disabled={blocked}
+                onClick={() => onDiscuss(topic)}
+                className="card mb-4 flex w-full items-center gap-3 px-3 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span aria-hidden className="text-xl">
+                  🎙️
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] font-medium">
+                    Live discussion
+                  </span>
+                  <span className="block text-[10px] leading-snug text-[var(--muted)]">
+                    Talk it through out loud: discuss, debate, Q&amp;A,
+                    interview or quiz, with cited answers
+                  </span>
+                </span>
+                <span className="shrink-0 text-[11px] text-[var(--muted)]">
+                  Start →
+                </span>
+              </button>
+            </>
+          )}
+
+          <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
+            Audio &amp; video
+          </h3>
+          <p className="mb-2 text-[10px] leading-snug text-[var(--muted)]">
+            Each one stops at an editable script, so nothing is narrated or
+            rendered until you approve it.
+          </p>
+
+          <div className="space-y-2">
+            <StudioCard
+              icon="🎧"
+              label="Audio overview"
+              testId="audio-card"
+              busy={audioBusy}
+              blocked={blocked}
+              error={errors.podcast}
+              onGenerate={() => void generateAudio()}
+              status={
+                audioBusy
+                  ? `Writing a script for about ${AUDIO_LENGTHS[audioLen].minutes} minutes…`
+                  : speakers.length === 1
+                    ? "A solo narration explains your sources"
+                    : `${speakers.length} speakers discuss your sources`
+              }
+              summary={audioSummary + extras("podcast")}
+              options={
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Profile
+                    </span>
+                    <select
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                      aria-label="Audio profile"
+                      value={episodeProfile}
+                      onChange={(e) => applyEpisodeProfile(e.target.value)}
+                    >
+                      {EPISODE_PROFILES.map((p) => (
+                        <option key={p.key} value={p.key}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    {speakers.map((speaker, i) => (
+                      <div
+                        key={speaker.id}
+                        className="rounded-lg border border-[var(--border)] bg-[#0b0e12]/50 p-2"
+                      >
+                        <div className="mb-1.5 flex items-center gap-2">
+                          <span className="w-5 shrink-0 text-[10px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                            {speaker.id}
+                          </span>
+                          <SpeakerSelect
+                            value={speaker.voice}
+                            disabled={false}
+                            onChange={(voice) => updateSpeaker(i, { voice })}
+                            onPreview={preview}
+                            previewing={previewing}
+                            loading={previewLoading}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 gap-1.5">
+                          <input
+                            className="min-w-0 rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-faint focus:border-focus"
+                            placeholder={`Optional name, e.g. ${
+                              i === 0 ? "Host" : "Expert"
+                            }`}
+                            aria-label={`Speaker ${speaker.id} name`}
+                            value={speaker.name}
+                            onChange={(e) =>
+                              updateSpeaker(i, { name: e.target.value })
+                            }
+                          />
+                          <input
+                            className="min-w-0 rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-faint focus:border-focus"
+                            placeholder="Role/personality, e.g. skeptical economist"
+                            aria-label={`Speaker ${speaker.id} role`}
+                            value={speaker.role}
+                            onChange={(e) =>
+                              updateSpeaker(i, { role: e.target.value })
+                            }
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Length
+                    </span>
+                    <select
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                      aria-label="Audio length"
+                      value={audioLen}
+                      onChange={(e) =>
+                        setAudioLen(e.target.value as AudioLength)
+                      }
+                    >
+                      {(Object.keys(AUDIO_LENGTHS) as AudioLength[]).map(
+                        (k) => (
+                          <option key={k} value={k}>
+                            {AUDIO_LENGTHS[k].label} — about{" "}
+                            {AUDIO_LENGTHS[k].minutes} min
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Speed
+                    </span>
+                    <select
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                      aria-label="Speaking speed"
+                      value={speed}
+                      onChange={(e) => setSpeed(Number(e.target.value))}
+                    >
+                      {RATE_CHOICES.map((r) => (
+                        <option key={r} value={r}>
+                          {r === 1 ? "Normal speed" : `${r}× speed`}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                      aria-label="Delivery"
+                      value={delivery}
+                      onChange={(e) => setDelivery(e.target.value as Delivery)}
+                    >
+                      <option value="natural">Natural dialogue</option>
+                      <option value="even">Even delivery</option>
+                      <option value="pinned">Fixed voices</option>
+                    </select>
+                  </div>
+
+                  {!pinnedVoices && (
+                    <p className="text-[10px] leading-snug text-amber-200/90">
+                      In this mode a speaker name only steers the multi-speaker
+                      model, so a voice can drift, even to another gender.
+                      Choose Fixed voices to guarantee that each name sounds
+                      like itself.
+                    </p>
+                  )}
+                  {pinnedVoices && (
+                    <p className="text-[10px] leading-snug text-[var(--muted)]">
+                      {unpinnable.length ? (
+                        <span className="text-amber-200/90">
+                          {unpinnable.join(" and ")}{" "}
+                          {unpinnable.length === 1 ? "has" : "have"} no fixed
+                          voice — pick from: {PINNABLE.join(", ")}.
+                        </span>
+                      ) : (
+                        <>
+                          Each turn is rendered by a named voice rather than by
+                          the multi-speaker model, so the voice cannot drift.
+                          Speakers stop handing off to each other, so it sounds
+                          a little more read-aloud.
+                        </>
+                      )}
+                    </p>
+                  )}
+                  {sharedVoices.length > 0 && (
+                    <p className="text-[10px] leading-snug text-amber-200/90">
+                      {sharedVoices.join(" and ")}{" "}
+                      {sharedVoices.length === 1 ? "is used" : "are used"} by
+                      more than one speaker. Distinct voices make the transcript
+                      easier to follow.
+                    </p>
+                  )}
+                  {previewError && (
+                    <p className="text-[10px] leading-snug text-red-300">
+                      {previewError}
+                    </p>
+                  )}
+                  <MusicPicker
+                    value={music.podcast}
+                    onChange={setMusicFor("podcast")}
+                  />
+                  <NarrationOptions
+                    value={narration.podcast}
+                    onChange={editNarration("podcast")}
+                    defaults={defaults}
+                    onSaveDefault={onSaveNarration ? saveNarration : undefined}
+                  />
+                </>
+              }
+            />
+
+            <StudioCard
+              icon="🎬"
+              label="Whiteboard video"
+              testId="whiteboard-card"
+              busy={videoBusy}
+              blocked={blocked}
+              error={errors.video}
+              onGenerate={() => void generateVideo()}
+              status={
+                videoBusy
+                  ? "Writing the scene plan…"
+                  : "A hand draws your sources, narrated"
+              }
+              summary={`Voice: ${narrator}${extras("video")}`}
+              options={
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Voice
                     </span>
                     <SpeakerSelect
-                      value={speaker.voice}
+                      value={narrator}
                       disabled={false}
-                      onChange={(voice) => updateSpeaker(i, { voice })}
+                      onChange={setNarrator}
                       onPreview={preview}
                       previewing={previewing}
                       loading={previewLoading}
                     />
                   </div>
-                  <div className="grid grid-cols-1 gap-1.5">
-                    <input
-                      className="min-w-0 rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-faint focus:border-focus"
-                      placeholder={`Optional name, e.g. ${
-                        i === 0 ? "Host" : "Expert"
-                      }`}
-                      aria-label={`Speaker ${speaker.id} name`}
-                      value={speaker.name}
-                      onChange={(e) => updateSpeaker(i, { name: e.target.value })}
-                    />
-                    <input
-                      className="min-w-0 rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none placeholder:text-faint focus:border-focus"
-                      placeholder="Role/personality, e.g. skeptical economist"
-                      aria-label={`Speaker ${speaker.id} role`}
-                      value={speaker.role}
-                      onChange={(e) => updateSpeaker(i, { role: e.target.value })}
+                  {previewError && (
+                    <p className="text-[10px] leading-snug text-red-300">
+                      {previewError}
+                    </p>
+                  )}
+                  <MusicPicker
+                    value={music.video}
+                    onChange={setMusicFor("video")}
+                  />
+                  <WatermarkPicker
+                    value={watermark.video}
+                    onChange={setWatermarkFor("video")}
+                  />
+                  <NarrationOptions
+                    value={narration.video}
+                    onChange={editNarration("video")}
+                    defaults={defaults}
+                    onSaveDefault={onSaveNarration ? saveNarration : undefined}
+                  />
+                </>
+              }
+            />
+
+            <StudioCard
+              icon={STUDIO.motion.icon}
+              label="Motion explainer"
+              testId="motion-card"
+              busy={motionBusy}
+              blocked={blocked}
+              error={errors.motion}
+              onGenerate={() => void generateMotion()}
+              status={
+                motionBusy
+                  ? "Writing the story…"
+                  : "An animated 2D story, narrated"
+              }
+              summary={`Voice: ${motionNarrator} · length, tone, style and colors${extras("motion")}`}
+              options={
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Voice
+                    </span>
+                    <SpeakerSelect
+                      value={motionNarrator}
+                      disabled={false}
+                      onChange={setMotionNarrator}
+                      onPreview={preview}
+                      previewing={previewing}
+                      loading={previewLoading}
                     />
                   </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                Length
-              </span>
-              <select
-                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                aria-label="Audio length"
-                value={audioLen}
-                onChange={(e) => setAudioLen(e.target.value as AudioLength)}
-              >
-                {(Object.keys(AUDIO_LENGTHS) as AudioLength[]).map((k) => (
-                  <option key={k} value={k}>
-                    {AUDIO_LENGTHS[k].label} — about {AUDIO_LENGTHS[k].minutes} min
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                Speed
-              </span>
-              <select
-                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                aria-label="Speaking speed"
-                value={speed}
-                onChange={(e) => setSpeed(Number(e.target.value))}
-              >
-                {RATE_CHOICES.map((r) => (
-                  <option key={r} value={r}>
-                    {r === 1 ? "Normal speed" : `${r}× speed`}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                aria-label="Delivery"
-                value={delivery}
-                onChange={(e) => setDelivery(e.target.value as Delivery)}
-              >
-                <option value="natural">Natural dialogue</option>
-                <option value="even">Even delivery</option>
-                <option value="pinned">Fixed voices</option>
-              </select>
-            </div>
-
-            {!pinnedVoices && (
-              <p className="text-[10px] leading-snug text-amber-200/90">
-                In this mode a speaker name only steers the multi-speaker model, so a voice can drift, even to another
-                gender. Choose Fixed voices to guarantee that each name sounds like itself.
-              </p>
-            )}
-            {pinnedVoices && (
-              <p className="text-[10px] leading-snug text-[var(--muted)]">
-                {unpinnable.length ? (
-                  <span className="text-amber-200/90">
-                    {unpinnable.join(" and ")}{" "}
-                    {unpinnable.length === 1 ? "has" : "have"} no fixed voice — pick
-                    from: {PINNABLE.join(", ")}.
-                  </span>
-                ) : (
-                  <>
-                    Each turn is rendered by a named voice rather than by the
-                    multi-speaker model, so the voice cannot drift. Speakers stop
-                    handing off to each other, so it sounds a little more read-aloud.
-                  </>
-                )}
-              </p>
-            )}
-            {sharedVoices.length > 0 && (
-              <p className="text-[10px] leading-snug text-amber-200/90">
-                {sharedVoices.join(" and ")}{" "}
-                {sharedVoices.length === 1 ? "is used" : "are used"} by more
-                than one speaker. Distinct voices make the transcript easier to
-                follow.
-              </p>
-            )}
-            {previewError && (
-              <p className="text-[10px] leading-snug text-red-300">{previewError}</p>
-            )}
-            <MusicPicker value={music.podcast} onChange={setMusicFor("podcast")} />
-            <NarrationOptions
-              value={narration.podcast}
-              onChange={editNarration("podcast")}
-              defaults={defaults}
-              onSaveDefault={onSaveNarration ? saveNarration : undefined}
-            />
-            </>
-          }
-        />
-
-        <StudioCard
-          icon="🎬"
-          label="Whiteboard video"
-          testId="whiteboard-card"
-          busy={videoBusy}
-          blocked={blocked}
-          error={errors.video}
-          onGenerate={() => void generateVideo()}
-          status={videoBusy ? "Writing the scene plan…" : "A hand draws your sources, narrated"}
-          summary={`Voice: ${narrator}${extras("video")}`}
-          options={
-            <>
-            <div className="flex items-center gap-2">
-              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                Voice
-              </span>
-              <SpeakerSelect
-                value={narrator}
-                disabled={false}
-                onChange={setNarrator}
-                onPreview={preview}
-                previewing={previewing}
-                loading={previewLoading}
-              />
-            </div>
-            {previewError && (
-              <p className="text-[10px] leading-snug text-red-300">{previewError}</p>
-            )}
-            <MusicPicker value={music.video} onChange={setMusicFor("video")} />
-            <WatermarkPicker value={watermark.video} onChange={setWatermarkFor("video")} />
-            <NarrationOptions
-              value={narration.video}
-              onChange={editNarration("video")}
-              defaults={defaults}
-              onSaveDefault={onSaveNarration ? saveNarration : undefined}
-            />
-            </>
-          }
-        />
-
-        <StudioCard
-          icon={STUDIO.motion.icon}
-          label="Motion explainer"
-          testId="motion-card"
-          busy={motionBusy}
-          blocked={blocked}
-          error={errors.motion}
-          onGenerate={() => void generateMotion()}
-          status={motionBusy ? "Writing the story…" : "An animated 2D story, narrated"}
-          summary={`Voice: ${motionNarrator} · length, tone, style and colors${extras("motion")}`}
-          options={
-            <>
-            <div className="flex items-center gap-2">
-              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                Voice
-              </span>
-              <SpeakerSelect
-                value={motionNarrator}
-                disabled={false}
-                onChange={setMotionNarrator}
-                onPreview={preview}
-                previewing={previewing}
-                loading={previewLoading}
-              />
-            </div>
-            {previewError && (
-              <p className="text-[10px] leading-snug text-red-300">{previewError}</p>
-            )}
-            <MusicPicker value={music.motion} onChange={setMusicFor("motion")} />
-            <WatermarkPicker value={watermark.motion} onChange={setWatermarkFor("motion")} />
-            <NarrationOptions
-              value={narration.motion}
-              onChange={editNarration("motion")}
-              defaults={defaults}
-              onSaveDefault={onSaveNarration ? saveNarration : undefined}
-            />
-            <MotionCustomize value={motionForm} onChange={setMotionForm} />
-            </>
-          }
-        />
-
-        <StudioCard
-          icon={STUDIO.training.icon}
-          label="Training video"
-          testId="training-card"
-          busy={trainingBusy}
-          blocked={blocked}
-          error={errors.training}
-          onGenerate={() => void generateTraining()}
-          status={
-            trainingBusy
-              ? trainingMode === "composed"
-                ? "Writing the transcript and planning its visuals…"
-                : "Writing the transcript from your sources and notes…"
-              : "A presenter teaches your sources and notes. Nothing is billed until you render."
-          }
-          summary={`${AVATAR_PRESETS[trainer]?.label ?? trainer} · ${voiceNickname(trainerVoice)}${trainerStyle ? ` (${trainerStyle})` : ""} · about ${
-            AUDIO_LENGTHS[trainingLen].minutes
-          } min · ${trainingMode === "composed" ? "with slides" : "presenter only"}${extras(
-            "training"
-          )}`}
-          options={
-            <>
-            <div className="flex items-center gap-2">
-              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                Trainer
-              </span>
-              <select
-                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                aria-label="Trainer"
-                value={trainer}
-                onChange={(e) => {
-                  setTrainer(e.target.value);
-                  setTrainerVoice(AVATAR_PRESETS[e.target.value]?.voice ?? trainerVoice);
-                  setTrainerStyle(undefined);
-                }}
-              >
-                {Object.entries(AVATAR_PRESETS).map(([key, p]) => (
-                  <option key={key} value={key}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                Voice
-              </span>
-              <VoicePicker
-                voiceLabelText="Presenter voice"
-                voice={trainerVoice}
-                style={trainerStyle}
-                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                onChange={(voice, style) => {
-                  setTrainerVoice(voice);
-                  setTrainerStyle(style);
-                }}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                Length
-              </span>
-              <select
-                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                aria-label="Training video length"
-                value={trainingLen}
-                onChange={(e) => setTrainingLen(e.target.value as AudioLength)}
-              >
-                {(Object.keys(AUDIO_LENGTHS) as AudioLength[]).map((k) => (
-                  <option key={k} value={k}>
-                    {AUDIO_LENGTHS[k].label} — about {AUDIO_LENGTHS[k].minutes} min
-                  </option>
-                ))}
-              </select>
-              <select
-                aria-label="Background"
-                className="w-28 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                value={trainingBg}
-                onChange={(e) => setTrainingBg(e.target.value)}
-              >
-                {BACKGROUNDS.map((b) => (
-                  <option key={b.value} value={b.value}>
-                    {b.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                Style
-              </span>
-              <select
-                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                aria-label="Training video style"
-                value={trainingMode}
-                onChange={(e) => setTrainingMode(e.target.value as "composed" | "presenter")}
-              >
-                <option value="composed">Presenter with slides and visuals</option>
-                <option value="presenter">Presenter only</option>
-              </select>
-              <select
-                aria-label="Visual theme"
-                className="w-28 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:opacity-50"
-                value={trainingPalette}
-                disabled={trainingMode !== "composed"}
-                onChange={(e) => setTrainingPalette(e.target.value as keyof typeof MOTION_PALETTES)}
-              >
-                {(Object.keys(MOTION_PALETTES) as (keyof typeof MOTION_PALETTES)[]).map((k) => (
-                  <option key={k} value={k}>
-                    {MOTION_PALETTES[k].label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <MusicPicker value={music.training} onChange={setMusicFor("training")} />
-            <WatermarkPicker value={watermark.training} onChange={setWatermarkFor("training")} />
-            <NarrationOptions
-              value={narration.training}
-              onChange={editNarration("training")}
-              defaults={defaults}
-              onSaveDefault={onSaveNarration ? saveNarration : undefined}
-            />
-            <p className="text-[10px] leading-snug text-[var(--muted)]">
-              Uses the focus, selected sources and all notes.
-            </p>
-            </>
-          }
-        />
-        </div>
-
-        {STUDIO_SECTIONS.map((section) => (
-        <section key={section.key} className="mt-4" aria-labelledby={`studio-${section.key}`}>
-        <h3
-          id={`studio-${section.key}`}
-          className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase"
-        >
-          {section.label}
-        </h3>
-        <div className="grid grid-cols-2 gap-2">
-          {section.types.map((type) => {
-            const s = STUDIO[type];
-            const isBusy = running.has(type);
-            const status = isBusy ? "Generating…" : s.blurb;
-
-            if (type === "slides") {
-              return (
-                <div key={type} className="col-span-2">
-                  <StudioCard
-                    icon={s.icon}
-                    label={s.label}
-                    busy={isBusy}
-                    blocked={blocked}
-                    error={errors[type]}
-                    onGenerate={() => void generate(type)}
-                    status={status}
-                    summary={`${SLIDE_THEMES[slideTheme].label} theme · ${capitalize(slideLength)} length`}
-                    options={
-                      <div className="flex items-center gap-2">
-                        <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                          Theme
-                        </span>
-                        <select
-                          aria-label="Slide theme"
-                          className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                          value={slideTheme}
-                          onChange={(e) => setSlideTheme(e.target.value as SlideTheme)}
-                        >
-                          {(Object.keys(SLIDE_THEMES) as SlideTheme[]).map((k) => (
-                            <option key={k} value={k}>
-                              {SLIDE_THEMES[k].label}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                          Length
-                        </span>
-                        <select
-                          aria-label="Deck length"
-                          className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                          value={slideLength}
-                          onChange={(e) => setSlideLength(e.target.value as StudyLength)}
-                        >
-                          <option value="short">Short</option>
-                          <option value="standard">Standard</option>
-                          <option value="long">Long</option>
-                        </select>
-                      </div>
-                    }
+                  {previewError && (
+                    <p className="text-[10px] leading-snug text-red-300">
+                      {previewError}
+                    </p>
+                  )}
+                  <MusicPicker
+                    value={music.motion}
+                    onChange={setMusicFor("motion")}
                   />
-                </div>
-              );
-            }
+                  <WatermarkPicker
+                    value={watermark.motion}
+                    onChange={setWatermarkFor("motion")}
+                  />
+                  <NarrationOptions
+                    value={narration.motion}
+                    onChange={editNarration("motion")}
+                    defaults={defaults}
+                    onSaveDefault={onSaveNarration ? saveNarration : undefined}
+                  />
+                  <MotionCustomize
+                    value={motionForm}
+                    onChange={setMotionForm}
+                  />
+                </>
+              }
+            />
 
-            // Study aids carry their own level and length controls for the
-            // same reason the infographic carries its style picker: settings
-            // parked elsewhere in the panel read as global and get missed.
-            if (s.study) {
-              return (
-                <div key={type} className="col-span-2">
-                  <StudioCard
-                    icon={s.icon}
-                    label={s.label}
-                    busy={isBusy}
-                    blocked={blocked}
-                    error={errors[type]}
-                    onGenerate={() => void generate(type)}
-                    status={status}
-                    summary={`${capitalize(difficulty)} level · ${capitalize(length)} length`}
-                    options={
-                      <div className="flex items-center gap-2">
-                        <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                          Level
-                        </span>
-                        <select
-                          className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                          aria-label="Difficulty level"
-                          value={difficulty}
-                          onChange={(e) =>
-                            setDifficulty(e.target.value as StudyDifficulty)
+            <StudioCard
+              icon={STUDIO.training.icon}
+              label="Training video"
+              testId="training-card"
+              busy={trainingBusy}
+              blocked={blocked}
+              error={errors.training}
+              onGenerate={() => void generateTraining()}
+              status={
+                trainingBusy
+                  ? trainingMode === "composed"
+                    ? "Writing the transcript and planning its visuals…"
+                    : "Writing the transcript from your sources and notes…"
+                  : "A presenter teaches your sources and notes. Nothing is billed until you render."
+              }
+              summary={`${AVATAR_PRESETS[trainer]?.label ?? trainer} · ${voiceNickname(trainerVoice)}${trainerStyle ? ` (${trainerStyle})` : ""} · about ${
+                AUDIO_LENGTHS[trainingLen].minutes
+              } min · ${trainingMode === "composed" ? "with slides" : "presenter only"}${extras(
+                "training",
+              )}`}
+              options={
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Trainer
+                    </span>
+                    <select
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                      aria-label="Trainer"
+                      value={trainer}
+                      onChange={(e) => {
+                        setTrainer(e.target.value);
+                        setTrainerVoice(
+                          AVATAR_PRESETS[e.target.value]?.voice ?? trainerVoice,
+                        );
+                        setTrainerStyle(undefined);
+                      }}
+                    >
+                      {[false, true].map((photo) => (
+                        <optgroup
+                          key={String(photo)}
+                          label={photo ? "Talking heads" : "Full body"}
+                        >
+                          {Object.entries(AVATAR_PRESETS)
+                            .filter(([, p]) => !!p.photo === photo)
+                            .map(([key, p]) => (
+                              <option key={key} value={key}>
+                                {p.label}
+                              </option>
+                            ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Voice
+                    </span>
+                    <VoicePicker
+                      voiceLabelText="Presenter voice"
+                      voice={trainerVoice}
+                      style={trainerStyle}
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                      onChange={(voice, style) => {
+                        setTrainerVoice(voice);
+                        setTrainerStyle(style);
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Length
+                    </span>
+                    <select
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                      aria-label="Training video length"
+                      value={trainingLen}
+                      onChange={(e) =>
+                        setTrainingLen(e.target.value as AudioLength)
+                      }
+                    >
+                      {(Object.keys(AUDIO_LENGTHS) as AudioLength[]).map(
+                        (k) => (
+                          <option key={k} value={k}>
+                            {AUDIO_LENGTHS[k].label} — about{" "}
+                            {AUDIO_LENGTHS[k].minutes} min
+                          </option>
+                        ),
+                      )}
+                    </select>
+                    <select
+                      aria-label="Background"
+                      className="w-28 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                      value={trainingBg}
+                      onChange={(e) => setTrainingBg(e.target.value)}
+                    >
+                      {BACKGROUNDS.map((b) => (
+                        <option key={b.value} value={b.value}>
+                          {b.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Style
+                    </span>
+                    <select
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                      aria-label="Training video style"
+                      value={trainingMode}
+                      onChange={(e) =>
+                        setTrainingMode(
+                          e.target.value as "composed" | "presenter",
+                        )
+                      }
+                    >
+                      <option value="composed">
+                        Presenter with slides and visuals
+                      </option>
+                      <option value="presenter">Presenter only</option>
+                    </select>
+                    <select
+                      aria-label="Visual theme"
+                      className="w-28 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:opacity-50"
+                      value={trainingPalette}
+                      disabled={trainingMode !== "composed"}
+                      onChange={(e) =>
+                        setTrainingPalette(
+                          e.target.value as keyof typeof MOTION_PALETTES,
+                        )
+                      }
+                    >
+                      {(
+                        Object.keys(
+                          MOTION_PALETTES,
+                        ) as (keyof typeof MOTION_PALETTES)[]
+                      ).map((k) => (
+                        <option key={k} value={k}>
+                          {MOTION_PALETTES[k].label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <MusicPicker
+                    value={music.training}
+                    onChange={setMusicFor("training")}
+                  />
+                  <WatermarkPicker
+                    value={watermark.training}
+                    onChange={setWatermarkFor("training")}
+                  />
+                  <NarrationOptions
+                    value={narration.training}
+                    onChange={editNarration("training")}
+                    defaults={defaults}
+                    onSaveDefault={onSaveNarration ? saveNarration : undefined}
+                  />
+                  <p className="text-[10px] leading-snug text-[var(--muted)]">
+                    Uses the focus, selected sources and all notes.
+                  </p>
+                </>
+              }
+            />
+          </div>
+
+          {STUDIO_SECTIONS.map((section) => (
+            <section
+              key={section.key}
+              className="mt-4"
+              aria-labelledby={`studio-${section.key}`}
+            >
+              <h3
+                id={`studio-${section.key}`}
+                className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase"
+              >
+                {section.label}
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                {section.types.map((type) => {
+                  const s = STUDIO[type];
+                  const isBusy = running.has(type);
+                  const status = isBusy ? "Generating…" : s.blurb;
+
+                  if (type === "slides") {
+                    return (
+                      <div key={type} className="col-span-2">
+                        <StudioCard
+                          icon={s.icon}
+                          label={s.label}
+                          busy={isBusy}
+                          blocked={blocked}
+                          error={errors[type]}
+                          onGenerate={() => void generate(type)}
+                          status={status}
+                          summary={`${SLIDE_THEMES[slideTheme].label} theme · ${capitalize(slideLength)} length`}
+                          options={
+                            <div className="flex items-center gap-2">
+                              <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                                Theme
+                              </span>
+                              <select
+                                aria-label="Slide theme"
+                                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                                value={slideTheme}
+                                onChange={(e) =>
+                                  setSlideTheme(e.target.value as SlideTheme)
+                                }
+                              >
+                                {(
+                                  Object.keys(SLIDE_THEMES) as SlideTheme[]
+                                ).map((k) => (
+                                  <option key={k} value={k}>
+                                    {SLIDE_THEMES[k].label}
+                                  </option>
+                                ))}
+                              </select>
+                              <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                                Length
+                              </span>
+                              <select
+                                aria-label="Deck length"
+                                className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                                value={slideLength}
+                                onChange={(e) =>
+                                  setSlideLength(e.target.value as StudyLength)
+                                }
+                              >
+                                <option value="short">Short</option>
+                                <option value="standard">Standard</option>
+                                <option value="long">Long</option>
+                              </select>
+                            </div>
+                          }
+                        />
+                      </div>
+                    );
+                  }
+
+                  // Study aids carry their own level and length controls for the
+                  // same reason the infographic carries its style picker: settings
+                  // parked elsewhere in the panel read as global and get missed.
+                  if (s.study) {
+                    return (
+                      <div key={type} className="col-span-2">
+                        <StudioCard
+                          icon={s.icon}
+                          label={s.label}
+                          busy={isBusy}
+                          blocked={blocked}
+                          error={errors[type]}
+                          onGenerate={() => void generate(type)}
+                          status={status}
+                          summary={`${capitalize(difficulty)} level · ${capitalize(length)} length`}
+                          options={
+                            <div className="flex items-center gap-2">
+                              <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                                Level
+                              </span>
+                              <select
+                                className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                                aria-label="Difficulty level"
+                                value={difficulty}
+                                onChange={(e) =>
+                                  setDifficulty(
+                                    e.target.value as StudyDifficulty,
+                                  )
+                                }
+                              >
+                                <option value="easy">Easy</option>
+                                <option value="medium">Medium</option>
+                                <option value="hard">Hard</option>
+                              </select>
+                              <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                                Length
+                              </span>
+                              <select
+                                className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                                aria-label="Length"
+                                value={length}
+                                onChange={(e) =>
+                                  setLength(e.target.value as StudyLength)
+                                }
+                              >
+                                <option value="short">Short</option>
+                                <option value="standard">Standard</option>
+                                <option value="long">Long</option>
+                              </select>
+                            </div>
+                          }
+                        />
+                      </div>
+                    );
+                  }
+
+                  // The infographic has many styles, so its card carries its own
+                  // chooser — with a live example of the chosen style — rather than
+                  // a picker elsewhere in the panel that reads as a global setting.
+                  if (type === "infographic") {
+                    const chosen = INFOGRAPHIC_STYLES[style];
+                    const segment = (active: boolean) =>
+                      `px-2 py-1 text-[11px] transition ${
+                        active
+                          ? "bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] text-[var(--fg)]"
+                          : "text-[var(--muted)] hover:text-[var(--fg)]"
+                      }`;
+                    return (
+                      <div key={type} className="col-span-2">
+                        <StudioCard
+                          testId="infographic-card"
+                          icon={s.icon}
+                          label={s.label}
+                          busy={isBusy}
+                          blocked={blocked}
+                          error={errors[type]}
+                          onGenerate={() => void generate(type)}
+                          status={
+                            isBusy
+                              ? isImageStyle(style)
+                                ? "Writing the brief, then drawing it (about 2 minutes)…"
+                                : "Generating…"
+                              : s.blurb
+                          }
+                          summary={`${capitalize(orientation)} · ${capitalize(detail)} detail${
+                            instructions.trim() ? " · description added" : ""
+                          }`}
+                          options={
+                            <>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--muted)] transition hover:border-line-hover hover:text-[var(--fg)] disabled:opacity-40"
+                                  disabled={blocked || suggesting}
+                                  onClick={() => void suggestStyles()}
+                                >
+                                  {suggesting
+                                    ? "Reading your sources…"
+                                    : "✨ Suggest styles for my sources"}
+                                </button>
+                                {suggestions?.map((sg) => (
+                                  <button
+                                    key={sg.style}
+                                    type="button"
+                                    title={sg.reason}
+                                    onClick={() => setStyle(sg.style)}
+                                    aria-pressed={style === sg.style}
+                                    className={`rounded-full border px-2 py-0.5 text-[10px] transition ${
+                                      style === sg.style
+                                        ? "border-[var(--accent)] text-[var(--fg)]"
+                                        : "border-[var(--border)] text-[var(--muted)] hover:border-line-hover hover:text-[var(--fg)]"
+                                    }`}
+                                  >
+                                    {INFOGRAPHIC_STYLES[sg.style].icon}{" "}
+                                    {INFOGRAPHIC_STYLES[sg.style].label}
+                                  </button>
+                                ))}
+                              </div>
+                              {suggestError && (
+                                <p className="text-[10px] text-red-400">
+                                  {suggestError}
+                                </p>
+                              )}
+                              {suggestions && suggestions.length > 0 && (
+                                <p className="text-[10px] leading-snug text-[var(--muted)]">
+                                  {suggestions.find((sg) => sg.style === style)
+                                    ?.reason ??
+                                    "Hover a suggestion to see why it fits."}
+                                </p>
+                              )}
+
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                                  Shape
+                                </span>
+                                <div
+                                  role="radiogroup"
+                                  aria-label="Orientation"
+                                  className="flex overflow-hidden rounded-md border border-[var(--border)]"
+                                >
+                                  {ORIENTATIONS.map((o) => (
+                                    <button
+                                      key={o.key}
+                                      type="button"
+                                      role="radio"
+                                      aria-checked={orientation === o.key}
+                                      title={o.label}
+                                      onClick={() => setOrientation(o.key)}
+                                      className={segment(orientation === o.key)}
+                                    >
+                                      <span aria-hidden>{o.icon}</span>{" "}
+                                      {o.label}
+                                    </button>
+                                  ))}
+                                </div>
+                                <label className="flex min-w-[9rem] flex-1 items-center gap-2">
+                                  <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                                    Detail
+                                  </span>
+                                  <select
+                                    aria-label="Level of detail"
+                                    className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                                    value={detail}
+                                    onChange={(e) =>
+                                      setDetail(
+                                        e.target.value as InfographicDetail,
+                                      )
+                                    }
+                                  >
+                                    {DETAIL_LEVELS.map((d) => (
+                                      <option key={d.key} value={d.key}>
+                                        {d.label} — {d.blurb}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              </div>
+
+                              <div>
+                                <button
+                                  type="button"
+                                  aria-expanded={describeOpen}
+                                  onClick={() => setDescribeOpen((v) => !v)}
+                                  className="flex w-full items-center gap-1.5 text-left text-[10px] tracking-wide text-[var(--muted)] uppercase hover:text-[var(--fg)]"
+                                >
+                                  <span aria-hidden>
+                                    {describeOpen ? "▾" : "▸"}
+                                  </span>
+                                  Describe the infographic you want
+                                  {instructions.trim() && !describeOpen && (
+                                    <span className="ml-auto normal-case">
+                                      · added
+                                    </span>
+                                  )}
+                                </button>
+                                {describeOpen && (
+                                  <>
+                                    <textarea
+                                      aria-label="Describe the infographic you want"
+                                      rows={3}
+                                      maxLength={MAX_INFOGRAPHIC_INSTRUCTIONS}
+                                      value={instructions}
+                                      onChange={(e) =>
+                                        setInstructions(e.target.value)
+                                      }
+                                      placeholder="e.g. For new volunteers. Focus on costs and the weekly schedule. Keep the tone upbeat."
+                                      className="mt-1.5 w-full resize-y rounded-md border border-[var(--border)] bg-well px-2 py-1.5 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                                    />
+                                    <p className="mt-0.5 text-right text-[10px] text-[var(--muted)]">
+                                      {instructions.length}/
+                                      {MAX_INFOGRAPHIC_INSTRUCTIONS} · steers
+                                      focus and tone; facts still come only from
+                                      your sources
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+                            </>
                           }
                         >
-                          <option value="easy">Easy</option>
-                          <option value="medium">Medium</option>
-                          <option value="hard">Hard</option>
-                        </select>
-                        <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                          Length
-                        </span>
-                        <select
-                          className="shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                          aria-label="Length"
-                          value={length}
-                          onChange={(e) => setLength(e.target.value as StudyLength)}
-                        >
-                          <option value="short">Short</option>
-                          <option value="standard">Standard</option>
-                          <option value="long">Long</option>
-                        </select>
-                      </div>
-                    }
-                  />
-                </div>
-              );
-            }
-
-            // The infographic has many styles, so its card carries its own
-            // chooser — with a live example of the chosen style — rather than
-            // a picker elsewhere in the panel that reads as a global setting.
-            if (type === "infographic") {
-              const chosen = INFOGRAPHIC_STYLES[style];
-              const segment = (active: boolean) =>
-                `px-2 py-1 text-[11px] transition ${
-                  active
-                    ? "bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] text-[var(--fg)]"
-                    : "text-[var(--muted)] hover:text-[var(--fg)]"
-                }`;
-              return (
-                <div key={type} className="col-span-2">
-                  <StudioCard
-                    testId="infographic-card"
-                    icon={s.icon}
-                    label={s.label}
-                    busy={isBusy}
-                    blocked={blocked}
-                    error={errors[type]}
-                    onGenerate={() => void generate(type)}
-                    status={
-                      isBusy
-                        ? isImageStyle(style)
-                          ? "Writing the brief, then drawing it (about 2 minutes)…"
-                          : "Generating…"
-                        : s.blurb
-                    }
-                    summary={`${capitalize(orientation)} · ${capitalize(detail)} detail${
-                      instructions.trim() ? " · description added" : ""
-                    }`}
-                    options={
-                      <>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <button
-                            type="button"
-                            className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--muted)] transition hover:border-line-hover hover:text-[var(--fg)] disabled:opacity-40"
-                            disabled={blocked || suggesting}
-                            onClick={() => void suggestStyles()}
-                          >
-                            {suggesting ? "Reading your sources…" : "✨ Suggest styles for my sources"}
-                          </button>
-                          {suggestions?.map((sg) => (
+                          {/* The style is the main choice, so it stays in view. */}
+                          <div className="border-t border-[var(--border)] px-3 py-2">
                             <button
-                              key={sg.style}
                               type="button"
-                              title={sg.reason}
-                              onClick={() => setStyle(sg.style)}
-                              aria-pressed={style === sg.style}
-                              className={`rounded-full border px-2 py-0.5 text-[10px] transition ${
-                                style === sg.style
-                                  ? "border-[var(--accent)] text-[var(--fg)]"
-                                  : "border-[var(--border)] text-[var(--muted)] hover:border-line-hover hover:text-[var(--fg)]"
-                              }`}
+                              onClick={() => setGalleryOpen(true)}
+                              aria-label={`Style: ${chosen.label}. Browse all ${STYLE_ORDER.length} styles with examples`}
+                              className="group flex w-full items-center gap-2.5 rounded-md border border-[var(--border)] bg-well p-1.5 text-left transition hover:border-line-hover"
                             >
-                              {INFOGRAPHIC_STYLES[sg.style].icon} {INFOGRAPHIC_STYLES[sg.style].label}
+                              <span className="w-[5.5rem] shrink-0 overflow-hidden rounded border border-[var(--border)]">
+                                <ScaledExample style={style} crop />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-[13px] font-medium">
+                                  {chosen.icon} {chosen.label}
+                                </span>
+                                <span className="block text-[10px] leading-snug text-[var(--muted)]">
+                                  {STYLE_META[style].bestFor}
+                                </span>
+                                <span className="mt-0.5 block text-[10px] text-[var(--accent)] group-hover:underline">
+                                  See examples of all {STYLE_ORDER.length}{" "}
+                                  styles →
+                                </span>
+                              </span>
                             </button>
-                          ))}
-                        </div>
-                        {suggestError && (
-                          <p className="text-[10px] text-red-400">{suggestError}</p>
-                        )}
-                        {suggestions && suggestions.length > 0 && (
-                          <p className="text-[10px] leading-snug text-[var(--muted)]">
-                            {suggestions.find((sg) => sg.style === style)?.reason ??
-                              "Hover a suggestion to see why it fits."}
-                          </p>
-                        )}
-
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                            Shape
-                          </span>
-                          <div
-                            role="radiogroup"
-                            aria-label="Orientation"
-                            className="flex overflow-hidden rounded-md border border-[var(--border)]"
-                          >
-                            {ORIENTATIONS.map((o) => (
-                              <button
-                                key={o.key}
-                                type="button"
-                                role="radio"
-                                aria-checked={orientation === o.key}
-                                title={o.label}
-                                onClick={() => setOrientation(o.key)}
-                                className={segment(orientation === o.key)}
-                              >
-                                <span aria-hidden>{o.icon}</span> {o.label}
-                              </button>
-                            ))}
                           </div>
-                          <label className="flex min-w-[9rem] flex-1 items-center gap-2">
-                            <span className="shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-                              Detail
-                            </span>
-                            <select
-                              aria-label="Level of detail"
-                              className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                              value={detail}
-                              onChange={(e) => setDetail(e.target.value as InfographicDetail)}
-                            >
-                              {DETAIL_LEVELS.map((d) => (
-                                <option key={d.key} value={d.key}>
-                                  {d.label} — {d.blurb}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        </div>
+                        </StudioCard>
 
-                        <div>
-                          <button
-                            type="button"
-                            aria-expanded={describeOpen}
-                            onClick={() => setDescribeOpen((v) => !v)}
-                            className="flex w-full items-center gap-1.5 text-left text-[10px] tracking-wide text-[var(--muted)] uppercase hover:text-[var(--fg)]"
-                          >
-                            <span aria-hidden>{describeOpen ? "▾" : "▸"}</span>
-                            Describe the infographic you want
-                            {instructions.trim() && !describeOpen && (
-                              <span className="ml-auto normal-case">· added</span>
-                            )}
-                          </button>
-                          {describeOpen && (
-                            <>
-                              <textarea
-                                aria-label="Describe the infographic you want"
-                                rows={3}
-                                maxLength={MAX_INFOGRAPHIC_INSTRUCTIONS}
-                                value={instructions}
-                                onChange={(e) => setInstructions(e.target.value)}
-                                placeholder="e.g. For new volunteers. Focus on costs and the weekly schedule. Keep the tone upbeat."
-                                className="mt-1.5 w-full resize-y rounded-md border border-[var(--border)] bg-well px-2 py-1.5 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-                              />
-                              <p className="mt-0.5 text-right text-[10px] text-[var(--muted)]">
-                                {instructions.length}/{MAX_INFOGRAPHIC_INSTRUCTIONS} · steers focus and
-                                tone; facts still come only from your sources
-                              </p>
-                            </>
-                          )}
-                        </div>
-                      </>
-                    }
-                  >
-                    {/* The style is the main choice, so it stays in view. */}
-                    <div className="border-t border-[var(--border)] px-3 py-2">
+                        {galleryOpen && (
+                          <InfographicGallery
+                            value={style}
+                            suggestions={suggestions ?? undefined}
+                            canGenerate={!blocked && !isBusy}
+                            onPick={setStyle}
+                            onGenerate={(picked) =>
+                              void generate("infographic", { style: picked })
+                            }
+                            onClose={() => setGalleryOpen(false)}
+                          />
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={type} className="flex flex-col">
                       <button
-                        type="button"
-                        onClick={() => setGalleryOpen(true)}
-                        aria-label={`Style: ${chosen.label}. Browse all ${STYLE_ORDER.length} styles with examples`}
-                        className="group flex w-full items-center gap-2.5 rounded-md border border-[var(--border)] bg-well p-1.5 text-left transition hover:border-line-hover"
+                        disabled={blocked || isBusy}
+                        onClick={() => void generate(type)}
+                        aria-label={`Generate ${s.label}`}
+                        className={`card group relative flex flex-1 flex-col overflow-hidden px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                          isBusy
+                            ? "shimmer border-[var(--accent)]"
+                            : "hover:border-line-hover"
+                        }`}
                       >
-                        <span className="w-[5.5rem] shrink-0 overflow-hidden rounded border border-[var(--border)]">
-                          <ScaledExample style={style} crop />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-medium">
-                            {chosen.icon} {chosen.label}
-                          </span>
-                          <span className="block text-[10px] leading-snug text-[var(--muted)]">
-                            {STYLE_META[style].bestFor}
-                          </span>
-                          <span className="mt-0.5 block text-[10px] text-[var(--accent)] group-hover:underline">
-                            See examples of all {STYLE_ORDER.length} styles →
-                          </span>
-                        </span>
+                        <div aria-hidden className="mb-1.5 text-lg">
+                          {s.icon}
+                        </div>
+                        <div className="text-[13px] font-medium">{s.label}</div>
+                        <div className="mt-0.5 flex-1 text-[10px] leading-snug text-[var(--muted)]">
+                          {status}
+                        </div>
+                        {!isBusy && (
+                          <div className="mt-2 text-[10px] font-medium text-[var(--muted)] transition group-hover:text-[var(--fg)]">
+                            Generate →
+                          </div>
+                        )}
                       </button>
+                      {errors[type] && (
+                        <p
+                          role="alert"
+                          className="mt-1 px-1 text-[10px] leading-snug text-red-300"
+                        >
+                          {errors[type]}
+                        </p>
+                      )}
                     </div>
-                  </StudioCard>
-
-                  {galleryOpen && (
-                    <InfographicGallery
-                      value={style}
-                      suggestions={suggestions ?? undefined}
-                      canGenerate={!blocked && !isBusy}
-                      onPick={setStyle}
-                      onGenerate={(picked) => void generate("infographic", { style: picked })}
-                      onClose={() => setGalleryOpen(false)}
-                    />
-                  )}
-                </div>
-              );
-            }
-
-            return (
-              <div key={type} className="flex flex-col">
-                <button
-                  disabled={blocked || isBusy}
-                  onClick={() => void generate(type)}
-                  aria-label={`Generate ${s.label}`}
-                  className={`card group relative flex flex-1 flex-col overflow-hidden px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                    isBusy ? "shimmer border-[var(--accent)]" : "hover:border-line-hover"
-                  }`}
-                >
-                  <div aria-hidden className="mb-1.5 text-lg">{s.icon}</div>
-                  <div className="text-[13px] font-medium">{s.label}</div>
-                  <div className="mt-0.5 flex-1 text-[10px] leading-snug text-[var(--muted)]">
-                    {status}
-                  </div>
-                  {!isBusy && (
-                    <div className="mt-2 text-[10px] font-medium text-[var(--muted)] transition group-hover:text-[var(--fg)]">
-                      Generate →
-                    </div>
-                  )}
-                </button>
-                {errors[type] && (
-                  <p role="alert" className="mt-1 px-1 text-[10px] leading-snug text-red-300">
-                    {errors[type]}
-                  </p>
-                )}
+                  );
+                })}
               </div>
-            );
-          })}
+            </section>
+          ))}
         </div>
-        </section>
-        ))}
-      </div>
       )}
     </aside>
   );

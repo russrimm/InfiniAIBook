@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AVATAR_PRESETS } from "@/lib/avatars";
+import { AVATAR_PRESETS, avatarPicture } from "@/lib/avatars";
 import { HD_ALTERNATES, hdCandidates, PINNED_VOICES } from "@/lib/voices";
 import type { CatalogVoice } from "@/lib/voicecatalog";
 import { loadVoices } from "./VoicePicker";
@@ -27,6 +27,10 @@ export default function PresenterGallery({
   const { dialogRef, backdropProps } = useDialog(onClose);
   const [playing, setPlaying] = useState<string | null>(null);
   const [all, setAll] = useState(false);
+  const [group, setGroup] = useState<"body" | "heads">(
+    AVATAR_PRESETS[current]?.photo ? "heads" : "body",
+  );
+  const shown = entries.filter(([, p]) => !!p.photo === (group === "heads"));
   const [failed, setFailed] = useState<string | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
   const run = useRef(0);
@@ -106,9 +110,9 @@ export default function PresenterGallery({
     stop();
     const token = run.current;
     setAll(true);
-    for (const [key] of entries) {
+    for (const [key] of shown) {
       // A voice shared by several styles is heard once.
-      const first = entries.find(
+      const first = shown.find(
         ([, p]) => p.voice === AVATAR_PRESETS[key].voice,
       )?.[0];
       if (first !== key) continue;
@@ -161,8 +165,34 @@ export default function PresenterGallery({
           </button>
         </header>
 
+        <div
+          role="tablist"
+          aria-label="Presenter type"
+          className="flex shrink-0 gap-2 border-b border-[var(--border)] px-5 py-2"
+        >
+          {(
+            [
+              ["body", "Full body"],
+              ["heads", "Talking heads"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={group === id}
+              className={`btn !px-3 !py-1 !text-[11px] ${group === id ? "btn-primary" : ""}`}
+              onClick={() => {
+                stop();
+                setGroup(id);
+              }}
+            >
+              {label} ·{" "}
+              {entries.filter(([, p]) => !!p.photo === (id === "heads")).length}
+            </button>
+          ))}
+        </div>
         <ul className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto p-4 sm:grid-cols-3">
-          {entries.map(([key, p]) => {
+          {shown.map(([key, p]) => {
             const selected = key === current;
             const hds = hdOptions(key);
             return (
@@ -176,7 +206,7 @@ export default function PresenterGallery({
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`/avatars/${key}.png`}
+                  src={avatarPicture(key)}
                   alt={`${p.label} avatar`}
                   className="h-40 w-full rounded-lg bg-white object-cover object-top"
                 />

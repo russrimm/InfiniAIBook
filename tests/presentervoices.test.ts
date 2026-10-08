@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AVATAR_PRESETS } from "@/lib/avatars";
+import { AVATAR_PRESETS, avatarPicture } from "@/lib/avatars";
 import {
   HD_ALTERNATES,
   hdCandidates,
@@ -27,7 +27,7 @@ describe("presenter voices", () => {
   it("has a picture for every presenter", async () => {
     const { existsSync } = await import("node:fs");
     for (const key of Object.keys(AVATAR_PRESETS)) {
-      expect(existsSync(`public/avatars/${key}.png`), key).toBe(true);
+      expect(existsSync(`public${avatarPicture(key)}`), key).toBe(true);
     }
   });
 });
@@ -60,5 +60,13 @@ describe("HD alternates", () => {
   it("does not pin Flash voices that are limited to a few regions", () => {
     for (const id of Object.values(PINNED_VOICES))
       expect(id).not.toContain("DragonHDFlash");
+  });
+});
+
+describe("presenter roster", () => {
+  it("lists every standard avatar: 21 full-body and 30 talking heads", () => {
+    const all = Object.values(AVATAR_PRESETS);
+    expect(all.filter((p) => !p.photo)).toHaveLength(21);
+    expect(all.filter((p) => p.photo)).toHaveLength(30);
   });
 });
