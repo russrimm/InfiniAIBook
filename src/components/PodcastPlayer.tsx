@@ -24,10 +24,10 @@ function clock(sec: number): string {
 
 const SPEEDS = [1, 1.25, 1.5, 2];
 const SPEAKER_COLORS: Record<PodcastSpeakerId, string> = {
-  a: "text-[#8f9dff]",
-  b: "text-[#6ee7b7]",
-  c: "text-[#fbbf24]",
-  d: "text-[#f0abfc]",
+  a: "text-[var(--speaker-a)]",
+  b: "text-[var(--speaker-b)]",
+  c: "text-[var(--speaker-c)]",
+  d: "text-[var(--speaker-d)]",
 };
 
 function speakerLabel(content: PodcastContent, id: PodcastSpeakerId): string {
@@ -253,7 +253,7 @@ function Player({ content }: { content: PodcastContent & { audioUrl: string } })
               key={i}
               ref={isActive ? activeRef : null}
               className={`flex cursor-pointer gap-3 rounded-xl px-3 py-2.5 transition ${
-                isActive ? "bg-selected" : "hover:bg-[#151a21]"
+                isActive ? "bg-selected" : "hover:bg-row"
               }`}
               onClick={() => seek(t.at)}
             >

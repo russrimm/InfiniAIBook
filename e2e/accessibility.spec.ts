@@ -75,13 +75,11 @@ test("closing a note with unsaved text asks first", async ({ page }) => {
   await page.getByRole("button", { name: "＋ Note" }).click();
   await page.getByLabel("Note content (Markdown)").fill("Half a thought");
 
-  let asked = "";
-  page.once("dialog", async (d) => {
-    asked = d.message();
-    await d.dismiss();
-  });
   await page.keyboard.press("Escape");
-  await expect.poll(() => asked).toContain("unsaved");
+  const confirm = page.getByRole("alertdialog");
+  await expect(confirm).toContainText(/unsaved|discard/i);
+  await confirm.getByRole("button", { name: "Keep editing" }).click();
+  await expect(confirm).toBeHidden();
   await expect(page.getByRole("dialog", { name: "New note" })).toBeVisible();
 });
 
@@ -94,4 +92,17 @@ test("login and search pages label their fields", async ({ page }) => {
   // With no password configured, the sign-in page forwards instead of locking.
   await page.goto("/login?next=/search");
   await page.waitForURL((u) => u.pathname === "/search");
+});
+test("Escape dismisses the inline add-source forms and returns focus", async ({ page }) => {
+  const id = await createNotebook(page, "Inline forms notebook");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/notebook/${id}`);
+  for (const name of ["Add link", "Paste text"]) {
+    const opener = page.getByRole("button", { name });
+    await opener.click();
+    await expect(opener).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Escape");
+    await expect(opener).toHaveAttribute("aria-expanded", "false");
+    await expect(opener).toBeFocused();
+  }
 });

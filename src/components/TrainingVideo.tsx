@@ -779,13 +779,13 @@ export default function TrainingVideo({
                         ? "bg-[var(--accent)]"
                         : state === "now"
                           ? "animate-pulse bg-[var(--accent)]"
-                          : "bg-[#2a313b]"
+                          : "bg-track"
                     }`}
                   />
                   <span
                     className={
                       state === "todo"
-                        ? "text-[#4b5563]"
+                        ? "text-dim"
                         : "text-[var(--muted)]"
                     }
                   >
@@ -809,7 +809,7 @@ export default function TrainingVideo({
                       ? "bg-[var(--accent)]"
                       : k.status === "rendering"
                         ? "animate-pulse bg-[var(--accent)]/60"
-                        : "bg-[#2a313b]"
+                        : "bg-track"
                   }`}
                 />
               ))}

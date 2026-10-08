@@ -65,7 +65,7 @@ export default function NarrationOptions({
   };
 
   return (
-    <details className="group rounded-lg border border-[var(--border)] bg-[#0b0e12]/50" open={defaultOpen}>
+    <details className="group rounded-lg border border-[var(--border)] bg-well/50" open={defaultOpen}>
       <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1.5 text-[11px] marker:hidden">
         <span className="text-[var(--muted)] group-open:rotate-90 transition-transform motion-reduce:transition-none">▸</span>
         <span className="font-medium">Instructions</span>

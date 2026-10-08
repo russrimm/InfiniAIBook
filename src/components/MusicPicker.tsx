@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "./ConfirmDialog";
 import { useEffect, useRef, useState } from "react";
 import {
   MAX_MUSIC_BYTES,
@@ -129,9 +130,16 @@ export default function MusicPicker({
     }
   };
 
+  const askConfirm = useConfirm();
   const remove = async () => {
     if (!selected?.deletable) return;
-    if (!window.confirm(`Delete "${selected.name}" from the music library?`)) return;
+    const ok = await askConfirm({
+      title: "Delete this track?",
+      message: `“${selected.name}” is removed from the music library. This cannot be undone.`,
+      confirmLabel: "Delete track",
+      destructive: true,
+    });
+    if (!ok) return;
     stop();
     setError(null);
     const res = await fetch(`/api/music/${encodeURIComponent(selected.id)}`, { method: "DELETE" });

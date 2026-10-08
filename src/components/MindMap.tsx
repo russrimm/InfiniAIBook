@@ -274,7 +274,7 @@ export default function MindMap({ root, title }: { root: MindNode; title: string
                   width={p.w}
                   height={NODE_H}
                   rx={9}
-                  fill={isRoot ? color : "#151a21"}
+                  style={{ fill: isRoot ? color : "var(--panel)" }}
                   stroke={color}
                   strokeOpacity={isRoot ? 1 : p.expanded ? 0.9 : 0.5}
                   strokeWidth={isRoot ? 0 : 1.2}
@@ -287,10 +287,13 @@ export default function MindMap({ root, title }: { root: MindNode; title: string
                   x={isRoot ? p.w / 2 - (hasKids ? 10 : 0) : 12}
                   y={NODE_H / 2 + 4.5}
                   textAnchor={isRoot ? "middle" : "start"}
-                  fill={isRoot ? "#0b0d10" : "#e7ebf0"}
                   fontSize={isRoot ? 13.5 : 12}
                   fontWeight={isRoot ? 700 : 500}
-                  style={{ pointerEvents: "none", userSelect: "none" }}
+                  style={{
+                    fill: isRoot ? "#0b0d10" : "var(--fg)",
+                    pointerEvents: "none",
+                    userSelect: "none",
+                  }}
                 >
                   {label}
                 </text>
@@ -299,7 +302,9 @@ export default function MindMap({ root, title }: { root: MindNode; title: string
                   <g transform={`translate(${p.w - 20}, ${NODE_H / 2})`}>
                     <circle
                       r={9}
-                      fill={isRoot ? "rgba(0,0,0,0.22)" : p.expanded ? color : "#1f2530"}
+                      style={{
+                        fill: isRoot ? "rgba(0,0,0,0.22)" : p.expanded ? color : "var(--hover)",
+                      }}
                       stroke={isRoot ? "transparent" : color}
                       strokeOpacity={0.55}
                       strokeWidth={1}
@@ -307,7 +312,7 @@ export default function MindMap({ root, title }: { root: MindNode; title: string
                     {p.expanded ? (
                       <path
                         d="M -4 0 H 4"
-                        stroke={isRoot ? "#0b0d10" : "#0b0d10"}
+                        stroke="#0b0d10"
                         strokeWidth={2}
                         strokeLinecap="round"
                       />
@@ -317,8 +322,11 @@ export default function MindMap({ root, title }: { root: MindNode; title: string
                         textAnchor="middle"
                         fontSize={9.5}
                         fontWeight={700}
-                        fill={isRoot ? "#0b0d10" : color}
-                        style={{ pointerEvents: "none", userSelect: "none" }}
+                        style={{
+                          fill: isRoot ? "#0b0d10" : "var(--fg)",
+                          pointerEvents: "none",
+                          userSelect: "none",
+                        }}
                       >
                         {p.childCount}
                       </text>

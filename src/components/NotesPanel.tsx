@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "./ConfirmDialog";
 import { useState } from "react";
 import Markdown from "./Markdown";
 import { useDialog } from "./useDialog";
@@ -114,13 +115,24 @@ function NoteEditor({
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const dirty = !note || title !== note.title || content !== note.content;
+  const askConfirm = useConfirm();
   /** Something typed that closing would throw away. */
   const unsaved = note
     ? title !== note.title || content !== note.content
     : Boolean(title.trim() || content.trim());
 
-  const requestClose = () => {
-    if (unsaved && !window.confirm("Discard your unsaved changes to this note?")) return;
+  const requestClose = async () => {
+    if (
+      unsaved &&
+      !(await askConfirm({
+        title: "Discard your changes?",
+        message: "This note has edits that are not saved yet.",
+        confirmLabel: "Discard changes",
+        cancelLabel: "Keep editing",
+        destructive: true,
+      }))
+    )
+      return;
     onClose();
   };
   const { dialogRef, backdropProps } = useDialog(requestClose);

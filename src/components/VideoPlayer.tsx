@@ -164,12 +164,12 @@ export default function VideoPlayer({
                 <div key={s.key} className="flex items-center gap-3">
                   <span
                     className={`w-40 shrink-0 text-[11px] ${
-                      state === "todo" ? "text-[#4b5563]" : "text-[var(--muted)]"
+                      state === "todo" ? "text-dim" : "text-[var(--muted)]"
                     }`}
                   >
                     {s.label}
                   </span>
-                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-[#1b2027]">
+                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-track-soft">
                     <div
                       className="h-full rounded-full bg-[var(--accent)] transition-all motion-reduce:transition-none"
                       style={{ width: `${pct}%` }}

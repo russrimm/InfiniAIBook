@@ -186,14 +186,14 @@ components:
 
 **Creative North Star: "The Night Reading Room"**
 
-InfiniAIBook is a quiet dark workroom. The user's sources fill the shelves and one lamp is lit. The interface is cool blue-black ink with slate panels layered on it. A single periwinkle accent, Lamplight, marks what matters right now: a citation, the primary action, work in progress, the current selection. Everything else is fog-gray text on slate, sized small, so the sources, answers, and generated artifacts fill the room.
+InfiniAIBook is a quiet workroom, dark by default. The user's sources fill the shelves and one lamp is lit. The interface is cool blue-black ink with slate panels layered on it. A single periwinkle accent, Lamplight, marks what matters right now: a citation, the primary action, work in progress, the current selection. Everything else is fog-gray text on slate, sized small, so the sources, answers, and generated artifacts fill the room.
 
 The workspace is dense, like a working tool. Three panels sit side by side (Sources, Chat, and Studio/Notes) with hairline borders between them. Chrome type runs from 10 to 13px; answers and notes switch to a comfortable 15px reading measure at 1.7 line height. Surfaces are flat. Depth comes from tonal steps and 1px hairlines, not shadows. Emoji serve as the icon set and give each notebook, source type, and Studio tool a friendly, recognizable mark without an icon library.
 
 Generated artifacts (infographics in 20 styles, mind maps, slide decks, videos) are content, not chrome. Their styles sit inside the room, and they don't redefine the room's palette.
 
 **Key Characteristics:**
-- Dark-only. There is no light theme.
+- Dark by default, with an optional light theme. A Light / Dark / Auto toggle (`ThemeToggle`) sits in the home nav, the notebook header and the login page; Auto follows the OS setting. Every chrome color is a token in `globals.css`; the light palette is a `:root[data-theme="light"]` override of the same names, so components never branch on theme.
 - Cool blue-tinted neutrals stepped from Night Ink to Raised Slate.
 - One accent hue, Lamplight periwinkle, used sparingly.
 - Flat surfaces with 1px hairline borders. Shadows appear only on floating layers.
@@ -266,6 +266,7 @@ Status colors use Tailwind's amber, red, emerald, and rose families. They're nev
 
 - **Notebook list:** a centered column up to 72rem wide, with 24px side padding and 56px of vertical padding. Below the header is a responsive grid of notebook cards (one column, two at `sm`, three at `lg`) with 16px gaps.
 - **Workspace:** fills the full viewport height. A 1px-bordered header (16px × 12px padding) sits above a three-column grid at `lg` and up: Sources (320px) | Chat (flexible) | Studio/Notes (380px). The columns are separated by hairline borders, not gutters. Studio and Notes share the right column through a small segmented tab bar.
+- **`lg` to `xl`:** the side columns narrow to 17rem and 20rem so Chat keeps room; the full 320px / 380px widths arrive at `xl`.
 - **Below `lg`:** the three panels collapse into a single column switched by a full-width tab bar. Header button labels collapse to emoji below `md`.
 - **Modals:** fill the viewport on small screens. From `sm` up they float with 24px of inset and Sheet corners.
 - **Rhythm:** a 4px base. Dense UI uses 8px gaps (`gap-2` is by far the most common) and 12px between groups. Cards use 20px of internal padding. Lists stack at 8px.
@@ -329,7 +330,7 @@ A checkbox, an emoji for the source type, a 13px title clamped to two lines, and
 User messages are User Bubble pills with Sheet corners and a 6px tail corner, right-aligned at up to 85% width. Assistant answers are unboxed prose (the Body register) with inline citation chips. Three Lamplight typing dots pulse while the answer streams.
 
 ### Modals
-Every modal uses `useDialog` (`src/components/useDialog.ts`) and carries `role="dialog"`, `aria-modal`, and a label. Focus moves into the dialog on open, Tab stays inside it, Escape closes only the topmost dialog, and focus returns to the control that opened it. The scrim closes a dialog only when a click both starts and ends on it, so selecting text and releasing outside never discards work. Editors with unsaved input confirm before closing.
+Every modal uses `useDialog` (`src/components/useDialog.ts`) and carries `role="dialog"`, `aria-modal`, and a label. Focus moves into the dialog on open, Tab stays inside it, Escape closes only the topmost dialog, and focus returns to the control that opened it. The scrim closes a dialog only when a click both starts and ends on it, so selecting text and releasing outside never discards work. Editors with unsaved input confirm before closing. Confirmations never use the browser's native `window.confirm`; they go through `useConfirm()` (`src/components/ConfirmDialog.tsx`), a themed `alertdialog` that names the action on its confirm button and, for destructive actions, focuses Cancel first.
 
 ### Banners and Toasts
 - **Banners:** full-width strips or Tile-cornered boxes that use the Status Wash. The source-update banner runs under the header at 12px with an underlined "Review" action.
@@ -364,6 +365,6 @@ Every modal uses `useDialog` (`src/components/useDialog.ts`) and carries `role="
 - **Don't** introduce a second accent hue or use Lamplight for decoration (The One Lamp Rule).
 - **Don't** add drop shadows to cards, tiles, rows, or panels. Shadows are for floating layers only.
 - **Don't** use solid saturated fills for status, or pure or warm grays for neutrals.
-- **Don't** add a light theme or light surfaces to the workspace chrome. The room is dark-only.
+- **Don't** hard-code hex colors for chrome. Use the tokens (`bg-well`, `bg-sunk`, `bg-track`, `text-prose`, `var(--fg)`) so both themes work. Fixed colors are only for generated artifacts, which keep their own palette in either theme.
 - **Don't** let a generated artifact's style (infographic themes, mind map palettes) leak into the workspace chrome.
 - **Don't** hide hover-revealed actions from keyboard or touch users. Use the existing `.reveal` pattern, which reveals actions on focus-within and on `hover: none` devices.

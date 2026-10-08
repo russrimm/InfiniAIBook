@@ -456,7 +456,7 @@ export default function TrainingPreview({
         {tl.sections.map((s) => (
           <div
             key={s.index}
-            className="absolute top-0 bottom-0 border-r border-[var(--border)] bg-[#1b2230]"
+            className="absolute top-0 bottom-0 border-r border-[var(--border)] bg-track-soft"
             style={{ left: `${(s.start / tl.duration) * 100}%`, width: `${(s.duration / tl.duration) * 100}%` }}
             title={s.title}
           />
@@ -483,7 +483,7 @@ export default function TrainingPreview({
           />
         ))}
         <div
-          className="pointer-events-none absolute top-0 bottom-0 w-0.5 bg-white"
+          className="pointer-events-none absolute top-0 bottom-0 w-0.5 bg-[var(--fg)]"
           style={{ left: `${(t / Math.max(0.001, tl.duration)) * 100}%` }}
         />
       </div>

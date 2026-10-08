@@ -105,7 +105,7 @@ function FitInfographic({ content, width, height }: { content: InfographicConten
     <div style={{ width, height, display: "flex", justifyContent: "center", alignItems: "flex-start", overflow: "hidden" }}>
       <div
         ref={inner}
-        className="bg-[#0e1116] text-[var(--fg)]"
+        className="bg-[#0e1116] text-[#e7ebf0]"
         style={{ width: natural, transform: `scale(${scale})`, transformOrigin: "top center", flexShrink: 0 }}
       >
         <Infographic content={stripCitations(content)} />

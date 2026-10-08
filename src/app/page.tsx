@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import type { Notebook } from "@/lib/types";
 import AboutModal from "@/components/AboutModal";
 import ScreenHelperModal from "@/components/ScreenHelperModal";
+import ThemeToggle from "@/components/ThemeToggle";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { useDeferredDelete } from "@/components/UndoToast";
 
 export default function Home() {
@@ -20,6 +22,7 @@ export default function Home() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [helperOpen, setHelperOpen] = useState(false);
   const deferDelete = useDeferredDelete();
+  const askConfirm = useConfirm();
   /** Notebooks deleted but still within their undo window. */
   const [hiddenNb, setHiddenNb] = useState<Set<string>>(new Set());
 
@@ -99,14 +102,14 @@ export default function Home() {
     }
   };
 
-  const remove = (id: string, title: string) => {
-    if (
-      !window.confirm(
-        `Delete “${title}” and everything in it? You can undo this for a few seconds.`,
-      )
-    ) {
-      return;
-    }
+  const remove = async (id: string, title: string) => {
+    const ok = await askConfirm({
+      title: "Delete this notebook?",
+      message: `“${title}” and all its sources, chats, notes and generated items will be deleted. You can undo this for a few seconds.`,
+      confirmLabel: "Delete notebook",
+      destructive: true,
+    });
+    if (!ok) return;
     setHiddenNb((h) => new Set(h).add(id));
     const unhide = () =>
       setHiddenNb((h) => {
@@ -140,15 +143,15 @@ export default function Home() {
           />
           InfiniAIBook
         </div>
-        <div className="flex items-center gap-1 text-[13px]">
+        <div className="flex flex-wrap items-center justify-end gap-x-1 gap-y-0.5 text-[13px]">
           <Link
             href="/search"
-            className="rounded-lg px-3 py-1.5 text-[var(--muted)] transition hover:bg-hover hover:text-[var(--foreground)]"
+            className="rounded-lg px-3 py-1.5 whitespace-nowrap text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
           >
             <span aria-hidden>🔎</span> Search all
           </Link>
           <button
-            className="rounded-lg px-3 py-1.5 text-[var(--muted)] transition hover:bg-hover hover:text-[var(--foreground)]"
+            className="rounded-lg px-3 py-1.5 whitespace-nowrap text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
             onClick={() => setHelperOpen(true)}
             title="Share an app and get coached through it step by step"
           >
@@ -157,14 +160,15 @@ export default function Home() {
           <button
             aria-label="Help and about"
             title="Help & about"
-            className="rounded-lg px-3 py-1.5 text-[var(--muted)] transition hover:bg-hover hover:text-[var(--foreground)]"
+            className="rounded-lg px-3 py-1.5 whitespace-nowrap text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
             onClick={() => setAboutOpen(true)}
           >
             <span aria-hidden>?</span> Help
           </button>
+          <ThemeToggle variant="nav" />
           {authOn && (
             <button
-              className="rounded-lg px-3 py-1.5 text-[var(--muted)] transition hover:bg-hover hover:text-[var(--foreground)]"
+              className="rounded-lg px-3 py-1.5 whitespace-nowrap text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
               onClick={() => void signOut()}
             >
               Sign out
@@ -299,14 +303,12 @@ export default function Home() {
         </div>
       ) : (
         <section aria-labelledby="nb-heading">
-          \n{" "}
           <h2
             id="nb-heading"
             className="mb-4 text-sm font-medium text-[var(--muted)]"
           >
-            \n Your notebooks · {visible.length}\n{" "}
+            Your notebooks · {visible.length}
           </h2>
-          \n{" "}
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((n) => (
               <li
@@ -316,7 +318,7 @@ export default function Home() {
                 <div aria-hidden className="mb-4 text-3xl">
                   {n.emoji}
                 </div>
-                <h2 className="mb-1 line-clamp-2 pr-14 font-medium">
+                <h3 className="mb-1 line-clamp-2 pr-14 font-medium">
                   {/* The link's overlay makes the whole card the target, while the
                     delete button stays a separate control rather than nested. */}
                   <Link
@@ -325,7 +327,7 @@ export default function Home() {
                   >
                     {n.title}
                   </Link>
-                </h2>
+                </h3>
                 <p className="text-xs text-[var(--muted)]">
                   {n.sourceCount ?? 0} source{n.sourceCount === 1 ? "" : "s"} ·
                   Created{" "}
@@ -338,7 +340,7 @@ export default function Home() {
                 <button
                   aria-label={`Delete notebook ${n.title}`}
                   className="reveal absolute top-3 right-3 z-10 rounded-lg px-2 py-1 text-xs text-[var(--muted)] transition hover:bg-hover hover:text-red-400"
-                  onClick={() => remove(n.id, n.title)}
+                  onClick={() => void remove(n.id, n.title)}
                 >
                   Delete
                 </button>

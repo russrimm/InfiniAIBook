@@ -130,6 +130,15 @@ export default function SourcesPanel({
   const fileRef = useRef<HTMLInputElement>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [mode, setMode] = useState<"none" | "url" | "text">("none");
+  const linkBtn = useRef<HTMLButtonElement>(null);
+  const textBtn = useRef<HTMLButtonElement>(null);
+  // Escape dismisses the inline form and hands focus back to the button that opened it.
+  const closeInline = (e: React.KeyboardEvent) => {
+    if (e.key !== "Escape") return;
+    e.stopPropagation();
+    (mode === "url" ? linkBtn : textBtn).current?.focus();
+    setMode("none");
+  };
   const [urlValue, setUrlValue] = useState("");
   const [textValue, setTextValue] = useState("");
   const [textTitle, setTextTitle] = useState("");
@@ -334,8 +343,8 @@ export default function SourcesPanel({
           onClick={() => fileRef.current?.click()}
           className={`block w-full cursor-pointer rounded-xl border border-dashed px-4 py-5 text-center transition ${
             dragging
-              ? "border-[var(--accent)] bg-[rgba(124,140,255,0.06)]"
-              : "border-[var(--border)] hover:border-line-hover hover:bg-[#161a21]"
+              ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_7%,transparent)]"
+              : "border-[var(--border)] hover:border-line-hover hover:bg-row"
           }`}
         >
           <span aria-hidden className="mb-1 block text-lg">
@@ -360,6 +369,7 @@ export default function SourcesPanel({
 
         <div className="mt-2 grid grid-cols-2 gap-2">
           <button
+            ref={linkBtn}
             className="btn !px-2 !py-1.5 !text-xs"
             onClick={() => setMode(mode === "url" ? "none" : "url")}
             aria-expanded={mode === "url"}
@@ -368,6 +378,7 @@ export default function SourcesPanel({
             <span aria-hidden>🔗</span> Add link
           </button>
           <button
+            ref={textBtn}
             className="btn !px-2 !py-1.5 !text-xs"
             onClick={() => setMode(mode === "text" ? "none" : "text")}
             aria-expanded={mode === "text"}
@@ -401,6 +412,7 @@ export default function SourcesPanel({
         {mode === "url" && (
           <form
             className="fade-up mt-2 flex gap-2"
+            onKeyDown={closeInline}
             onSubmit={(e) => {
               e.preventDefault();
               const v = urlValue.trim();
@@ -413,7 +425,7 @@ export default function SourcesPanel({
             <input
               className="input"
               inputMode="url"
-              placeholder="https://example.com or a YouTube link"
+              placeholder="Web page or YouTube link"
               aria-label="Link to add"
               value={urlValue}
               onChange={(e) => setUrlValue(e.target.value)}
@@ -426,6 +438,7 @@ export default function SourcesPanel({
         {mode === "text" && (
           <form
             className="fade-up mt-2 space-y-2"
+            onKeyDown={closeInline}
             onSubmit={(e) => {
               e.preventDefault();
               if (!textValue.trim()) return;
@@ -473,7 +486,7 @@ export default function SourcesPanel({
                 className={`fade-up flex gap-2.5 rounded-xl border px-2.5 py-2.5 ${
                   job.error
                     ? "border-amber-900/60 bg-amber-950/20"
-                    : "border-[var(--border)] bg-[#141922]"
+                    : "border-[var(--border)] bg-sunk"
                 }`}
               >
                 <span className="mt-0.5 shrink-0">

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Note, Transformation } from "@/lib/types";
 import { findPassage } from "@/lib/highlight";
 import { isExplorable } from "@/lib/explorekinds";
+import LoadingRows from "./LoadingRows";
 import { useDialog } from "./useDialog";
 import DataExplorerModal from "./DataExplorerModal";
 
@@ -125,7 +126,7 @@ export default function SourceModal({
         <header className="flex shrink-0 items-start gap-3 border-b border-[var(--border)] px-5 py-3">
           <div className="min-w-0 flex-1">
             <h2 id="source-title" className="truncate text-[15px] font-semibold">
-              {src?.title ?? (loadError ? "Source unavailable" : "Loading…")}
+              {src?.title ?? (loadError ? "Source unavailable" : "Opening source…")}
             </h2>
             {src && (
               <p className="text-[11px] text-[var(--muted)]">
@@ -146,15 +147,6 @@ export default function SourceModal({
               </p>
             )}
           </div>
-          {src && isExplorable(src.kind) && (
-            <button
-              className="btn !px-2.5 !py-1.5 !text-xs"
-              onClick={() => setExploring(true)}
-              title="Discover the structure of this data"
-            >
-              Explore structure
-            </button>
-          )}
           {src && isExplorable(src.kind) && (
             <button
               className="btn !px-2.5 !py-1.5 !text-xs"
@@ -212,8 +204,9 @@ export default function SourceModal({
           {loadError && (
             <p className="text-[13px] text-[var(--muted)]">{loadError}</p>
           )}
+          {!src && !loadError && <LoadingRows rows={5} label="Loading source" />}
           {cited && (
-            <div className="mb-4 rounded-xl border border-line-strong bg-[#141922] px-4 py-3">
+            <div className="mb-4 rounded-xl border border-line-strong bg-sunk px-4 py-3">
               <p className="mb-1 text-[11px] font-medium text-[var(--muted)]">
                 Cited passage · part {highlight?.part} (its exact place in the current text
                 could not be found)

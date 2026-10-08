@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "./ConfirmDialog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDialog } from "./useDialog";
 import {
@@ -177,7 +178,7 @@ function SetupView({
                   className={`flex items-start gap-3 rounded-xl border p-3 text-left transition ${
                     on
                       ? "border-[var(--accent)] bg-[var(--accent)]/10"
-                      : "border-[var(--border)] hover:border-[#3a4352]"
+                      : "border-[var(--border)] hover:border-line-hover"
                   }`}
                 >
                   <span className="text-xl leading-none">{spec.icon}</span>
@@ -315,9 +316,32 @@ export default function DiscussionModal({
       .catch(() => setReadiness(null));
   }, []);
 
-  const close = () => {
-    if (inCall && !confirm("End the discussion?")) return;
-    if (status === "ended" && hasTalk && !saved && !confirm("Close without saving this discussion to your notes?")) return;
+  const askConfirm = useConfirm();
+  const close = async () => {
+    if (
+      inCall &&
+      !(await askConfirm({
+        title: "End the discussion?",
+        message: "The live conversation stops. Nothing is saved to your notes unless you save it first.",
+        confirmLabel: "End discussion",
+        cancelLabel: "Keep talking",
+        destructive: true,
+      }))
+    )
+      return;
+    if (
+      status === "ended" &&
+      hasTalk &&
+      !saved &&
+      !(await askConfirm({
+        title: "Close without saving?",
+        message: "This discussion has not been saved to your notes, and closing discards it.",
+        confirmLabel: "Close without saving",
+        cancelLabel: "Go back",
+        destructive: true,
+      }))
+    )
+      return;
     call.end();
     onClose();
   };
@@ -443,8 +467,8 @@ export default function DiscussionModal({
                       aria-label={call.muted ? "Unmute microphone" : "Mute microphone"}
                       className={`relative grid h-12 w-12 place-items-center rounded-full border transition disabled:opacity-40 ${
                         call.muted
-                          ? "border-white bg-white text-black"
-                          : "border-[var(--border)] bg-hover hover:bg-[#262d3a]"
+                          ? "border-[var(--fg)] bg-[var(--fg)] text-[var(--bg)]"
+                          : "border-[var(--border)] bg-hover hover:bg-row"
                       }`}
                     >
                       {call.muted ? "🔇" : "🎙️"}
@@ -513,8 +537,19 @@ export default function DiscussionModal({
                   <button
                     type="button"
                     className="btn w-full"
-                    onClick={() => {
-                      if (hasTalk && !saved && !confirm("Start over without saving this discussion?")) return;
+                    onClick={async () => {
+                      if (
+                        hasTalk &&
+                        !saved &&
+                        !(await askConfirm({
+                          title: "Start over?",
+                          message: "This discussion has not been saved to your notes, and starting again discards it.",
+                          confirmLabel: "Start over",
+                          cancelLabel: "Go back",
+                          destructive: true,
+                        }))
+                      )
+                        return;
                       setSaved(false);
                       setSaveError(null);
                       void call.start();
