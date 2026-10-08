@@ -18,6 +18,11 @@ const ICONS: Record<string, string> = {
   txt: "📄",
   csv: "📊",
   json: "🔧",
+  har: "🔧",
+  xml: "🔧",
+  gpx: "🗺️",
+  kml: "🗺️",
+  tsv: "📊",
   note: "🗒️",
   audio: "🎧",
   video: "🎬",
@@ -346,7 +351,7 @@ export default function SourcesPanel({
           type="file"
           multiple
           hidden
-          accept={`.pdf,.docx,.pptx,.zip,.txt,.md,.csv,.json,.html,.htm,${MEDIA_ACCEPT}`}
+          accept={`.pdf,.docx,.pptx,.zip,.txt,.md,.csv,.tsv,.json,.har,.xml,.gpx,.kml,.html,.htm,${MEDIA_ACCEPT}`}
           onChange={(e) => {
             if (e.target.files) uploadFiles(e.target.files);
             e.target.value = "";

@@ -119,6 +119,7 @@ How it works, customization and setup: [Motion explainers](docs/motion-explainer
   can also carry a text or image **watermark** in any of nine positions.
   [More](docs/studio.md#spoken-formats-script-review-instructions-and-music)
 
+- **Structure explorer** — open any JSON, XML, CSV/TSV or HAR source in a modal that discovers its structure: a path tree and graph with types, counts and value stats, or a sortable table. HAR files get a request table, waterfall, findings (failures, slow TTFB, uncompressed or uncached responses, redirects, duplicates, third parties, secrets in URLs), Server-Timing and redirect-chain views, CSV export, a sanitized download, and **Diagnose with AI**, which sends a redacted digest (never the raw archive) to the Studio model to name likely root causes.
 - **Exports** — Markdown, PPTX, MP3, MP4, PNG and Anki/Quizlet CSV. [More](docs/studio.md#exporting)
 - **Model picker** — switch the chat, embedding, image and vision models from
   the workspace header; a saved choice overrides the environment until reset.
@@ -212,7 +213,7 @@ defaults and what happens without each one.
 | Model | Setting | Used for |
 |---|---|---|
 | Chat (required) | `AZURE_OPENAI_DEPLOYMENT` or `AI_MODEL` | Chat, search Ask, notes and transformations, and the written Studio formats |
-| Studio script | `AI_STUDIO_MODEL` (optional, defaults to chat) | Audio-overview scripts, whiteboard and motion scene plans, training transcripts |
+| Studio script | `AI_STUDIO_MODEL` (optional, defaults to chat) | Audio-overview scripts, whiteboard and motion scene plans, training transcripts, HAR diagnosis |
 | Embeddings | `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` or `AI_EMBEDDING_MODEL` | Semantic retrieval and search; keyword ranking without it |
 | Image | `AZURE_OPENAI_IMAGE_DEPLOYMENT` or `AI_IMAGE_MODEL` | AI-image infographics, whiteboard videos and motion explainers |
 | Vision | `AZURE_OPENAI_VISION_DEPLOYMENT` or `AI_VISION_MODEL` | Reading uploaded images and the screen helper (defaults to chat) |

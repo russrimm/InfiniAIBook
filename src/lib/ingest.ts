@@ -185,6 +185,10 @@ const ARCHIVE_TEXT_EXTENSIONS = new Set([
   "csv",
   "tsv",
   "json",
+  "har",
+  "xml",
+  "gpx",
+  "kml",
   "html",
   "htm",
 ]);
