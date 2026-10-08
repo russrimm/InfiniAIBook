@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { Note, Transformation } from "@/lib/types";
 import { findPassage } from "@/lib/highlight";
+import { isExplorable } from "@/lib/explorekinds";
 import { useDialog } from "./useDialog";
+import DataExplorerModal from "./DataExplorerModal";
 
 type Full = {
   id: string;
@@ -38,6 +40,7 @@ export default function SourceModal({
   const [chosen, setChosen] = useState("");
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
+  const [exploring, setExploring] = useState(false);
 
   useEffect(() => {
     void fetch("/api/transformations")
@@ -143,6 +146,24 @@ export default function SourceModal({
               </p>
             )}
           </div>
+          {src && isExplorable(src.kind) && (
+            <button
+              className="btn !px-2.5 !py-1.5 !text-xs"
+              onClick={() => setExploring(true)}
+              title="Discover the structure of this data"
+            >
+              Explore structure
+            </button>
+          )}
+          {src && isExplorable(src.kind) && (
+            <button
+              className="btn !px-2.5 !py-1.5 !text-xs"
+              onClick={() => setExploring(true)}
+              title="Discover the structure of this data"
+            >
+              Explore structure
+            </button>
+          )}
           <button
             aria-label="Close"
             className="btn !px-2.5 !py-1.5 !text-xs"
@@ -221,6 +242,9 @@ export default function SourceModal({
           </pre>
         </div>
       </div>
+      {exploring && src && (
+        <DataExplorerModal sourceId={sourceId} title={src.title} onClose={() => setExploring(false)} />
+      )}
     </div>
   );
 }
