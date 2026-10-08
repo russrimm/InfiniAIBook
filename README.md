@@ -1,3 +1,5 @@
+<p align="center"><img src="public/brand/infiniaibook-icon.png" alt="InfiniAIBook logo" width="160"></p>
+
 # InfiniAIBook
 
 [![CI](https://github.com/russrimm/InfiniAIBook/actions/workflows/ci.yml/badge.svg)](https://github.com/russrimm/InfiniAIBook/actions/workflows/ci.yml)

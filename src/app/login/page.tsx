@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { safeNextPath } from "@/lib/access";
+import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 
 export default function LoginPage() {
@@ -62,6 +63,7 @@ export default function LoginPage() {
           void submit();
         }}
       >
+        <Logo size={56} className="mb-3" />
         <h1 className="text-2xl font-semibold tracking-tight">InfiniAIBook</h1>
         <p className="mt-1 mb-6 text-[13px] text-[var(--muted)]">
           This instance is password protected.
