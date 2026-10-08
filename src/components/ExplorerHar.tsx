@@ -7,7 +7,7 @@ export const fmtBytes = (n: number) =>
   n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${Math.round(n)} B`;
 export const fmtMs = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(2)} s` : `${Math.round(n)} ms`);
 
-const PHASE_COLOR: Record<keyof HarPhases, string> = {
+export const PHASE_COLOR: Record<keyof HarPhases, string> = {
   blocked: "#8b95a5",
   dns: "#2a9d8f",
   connect: "#e9c46a",
@@ -16,9 +16,17 @@ const PHASE_COLOR: Record<keyof HarPhases, string> = {
   wait: "#4361ee",
   receive: "#3f8a1c",
 };
-const PHASES = Object.keys(PHASE_COLOR) as (keyof HarPhases)[];
+export const MILESTONE_COLOR = { dom: "#2a9d8f", load: "#c2410c" } as const;
+export const PHASES = Object.keys(PHASE_COLOR) as (keyof HarPhases)[];
 
-function statusTone(s: number) {
+const SEVERITY_TONE: Record<string, string> = {
+  high: "bg-red-500/20 text-red-300",
+  medium: "bg-amber-500/20 text-amber-300",
+  low: "bg-sky-500/20 text-sky-300",
+  info: "bg-[var(--hover)] text-[var(--muted)]",
+};
+
+export function statusTone(s: number) {
   if (s === 0 || s >= 400) return "text-red-300";
   if (s >= 300) return "text-amber-300";
   return "text-emerald-300";
@@ -101,9 +109,64 @@ export function Overview({ har, onPick }: { har: HarSummary; onPick: (i: number)
       {har.findings.length > 0 && (
         <section className="rounded-lg border border-line-strong bg-[#141922] p-3">
           <h3 className="mb-1 text-[13px] font-semibold">Findings</h3>
-          <ul className="list-disc space-y-1 pl-4 text-[13px] text-prose-soft">
+          <ul className="space-y-1.5 text-[13px] text-prose-soft">
             {har.findings.map((f) => (
-              <li key={f}>{f}</li>
+              <li key={f.text} className="flex items-start gap-2">
+                <span className={`mt-0.5 shrink-0 rounded px-1.5 text-[10px] uppercase ${SEVERITY_TONE[f.severity]}`}>{f.severity}</span>
+                <span className="min-w-0 flex-1">{f.text}</span>
+                {f.requests.length > 0 && (
+                  <button className="shrink-0 text-[11px] underline text-[var(--link)]" onClick={() => onPick(f.requests[0])}>
+                    {f.requests.length === 1 ? "View request" : `View first of ${f.requests.length}`}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {har.serverTiming.length > 0 && (
+        <section>
+          <h3 className="mb-1 text-[13px] font-semibold">Server timing</h3>
+          <table className="w-full text-[11px]">
+            <thead className="text-left text-[var(--muted)]">
+              <tr>
+                <th className="py-1 pr-3 font-normal">Metric</th>
+                <th className="pr-3 font-normal">Requests</th>
+                <th className="pr-3 font-normal">Average</th>
+                <th className="font-normal">Max</th>
+              </tr>
+            </thead>
+            <tbody>
+              {har.serverTiming.slice(0, 10).map((s) => (
+                <tr key={s.name} className="border-t border-[var(--border)]">
+                  <td className="py-1 pr-3 font-mono">{s.name}</td>
+                  <td className="pr-3">{s.count}</td>
+                  <td className="pr-3">{fmtMs(s.avg)}</td>
+                  <td>{fmtMs(s.max)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      {har.redirectChains.length > 0 && (
+        <section>
+          <h3 className="mb-1 text-[13px] font-semibold">Redirect chains</h3>
+          <ul className="space-y-1 text-[11px]">
+            {har.redirectChains.slice(0, 8).map((chain) => (
+              <li key={chain[0]} className="flex flex-wrap items-center gap-1">
+                {chain.map((i, k) => (
+                  <span key={i} className="flex items-center gap-1">
+                    {k > 0 && <span aria-hidden className="text-[var(--muted)]">→</span>}
+                    <button className="rounded bg-[var(--hover)] px-1.5 py-0.5" onClick={() => onPick(i)} title={har.requests[i].url}>
+                      {har.requests[i].status || "?"} {har.requests[i].host}
+                      {har.requests[i].path.slice(0, 28)}
+                    </button>
+                  </span>
+                ))}
+              </li>
             ))}
           </ul>
         </section>
@@ -290,6 +353,11 @@ function RequestDetail({ sourceId, r, onClose }: { sourceId: string; r: HarReque
               Total {fmtMs(r.time)} · {r.httpVersion || "HTTP"} · {fmtBytes(r.transfer || r.size)}
               {r.serverIp ? ` · ${r.serverIp}` : ""}
             </li>
+            {r.serverTiming.length > 0 && (
+              <li className="rounded bg-[var(--hover)] px-2 py-1">
+                Server-Timing: {r.serverTiming.map((t) => `${t.name} ${fmtMs(t.dur)}`).join(", ")}
+              </li>
+            )}
             {PHASES.map((k) => (
               <li key={k}>
                 <div className="flex justify-between">
@@ -313,6 +381,7 @@ export function Requests({ sourceId, har, selected, onSelect }: { sourceId: stri
   const [method, setMethod] = useState("");
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
+  const [thirdOnly, setThirdOnly] = useState(false);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "index", dir: 1 });
 
   const methods = useMemo(() => [...new Set(har.requests.map((r) => r.method.toUpperCase()))].sort(), [har]);
@@ -329,6 +398,7 @@ export function Requests({ sourceId, har, selected, onSelect }: { sourceId: stri
         (!q || r.url.toLowerCase().includes(q) || r.mime.toLowerCase().includes(q)) &&
         (!method || r.method.toUpperCase() === method) &&
         (!category || r.category === category) &&
+        (!thirdOnly || r.thirdParty) &&
         (!status || (status === "0" ? r.status === 0 : Math.floor(r.status / 100) === Number(status)))
     );
     const val = (r: HarRequest): string | number =>
@@ -338,7 +408,26 @@ export function Requests({ sourceId, har, selected, onSelect }: { sourceId: stri
       const y = val(b);
       return (x < y ? -1 : x > y ? 1 : 0) * sort.dir;
     });
-  }, [har, query, method, category, status, sort]);
+  }, [har, query, method, category, status, sort, thirdOnly]);
+
+  const exportCsv = () => {
+    const cell = (v: string | number | boolean) => {
+      const s = String(v);
+      // A leading = + - @ would run as a formula when the CSV opens in a spreadsheet.
+      const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+      return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+    };
+    const head = ["#", "method", "status", "url", "type", "size_bytes", "transfer_bytes", "time_ms", "blocked_ms", "dns_ms", "connect_ms", "ssl_ms", "send_ms", "wait_ms", "receive_ms", "http_version", "third_party"];
+    const lines = rows.map((r) =>
+      [r.index + 1, r.method, r.status, r.url, r.mime, r.size, r.transfer, Math.round(r.time), ...PHASES.map((k) => Math.round(r.phases[k])), r.httpVersion, r.thirdParty].map(cell).join(",")
+    );
+    const blob = new Blob([[head.join(","), ...lines].join("\n")], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "requests.csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
 
   const end = Math.max(1, har.totals.wallTime);
   const current = selected !== null ? har.requests[selected] : null;
@@ -368,6 +457,13 @@ export function Requests({ sourceId, har, selected, onSelect }: { sourceId: stri
           <option value="">All types</option>
           {categories.map((c) => <option key={c}>{c}</option>)}
         </select>
+        <label className="flex items-center gap-1.5 text-[13px]">
+          <input type="checkbox" checked={thirdOnly} onChange={(e) => setThirdOnly(e.target.checked)} />
+          Third-party
+        </label>
+        <button className="btn !px-2.5 !py-1 !text-xs" onClick={exportCsv} title="Download the filtered requests as CSV">
+          Export CSV
+        </button>
         <span className="text-[11px] text-[var(--muted)]">{rows.length.toLocaleString()} of {har.requests.length.toLocaleString()}</span>
       </div>
       <div className="flex min-h-0 flex-1 gap-3 max-md:flex-col">

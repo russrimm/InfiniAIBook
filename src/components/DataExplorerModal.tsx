@@ -6,8 +6,9 @@ import { useDialog } from "./useDialog";
 import ExplorerStructure from "./ExplorerStructure";
 import ExplorerTable from "./ExplorerTable";
 import { Overview, Requests } from "./ExplorerHar";
+import { Diagnose, Waterfall } from "./ExplorerHarTools";
 
-type Tab = "overview" | "requests" | "structure";
+type Tab = "overview" | "requests" | "waterfall" | "diagnose" | "structure";
 
 /** Discovers and shows the structure of a JSON, HAR, XML, CSV or TSV source. */
 export default function DataExplorerModal({
@@ -46,6 +47,8 @@ export default function DataExplorerModal({
     ? [
         { id: "overview", label: "Overview" },
         { id: "requests", label: `Requests (${har.totals.requests.toLocaleString()})` },
+        { id: "waterfall", label: "Waterfall" },
+        { id: "diagnose", label: "Diagnose with AI" },
         { id: "structure", label: "Structure" },
       ]
     : [];
@@ -83,6 +86,16 @@ export default function DataExplorerModal({
                 : ""}
             </p>
           </div>
+          {har && (
+            <a
+              className="btn !px-2.5 !py-1.5 !text-xs"
+              href={`/api/sources/${sourceId}/structure?download=sanitized`}
+              download="sanitized.har"
+              title="Download a copy with cookies, credentials and tokens removed, safe to share"
+            >
+              Sanitized HAR
+            </a>
+          )}
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={onClose}>
             ✕
           </button>
@@ -115,6 +128,12 @@ export default function DataExplorerModal({
                   <Requests sourceId={sourceId} har={har} selected={selected} onSelect={setSelected} />
                 </div>
               )}
+              {tab === "waterfall" && (
+                <div className="h-full min-h-[24rem]">
+                  <Waterfall har={har} onPick={pick} />
+                </div>
+              )}
+              {tab === "diagnose" && <Diagnose sourceId={sourceId} onPick={pick} />}
               {tab === "structure" && (
                 <div className="h-full min-h-[24rem]">
                   <ExplorerStructure nodes={analysis.structure.nodes} truncated={analysis.structure.truncated} />

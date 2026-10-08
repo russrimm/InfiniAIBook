@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
-import { analyze, requestDetail } from "@/lib/explore";
+import { analyze, parseForExplore, requestDetail } from "@/lib/explore";
+import { sanitizeHar } from "@/lib/harsafe";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,6 +24,17 @@ export async function GET(req: Request, { params }: Ctx) {
 
     try {
       const requestParam = new URL(req.url).searchParams.get("request");
+      if (new URL(req.url).searchParams.get("download") === "sanitized") {
+        const parsed = parseForExplore(row.text, row.kind);
+        if (parsed.format !== "har") return NextResponse.json({ error: "Only HAR sources can be sanitized." }, { status: 422 });
+        return new Response(JSON.stringify(sanitizeHar(parsed.data), null, 2), {
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+            "content-disposition": 'attachment; filename="sanitized.har"',
+            "cache-control": "no-store",
+          },
+        });
+      }
       if (requestParam !== null) {
         const index = Number(requestParam);
         const detail = Number.isInteger(index) && index >= 0 ? requestDetail(row.text, row.kind, index) : null;
