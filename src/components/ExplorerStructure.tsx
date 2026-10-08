@@ -325,9 +325,9 @@ function SchemaGraph({
                   stroke={active ? "#fff" : "none"}
                   strokeWidth={2}
                 />
-                <text x={x + 16} y={y + 4} fontSize={11} fill="#e7ebf0">
+                <text x={x + 16} y={y + 4} fontSize={11} style={{ fill: "var(--fg)" }}>
                   {n.key.length > 22 ? `${n.key.slice(0, 21)}…` : n.key}
-                  <tspan fill="#8b95a5"> ×{n.count.toLocaleString()}</tspan>
+                  <tspan style={{ fill: "var(--muted)" }}> ×{n.count.toLocaleString()}</tspan>
                 </text>
               </g>
             );

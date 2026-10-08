@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "./ConfirmDialog";
 import { useEffect, useId, useRef, useState } from "react";
 import {
   DEFAULT_WATERMARK_LAYOUT,
@@ -187,9 +188,16 @@ export default function WatermarkPicker({
     }
   };
 
+  const askConfirm = useConfirm();
   const remove = async () => {
     if (!selected) return;
-    if (!window.confirm(`Delete "${selected.name}" from the watermark images?`)) return;
+    const ok = await askConfirm({
+      title: "Delete this watermark?",
+      message: `“${selected.name}” is removed from the watermark images. This cannot be undone.`,
+      confirmLabel: "Delete watermark",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     const res = await fetch(`/api/watermark/${encodeURIComponent(selected.id)}`, {
       method: "DELETE",

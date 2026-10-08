@@ -107,7 +107,7 @@ export function Overview({ har, onPick }: { har: HarSummary; onPick: (i: number)
       )}
 
       {har.findings.length > 0 && (
-        <section className="rounded-lg border border-line-strong bg-[#141922] p-3">
+        <section className="rounded-lg border border-line-strong bg-sunk p-3">
           <h3 className="mb-1 text-[13px] font-semibold">Findings</h3>
           <ul className="space-y-1.5 text-[13px] text-prose-soft">
             {har.findings.map((f) => (

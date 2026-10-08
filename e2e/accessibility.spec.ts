@@ -75,13 +75,11 @@ test("closing a note with unsaved text asks first", async ({ page }) => {
   await page.getByRole("button", { name: "＋ Note" }).click();
   await page.getByLabel("Note content (Markdown)").fill("Half a thought");
 
-  let asked = "";
-  page.once("dialog", async (d) => {
-    asked = d.message();
-    await d.dismiss();
-  });
   await page.keyboard.press("Escape");
-  await expect.poll(() => asked).toContain("unsaved");
+  const confirm = page.getByRole("alertdialog");
+  await expect(confirm).toContainText(/unsaved|discard/i);
+  await confirm.getByRole("button", { name: "Keep editing" }).click();
+  await expect(confirm).toBeHidden();
   await expect(page.getByRole("dialog", { name: "New note" })).toBeVisible();
 });
 

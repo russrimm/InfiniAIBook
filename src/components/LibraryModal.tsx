@@ -138,7 +138,7 @@ export default function LibraryModal({
                 <ul className="space-y-1">
                   {g.items.map((s) => (
                     <li key={s.id}>
-                      <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] hover:bg-[#161a21]">
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] hover:bg-row">
                         <input
                           type="checkbox"
                           checked={picked.has(s.id)}

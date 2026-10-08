@@ -556,9 +556,9 @@ export default function StudioPanel({
               type="button"
               aria-pressed={view === v}
               onClick={() => setView(v)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition ${
                 view === v
-                  ? "btn-primary shadow-sm"
+                  ? "bg-hover text-[var(--fg)]"
                   : "text-[var(--muted)] hover:bg-hover hover:text-[var(--fg)]"
               }`}
             >
@@ -759,7 +759,7 @@ export default function StudioPanel({
                     {speakers.map((speaker, i) => (
                       <div
                         key={speaker.id}
-                        className="rounded-lg border border-[var(--border)] bg-[#0b0e12]/50 p-2"
+                        className="rounded-lg border border-[var(--border)] bg-well/50 p-2"
                       >
                         <div className="mb-1.5 flex items-center gap-2">
                           <span className="w-5 shrink-0 text-[10px] font-semibold tracking-wide text-[var(--muted)] uppercase">

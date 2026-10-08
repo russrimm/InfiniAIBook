@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { safeNextPath } from "@/lib/access";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function LoginPage() {
   const [password, setPassword] = useState("");
@@ -51,6 +52,9 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
+      <div className="fixed top-4 right-4 text-[13px]">
+        <ThemeToggle variant="nav" />
+      </div>
       <form
         className="card fade-up w-full max-w-sm px-6 py-8"
         onSubmit={(e) => {

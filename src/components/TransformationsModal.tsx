@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "./ConfirmDialog";
 import { useEffect, useState } from "react";
 import { useDialog } from "./useDialog";
 import type { Transformation } from "@/lib/types";
@@ -49,8 +50,15 @@ export default function TransformationsModal({ onClose }: { onClose: () => void 
     }
   };
 
+  const askConfirm = useConfirm();
   const remove = async (t: Transformation) => {
-    if (!window.confirm(`Delete "${t.name}"?`)) return;
+    const ok = await askConfirm({
+      title: "Delete this transformation?",
+      message: `“${t.name}” is removed. Notes already made with it are kept.`,
+      confirmLabel: "Delete transformation",
+      destructive: true,
+    });
+    if (!ok) return;
     await fetch(`/api/transformations/${encodeURIComponent(t.id)}`, { method: "DELETE" });
     await load();
   };

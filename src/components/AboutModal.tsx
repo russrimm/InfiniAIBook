@@ -105,7 +105,7 @@ export default function AboutModal({ onClose }: { onClose: () => void }) {
           </section>
 
           <h3 className="mt-5 text-[13px] font-semibold">About</h3>
-          <p className="mt-1 text-sm text-[#d7dee8]">Created by {AUTHOR}</p>
+          <p className="mt-1 text-sm text-prose">Created by {AUTHOR}</p>
           <div className="mt-3 flex flex-wrap gap-2 text-[13px]">
             <a className="btn !text-[12px]" href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer">
               LinkedIn
@@ -122,7 +122,7 @@ export default function AboutModal({ onClose }: { onClose: () => void }) {
             <summary className="cursor-pointer text-[13px] font-semibold">
               License <span className="font-normal text-[var(--muted)]">· MIT</span>
             </summary>
-            <pre className="mt-2 max-h-80 overflow-auto rounded-xl border border-[var(--border)] bg-[#0b0d12] p-3 text-[11px] leading-relaxed whitespace-pre-wrap text-prose-soft">
+            <pre className="mt-2 max-h-80 overflow-auto rounded-xl border border-[var(--border)] bg-well p-3 text-[11px] leading-relaxed whitespace-pre-wrap text-prose-soft">
               {MIT_LICENSE}
             </pre>
           </details>

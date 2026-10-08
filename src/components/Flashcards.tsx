@@ -239,7 +239,7 @@ export default function Flashcards({
       />
 
       <div className="mb-3 flex items-center gap-3">
-        <div className="h-1 flex-1 overflow-hidden rounded-full bg-[#1b2027]">
+        <div className="h-1 flex-1 overflow-hidden rounded-full bg-track-soft">
           <div
             className="h-full rounded-full bg-[var(--accent)] transition-all motion-reduce:transition-none"
             style={{ width: `${(pos / order.length) * 100}%` }}
@@ -271,7 +271,7 @@ export default function Flashcards({
           </span>
 
           {flipped ? (
-            <p className="fade-up pointer-events-none relative z-10 mx-auto max-w-xl text-[16px] leading-relaxed text-[#dbe3ee] sm:text-[17px] [&_.cite]:pointer-events-auto">
+            <p className="fade-up pointer-events-none relative z-10 mx-auto max-w-xl text-[16px] leading-relaxed text-prose sm:text-[17px] [&_.cite]:pointer-events-auto">
               <InlineCited text={card.back} citations={citations} />
             </p>
           ) : (

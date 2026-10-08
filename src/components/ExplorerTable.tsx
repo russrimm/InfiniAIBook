@@ -91,7 +91,7 @@ export default function ExplorerTable({ table }: { table: TableSummary }) {
         </div>
       </div>
       {issues.length > 0 && (
-        <ul className="shrink-0 list-disc rounded-lg border border-line-strong bg-[#141922] py-2 pr-3 pl-7 text-[13px] text-prose-soft">
+        <ul className="shrink-0 list-disc rounded-lg border border-line-strong bg-sunk py-2 pr-3 pl-7 text-[13px] text-prose-soft">
           {issues.map((i) => (
             <li key={i}>{i}</li>
           ))}

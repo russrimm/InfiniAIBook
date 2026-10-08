@@ -163,7 +163,7 @@ export function Diagnose({ sourceId, onPick }: { sourceId: string; onPick: (i: n
 
       {d && (
         <>
-          <section className="rounded-lg border border-line-strong bg-[#141922] p-3">
+          <section className="rounded-lg border border-line-strong bg-sunk p-3">
             <h3 className="mb-1 text-[13px] font-semibold">Summary</h3>
             <p className="text-[13px] leading-relaxed text-prose-soft">{d.summary}</p>
             <p className="mt-1 text-[11px] text-[var(--muted)]">AI-generated from the digest. Verify against the requests before acting. Model: {result?.model}</p>

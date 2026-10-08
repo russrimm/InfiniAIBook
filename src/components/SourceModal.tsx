@@ -213,7 +213,7 @@ export default function SourceModal({
             <p className="text-[13px] text-[var(--muted)]">{loadError}</p>
           )}
           {cited && (
-            <div className="mb-4 rounded-xl border border-line-strong bg-[#141922] px-4 py-3">
+            <div className="mb-4 rounded-xl border border-line-strong bg-sunk px-4 py-3">
               <p className="mb-1 text-[11px] font-medium text-[var(--muted)]">
                 Cited passage · part {highlight?.part} (its exact place in the current text
                 could not be found)

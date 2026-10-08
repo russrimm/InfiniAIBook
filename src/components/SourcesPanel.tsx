@@ -334,8 +334,8 @@ export default function SourcesPanel({
           onClick={() => fileRef.current?.click()}
           className={`block w-full cursor-pointer rounded-xl border border-dashed px-4 py-5 text-center transition ${
             dragging
-              ? "border-[var(--accent)] bg-[rgba(124,140,255,0.06)]"
-              : "border-[var(--border)] hover:border-line-hover hover:bg-[#161a21]"
+              ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_7%,transparent)]"
+              : "border-[var(--border)] hover:border-line-hover hover:bg-row"
           }`}
         >
           <span aria-hidden className="mb-1 block text-lg">
@@ -473,7 +473,7 @@ export default function SourcesPanel({
                 className={`fade-up flex gap-2.5 rounded-xl border px-2.5 py-2.5 ${
                   job.error
                     ? "border-amber-900/60 bg-amber-950/20"
-                    : "border-[var(--border)] bg-[#141922]"
+                    : "border-[var(--border)] bg-sunk"
                 }`}
               >
                 <span className="mt-0.5 shrink-0">

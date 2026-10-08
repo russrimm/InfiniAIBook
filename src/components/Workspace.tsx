@@ -5,6 +5,7 @@ import Link from "next/link";
 import SourcesPanel from "./SourcesPanel";
 import SourceUpdates, { type PendingUpdate } from "./SourceUpdates";
 import ChatPanel from "./ChatPanel";
+import ThemeToggle from "./ThemeToggle";
 import StudioPanel from "./StudioPanel";
 import ArtifactModal from "./ArtifactModal";
 import SourceModal from "./SourceModal";
@@ -488,6 +489,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             <span aria-hidden>🧠</span>{" "}
             <span className="hidden max-w-[10rem] truncate md:inline">{model}</span>
           </button>
+          <ThemeToggle />
           <button
             aria-label="Help and about"
             title="Help & about"
@@ -529,20 +531,26 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             key={t}
             onClick={() => setTab(t)}
             aria-pressed={tab === t}
-            className={`flex-1 rounded-lg px-3 py-1.5 text-sm capitalize transition ${
+            className={`flex-1 rounded-lg px-2 py-1.5 text-sm whitespace-nowrap capitalize transition ${
               tab === t
                 ? "bg-hover text-[var(--fg)]"
                 : "text-[var(--muted)] hover:text-[var(--fg)]"
             }`}
           >
             {t}
-            {t === "sources" && sources.length ? ` (${selectedIds.length}/${sources.length})` : ""}
-            {t === "notes" && notes.length ? ` (${notes.length})` : ""}
+            {t === "sources" && sources.length ? (
+              <span className="ml-1 text-[11px] opacity-70">
+                {selectedIds.length}/{sources.length}
+              </span>
+            ) : null}
+            {t === "notes" && notes.length ? (
+              <span className="ml-1 text-[11px] opacity-70">{notes.length}</span>
+            ) : null}
           </button>
         ))}
       </nav>
 
-      <main className="grid min-h-0 flex-1 lg:grid-cols-[320px_minmax(0,1fr)_380px]">
+      <main className="grid min-h-0 flex-1 lg:grid-cols-[17rem_minmax(0,1fr)_20rem] xl:grid-cols-[320px_minmax(0,1fr)_380px]">
         <div
           className={`min-h-0 border-[var(--border)] lg:block lg:border-r ${
             tab === "sources" ? "block" : "hidden"
