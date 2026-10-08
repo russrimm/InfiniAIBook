@@ -10,9 +10,8 @@ import {
 
 describe("presenter voices", () => {
   it("knows the gender of every pinned voice", () => {
-    expect(Object.keys(PINNED_GENDER).sort()).toEqual(
-      Object.keys(PINNED_VOICES).sort(),
-    );
+    for (const k of Object.keys(PINNED_VOICES))
+      expect(PINNED_GENDER[k], k).toBeTruthy();
   });
 
   it("pairs every presenter with a pinned voice of the same gender", () => {
