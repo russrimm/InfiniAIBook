@@ -178,12 +178,12 @@ export default function Home() {
           Grounded research studio
         </div>
         <h1 className="text-5xl font-semibold tracking-tight">
-          Research that shows its work.
+          Turn your documents into answers, audio and video.
         </h1>
         <p className="mt-4 text-[15px] leading-relaxed text-[var(--muted)]">
-          Upload your sources. Ask them anything. Turn them into reports,
-          quizzes, mind maps and infographics — every claim cited back to your
-          documents.
+          Drop in PDFs, pages and notes, then chat, listen, watch and quiz
+          yourself. Every answer is cited back to your sources, so you can
+          trust what you share.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <button
