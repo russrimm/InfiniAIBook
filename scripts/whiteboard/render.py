@@ -36,9 +36,22 @@ _DEFAULT_FONTS = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
 ]
-FONT = cfg.get("font") or next((p for p in _DEFAULT_FONTS if os.path.exists(p)), _DEFAULT_FONTS[1])
+FONT = next((p for p in [cfg.get("font"), *_DEFAULT_FONTS] if p and os.path.exists(p)), None)
 OUT = cfg["output"]
 ff = imageio_ffmpeg.get_ffmpeg_exe()
+
+
+def load_font(path, size):
+    # Hosts without system fonts (e.g. slim containers) get Pillow's built-in font.
+    if path:
+        try:
+            return ImageFont.truetype(path, size)
+        except OSError:
+            pass
+    try:
+        return ImageFont.load_default(size)
+    except TypeError:
+        return ImageFont.load_default()
 
 
 def audio_len(path):
@@ -120,7 +133,7 @@ def stroke_order(img):
 def caption_layer(text):
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    font = ImageFont.truetype(FONT, int(46 * H / 1080))
+    font = load_font(FONT, int(46 * H / 1080))
     lines = textwrap.wrap(text, width=70); lh = int(62 * H / 1080)
     band_top = ART_H + 20
     d.line([(W * 0.08, band_top + 6), (W * 0.92, band_top + 6)], fill=(30, 110, 220, 255), width=6)

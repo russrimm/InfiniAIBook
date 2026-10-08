@@ -57,8 +57,21 @@ def font(size, bold=True):
     key = (int(size), bold)
     if key not in _font_cache:
         path = FONT_BOLD if bold else FONT_REGULAR
-        _font_cache[key] = ImageFont.truetype(path, int(size)) if path else ImageFont.load_default()
+        _font_cache[key] = _load_font(path, int(size))
     return _font_cache[key]
+
+
+def _load_font(path, size):
+    # Hosts without system fonts (e.g. slim containers) get Pillow's built-in font.
+    if path:
+        try:
+            return ImageFont.truetype(path, size)
+        except OSError:
+            pass
+    try:
+        return ImageFont.load_default(size)
+    except TypeError:
+        return ImageFont.load_default()
 
 
 def rgb(hex_color, alpha=255):
