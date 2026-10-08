@@ -48,7 +48,16 @@ FONT = cfg.get("font") or next((p for p in _FONTS if os.path.exists(p)), None)
 
 
 def font(size):
-    return ImageFont.truetype(FONT, int(size)) if FONT else ImageFont.load_default()
+    # Hosts without system fonts (e.g. slim containers) get Pillow's built-in font.
+    if FONT:
+        try:
+            return ImageFont.truetype(FONT, int(size))
+        except OSError:
+            pass
+    try:
+        return ImageFont.load_default(int(size))
+    except TypeError:
+        return ImageFont.load_default()
 
 
 def rgb(hex_color, alpha=255):

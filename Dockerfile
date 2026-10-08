@@ -23,7 +23,7 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 \
 # Enable them with: docker build --build-arg WITH_PYTHON=true .
 ARG WITH_PYTHON=false
 RUN if [ "$WITH_PYTHON" = "true" ]; then \
-      apt-get update && apt-get install -y --no-install-recommends python3 python3-pip \
+      apt-get update && apt-get install -y --no-install-recommends python3 python3-pip fonts-dejavu-core \
       && pip3 install --no-cache-dir --break-system-packages numpy pillow imageio-ffmpeg \
       && rm -rf /var/lib/apt/lists/*; \
     fi
