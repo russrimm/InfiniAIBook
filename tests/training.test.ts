@@ -32,7 +32,7 @@ import {
   type ComposeInput,
   type SectionTiming,
 } from "@/lib/trainingtimeline";
-import { normaliseSections } from "@/lib/training";
+import { normalizeSections } from "@/lib/training";
 
 const S1 =
   "Welcome to this session. Today you will learn three things about garden pilots.\n\n" +
@@ -155,9 +155,9 @@ describe("cue and composition normalizers", () => {
   });
 
   it("keeps cues on sections through the transcript normalizer", () => {
-    const [s] = normaliseSections([{ title: "A", text: "Hello there.", cues: [{ kind: "title", title: "Hi" }] }]);
+    const [s] = normalizeSections([{ title: "A", text: "Hello there.", cues: [{ kind: "title", title: "Hi" }] }]);
     expect(s.cues?.[0].kind).toBe("title");
-    const [plain] = normaliseSections([{ title: "A", text: "Hello there." }]);
+    const [plain] = normalizeSections([{ title: "A", text: "Hello there." }]);
     expect(plain.cues).toBeUndefined();
   });
 });

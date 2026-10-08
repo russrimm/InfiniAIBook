@@ -11,7 +11,7 @@ export const RECHECK_AFTER_MS = 6 * 60 * 60 * 1000;
 /**
  * Live pages are never byte-identical between fetches — whitespace moves,
  * entities re-encode, casing in generated markup shifts. Hashing the
- * normalised form keeps those from reading as edits.
+ * normalized form keeps those from reading as edits.
  */
 export function contentHash(text: string): string {
   const normal = text
@@ -282,7 +282,7 @@ export async function reindexSource(
         {
           role: "system",
           content:
-            "Summarise the document in 2 sentences (max 45 words). Plain text, no preamble.",
+            "Summarize the document in 2 sentences (max 45 words). Plain text, no preamble.",
         },
         { role: "user", content: text.slice(0, 12000) },
       ],

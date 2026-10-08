@@ -159,7 +159,7 @@ voices* renders each turn with a named standalone voice instead.
 ## If a voice wanders
 
 The multitalker is one generative model rendering a whole conversation, and the
-speaker name is **conditioning, not selection** — it steers the output towards a
+speaker name is **conditioning, not selection** — it steers the output toward a
 voice rather than loading one. So identity can drift, occasionally within a
 turn.
 

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
-import { backgroundColour, presenter, presenterVoice } from "@/lib/avatars";
-import { cleanSpoken, normaliseSections } from "@/lib/training";
+import { backgroundColor, presenter, presenterVoice } from "@/lib/avatars";
+import { cleanSpoken, normalizeSections } from "@/lib/training";
 import { isRendering } from "@/lib/trainingbuild";
 import type { TrainingContent } from "@/lib/types";
 import { readNarration } from "@/lib/narration";
@@ -79,7 +79,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
         .slice(0, 6);
     }
     if (body.sections !== undefined) {
-      const sections = normaliseSections(body.sections, layoutDefaults);
+      const sections = normalizeSections(body.sections, layoutDefaults);
       if (!sections.length) {
         return NextResponse.json(
           { error: "Keep at least one section with something to say." },
@@ -116,7 +116,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     }
     if (typeof body.background === "string") {
       const before = next.background;
-      next.background = backgroundColour(body.background);
+      next.background = backgroundColor(body.background);
       scriptChanged ||= before !== next.background;
     }
     if (body.narration !== undefined) {

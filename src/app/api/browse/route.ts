@@ -34,7 +34,7 @@ function frameability(xfo: string | null, csp: string | null): string | null {
   return null;
 }
 
-function normalise(raw: string): string | null {
+function normalize(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
   const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
@@ -76,7 +76,7 @@ function outboundLinks(html: string, base: string) {
 export async function GET(req: Request) {
   try {
     const params = new URL(req.url).searchParams;
-    const target = normalise(params.get("url") ?? "");
+    const target = normalize(params.get("url") ?? "");
     if (!target) {
       return NextResponse.json({ error: "Enter a web address." }, { status: 400 });
     }

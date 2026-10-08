@@ -30,6 +30,7 @@ import WatermarkPicker from "./WatermarkPicker";
 import NarrationOptions from "./NarrationOptions";
 import TrainingCueEditor from "./TrainingCueEditor";
 import TrainingDesign from "./TrainingDesign";
+import PresenterGallery from "./PresenterGallery";
 import TrainingPreview from "./TrainingPreview";
 import VoicePicker from "./VoicePicker";
 import type { VisualContext } from "./TrainingVisual";
@@ -134,6 +135,7 @@ export default function TrainingVideo({
 
   const [draft, setDraft] = useState<Draft>(() => toDraft(content));
   const [dirty, setDirty] = useState(false);
+  const [gallery, setGallery] = useState(false);
   const [busy, setBusy] = useState<"save" | "render" | "plan" | "pictures" | null>(null);
   const [prep, setPrep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -715,6 +717,18 @@ export default function TrainingVideo({
                     </option>
                   ))}
                 </select>
+                <button className="btn !text-[11px]" disabled={locked} onClick={() => setGallery(true)}>
+                  Compare presenters
+                </button>
+                {gallery && (
+                  <PresenterGallery
+                    current={draft.presenter}
+                    onClose={() => setGallery(false)}
+                    onPick={(key, voice) =>
+                      edit({ presenter: key, voice: voice ?? AVATAR_PRESETS[key]?.voice ?? draft.voice, voiceStyle: "" })
+                    }
+                  />
+                )}
                 <VoicePicker
                   voice={draft.voice}
                   style={draft.voiceStyle}

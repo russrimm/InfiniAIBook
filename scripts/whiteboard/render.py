@@ -87,7 +87,7 @@ def load_scene(path):
 
 
 def stroke_order(img):
-    """Ordinal at which each pixel gets drawn (-1 = blank). Titles left-to-right, shapes by nearest neighbour."""
+    """Ordinal at which each pixel gets drawn (-1 = blank). Titles left-to-right, shapes by nearest neighbor."""
     a = img.astype(np.int32)
     ink = (255 * 3 - a.sum(axis=2)) > 90
     th, tw = H // T, W // T

@@ -14,7 +14,7 @@ export type VoiceSelection = VoiceMap & { multitalker: boolean };
 /**
  * Speakers the multitalker voice accepts, from the en-US DragonHD set.
  *
- * Validated rather than passed through: an unrecognised name does not error,
+ * Validated rather than passed through: an unrecognized name does not error,
  * it silently renders in some other voice, so a typo would be invisible.
  */
 export const MULTITALKER_SPEAKERS = {
@@ -76,7 +76,7 @@ export const VOICE_PRESETS: Record<string, VoiceSelection> = {
  * The multitalker renders a whole dialogue from one generative model and takes
  * the speaker name as *conditioning*, not as a selection — so a voice can
  * wander within a turn. Naming a standalone voice instead pins the exact model
- * for that turn, which cannot drift. Only these thirteen of the twenty-five
+ * for that turn, which cannot drift. Only these eighteen of the twenty-five
  * speaker names have one; the rest exist only inside the multitalker.
  */
 export const PINNED_VOICES: Record<string, string> = {
@@ -93,9 +93,55 @@ export const PINNED_VOICES: Record<string, string> = {
   Brian: "en-US-BrianMultilingualNeural",
   Davis: "en-US-DavisMultilingualNeural",
   Steffan: "en-US-SteffanMultilingualNeural",
+  // Dragon HD standalone voices: higher quality, but only in regions that host Dragon HD.
+  Nova: "en-US-Nova:DragonHDLatestNeural",
+  Alloy: "en-US-Alloy:DragonHDLatestNeural",
+  Tiana: "en-US-Tiana:DragonHDFlashLatestNeural",
+  Tyler: "en-US-Tyler:DragonHDFlashLatestNeural",
+  Jimmie: "en-US-Jimmie:DragonHDFlashLatestNeural",
 };
 
 export const canPin = (speaker: string): boolean => speaker in PINNED_VOICES;
+
+/**
+ * Dragon HD versions of pinned voices, where Microsoft lists one. Offered only
+ * when the live voice list shows the Speech resource's region hosts it.
+ */
+export const HD_VARIANTS: Record<string, string> = {
+  Ava: "en-US-Ava:DragonHDLatestNeural",
+  Aria: "en-US-Aria:DragonHDLatestNeural",
+  Emma: "en-US-Emma:DragonHDLatestNeural",
+  Jenny: "en-US-Jenny:DragonHDLatestNeural",
+  Phoebe: "en-US-Phoebe:DragonHDLatestNeural",
+  Serena: "en-US-Serena:DragonHDLatestNeural",
+  Adam: "en-US-Adam:DragonHDLatestNeural",
+  Andrew: "en-US-Andrew:DragonHDLatestNeural",
+  Brian: "en-US-Brian:DragonHDLatestNeural",
+  Davis: "en-US-Davis:DragonHDLatestNeural",
+  Steffan: "en-US-Steffan:DragonHDLatestNeural",
+};
+
+/** Gender of each pinned voice, as listed in Microsoft's Speech language support table. */
+export const PINNED_GENDER: Record<string, "Female" | "Male"> = {
+  Ava: "Female",
+  Aria: "Female",
+  Emma: "Female",
+  Evelyn: "Female",
+  Jane: "Female",
+  Jenny: "Female",
+  Phoebe: "Female",
+  Nova: "Female",
+  Tiana: "Female",
+  Serena: "Female",
+  Adam: "Male",
+  Andrew: "Male",
+  Brian: "Male",
+  Davis: "Male",
+  Steffan: "Male",
+  Alloy: "Male",
+  Tyler: "Male",
+  Jimmie: "Male",
+};
 
 /**
  * Playback speed. Measured against the multitalker voice: 0.8 lengthened a

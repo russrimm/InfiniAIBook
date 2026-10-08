@@ -9,11 +9,11 @@ import { GROUNDING_RULES } from "@/lib/studio";
 import {
   TRAINING_INSTRUCTION,
   countWords,
-  normaliseScript,
+  normalizeScript,
   researchPassages,
   type TrainingScript,
 } from "@/lib/training";
-import { backgroundColour, presenter, presenterVoice } from "@/lib/avatars";
+import { backgroundColor, presenter, presenterVoice } from "@/lib/avatars";
 import { AUDIO_LENGTHS, WORDS_PER_MINUTE, audioLength } from "@/lib/voices";
 import type { TrainingContent } from "@/lib/types";
 import {
@@ -105,7 +105,7 @@ ${buildContext(passages)}`;
           ] satisfies ChatMsg[],
           0.6
         );
-        script = normaliseScript(raw);
+        script = normalizeScript(raw);
         // One retry for a malformed draft; more is just spending tokens.
         if (!script && attempt >= 1) break;
       } catch (e) {
@@ -140,7 +140,7 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"}, keeping the same structure. ${
           : "Go deeper with more examples from the research rather than padding."
       }`;
       try {
-        const retry = normaliseScript(
+        const retry = normalizeScript(
           await studioJSON<Loose>(
             [
               { role: "system", content: system(note) },
@@ -175,7 +175,7 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"}, keeping the same structure. ${
       presenter: presenterKey,
       voice,
       ...(voiceStyle ? { voiceStyle } : {}),
-      background: backgroundColour(body.background),
+      background: backgroundColor(body.background),
       length: wanted,
       targetMinutes: AUDIO_LENGTHS[wanted].minutes,
       ...(Number.isFinite(price) && price > 0 ? { pricePerMinute: price } : {}),

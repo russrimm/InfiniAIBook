@@ -260,7 +260,7 @@ async function requestImage(prompt: string, opts: ImageOptions): Promise<Generat
         ),
         {
           status: res.status,
-          // withRetry honours Retry-After when it is present. Without this the
+          // withRetry honors Retry-After when it is present. Without this the
           // backoff guesses, and on a small image deployment it guesses short.
           headers: Object.fromEntries(res.headers.entries()),
         }
@@ -428,7 +428,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /**
  * Small deployments (e.g. a 10K-TPM gpt-5-mini) routinely 429 on the large
  * contexts studio generation sends. Azure returns a Retry-After telling us
- * exactly how long to wait, so honour it instead of failing the request.
+ * exactly how long to wait, so honor it instead of failing the request.
  */
 async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
   const MAX_ATTEMPTS = 5;

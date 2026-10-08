@@ -764,6 +764,12 @@ export default function StudioPanel({
               </select>
             </div>
 
+            {!pinnedVoices && (
+              <p className="text-[10px] leading-snug text-amber-200/90">
+                In this mode a speaker name only steers the multi-speaker model, so a voice can drift, even to another
+                gender. Choose Fixed voices to guarantee that each name sounds like itself.
+              </p>
+            )}
             {pinnedVoices && (
               <p className="text-[10px] leading-snug text-[var(--muted)]">
                 {unpinnable.length ? (

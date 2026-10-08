@@ -19,7 +19,7 @@ const NAVY = "#13294b";
 type Props = { metaphor: string; accent: string; soft: string; size?: number };
 
 /**
- * Renders one metaphor. `accent` is the section's colour and `soft` a pale
+ * Renders one metaphor. `accent` is the section's color and `soft` a pale
  * companion, so a concept visually belongs to its region.
  */
 export default function Metaphor({ metaphor, accent, soft, size = 64 }: Props) {

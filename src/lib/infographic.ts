@@ -141,7 +141,7 @@ const IMAGE_THEME: InfographicTheme = {
 };
 
 /** The brief every illustrated image style asks for. */
-const IMAGE_HINT = `Analyse the material and identify the 6-9 most important ideas. Do not
+const IMAGE_HINT = `Analyze the material and identify the 6-9 most important ideas. Do not
 restate paragraphs — turn each idea into something that can be drawn.
 
 Populate "regions" with exactly 3 thematic groups, each { "heading": 1-3 words in
@@ -220,7 +220,7 @@ line of context of at most 140 characters.`,
     blurb: "Editorial, visual metaphors",
     icon: "🖼️",
     layout: "illustrated",
-    hint: `Analyse the material and identify the 6-10 most important ideas. Do not
+    hint: `Analyze the material and identify the 6-10 most important ideas. Do not
 restate paragraphs — turn each idea into something that can be shown.
 
 Populate "regions" with 2-3 thematic groups, each { "heading": 2-4 words,
@@ -337,7 +337,7 @@ Keep "sections" empty; "regions" replaces it for this style.
     icon: "🔷",
     layout: "stack",
     hint: `Lead with the single key takeaway — it is printed at the top in this style.
-Provide 5-7 labelled facts in total across the sections, each a short declarative
+Provide 5-7 labeled facts in total across the sections, each a short declarative
 statement. Keep headings to one or two words.`,
     theme: {
       bg: "#f7f8fa",
@@ -1611,7 +1611,7 @@ flow or mini visualization. Do not simply place paragraphs into boxes.
 COMPOSITION: ${frame(orientation, "a wide landscape layout, roughly 3:2")}. A very large bold headline
 across the top with the subhead on one line beneath it. ${
     hubLabel
-      ? `At the visual centre (or anchoring the left third) place the HUB as a hero
+      ? `At the visual center (or anchoring the left third) place the HUB as a hero
 illustration — a large glossy emblem, vessel, pool, engine or token that
 embodies it — with its label lettered prominently on or beneath it and its
 caption in smaller text nearby. From the hub, run thick, smooth, glossy gradient
@@ -1623,7 +1623,7 @@ gradient ribbons or pipes carrying small coins, tokens or icons between them.`
 panel with a pill-shaped heading tab in bold upper case. Keep clear separation
 between regions and generous whitespace.
 
-CONCEPT TREATMENT: every concept gets a circular icon medallion — a flat, colourful
+CONCEPT TREATMENT: every concept gets a circular icon medallion — a flat, colorful
 illustration inside a pale blue circle — with its bold takeaway beside it and
 its one supporting line in smaller regular text. Figures marked oversized sit on
 a price-tag, badge or ribbon shape and are set large and bold.
@@ -1640,7 +1640,7 @@ upper-case region headings; bold dark-navy subheads; highly readable regular
 body text. Short lines, no paragraphs.
 
 The result should look like a premium, hand-crafted infographic from an
-enterprise technology publication — balanced, colourful and scannable at a
+enterprise technology publication — balanced, colorful and scannable at a
 glance — not a slide, dashboard, poster or grid of UI cards.
 
 ${EXACT_TEXT}

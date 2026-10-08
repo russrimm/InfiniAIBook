@@ -35,7 +35,7 @@ export const METAPHOR_HINTS: Record<MetaphorKey, string> = {
   calculator: "forecasting, estimation or arithmetic",
   gears: "configuration, mechanism or how something works",
   shield: "security, protection or risk mitigation",
-  funnel: "filtering, narrowing or optimisation",
+  funnel: "filtering, narrowing or optimization",
   roadmap: "a process, sequence or plan over time",
   clock: "time, duration or scheduling",
   growth: "an increasing trend or improvement",

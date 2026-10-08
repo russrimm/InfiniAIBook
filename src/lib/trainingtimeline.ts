@@ -17,6 +17,8 @@ import {
   findAnchor,
   hashText,
   normalizeComposition,
+  PIP_SCALES,
+  resolvePip,
   tokenize,
   TRAINING_RESOLUTIONS,
   type CueKind,
@@ -169,7 +171,8 @@ export const PRESENTER_POSE: AvatarPose = { cx: 0.5, cy: 0.5, scale: 1, opacity:
 
 export function layoutGeometry(
   layout: TrainingLayout,
-  comp: Pick<TrainingComposition, "captions" | "pipCorner">
+  comp: Pick<TrainingComposition, "captions" | "pipCorner" | "pipSize">,
+  cueId = ""
 ): { avatar: AvatarPose; panel: Rect | null } {
   const bottom = comp.captions === "burned" ? 0.84 : 0.92;
   switch (layout) {
@@ -184,10 +187,18 @@ export function layoutGeometry(
         panel: { x: 0.03, y: 0.08, w: 0.57, h: round(bottom - 0.08) },
       };
     case "pip": {
-      const right = comp.pipCorner.endsWith("right");
-      const low = comp.pipCorner.startsWith("bottom");
+      const { corner, size } = resolvePip(comp, cueId);
+      const scale = PIP_SCALES[size];
+      const grow = (scale - PIP_SCALES.medium) * 0.5;
+      const right = corner.endsWith("right");
+      const low = corner.startsWith("bottom");
       return {
-        avatar: { cx: right ? 0.88 : 0.12, cy: low ? 0.8 : 0.26, scale: 0.42, opacity: 1 },
+        avatar: {
+          cx: round(right ? 0.88 - grow : 0.12 + grow),
+          cy: round(low ? 0.8 - grow : 0.26 + grow),
+          scale,
+          opacity: 1,
+        },
         panel: { x: 0.03, y: 0.05, w: 0.94, h: round(bottom - 0.05) },
       };
     }
@@ -544,7 +555,7 @@ export function compileTrainingTimeline(
     placed.forEach((p, k) => {
       const cueStart = start + Math.min(p.t, Math.max(0, duration - 0.2));
       const cueEnd = Math.min(end, k + 1 < placed.length ? start + placed[k + 1].t : end);
-      const { avatar: nextPose, panel } = layoutGeometry(p.cue.layout, c);
+      const { avatar: nextPose, panel } = layoutGeometry(p.cue.layout, c, p.cue.id);
       setPose(cueStart, p.cue.kind === "presenter" ? PRESENTER_POSE : nextPose);
       if (p.cue.kind === "presenter") return;
 

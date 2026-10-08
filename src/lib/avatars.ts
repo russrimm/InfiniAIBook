@@ -14,6 +14,8 @@ export type AvatarPreset = {
   character: string;
   /** Omitted for characters Microsoft lists without a style. */
   style?: string;
+  /** The presenter's apparent gender; the voice must match it (tests enforce this). */
+  gender: "Female" | "Male";
   /** A PINNED_VOICES speaker that suits the presenter. */
   voice: string;
 };
@@ -32,28 +34,28 @@ export type AvatarPreset = {
  * lists his styles.
  */
 export const AVATAR_PRESETS: Record<string, AvatarPreset> = {
-  "lisa-casual": { label: "Lisa · casual, seated", character: "lisa", style: "casual-sitting", voice: "Ava" },
-  "lisa-technical": { label: "Lisa · technical, seated", character: "lisa", style: "technical-sitting", voice: "Ava" },
-  "lisa-graceful": { label: "Lisa · graceful, seated", character: "lisa", style: "graceful-sitting", voice: "Ava" },
-  "lisa-graceful-standing": { label: "Lisa · graceful, standing", character: "lisa", style: "graceful-standing", voice: "Ava" },
-  "lisa-technical-standing": { label: "Lisa · technical, standing", character: "lisa", style: "technical-standing", voice: "Ava" },
-  "lori-formal": { label: "Lori · formal", character: "lori", style: "formal", voice: "Emma" },
-  "lori-casual": { label: "Lori · casual", character: "lori", style: "casual", voice: "Emma" },
-  "lori-graceful": { label: "Lori · graceful", character: "lori", style: "graceful", voice: "Emma" },
-  "meg-business": { label: "Meg · business", character: "meg", style: "business", voice: "Jenny" },
-  "meg-formal": { label: "Meg · formal", character: "meg", style: "formal", voice: "Jenny" },
-  "meg-casual": { label: "Meg · casual", character: "meg", style: "casual", voice: "Jenny" },
-  "harry-casual": { label: "Harry · casual", character: "harry", style: "casual", voice: "Andrew" },
-  "harry-business": { label: "Harry · business", character: "harry", style: "business", voice: "Andrew" },
-  "harry-youthful": { label: "Harry · youthful", character: "harry", style: "youthful", voice: "Andrew" },
-  "max-business": { label: "Max · business", character: "max", style: "business", voice: "Brian" },
-  "max-casual": { label: "Max · casual", character: "max", style: "casual", voice: "Davis" },
-  "max-formal": { label: "Max · formal", character: "max", style: "formal", voice: "Brian" },
+  "lisa-casual": { label: "Lisa · casual, seated", character: "lisa", gender: "Female", style: "casual-sitting", voice: "Ava" },
+  "lisa-technical": { label: "Lisa · technical, seated", character: "lisa", gender: "Female", style: "technical-sitting", voice: "Ava" },
+  "lisa-graceful": { label: "Lisa · graceful, seated", character: "lisa", gender: "Female", style: "graceful-sitting", voice: "Ava" },
+  "lisa-graceful-standing": { label: "Lisa · graceful, standing", character: "lisa", gender: "Female", style: "graceful-standing", voice: "Ava" },
+  "lisa-technical-standing": { label: "Lisa · technical, standing", character: "lisa", gender: "Female", style: "technical-standing", voice: "Ava" },
+  "lori-formal": { label: "Lori · formal", character: "lori", gender: "Female", style: "formal", voice: "Emma" },
+  "lori-casual": { label: "Lori · casual", character: "lori", gender: "Female", style: "casual", voice: "Emma" },
+  "lori-graceful": { label: "Lori · graceful", character: "lori", gender: "Female", style: "graceful", voice: "Emma" },
+  "meg-business": { label: "Meg · business", character: "meg", gender: "Female", style: "business", voice: "Jenny" },
+  "meg-formal": { label: "Meg · formal", character: "meg", gender: "Female", style: "formal", voice: "Jenny" },
+  "meg-casual": { label: "Meg · casual", character: "meg", gender: "Female", style: "casual", voice: "Jenny" },
+  "harry-casual": { label: "Harry · casual", character: "harry", gender: "Male", style: "casual", voice: "Andrew" },
+  "harry-business": { label: "Harry · business", character: "harry", gender: "Male", style: "business", voice: "Andrew" },
+  "harry-youthful": { label: "Harry · youthful", character: "harry", gender: "Male", style: "youthful", voice: "Andrew" },
+  "max-business": { label: "Max · business", character: "max", gender: "Male", style: "business", voice: "Brian" },
+  "max-casual": { label: "Max · casual", character: "max", gender: "Male", style: "casual", voice: "Davis" },
+  "max-formal": { label: "Max · formal", character: "max", gender: "Male", style: "formal", voice: "Brian" },
   // Styleless characters: Microsoft lists no style for these, so none is sent.
-  rowan: { label: "Rowan", character: "rowan", voice: "Adam" },
-  celine: { label: "Celine", character: "celine", voice: "Serena" },
-  nia: { label: "Nia", character: "nia", voice: "Evelyn" },
-  malik: { label: "Malik", character: "malik", voice: "Steffan" },
+  rowan: { label: "Rowan", character: "rowan", gender: "Male", voice: "Adam" },
+  celine: { label: "Celine", character: "celine", gender: "Female", voice: "Serena" },
+  nia: { label: "Nia", character: "nia", gender: "Female", voice: "Evelyn" },
+  malik: { label: "Malik", character: "malik", gender: "Male", voice: "Steffan" },
 };
 export const DEFAULT_PRESENTER = "lisa-casual";
 
@@ -79,14 +81,14 @@ export function presenterVoice(name?: string, fallback = "Ava"): string {
 export const BACKGROUNDS: { label: string; value: string }[] = [
   { label: "Studio slate", value: "#1F2A37" },
   { label: "Deep navy", value: "#0F2744" },
-  { label: "Soft grey", value: "#E5E7EB" },
+  { label: "Soft gray", value: "#E5E7EB" },
   { label: "Warm white", value: "#F7F4EE" },
   { label: "Forest", value: "#17352B" },
 ];
 
 export const DEFAULT_BACKGROUND = BACKGROUNDS[0].value;
 
-export function backgroundColour(v?: string): string {
+export function backgroundColor(v?: string): string {
   return typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v)
     ? v.toUpperCase()
     : DEFAULT_BACKGROUND;

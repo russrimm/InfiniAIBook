@@ -22,7 +22,7 @@ import {
   getAvatarJob,
   submitAvatarJob,
 } from "./avatarbatch";
-import { presenter, presenterVoice, backgroundColour, MAX_AVATAR_MINUTES } from "./avatars";
+import { presenter, presenterVoice, backgroundColor, MAX_AVATAR_MINUTES } from "./avatars";
 import { buildTrainingSsml, countWords } from "./training";
 import { WORDS_PER_MINUTE } from "./voices";
 import type { TrainingClip, TrainingContent, TrainingStage } from "./types";
@@ -154,7 +154,7 @@ export async function startTrainingRender(id: string): Promise<void> {
     await submitAvatarJob(synthesisId, ssml, {
       character: preset.character,
       style: preset.style,
-      background: backgroundColour(c.background),
+      background: backgroundColor(c.background),
       description: c.title,
     });
   } catch (e) {
@@ -429,7 +429,7 @@ async function pollComposed(id: string): Promise<void> {
       await submitAvatarJob(synthesisId, sectionSsml(c, i), {
         character: preset.character,
         style: preset.style,
-        background: backgroundColour(c.background),
+        background: backgroundColor(c.background),
         description: `${c.title} — section ${i + 1}`,
         transparent: true,
       });
@@ -505,7 +505,7 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
 
     const config = renderConfig(tl, {
       output: slash(out),
-      background: backgroundColour(c.background),
+      background: backgroundColor(c.background),
       palette: compositionPalette(comp),
       clip: (i) => slash(trainingClipPath(id, hashes[i])),
       raster: (key, state) => slash(trainingRasterPath(id, key, state)),

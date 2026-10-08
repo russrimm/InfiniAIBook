@@ -14,14 +14,14 @@ export const maxDuration = 300;
 type Ctx = { params: Promise<{ id: string }> };
 
 /** Best-effort two-sentence summary, written once the response has gone. */
-async function summarise(sourceId: string, text: string) {
+async function summarize(sourceId: string, text: string) {
   try {
     const summary = await chatText(
       [
         {
           role: "system",
           content:
-            "Summarise the document in 2 sentences (max 45 words). Plain text, no preamble.",
+            "Summarize the document in 2 sentences (max 45 words). Plain text, no preamble.",
         },
         { role: "user", content: text.slice(0, 12000) },
       ],
@@ -91,7 +91,7 @@ async function ingestOne(
 
   // The summary is a nicety; the source is usable without it, so it is not
   // allowed to hold up the response.
-  after(() => summarise(sourceId, text));
+  after(() => summarize(sourceId, text));
 
   return { id: sourceId, title, kind, chars: text.length, chunks: chunks.length };
 }
@@ -145,7 +145,7 @@ async function ingestArchive(
 }
 /**
  * Reuse a source from another notebook. Its text, summary and embeddings are
- * copied as they are, so nothing is re-fetched, re-embedded or re-summarised;
+ * copied as they are, so nothing is re-fetched, re-embedded or re-summarized;
  * the copy is independent afterwards, and deleting either leaves the other.
  */
 function copySource(sourceId: string, notebookId: string) {

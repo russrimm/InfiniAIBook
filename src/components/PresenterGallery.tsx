@@ -1,0 +1,205 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { AVATAR_PRESETS } from "@/lib/avatars";
+import { HD_VARIANTS, PINNED_VOICES } from "@/lib/voices";
+import type { CatalogVoice } from "@/lib/voicecatalog";
+import { loadVoices } from "./VoicePicker";
+import { useDialog } from "./useDialog";
+
+const entries = Object.entries(AVATAR_PRESETS);
+
+/**
+ * Every presenter at a glance, each with a sample of the voice it comes with,
+ * so one can be chosen by eye and ear. Samples are the voice only: rendering a
+ * real avatar clip is billed, so none is made here.
+ */
+export default function PresenterGallery({
+  current,
+  onPick,
+  onClose,
+}: {
+  current: string;
+  /** `voice` is set when the Dragon HD version was chosen. */
+  onPick: (key: string, voice?: string) => void;
+  onClose: () => void;
+}) {
+  const { dialogRef, backdropProps } = useDialog(onClose);
+  const [playing, setPlaying] = useState<string | null>(null);
+  const [all, setAll] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const run = useRef(0);
+  const [live, setLive] = useState<CatalogVoice[]>([]);
+
+  useEffect(() => {
+    let on = true;
+    void loadVoices().then((v) => on && setLive(v));
+    return () => {
+      on = false;
+    };
+  }, []);
+
+  /** The HD voice for a presenter, only when the Speech resource offers it. */
+  const hdFor = (key: string) => {
+    const id = HD_VARIANTS[AVATAR_PRESETS[key].voice];
+    return id && live.some((v) => v.id === id) ? id : null;
+  };
+
+  const stop = () => {
+    run.current++;
+    audio.current?.pause();
+    audio.current = null;
+    setPlaying(null);
+    setAll(false);
+  };
+
+  useEffect(
+    () => () => {
+      run.current++;
+      audio.current?.pause();
+    },
+    []
+  );
+
+  /** Resolves true when the sample played to its end. */
+  const sample = (key: string, token: number, hd = false) =>
+    new Promise<boolean>((resolve) => {
+      const voice = AVATAR_PRESETS[key].voice;
+      const id = (hd && hdFor(key)) || PINNED_VOICES[voice] || voice;
+      const tag = hd ? `${key}|hd` : key;
+      const a = new Audio(`/api/voices/preview?${new URLSearchParams({ voice: id })}`);
+      audio.current = a;
+      setPlaying(tag);
+      setFailed(null);
+      const done = (ok: boolean) => {
+        if (run.current !== token) return resolve(false);
+        if (!ok) setFailed(tag);
+        resolve(ok);
+      };
+      a.onended = () => done(true);
+      a.onerror = () => done(false);
+      a.play().catch(() => done(false));
+    });
+
+  const playOne = async (key: string, hd = false) => {
+    if (playing === (hd ? `${key}|hd` : key) && !all) return stop();
+    stop();
+    const token = run.current;
+    await sample(key, token, hd);
+    if (run.current === token) setPlaying(null);
+  };
+
+  const playAll = async () => {
+    stop();
+    const token = run.current;
+    setAll(true);
+    for (const [key] of entries) {
+      // A voice shared by several styles is heard once.
+      const first = entries.find(([, p]) => p.voice === AVATAR_PRESETS[key].voice)?.[0];
+      if (first !== key) continue;
+      if (run.current !== token || !(await sample(key, token))) break;
+      if (hdFor(key) && (run.current !== token || !(await sample(key, token, true)))) break;
+    }
+    if (run.current === token) stop();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm" {...backdropProps}>
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="gallery-title"
+        className="fade-up card flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden !p-0 outline-none"
+      >
+        <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+          <div className="min-w-0 flex-1">
+            <h2 id="gallery-title" className="text-[15px] font-semibold">
+              Compare presenters
+            </h2>
+            <p className="text-[11px] text-[var(--muted)]">
+              Listen to each presenter&apos;s voice and choose one. Pictures are from Microsoft Learn; the voice samples are audio only, so no avatar video is rendered or billed here.
+            </p>
+          </div>
+          <button className="btn !text-[11px]" onClick={all ? stop : playAll}>
+            {all ? "Stop" : "Play all voices"}
+          </button>
+          <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={onClose}>
+            ✕
+          </button>
+        </header>
+
+        <ul className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto p-4 sm:grid-cols-3">
+          {entries.map(([key, p]) => {
+            const selected = key === current;
+            const hd = hdFor(key);
+            return (
+              <li
+                key={key}
+                className={`flex flex-col items-center gap-2 rounded-xl border p-3 text-center ${
+                  selected ? "border-[var(--accent)] bg-well" : "border-[var(--border)]"
+                } ${playing?.split("|")[0] === key ? "ring-1 ring-[var(--accent)]" : ""}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/avatars/${key}.png`}
+                  alt={`${p.label} avatar`}
+                  className="h-40 w-full rounded-lg bg-white object-cover object-top"
+                />
+                <span className="text-[13px] leading-tight font-medium">{p.label}</span>
+                <span className="text-[10px] text-[var(--muted)]">
+                  {p.gender} · voice: {p.voice}
+                </span>
+                <div className="mt-auto flex flex-wrap justify-center gap-1.5">
+                  <button
+                    className="btn !px-2 !py-1 !text-[11px]"
+                    aria-label={`${playing === key ? "Stop" : "Play"} the voice of ${p.label}`}
+                    onClick={() => void playOne(key)}
+                  >
+                    {playing === key ? "■ Stop" : "▶ Play"}
+                  </button>
+                  <button
+                    className="btn !px-2 !py-1 !text-[11px]"
+                    aria-pressed={selected}
+                    disabled={selected}
+                    onClick={() => {
+                      stop();
+                      onPick(key);
+                      onClose();
+                    }}
+                  >
+                    {selected ? "Selected" : "Use"}
+                  </button>
+                  {hd && (
+                    <>
+                      <button
+                        className="btn !px-2 !py-1 !text-[11px]"
+                        aria-label={`${playing === `${key}|hd` ? "Stop" : "Play"} the HD voice of ${p.label}`}
+                        onClick={() => void playOne(key, true)}
+                      >
+                        {playing === `${key}|hd` ? "■ Stop HD" : "▶ HD"}
+                      </button>
+                      <button
+                        className="btn !px-2 !py-1 !text-[11px]"
+                        onClick={() => {
+                          stop();
+                          onPick(key, hd);
+                          onClose();
+                        }}
+                      >
+                        Use HD
+                      </button>
+                    </>
+                  )}
+                </div>
+                {failed?.split("|")[0] === key && <span className="text-[10px] text-red-300">No sample available.</span>}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}

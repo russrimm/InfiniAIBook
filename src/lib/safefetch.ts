@@ -51,7 +51,7 @@ function ipv4Blocked(ip: string): boolean {
  *
  * Parsing by pattern is not enough here. `new URL()` rewrites an address into
  * its canonical form, so `::ffff:127.0.0.1` arrives as `::ffff:7f00:1` — the
- * same loopback address with no dots left to recognise it by.
+ * same loopback address with no dots left to recognize it by.
  */
 function expandIpv6(s: string): number[] | null {
   if (!s || /[^0-9a-f:.]/.test(s)) return null;

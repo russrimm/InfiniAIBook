@@ -24,7 +24,7 @@ describe("Markdown", () => {
     expect(render("[example.com/page](https://example.com/page)")).not.toContain("(example.com)");
   });
 
-  it("neutralises javascript: links", () => {
+  it("neutralizes javascript: links", () => {
     expect(render("[x](javascript:alert(1))")).not.toContain("javascript:");
   });
 });

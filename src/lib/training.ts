@@ -147,7 +147,7 @@ export type TrainingScript = {
 export const MAX_SECTIONS = 12;
 export const MAX_SECTION_CHARS = 6000;
 
-export function normaliseSections(
+export function normalizeSections(
   raw: unknown,
   composition?: Pick<TrainingComposition, "defaultLayout" | "transition">
 ): TrainingSection[] {
@@ -166,8 +166,8 @@ export function normaliseSections(
     .slice(0, MAX_SECTIONS);
 }
 
-export function normaliseScript(raw: Record<string, unknown>): TrainingScript | null {
-  const sections = normaliseSections(raw.sections);
+export function normalizeScript(raw: Record<string, unknown>): TrainingScript | null {
+  const sections = normalizeSections(raw.sections);
   if (sections.length < 2) return null;
   const objectives = (Array.isArray(raw.objectives) ? raw.objectives : [])
     .map((o) => cleanSpoken(str(o)).slice(0, 200))

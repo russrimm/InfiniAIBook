@@ -12,7 +12,7 @@ import {
 let cached: Promise<CatalogVoice[]> | null = null;
 
 /** One request per page load; the server keeps the list for a day. */
-function loadVoices(): Promise<CatalogVoice[]> {
+export function loadVoices(): Promise<CatalogVoice[]> {
   cached ??= fetch("/api/voices")
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
     .then((j: { voices?: CatalogVoice[] }) => (j.voices?.length ? j.voices : BASELINE_VOICES))

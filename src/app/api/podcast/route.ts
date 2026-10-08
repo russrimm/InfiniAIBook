@@ -203,7 +203,7 @@ Count the words in your answer before returning it.`;
         );
         const nextParsed = readScript(retry, profiles.length);
         const next = nextParsed.turns;
-        // Only take the rewrite if it actually moved towards the target.
+        // Only take the rewrite if it actually moved toward the target.
         if (
           next.length >= minTurns &&
           Math.abs(countWords(next) - targetWords) < Math.abs(words - targetWords)
