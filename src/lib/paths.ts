@@ -49,6 +49,11 @@ export function musicDir(): string {
   return path.join(dataDir(), "music");
 }
 
+/** Watermark images uploaded through the app, shared by every video. */
+export function watermarkDir(): string {
+  return path.join(dataDir(), "watermarks");
+}
+
 export function videoDir(): string {
   return path.join(dataDir(), "video");
 }

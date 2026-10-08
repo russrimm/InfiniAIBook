@@ -45,6 +45,34 @@ https://github.com/user-attachments/assets/7651fdca-42dd-45e4-8e56-f56f07c3b6d9
 
 How it works, setup and costs: [Training videos](docs/training-videos.md).
 
+### Sample: a whiteboard video
+
+The 🎬 **Whiteboard video** generator plans a short scene-by-scene story from
+your sources, then draws it: a hand sketches each hand-lettered title and
+doodle on a whiteboard while a narrator explains it, with a caption under every
+scene. You review and edit the script before anything is drawn or voiced. This
+1:14 sample has six scenes and came from the fictional community-garden
+notebook used in the [Studio examples](#studio-examples). It rendered in about
+six minutes.
+
+https://github.com/user-attachments/assets/86b4d194-5210-43af-b2da-2bf508d73ec4
+
+How it works and setup: [Whiteboard videos](docs/whiteboard-videos.md).
+
+### Sample: a motion explainer
+
+The 🎞️ **Motion explainer** generator tells a story in 2D animation:
+illustrated backgrounds, a recurring character, kinetic headlines, callout chips
+and stat cards, following problem, solution, how it works, benefits and a next
+step. Length, tone, audience, illustration style, colors, the character and the
+closing call to action can all be changed. This 1:50 sample has seven scenes,
+uses the default settings and came from the same notebook. It rendered in about
+nine minutes.
+
+https://github.com/user-attachments/assets/9df785be-160a-4b0b-879d-531a4749b538
+
+How it works, customization and setup: [Motion explainers](docs/motion-explainers.md).
+
 ## Features
 
 - **Sources** — PDF, DOCX, PPTX, TXT, MD, CSV, JSON, HTML, images, audio/video, ZIP archives,
@@ -87,7 +115,8 @@ How it works, setup and costs: [Training videos](docs/training-videos.md).
   Audio overviews and all three video formats stop at an **editable script**
   before anything is narrated or rendered, accept **narration instructions**
   and a **word-replacement list** (for terms to avoid, translation or a
-  different register), and can add **background music** you upload.
+  different register), and can add **background music** you upload. Videos
+  can also carry a text or image **watermark** in any of nine positions.
   [More](docs/studio.md#spoken-formats-script-review-instructions-and-music)
 
 - **Exports** — Markdown, PPTX, MP3, MP4, PNG and Anki/Quizlet CSV. [More](docs/studio.md#exporting)
@@ -150,10 +179,10 @@ videos also need an image model and Python; see
 | 🎧 [Audio overview](docs/audio-overviews.md) | 🎬 [Whiteboard video](docs/whiteboard-videos.md) |
 |---|---|
 | ![Audio overview script editor with two named hosts, voices, music and chaptered lines](docs/screenshots/studio/audio-overview.png) | ![Whiteboard video script with a caption, drawing description and narration for each scene](docs/screenshots/studio/whiteboard-video.png) |
-| A conversation between one to four speakers, with chapters; narrate it to MP3 | Six hand-drawn scenes, each with a caption, a drawing and narration; render to MP4 |
+| A conversation between one to four speakers, with chapters; narrate it to MP3 | Six hand-drawn scenes, each with a caption, a drawing and narration; watch the 1:14 [sample above](#sample-a-whiteboard-video) |
 | **🎞️ [Motion explainer](docs/motion-explainers.md)** | **🧑‍🏫 [Training video](docs/training-videos.md)** |
 | ![Motion explainer script with story beats, on-screen headlines, callout chips and narration](docs/screenshots/studio/motion-explainer.png) | [![A presenter on a slate background, with the subtitle "If you build or manage agents in Copilot Studio, the pace of change is fast"](docs/screenshots/training-video.jpg)](#sample-an-avatar-training-video) |
-| Problem, solution, how, benefits and a call to action, with headlines and callouts; render to MP4 | A lip-synced avatar presenter with timed slides; watch the 3:37 [sample above](#sample-an-avatar-training-video) |
+| Problem, solution, how, benefits and a call to action, with headlines and callouts; watch the 1:50 [sample above](#sample-a-motion-explainer) | A lip-synced avatar presenter with timed slides; watch the 3:37 [sample above](#sample-an-avatar-training-video) |
 
 ## Quick start
 

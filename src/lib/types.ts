@@ -1,6 +1,7 @@
 import type { MotionOptions, MotionPlan } from "./motion";
 import type { TrainingComposition, TrainingCue } from "./trainingvisuals";
 import type { MusicChoice } from "./musicchoice";
+import type { WatermarkChoice } from "./watermarkchoice";
 import type { NarrationSettings } from "./narration";
 import type { PodcastScript } from "./podcastscript";
 import type { ScenePlan } from "./whiteboard";
@@ -13,6 +14,14 @@ export type SpokenExtras = {
   musicChoice?: MusicChoice | null;
   /** Whether the last render actually had music mixed in. */
   music?: boolean;
+};
+
+/** The watermark every video format can carry. */
+export type VideoExtras = {
+  /** The watermark to stamp on the next render; null for none. */
+  watermarkChoice?: WatermarkChoice | null;
+  /** Whether the last render actually had a watermark stamped on it. */
+  watermarked?: boolean;
 };
 
 export type ArtifactType =
@@ -213,7 +222,7 @@ export type PodcastContent = SpokenExtras & {
   note?: string;
 };
 
-export type VideoContent = SpokenExtras & {
+export type VideoContent = SpokenExtras & VideoExtras & {
   title: string;
   description?: string;
   scenes: {
@@ -267,7 +276,7 @@ export type TrainingClip = {
   billedSec?: number;
 };
 
-export type TrainingContent = SpokenExtras & {
+export type TrainingContent = SpokenExtras & VideoExtras & {
   title: string;
   description?: string;
   objectives: string[];

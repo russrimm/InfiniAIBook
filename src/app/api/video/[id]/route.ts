@@ -6,6 +6,7 @@ import { serveRangedFile } from "@/lib/rangefile";
 import { normalizeMotionPlan, normalizeMotionOptions, type MotionPlan } from "@/lib/motion";
 import { normalizeScenePlan, type ScenePlan } from "@/lib/whiteboard";
 import { normalizeMusicChoice } from "@/lib/musicchoice";
+import { normalizeWatermark } from "@/lib/watermarkchoice";
 import { readNarration } from "@/lib/narration";
 import {
   motionScenes,
@@ -76,6 +77,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       scenes?: unknown[];
       voice?: string;
       music?: unknown;
+      watermark?: unknown;
       narration?: unknown;
       movement?: string;
     };
@@ -135,6 +137,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       if (v) next.voice = v;
     }
     if ("music" in body) next.musicChoice = normalizeMusicChoice(body.music);
+    if ("watermark" in body) next.watermarkChoice = normalizeWatermark(body.watermark);
     if (row.type === "motion" && typeof body.movement === "string") {
       const options = normalizeMotionOptions({ ...(current.options as object), movement: body.movement });
       if (options.movement !== normalizeMotionOptions(current.options ?? {}).movement) {

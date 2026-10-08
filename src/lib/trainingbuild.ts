@@ -29,6 +29,7 @@ import type { TrainingClip, TrainingContent, TrainingStage } from "./types";
 import { applyReplacements, readNarration } from "./narration";
 import { mixMusicInto, resolveMusic } from "./music";
 import { normalizeMusicChoice } from "./musicchoice";
+import { stampWatermark } from "./watermark";
 import { runPythonRenderer } from "./python";
 import { compositionPalette, normalizeComposition } from "./trainingvisuals";
 import {
@@ -236,6 +237,8 @@ async function poll(id: string): Promise<void> {
           note = "The music could not be mixed in, so the video was saved without it.";
         }
       }
+      const mark = await stampWatermark(videoPath(id), c.watermarkChoice, "training");
+      note = [note, mark.note].filter(Boolean).join(" ") || undefined;
       const ms = job.properties?.durationInMilliseconds;
       const renderedAt = Date.now();
       writeTraining(id, {
@@ -243,8 +246,9 @@ async function poll(id: string): Promise<void> {
         // Cache-busted so a re-render is not served from the browser's copy.
         videoUrl: `/api/video/${id}?v=${renderedAt}`,
         captionsUrl: undefined,
-        bytes: withMusic ? fs.statSync(videoPath(id)).size : bytes,
+        bytes: withMusic || mark.watermarked ? fs.statSync(videoPath(id)).size : bytes,
         music: withMusic,
+        watermarked: mark.watermarked,
         durationSec: ms ? Math.round(ms / 100) / 10 : undefined,
         billedSeconds: job.properties?.billingDetails?.talkingAvatarDurationSeconds,
         renderedAt,
@@ -525,6 +529,8 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
         note = "The music could not be mixed in, so the video was saved without it.";
       }
     }
+    const mark = await stampWatermark(out, c.watermarkChoice, "training");
+    note = [note, mark.note].filter(Boolean).join(" ") || undefined;
 
     if (!read(id)) return;
     fs.mkdirSync(videoDir(), { recursive: true });
@@ -556,6 +562,7 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
       captionsUrl,
       bytes: fs.statSync(videoPath(id)).size,
       music: withMusic,
+      watermarked: mark.watermarked,
       durationSec: Math.round(tl.duration * 10) / 10,
       billedSeconds: billed || undefined,
       renderedAt,

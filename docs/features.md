@@ -40,6 +40,8 @@ narrated or rendered, take **narration instructions** and a strict
 **word-replacement list** (saved per notebook), and can add **background
 music** from an in-app library of uploaded tracks. See
 [Spoken formats](studio.md#spoken-formats-script-review-instructions-and-music).
+The three video formats can also carry a **watermark**, text or an uploaded
+image, in any of nine positions; see [Watermark](studio.md#watermark).
 
 Every artifact can be copied or exported to Markdown; audio can be downloaded as
 MP3, decks as PPTX, and flashcards export as a two-column table that Anki and

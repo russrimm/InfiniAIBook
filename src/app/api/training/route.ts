@@ -23,6 +23,7 @@ import {
 } from "@/lib/narration";
 import { notebookNarration } from "@/lib/narrationstore";
 import { normalizeMusicChoice } from "@/lib/musicchoice";
+import { normalizeWatermark } from "@/lib/watermarkchoice";
 import { normalizeComposition } from "@/lib/trainingvisuals";
 import { planTrainingVisuals } from "@/lib/trainingplan";
 import { resolveVoice } from "@/lib/voicelist";
@@ -60,6 +61,7 @@ async function writeTranscript(req: Request) {
       length?: string;
       narration?: unknown;
       music?: unknown;
+      watermark?: unknown;
       composition?: unknown;
     };
     const { notebookId, sourceIds } = body;
@@ -179,6 +181,7 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"}, keeping the same structure. ${
       ...(Number.isFinite(price) && price > 0 ? { pricePerMinute: price } : {}),
       narration,
       musicChoice: normalizeMusicChoice(body.music),
+      watermarkChoice: normalizeWatermark(body.watermark),
       progress: { stage: "transcript" },
       composition,
       citations: citationList(passages),

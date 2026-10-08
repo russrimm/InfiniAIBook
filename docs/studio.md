@@ -70,6 +70,29 @@ to use.
 Mixing uses the same Python and `imageio-ffmpeg` as the video renderers. If a
 mix fails, the narration or video is kept without music and a note says so.
 
+### Watermark
+
+The three video cards (whiteboard, motion explainer and training video) and
+their script editors have a **Mark** picker under the music picker: *No
+watermark*, *Text* or *Image*.
+
+- **Text** stamps up to 80 characters, such as `© Contoso Learning`, in white
+  with a dark outline so it reads on any background.
+- **Image** stamps a picture from the watermark library. Press **＋** to upload
+  a PNG, JPEG, WebP or GIF (up to 5 MB); it is converted to PNG in the browser,
+  keeping transparency, and saved to the shared library under
+  `.data/watermarks`. ✕ deletes the selected image.
+
+Pick one of nine **positions** on the 3 × 3 grid (corners, edges or center), a
+**size** (*Small*, *Medium* or *Large*, relative to the frame) and an
+**opacity** (*Faint*, *Medium* or *Solid*). The default is medium, bottom right.
+
+The watermark is stamped onto the finished MP4 after any music is mixed, so
+changing it means rendering again. It uses the same Python, Pillow and
+`imageio-ffmpeg` as the renderers. If stamping fails, or the chosen image has
+been deleted, the video is kept without the watermark and a note says so. Only
+upload images you have the rights to use.
+
 ## Study aids
 
 The quiz and flashcard generators share two controls, set on their cards in the

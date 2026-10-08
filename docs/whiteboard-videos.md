@@ -17,6 +17,17 @@ and a line or two of narration. Every claim is grounded in the excerpts, and
 scene prompts are barred from naming real brands, logos or people — the artwork
 is original doodles.
 
+## Sample
+
+[![A hand-drawn raised garden bed with a hammer under the title "Build 24 beds", captioned "Construct 24 cedar beds and fill with soil and compost."](screenshots/whiteboard-video.jpg)](https://github.com/user-attachments/assets/86b4d194-5210-43af-b2da-2bf508d73ec4)
+
+*Click the image to play the 1:14 sample, shown here at 720p.* It was generated
+from the fictional community-garden notebook used throughout these docs (a
+project brief, a planting and water plan, volunteer workshop notes and a
+resident survey) with the default voice, and the six-scene plan was rendered
+unedited. It took about six minutes: four of artwork, a few seconds of
+narration and two of rendering.
+
 ## What it runs on
 
 Scene artwork comes from the configured image model (`AZURE_OPENAI_IMAGE_DEPLOYMENT`
@@ -43,7 +54,8 @@ Nothing blocks on it. The scene plan is saved for review first; once you press
 **Render video** the build carries on in the background, writing its stage onto
 the row, and the player shows the progress. Close it, keep working, come back.
 If background music was chosen, it is mixed in after the render and ducked
-under the narration.
+under the narration. A text or image watermark, if chosen, is stamped last; see
+[Watermark](studio.md#watermark).
 
 ## Two renderer details worth knowing
 

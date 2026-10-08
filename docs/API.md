@@ -150,13 +150,13 @@ and cannot be edited or deleted.
 | POST | `/api/podcast` | `{ notebookId, topic?, sourceIds?, preset?, speakers?: [{ voice?, name?, role? }] (1–4), rate?, breath?, length?, narration?, music? }` → audio-overview **script** (`stage: "script"`), not yet narrated |
 | PATCH | `/api/podcast/{id}` | Edit `title`, `description`, `script: { segments: [{ title, turns: [{ speaker, text }] }] }`, `voices`, `rate`, `music`, `narration`; 409 while narrating |
 | POST | `/api/podcast/{id}/narrate` | Synthesize the script (and mix any music); returns the artifact with `audioUrl` and timed `turns` |
-| POST | `/api/video` | `{ notebookId, topic?, sourceIds?, voice?, narration?, music? }` → whiteboard scene plan (`progress.stage: "script"`) |
-| POST | `/api/motion` | `{ notebookId, topic?, sourceIds?, voice?, music?, narration?, length?, tone?, audience?, visual?, palette?, customPalette?, character?, characterDescription?, closing?, resolution?, movement? }` → motion scene plan (`progress.stage: "script"`). Customization values are in [Motion explainers](motion-explainers.md#customizing-a-video); unknown values fall back to the defaults |
-| PATCH | `/api/video/{id}` | Edit a whiteboard or motion script: `title`, `description`, `scenes`, `voice`, `music`, `narration`, and `movement` for motion; 409 while building |
+| POST | `/api/video` | `{ notebookId, topic?, sourceIds?, voice?, narration?, music?, watermark? }` → whiteboard scene plan (`progress.stage: "script"`) |
+| POST | `/api/motion` | `{ notebookId, topic?, sourceIds?, voice?, music?, watermark?, narration?, length?, tone?, audience?, visual?, palette?, customPalette?, character?, characterDescription?, closing?, resolution?, movement? }` → motion scene plan (`progress.stage: "script"`). Customization values are in [Motion explainers](motion-explainers.md#customizing-a-video); unknown values fall back to the defaults |
+| PATCH | `/api/video/{id}` | Edit a whiteboard or motion script: `title`, `description`, `scenes`, `voice`, `music`, `watermark`, `narration`, and `movement` for motion; 409 while building |
 | POST | `/api/video/{id}/render` | Build the reviewed script; poll `GET /api/artifacts/{id}` for `progress.stage`, play `GET /api/video/{id}` |
 | GET | `/api/motion` | `{ music }`: whether any background-music track is available |
-| POST | `/api/training` | `{ notebookId, topic?, sourceIds?, presenter?, voice?, background?, length?, narration?, music?, composition? }` → training transcript artifact. With `composition.mode: "composed"`, visuals are planned too; without `composition` the video is presenter only |
-| PATCH | `/api/training/{id}` | Edit `title`, `description`, `objectives`, `sections` (each with optional `cues`), `presenter`, `voice`, `background`, `music`, `narration`, `composition`; 409 while rendering |
+| POST | `/api/training` | `{ notebookId, topic?, sourceIds?, presenter?, voice?, background?, length?, narration?, music?, watermark?, composition? }` → training transcript artifact. With `composition.mode: "composed"`, visuals are planned too; without `composition` the video is presenter only |
+| PATCH | `/api/training/{id}` | Edit `title`, `description`, `objectives`, `sections` (each with optional `cues`), `presenter`, `voice`, `background`, `music`, `watermark`, `narration`, `composition`; 409 while rendering |
 | POST | `/api/training/{id}/render` | Start the render; poll `GET /api/artifacts/{id}` for `progress.stage` (and `progress.clips` for composed videos). Composed videos return 409 until every visual is drawn (`/raster`) |
 | POST | `/api/training/{id}/visuals` | `{ section? }` → plan the visuals again for the whole video or one 0-based section |
 | GET | `/api/training/{id}/timing` | Per-section speech timing and preview voice tracks (rendered clips, measured speech, or estimates) |
@@ -170,6 +170,8 @@ and cannot be edited or deleted.
 | GET | `/api/training/{id}/captions` | WebVTT captions of the last composed render |
 | GET/POST | `/api/music` | List the music library / upload a track (multipart field `file`; MP3, M4A, AAC, WAV, OGG or FLAC, up to 50 MB) |
 | GET/DELETE | `/api/music/{id}` | Stream a track / delete an uploaded one (tracks from `MOTION_MUSIC_DIR` cannot be deleted) |
+| GET/POST | `/api/watermark` | `{ images, maxBytes }`: the watermark image library / upload one with `{ name, dataUrl }` (a PNG data URL, up to 5 MB) → `{ image, images }` |
+| GET/DELETE | `/api/watermark/{id}` | The watermark image (PNG) / delete it → `{ ok, images }` |
 | GET/DELETE | `/api/artifacts/{id}` | A saved artifact |
 | GET | `/api/audio/{id}`, `/api/image/{id}`, `/api/voice-preview/{name}` | Binary media |
 
@@ -180,6 +182,14 @@ when `to` is empty) in the finished script and again right before speech. When
 omitted, the notebook's saved defaults are used. `music` is
 `{ track: "random" | trackId, volume?: "low" | "medium" | "high" }`, or `null`
 for none.
+
+The three video formats also take `watermark`:
+`{ kind: "text", text }` or `{ kind: "image", image: imageId }`, plus optional
+`position` (`"top-left"`, `"top-center"`, `"top-right"`, `"middle-left"`,
+`"center"`, `"middle-right"`, `"bottom-left"`, `"bottom-center"` or
+`"bottom-right"`, the default), `size` (`"small"`, `"medium"` or `"large"`) and
+`opacity` (`"faint"`, `"medium"` or `"solid"`). `null` or anything malformed
+means no watermark. It is stamped on the next render.
 
 ## Live discussions
 

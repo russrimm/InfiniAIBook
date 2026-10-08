@@ -10,6 +10,7 @@ import {
 } from "@/lib/avatars";
 import { EMPTY_NARRATION, readNarration, type NarrationSettings } from "@/lib/narration";
 import { normalizeMusicChoice, type MusicChoice } from "@/lib/musicchoice";
+import { normalizeWatermark, type WatermarkChoice } from "@/lib/watermarkchoice";
 import {
   CUE_KIND_LABELS,
   LAYOUT_LABELS,
@@ -25,6 +26,7 @@ import {
 } from "@/lib/trainingvisuals";
 import { composeInputOf, composeVocabulary, usableTimings, type SectionTiming } from "@/lib/trainingtimeline";
 import MusicPicker from "./MusicPicker";
+import WatermarkPicker from "./WatermarkPicker";
 import NarrationOptions from "./NarrationOptions";
 import TrainingCueEditor from "./TrainingCueEditor";
 import TrainingDesign from "./TrainingDesign";
@@ -61,6 +63,7 @@ type Draft = {
   voiceStyle: string;
   background: string;
   music: MusicChoice | null;
+  watermark: WatermarkChoice | null;
   narration: NarrationSettings;
   composition: TrainingComposition;
 };
@@ -74,6 +77,7 @@ const toDraft = (c: TrainingContent): Draft => ({
   voiceStyle: c.voiceStyle ?? "",
   background: c.background,
   music: normalizeMusicChoice(c.musicChoice),
+  watermark: normalizeWatermark(c.watermarkChoice),
   narration: c.narration ? readNarration(c.narration) : EMPTY_NARRATION,
   composition: normalizeComposition(c.composition),
 });
@@ -156,6 +160,7 @@ export default function TrainingVideo({
     content.voice,
     content.background,
     content.musicChoice,
+    content.watermarkChoice,
     content.narration,
     content.composition,
   ]);
@@ -290,6 +295,7 @@ export default function TrainingVideo({
       voiceStyle: draft.voiceStyle || null,
       background: draft.background,
       music: draft.music,
+      watermark: draft.watermark,
       narration: {
         instructions: draft.narration.instructions,
         replacements: draft.narration.replacements.filter((r) => r.from.trim()),
@@ -567,6 +573,7 @@ export default function TrainingVideo({
             {content.durationSec ? <span>{fmt(content.durationSec)}</span> : null}
             {content.bytes ? <span>{(content.bytes / 1_048_576).toFixed(1)} MB</span> : null}
             {content.music ? <span>With background music</span> : null}
+            {content.watermarked ? <span>Watermarked</span> : null}
             {content.billedSeconds ? (
               <span>{Math.round(content.billedSeconds)} s of avatar time billed</span>
             ) : null}
@@ -736,6 +743,11 @@ export default function TrainingVideo({
               </div>
               <div className="mt-3 space-y-2">
                 <MusicPicker value={draft.music} onChange={(music) => edit({ music })} disabled={locked} />
+                <WatermarkPicker
+                  value={draft.watermark}
+                  onChange={(watermark) => edit({ watermark })}
+                  disabled={locked}
+                />
                 <NarrationOptions
                   value={draft.narration}
                   onChange={(narration) => edit({ narration })}
