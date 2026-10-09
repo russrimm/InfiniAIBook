@@ -101,11 +101,14 @@ const sampleText = (name: string, style?: string) =>
   }Welcome to the training, and let's get started.`;
 
 /** A short sample of one voice and style, rendered once and kept on disk. */
-export async function voiceSample(voice: string, style?: string): Promise<Buffer> {
+export async function voiceSample(voice: string, style?: string, as?: string): Promise<Buffer> {
   const file = path.join(
     voiceDir(),
     "samples",
-    `${crypto.createHash("sha1").update(`${voice}|${style ?? ""}`).digest("hex")}.mp3`
+    `${crypto
+      .createHash("sha1")
+      .update(`${voice}|${style ?? ""}${as ? `|${as}` : ""}`)
+      .digest("hex")}.mp3`
   );
   try {
     return fs.readFileSync(file);
@@ -113,7 +116,8 @@ export async function voiceSample(voice: string, style?: string): Promise<Buffer
     /* not rendered yet */
   }
   const { voices } = await loadVoiceCatalog();
-  const name = voices.find((v) => v.id === voice)?.name.split(/[\s:]/)[0] ?? "your presenter";
+  const name =
+    as ?? voices.find((v) => v.id === voice)?.name.split(/[\s:]/)[0] ?? "your presenter";
   const text = sampleText(name, style);
   const inner = style ? `<mstts:express-as style='${style}'>${text}</mstts:express-as>` : text;
   const mp3 = await synthesizeRawSsml(

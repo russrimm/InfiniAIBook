@@ -22,6 +22,9 @@ export type AvatarPreset = {
   photo?: boolean;
 };
 
+/** The presenter's own name, e.g. "Lisa" from "Lisa · casual, seated". */
+export const presenterName = (label: string): string => label.split(" · ")[0];
+
 /**
  * Every standard full-body video avatar Microsoft lists for batch synthesis
  * (https://learn.microsoft.com/azure/ai-services/speech-service/text-to-speech-avatar/standard-avatars),

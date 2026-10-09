@@ -1,6 +1,10 @@
+import { readFileSync } from "node:fs";
 import type { NextConfig } from "next";
 
 const dev = process.env.NODE_ENV !== "production";
+
+// Shown in the About dialog; package.json is the one place the version lives.
+const { version } = JSON.parse(readFileSync("./package.json", "utf8")) as { version: string };
 
 /**
  * Content Security Policy, enforced. Remote images and connections are refused
@@ -52,6 +56,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  env: { NEXT_PUBLIC_APP_VERSION: version },
   // The Docker image builds a self-contained server; local installs keep the
   // default output so `npm start` behaves as before.
   output: process.env.NEXT_OUTPUT_STANDALONE ? "standalone" : undefined,
