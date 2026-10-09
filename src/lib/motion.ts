@@ -79,10 +79,16 @@ export type MotionPlan = {
 
 /** Scenes asked of the planner by default: problem, solution, three how, benefits, CTA. */
 export const MOTION_SCENE_COUNT = 7;
-export const MAX_SCENES = 9;
 export const MAX_ACTORS_PER_SCENE = 2;
 /** Props across the whole video. Each is an image call, and they add up. */
 export const MAX_PROPS = 8;
+/** Problem, solution, benefits and CTA are always present; every other scene is a "how". */
+const FIXED_BEATS = 4;
+/** Custom length limits, in scenes. */
+export const MIN_CUSTOM_SCENES = FIXED_BEATS;
+export const MAX_CUSTOM_SCENES = 24;
+/** Narration runs 2-3 sentences, 10-16 seconds, so a scene averages about this. */
+export const MOTION_SECONDS_PER_SCENE = 15;
 
 export const DEFAULT_PALETTE: MotionPalette = {
   dark: "#12324A",
@@ -102,9 +108,9 @@ export const DEFAULT_HERO =
 // ---------------------------------------------------------------------------
 
 export const MOTION_LENGTHS = {
-  short: { label: "Short (about 1 min)", scenes: 5, how: 1 },
-  standard: { label: "Standard (about 1.5–2 min)", scenes: 7, how: 3 },
-  long: { label: "Long (about 2.5 min)", scenes: 9, how: 5 },
+  short: { label: "Short (about 1 min)", scenes: 4 },
+  standard: { label: "Standard (about 1.5–2 min)", scenes: 7 },
+  long: { label: "Long (about 3.5 min)", scenes: 14 },
 } as const;
 export type MotionLength = keyof typeof MOTION_LENGTHS;
 
@@ -244,7 +250,10 @@ export const MOTION_MOVEMENTS = {
 export type MotionMovement = keyof typeof MOTION_MOVEMENTS;
 
 export type MotionOptions = {
-  length: MotionLength;
+  /** A preset, or "custom" to use `scenes`. */
+  length: MotionLength | "custom";
+  /** Scene count when length is "custom". */
+  scenes?: number;
   tone: MotionTone;
   audience: MotionAudience;
   visual: MotionVisual;
@@ -272,6 +281,19 @@ export const DEFAULT_MOTION_OPTIONS: MotionOptions = {
   resolution: "720p",
   movement: "gentle",
 };
+
+export function clampMotionScenes(n: unknown): number {
+  const v = Math.round(Number(n));
+  if (!Number.isFinite(v)) return MOTION_LENGTHS.standard.scenes;
+  return Math.min(MAX_CUSTOM_SCENES, Math.max(MIN_CUSTOM_SCENES, v));
+}
+
+/** How many scenes the planner is asked for. */
+export function motionSceneCount(opts: MotionOptions): number {
+  return opts.length === "custom"
+    ? clampMotionScenes(opts.scenes)
+    : MOTION_LENGTHS[opts.length].scenes;
+}
 
 function keyOf<T extends object>(table: T, v: unknown, fallback: keyof T): keyof T {
   return typeof v === "string" && Object.prototype.hasOwnProperty.call(table, v)
@@ -314,7 +336,9 @@ export function normalizeMotionOptions(raw: unknown): MotionOptions {
   const closing = clip(cleanText(str(o.closing)), MAX_CLOSING_CHARS) || undefined;
 
   return {
-    length: keyOf(MOTION_LENGTHS, o.length, d.length),
+    ...(o.length === "custom"
+      ? { length: "custom" as const, scenes: clampMotionScenes(o.scenes) }
+      : { length: keyOf(MOTION_LENGTHS, o.length, "standard") }),
     tone: keyOf(MOTION_TONES, o.tone, d.tone),
     audience: keyOf(MOTION_AUDIENCES, o.audience, d.audience),
     visual: keyOf(MOTION_VISUALS, o.visual ?? o.visualStyle, d.visual),
@@ -355,7 +379,8 @@ export function describeMotionOptions(opts: MotionOptions | undefined): string[]
   if (!opts) return [];
   const d = DEFAULT_MOTION_OPTIONS;
   const out: string[] = [];
-  if (opts.length !== d.length) out.push(MOTION_LENGTHS[opts.length].label.split(" (")[0]);
+  if (opts.length === "custom") out.push(`${motionSceneCount(opts)} scenes`);
+  else if (opts.length !== d.length) out.push(MOTION_LENGTHS[opts.length].label.split(" (")[0]);
   if (opts.tone !== d.tone) out.push(MOTION_TONES[opts.tone].label);
   if (opts.audience !== d.audience) out.push(`for ${MOTION_AUDIENCES[opts.audience].label.toLowerCase()}`);
   if (opts.visual !== d.visual) out.push(MOTION_VISUALS[opts.visual].label);
@@ -371,19 +396,23 @@ export function describeMotionOptions(opts: MotionOptions | undefined): string[]
   return out;
 }
 
-function storyArc(len: MotionLength): string {
-  const { how } = MOTION_LENGTHS[len];
+function storyArc(scenes: number): string {
+  const how = scenes - FIXED_BEATS;
   const howLine =
-    how === 1
-      ? "3. how — the single most important mechanism or step."
-      : `3-${2 + how}. how — one mechanism or step each, in order.`;
+    how <= 0
+      ? null
+      : how === 1
+        ? "3. how — the single most important mechanism or step."
+        : `3-${2 + how}. how — one mechanism or step each, in order.`;
   return [
     "1. problem — the pain or question the sources address, made concrete.",
     "2. solution — what the sources propose, introduced by name if they give one.",
     howLine,
-    `${3 + how}. benefits — the payoff, with a number from the sources if there is one.`,
-    `${4 + how}. cta — the one next step a viewer should take, as the sources describe it.`,
-  ].join("\n");
+    `${3 + Math.max(how, 0)}. benefits — the payoff, with a number from the sources if there is one.`,
+    `${4 + Math.max(how, 0)}. cta — the one next step a viewer should take, as the sources describe it.`,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function lookRules(opts: MotionOptions): string {
@@ -411,7 +440,7 @@ export const MOTION_PLAN_INSTRUCTION = (
 characters and objects slide and pop into simple scenes, bold headlines animate
 on, and a narrator tells a short story.
 
-Plan a ${MOTION_LENGTHS[opts.length].scenes}-scene video from the sources${topic ? `, focused on: ${topic}` : ""}.
+Plan a ${motionSceneCount(opts)}-scene video from the sources${topic ? `, focused on: ${topic}` : ""}.
 It is for ${MOTION_AUDIENCES[opts.audience].rule}.
 Respond with a single JSON object only. No markdown fences, no commentary.
 
@@ -444,7 +473,7 @@ Schema:
 }
 
 STORY ARC, in this order
-${storyArc(opts.length)}
+${storyArc(motionSceneCount(opts))}
 
 THE LOOK
 ${lookRules(opts)}
@@ -595,6 +624,8 @@ export function normalizeMotionPlan(
       ? opts.characterDescription
       : clip(cleanText(str(style.hero)), MAX_CHARACTER_CHARS) || DEFAULT_HERO;
 
+  const sceneCap = motionSceneCount(opts) + 2;
+  const propCap = Math.max(MAX_PROPS, motionSceneCount(opts) + 1);
   let props = 0;
   const scenes = (Array.isArray(raw.scenes) ? raw.scenes : [])
     .map((s): MotionScene | null => {
@@ -620,12 +651,12 @@ export function normalizeMotionPlan(
     })
     .filter((s): s is MotionScene => s !== null)
     // More scenes than asked for multiplies cost and running time.
-    .slice(0, MAX_SCENES)
+    .slice(0, sceneCap)
     .map((scene) => ({
       ...scene,
       actors: scene.actors.filter((a) => {
         if (a.kind === "hero") return !noHero;
-        if (props >= MAX_PROPS) return false;
+        if (props >= propCap) return false;
         props++;
         return true;
       }),

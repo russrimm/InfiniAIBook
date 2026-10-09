@@ -6,7 +6,7 @@ import { keepAliveJSON } from "@/lib/keepalive";
 import { studioJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
-import { PLAN_INSTRUCTION, normalizeScenePlan } from "@/lib/whiteboard";
+import { PLAN_INSTRUCTION, normalizeScenePlan, whiteboardSize } from "@/lib/whiteboard";
 import { ALL_SPEAKERS } from "@/lib/voices";
 import { narrationPromptBlock, readNarration } from "@/lib/narration";
 import { notebookNarration } from "@/lib/narrationstore";
@@ -41,8 +41,11 @@ async function planVideo(req: Request) {
       narration?: unknown;
       music?: unknown;
       watermark?: unknown;
+      length?: string;
+      scenes?: number;
     };
     const { notebookId, topic, sourceIds, voice } = body;
+    const size = whiteboardSize(body.length, body.scenes);
 
     const speaker =
       ALL_SPEAKERS.find((s) => s.toLowerCase() === (voice ?? "").toLowerCase()) ?? "Ava";
@@ -68,7 +71,7 @@ async function planVideo(req: Request) {
     const messages: ChatMsg[] = [
       {
         role: "system",
-        content: `${GROUNDING_RULES}\n\n${PLAN_INSTRUCTION(topic?.trim() ?? "")}${narrationPromptBlock(
+        content: `${GROUNDING_RULES}\n\n${PLAN_INSTRUCTION(topic?.trim() ?? "", size)}${narrationPromptBlock(
           narration
         )}`,
       },
@@ -79,7 +82,8 @@ async function planVideo(req: Request) {
     ];
 
     const raw = await studioJSON<Loose>(messages, 0.6);
-    const normalized = normalizeScenePlan(raw);
+    // More scenes than asked for multiplies cost and running time.
+    const normalized = normalizeScenePlan(raw, size.scenes + 2);
     if (!normalized) {
       return NextResponse.json(
         { error: "The model did not return a usable scene plan. Try again." },

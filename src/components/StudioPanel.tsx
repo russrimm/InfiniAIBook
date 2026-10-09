@@ -18,7 +18,26 @@ import { DEFAULT_SLIDE_THEME, SLIDE_THEMES } from "@/lib/slides";
 import { EMPTY_NARRATION, type NarrationSettings } from "@/lib/narration";
 import type { MusicChoice } from "@/lib/musicchoice";
 import type { WatermarkChoice } from "@/lib/watermarkchoice";
-import { MOTION_PALETTES } from "@/lib/motion";
+import {
+  MAX_CUSTOM_SCENES,
+  MIN_CUSTOM_SCENES,
+  MOTION_LENGTHS,
+  MOTION_PALETTES,
+  MOTION_SECONDS_PER_SCENE,
+  MOTION_SCENE_COUNT,
+  motionSceneCount,
+  type MotionLength,
+} from "@/lib/motion";
+import {
+  MAX_WHITEBOARD_SCENES,
+  MIN_WHITEBOARD_SCENES,
+  WHITEBOARD_LENGTHS,
+  WHITEBOARD_SECONDS_PER_SCENE,
+  clampWhiteboardScenes,
+  type WhiteboardLength,
+  type WhiteboardPreset,
+} from "@/lib/whiteboard";
+import SceneLengthRow from "@/components/SceneLengthRow";
 import { DEFAULT_COMPOSITION } from "@/lib/trainingvisuals";
 import { readJSONReply } from "@/lib/jsonreply";
 import {
@@ -310,6 +329,14 @@ export default function StudioPanel({
   const [trainerStyle, setTrainerStyle] = useState<string | undefined>();
   const [trainerGallery, setTrainerGallery] = useState(false);
   const [trainingLen, setTrainingLen] = useState<AudioLength>("short");
+  const [whiteboardLen, setWhiteboardLen] =
+    useState<WhiteboardLength>("standard");
+  const [whiteboardScenes, setWhiteboardScenes] = useState<number>(
+    WHITEBOARD_LENGTHS.standard.scenes,
+  );
+  const [docLength, setDocLength] = useState<
+    Partial<Record<ArtifactType, StudyLength>>
+  >({});
   const [trainingBg, setTrainingBg] = useState(DEFAULT_BACKGROUND);
   const [trainingMode, setTrainingMode] = useState<"composed" | "presenter">(
     "composed",
@@ -424,6 +451,9 @@ export default function StudioPanel({
         : {}),
       ...(type === "slides" ? { theme: slideTheme, length: slideLength } : {}),
       ...(STUDIO[type].study ? { difficulty, length } : {}),
+      ...(STUDIO[type].sized
+        ? { length: docLength[type] ?? "standard" }
+        : {}),
     });
 
   const generateAudio = () =>
@@ -451,6 +481,8 @@ export default function StudioPanel({
       topic: topic.trim() || undefined,
       sourceIds: selectedIds,
       voice: narrator,
+      length: whiteboardLen,
+      ...(whiteboardLen === "custom" ? { scenes: whiteboardScenes } : {}),
       narration: narrationFor("video"),
       music: music.video,
       watermark: watermark.video,
@@ -917,7 +949,11 @@ export default function StudioPanel({
                   ? "Writing the scene plan…"
                   : "A hand draws your sources, narrated"
               }
-              summary={`Voice: ${narrator}${extras("video")}`}
+              summary={`Voice: ${narrator} · ${
+                whiteboardLen === "custom"
+                  ? `${whiteboardScenes} scenes`
+                  : WHITEBOARD_LENGTHS[whiteboardLen].label
+              }${extras("video")}`}
               options={
                 <>
                   <div className="flex items-center gap-2">
@@ -938,6 +974,27 @@ export default function StudioPanel({
                       {previewError}
                     </p>
                   )}
+                  <SceneLengthRow
+                    label="Whiteboard video length"
+                    value={whiteboardLen}
+                    onChange={(k) => setWhiteboardLen(k as WhiteboardLength)}
+                    scenes={whiteboardScenes}
+                    onScenes={(n) =>
+                      setWhiteboardScenes(clampWhiteboardScenes(n))
+                    }
+                    min={MIN_WHITEBOARD_SCENES}
+                    max={MAX_WHITEBOARD_SCENES}
+                    secondsPerScene={WHITEBOARD_SECONDS_PER_SCENE}
+                    presets={(
+                      Object.keys(WHITEBOARD_LENGTHS) as WhiteboardPreset[]
+                    ).map((k) => ({
+                      key: k,
+                      text: `${WHITEBOARD_LENGTHS[k].label} — ${approxLength(
+                        WHITEBOARD_LENGTHS[k].scenes *
+                          WHITEBOARD_SECONDS_PER_SCENE,
+                      )}, ${WHITEBOARD_LENGTHS[k].scenes} scenes`,
+                    }))}
+                  />
                   <MusicPicker
                     value={music.video}
                     onChange={setMusicFor("video")}
@@ -969,7 +1026,11 @@ export default function StudioPanel({
                   ? "Writing the story…"
                   : "An animated 2D story, narrated"
               }
-              summary={`Voice: ${motionNarrator} · length, tone, style and colors${extras("motion")}`}
+              summary={`Voice: ${motionNarrator} · ${
+                motionForm.length === "custom"
+                  ? `${motionSceneCount(motionForm)} scenes`
+                  : MOTION_LENGTHS[motionForm.length].label.split(" (")[0]
+              } · tone, style and colors${extras("motion")}`}
               options={
                 <>
                   <div className="flex items-center gap-2">
@@ -990,6 +1051,29 @@ export default function StudioPanel({
                       {previewError}
                     </p>
                   )}
+                  <SceneLengthRow
+                    label="Motion explainer length"
+                    value={motionForm.length}
+                    onChange={(k) =>
+                      setMotionForm((f) => ({
+                        ...f,
+                        length: k as MotionForm["length"],
+                      }))
+                    }
+                    scenes={motionForm.scenes ?? MOTION_SCENE_COUNT}
+                    onScenes={(n) =>
+                      setMotionForm((f) => ({ ...f, scenes: n }))
+                    }
+                    min={MIN_CUSTOM_SCENES}
+                    max={MAX_CUSTOM_SCENES}
+                    secondsPerScene={MOTION_SECONDS_PER_SCENE}
+                    presets={(Object.keys(MOTION_LENGTHS) as MotionLength[]).map(
+                      (k) => ({
+                        key: k,
+                        text: `${MOTION_LENGTHS[k].label} — ${MOTION_LENGTHS[k].scenes} scenes`,
+                      }),
+                    )}
+                  />
                   <MusicPicker
                     value={music.motion}
                     onChange={setMusicFor("motion")}
@@ -1332,6 +1416,38 @@ export default function StudioPanel({
                     );
                   }
 
+                  if (s.sized) {
+                    const len = docLength[type] ?? "standard";
+                    return (
+                      <div key={type} className="col-span-2">
+                        <StudioCard
+                          icon={s.icon}
+                          label={s.label}
+                          busy={isBusy}
+                          blocked={blocked}
+                          error={errors[type]}
+                          onGenerate={() => void generate(type)}
+                          status={status}
+                          summary={`${capitalize(len)} length`}
+                          options={
+                            <LengthRow
+                              label={`${s.label} length`}
+                              value={len}
+                              onChange={(v) =>
+                                setDocLength((prev) => ({ ...prev, [type]: v }))
+                              }
+                              choices={[
+                                { key: "short", text: "Short" },
+                                { key: "standard", text: "Standard" },
+                                { key: "long", text: "Long" },
+                              ]}
+                            />
+                          }
+                        />
+                      </div>
+                    );
+                  }
+
                   // The infographic has many styles, so its card carries its own
                   // chooser — with a live example of the chosen style — rather than
                   // a picker elsewhere in the panel that reads as a global setting.
@@ -1581,6 +1697,45 @@ export default function StudioPanel({
         </div>
       )}
     </aside>
+  );
+}
+
+/** "about 30 seconds" or "about 2.5 min". */
+function approxLength(seconds: number): string {
+  if (seconds < 90) return `about ${Math.round(seconds / 5) * 5} seconds`;
+  return `about ${Math.round((seconds / 60) * 2) / 2} min`;
+}
+
+/** A labelled length dropdown, shared by the cards that size their output. */
+function LengthRow<K extends string>({
+  label,
+  value,
+  onChange,
+  choices,
+}: {
+  label: string;
+  value: K;
+  onChange: (v: K) => void;
+  choices: { key: K; text: string }[];
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+        Length
+      </span>
+      <select
+        className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+        aria-label={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value as K)}
+      >
+        {choices.map((c) => (
+          <option key={c.key} value={c.key}>
+            {c.text}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
 

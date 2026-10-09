@@ -41,12 +41,58 @@ export type Scene = {
 
 export type ScenePlan = { title: string; description: string; scenes: Scene[] };
 
-export const SCENE_COUNT = 6;
+/** Scene count drives running time, artwork cost and how much of the sources is covered. */
+export const WHITEBOARD_LENGTHS = {
+  short: { label: "Short", scenes: 3, sentences: "1 sentence" },
+  standard: { label: "Standard", scenes: 6, sentences: "1-2 sentences" },
+  long: { label: "Long", scenes: 15, sentences: "2-3 sentences" },
+} as const;
+export type WhiteboardPreset = keyof typeof WHITEBOARD_LENGTHS;
+export type WhiteboardLength = WhiteboardPreset | "custom";
 
-export const PLAN_INSTRUCTION = (topic: string) => `You are a scriptwriter for whiteboard explainer videos — the kind where a hand
+/** Opening and closing are always drawn; the rest are numbered steps. */
+export const MIN_WHITEBOARD_SCENES = 3;
+export const MAX_WHITEBOARD_SCENES = 30;
+/** Narration runs 1-2 sentences, 8-12 seconds, so a scene averages about this. */
+export const WHITEBOARD_SECONDS_PER_SCENE = 10;
+
+export function clampWhiteboardScenes(n: unknown): number {
+  const v = Math.round(Number(n));
+  if (!Number.isFinite(v)) return WHITEBOARD_LENGTHS.standard.scenes;
+  return Math.min(MAX_WHITEBOARD_SCENES, Math.max(MIN_WHITEBOARD_SCENES, v));
+}
+
+export type WhiteboardSize = {
+  length: WhiteboardLength;
+  scenes: number;
+  /** How much each scene says. */
+  sentences: string;
+};
+
+/** Resolve a request's length and optional custom scene count into what the planner is asked for. */
+export function whiteboardSize(length?: unknown, scenes?: unknown): WhiteboardSize {
+  if (length === "custom") {
+    return {
+      length,
+      scenes: clampWhiteboardScenes(scenes),
+      sentences: WHITEBOARD_LENGTHS.standard.sentences,
+    };
+  }
+  const key: WhiteboardPreset = length === "short" || length === "long" ? length : "standard";
+  const { scenes: count, sentences } = WHITEBOARD_LENGTHS[key];
+  return { length: key, scenes: count, sentences };
+}
+
+export const PLAN_INSTRUCTION = (
+  topic: string,
+  size: WhiteboardSize = whiteboardSize(),
+) => {
+  const { scenes: count, sentences } = size;
+  const steps = count === 3 ? "2" : `2-${count - 1}`;
+  return `You are a scriptwriter for whiteboard explainer videos — the kind where a hand
 draws simple marker doodles while a narrator explains.
 
-Plan a ${SCENE_COUNT}-scene video from the sources${topic ? `, focused on: ${topic}` : ""}.
+Plan a ${count}-scene video from the sources${topic ? `, focused on: ${topic}` : ""}.
 Respond with a single JSON object only. No markdown fences, no commentary.
 
 Schema:
@@ -57,15 +103,15 @@ Schema:
     "title": string,      // 2-4 WORDS, upper case, lettered on the whiteboard
     "drawing": string,    // one picture: 1-3 cartoon objects or characters
     "caption": string,    // <= 70 chars, shown under the artwork
-    "narration": string,  // 1-2 sentences, 8-12 seconds spoken
+    "narration": string,  // ${sentences}, spoken over the scene
     "step": number        // 1,2,3... on step scenes only; omit elsewhere
   }]
 }
 
 STRUCTURE
 1. Opening — the subject and why it is worth knowing. No step number.
-2-5. One distinct idea each, numbered as steps.
-6. Closing — the single thing worth remembering. No step number.
+${steps}. One distinct idea each, numbered as steps.
+${count}. Closing — the single thing worth remembering. No step number.
 
 THE DRAWING
 Each "drawing" is ONE simple picture a person could sketch with a marker in
@@ -86,13 +132,14 @@ A full short sentence, under 70 characters, readable while the narrator speaks.
 It is not the title repeated.
 
 THE NARRATION
-Warm and conversational, plain language, contractions throughout. One or two
-sentences per scene — about 8 to 12 seconds spoken. Start step scenes with
+Warm and conversational, plain language, contractions throughout. ${sentences}
+per scene. Start step scenes with
 "Step N." Close on the point, not a sign-off. No markdown, no citation markers,
 no stage directions: every character is read aloud.
 
 Ground every claim in the excerpts. If the sources do not support a scene, cover
 what they do support rather than inventing it.`;
+};
 
 /** The full prompt handed to the image model for one scene. */
 export function scenePrompt(scene: Scene): string {
@@ -121,7 +168,14 @@ export const cleanScript = (s: string) =>
  * Coerce a model's plan, or a plan edited in the script editor, into one the
  * build can rely on. Returns null when fewer than two usable scenes survive.
  */
-export function normalizeScenePlan(raw: Loose): ScenePlan | null {
+/**
+ * `maxScenes` is how many the planner was asked for; a plan edited later keeps
+ * every scene up to the hard ceiling.
+ */
+export function normalizeScenePlan(
+  raw: Loose,
+  maxScenes = MAX_WHITEBOARD_SCENES,
+): ScenePlan | null {
   const scenes = (Array.isArray(raw.scenes) ? raw.scenes : [])
     .map((s) => {
       const o = (s && typeof s === "object" ? s : {}) as Loose;
@@ -135,7 +189,7 @@ export function normalizeScenePlan(raw: Loose): ScenePlan | null {
         drawing,
         caption: cleanScript(str(o.caption)).slice(0, 80) || title,
         narration,
-        step: Number.isInteger(step) && step > 0 && step < 20 ? step : undefined,
+        step: Number.isInteger(step) && step > 0 && step < 40 ? step : undefined,
       };
     })
     .filter(Boolean) as ScenePlan["scenes"];
@@ -145,6 +199,6 @@ export function normalizeScenePlan(raw: Loose): ScenePlan | null {
     title: cleanScript(str(raw.title, "Whiteboard video")).slice(0, 80) || "Whiteboard video",
     description: cleanScript(str(raw.description)),
     // More scenes than asked for multiplies cost and running time.
-    scenes: scenes.slice(0, SCENE_COUNT + 2),
+    scenes: scenes.slice(0, maxScenes),
   };
 }
