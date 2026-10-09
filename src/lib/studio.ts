@@ -21,7 +21,13 @@ type Spec = {
   instruction: (topic: string, opts?: StudyOptions) => string;
   /** Formats that accept the difficulty and length controls. */
   study?: boolean;
+  /** Formats that accept a length control only: documents, mind maps and timelines. */
+  sized?: boolean;
 };
+
+/** Pick the wording for the chosen length; "standard" reproduces the original prompt. */
+const byLength = <T,>(opts: StudyOptions | undefined, choices: Record<StudyLength, T>): T =>
+  choices[opts?.length ?? "standard"];
 
 const jsonNote =
   "Respond with a single JSON object only. No markdown fences, no commentary.";
@@ -110,7 +116,12 @@ export const STUDIO: Record<ArtifactType, Spec> = {
     blurb: "In-depth structured write-up",
     icon: "📄",
     json: true,
-    instruction: (topic) => `Write a thorough analytical report${topic ? ` focused on: ${topic}` : ""}.
+    sized: true,
+    instruction: (topic, opts) => `Write a ${byLength(opts, {
+      short: "concise",
+      standard: "thorough",
+      long: "comprehensive, in-depth",
+    })} analytical report${topic ? ` focused on: ${topic}` : ""}.
 ${jsonNote}
 Schema:
 {
@@ -118,9 +129,17 @@ Schema:
   "subtitle": string,
   "markdown": string  // full report body in GitHub-flavored Markdown
 }
-The markdown must contain: an executive summary, 3-6 "## " sections with substantive analysis,
+The markdown must contain: an executive summary, ${byLength(opts, {
+      short: "2-3 short",
+      standard: "3-6",
+      long: "6-9 detailed",
+    })} "## " sections with substantive analysis,
 a "## Key takeaways" bulleted list, and a "## Open questions" list of what the sources do not answer.
-Use inline citation markers like [2] throughout. Use tables where they aid comparison.`,
+${byLength(opts, {
+  short: "Keep the whole report under 600 words.\n",
+  standard: "",
+  long: "Cover every major theme in the sources, with supporting detail and evidence in each section.\n",
+})}Use inline citation markers like [2] throughout. Use tables where they aid comparison.`,
   },
 
   briefing: {
@@ -128,10 +147,11 @@ Use inline citation markers like [2] throughout. Use tables where they aid compa
     blurb: "Executive one-pager",
     icon: "🧾",
     json: true,
-    instruction: (topic) => `Write a tight executive briefing${topic ? ` about: ${topic}` : ""}.
+    sized: true,
+    instruction: (topic, opts) => `Write a tight executive briefing${topic ? ` about: ${topic}` : ""}.
 ${jsonNote}
 Schema: { "title": string, "subtitle": string, "markdown": string }
-The markdown must be under 700 words with: "## Bottom line" (3 sentences max),
+The markdown must be under ${byLength(opts, { short: "400", standard: "700", long: "1100" })} words with: "## Bottom line" (3 sentences max),
 "## What the sources say" (bullets with citations), "## Risks & caveats", "## Recommended next steps".`,
   },
 
@@ -140,12 +160,20 @@ The markdown must be under 700 words with: "## Bottom line" (3 sentences max),
     blurb: "Concepts, terms, practice",
     icon: "🎓",
     json: true,
-    instruction: (topic) => `Create a study guide${topic ? ` for: ${topic}` : ""}.
+    sized: true,
+    instruction: (topic, opts) => {
+      const questions = byLength(opts, { short: 5, standard: 10, long: 18 });
+      return `Create a study guide${topic ? ` for: ${topic}` : ""}.
 ${jsonNote}
 Schema: { "title": string, "subtitle": string, "markdown": string }
-The markdown must include: "## Core concepts" (each concept with a 2-3 sentence explanation and citation),
-"## Glossary" (markdown table of term | definition), "## Short-answer questions" (10 numbered questions),
-"## Answer key" (matching numbered answers).`,
+The markdown must include: "## Core concepts" (${byLength(opts, {
+        short: "the 3-4 most important concepts, each with a 1-2 sentence explanation and citation",
+        standard: "each concept with a 2-3 sentence explanation and citation",
+        long: "every significant concept, each with a 3-5 sentence explanation and citation",
+      })}),
+"## Glossary" (markdown table of term | definition), "## Short-answer questions" (${questions} numbered questions),
+"## Answer key" (matching numbered answers).`;
+    },
   },
 
   faq: {
@@ -153,12 +181,17 @@ The markdown must include: "## Core concepts" (each concept with a 2-3 sentence 
     blurb: "Questions readers will ask",
     icon: "❓",
     json: true,
-    instruction: (topic) => `Produce the frequently asked questions the sources actually answer${
+    sized: true,
+    instruction: (topic, opts) => `Produce the frequently asked questions the sources actually answer${
       topic ? `, focused on: ${topic}` : ""
     }.
 ${jsonNote}
 Schema: { "title": string, "items": [{ "q": string, "a": string }] }
-Provide 8-12 items. Each answer is 2-5 sentences with citation markers. Order from most to least fundamental.`,
+Provide ${byLength(opts, { short: "4-6", standard: "8-12", long: "16-20" })} items. Each answer is ${byLength(opts, {
+      short: "1-3",
+      standard: "2-5",
+      long: "3-6",
+    })} sentences with citation markers. Order from most to least fundamental.`,
   },
 
   quiz: {
@@ -237,14 +270,23 @@ ${guidance}`;
     blurb: "Hierarchical concept tree",
     icon: "🕸️",
     json: true,
-    instruction: (topic) => `Build a mind map of the source material${topic ? ` centered on: ${topic}` : ""}.
+    sized: true,
+    instruction: (topic, opts) => `Build a mind map of the source material${topic ? ` centered on: ${topic}` : ""}.
 ${jsonNote}
 Schema:
 {
   "title": string,
   "root": { "label": string, "note": string, "children": [ { "label": string, "note": string, "children": [...] } ] }
 }
-Rules: the root is the central theme. 4-7 first-level branches. Each branch has 2-5 children.
+Rules: the root is the central theme. ${byLength(opts, {
+      short: "3-4",
+      standard: "4-7",
+      long: "6-9",
+    })} first-level branches. Each branch has ${byLength(opts, {
+      short: "2-3",
+      standard: "2-5",
+      long: "3-6",
+    })} children.
 Depth must not exceed 3 levels below the root. Labels are 1-5 words. "note" is an optional
 single short sentence with a citation marker.`,
   },
@@ -254,10 +296,11 @@ single short sentence with a citation marker.`,
     blurb: "Chronology of events",
     icon: "🗓️",
     json: true,
-    instruction: (topic) => `Extract a chronological timeline from the sources${topic ? ` about: ${topic}` : ""}.
+    sized: true,
+    instruction: (topic, opts) => `Extract a chronological timeline from the sources${topic ? ` about: ${topic}` : ""}.
 ${jsonNote}
 Schema: { "title": string, "items": [{ "date": string, "title": string, "text": string }] }
-Use 6-15 items in chronological order. "date" is whatever precision the sources give
+Use ${byLength(opts, { short: "4-6", standard: "6-15", long: "15-25" })} items in chronological order. "date" is whatever precision the sources give
 (e.g. "2019", "Q3 2021", "March 4, 2022", or a phase name if no dates exist).
 "text" is 1-3 sentences with a citation marker. Only include events actually stated in the excerpts.`,
   },

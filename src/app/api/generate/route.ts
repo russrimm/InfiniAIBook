@@ -239,7 +239,7 @@ async function generateArtifact(req: Request) {
         }
       : undefined;
     const instructionOpts: StudyOptions | undefined =
-      type === "slides" ? { length: safeLength } : studyOpts;
+      type === "slides" || spec.sized ? { length: safeLength } : studyOpts;
 
     // Infographic styles change the content shape, not just the palette.
     // Resolve once: the same key must drive both the prompt and what is

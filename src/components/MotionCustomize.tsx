@@ -7,7 +7,6 @@ import {
   MAX_CHARACTER_CHARS,
   MAX_CLOSING_CHARS,
   MOTION_AUDIENCES,
-  MOTION_LENGTHS,
   MOTION_MOVEMENTS,
   MOTION_PALETTES,
   MOTION_RESOLUTIONS,
@@ -41,6 +40,7 @@ export const DEFAULT_MOTION_FORM: MotionForm = {
 export function motionRequest(f: MotionForm): Record<string, unknown> {
   return {
     length: f.length,
+    ...(f.length === "custom" ? { scenes: f.scenes } : {}),
     tone: f.tone,
     audience: f.audience,
     visual: f.visual,
@@ -137,20 +137,6 @@ export default function MotionCustomize({
 
       {open && (
         <div className="space-y-2 border-t border-[var(--border)] px-2 py-2">
-          <Row label="Length">
-            <select
-              className={SELECT}
-              value={value.length}
-              onChange={(e) => set("length", e.target.value as MotionForm["length"])}
-            >
-              {Object.entries(MOTION_LENGTHS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v.label} · {v.scenes} scenes
-                </option>
-              ))}
-            </select>
-          </Row>
-
           <Row label="Tone">
             <select
               className={SELECT}

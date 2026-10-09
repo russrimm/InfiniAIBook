@@ -7,9 +7,9 @@ import {
   MAX_CHARACTER_CHARS,
   MAX_CLOSING_CHARS,
   MAX_PROPS,
-  MAX_SCENES,
   MOTION_AUDIENCES,
   MOTION_PALETTES,
+  MOTION_SCENE_COUNT,
   MOTION_PLAN_INSTRUCTION,
   MOTION_RESOLUTIONS,
   MOTION_TONES,
@@ -145,7 +145,7 @@ describe("normalizeMotionPlan", () => {
 
   it("caps props across the video and scenes overall", () => {
     const plan = normalizeMotionPlan(raw(Array.from({ length: 12 }, () => scene())))!;
-    expect(plan.scenes).toHaveLength(MAX_SCENES);
+    expect(plan.scenes).toHaveLength(MOTION_SCENE_COUNT + 2);
     const props = plan.scenes.flatMap((s) => s.actors).filter((a) => a.kind === "prop");
     expect(props).toHaveLength(MAX_PROPS);
   });
@@ -286,16 +286,22 @@ describe("customized plans", () => {
       closing: "Book a demo at example.com",
     });
     const prompt = MOTION_PLAN_INSTRUCTION("", opts);
-    expect(prompt).toContain("Plan a 5-scene video");
-    expect(prompt).toContain("3. how — the single most important");
+    expect(prompt).toContain("Plan a 4-scene video");
+    expect(prompt).not.toContain(" how — ");
     expect(prompt).toContain(MOTION_TONES.professional.rule);
     expect(prompt).toContain(MOTION_AUDIENCES.executives.rule);
     expect(prompt).toContain('"Book a demo at example.com"');
     expect(prompt).toContain("There is no recurring character");
     expect(MOTION_PLAN_INSTRUCTION("")).toContain("Plan a 7-scene video");
     expect(MOTION_PLAN_INSTRUCTION("", normalizeMotionOptions({ length: "long" }))).toContain(
-      "3-7. how"
+      "3-12. how"
     );
+    const custom = normalizeMotionOptions({ length: "custom", scenes: 10 });
+    expect(MOTION_PLAN_INSTRUCTION("", custom)).toContain("Plan a 10-scene video");
+    expect(MOTION_PLAN_INSTRUCTION("", custom)).toContain("3-8. how");
+    expect(normalizeMotionOptions({ length: "custom", scenes: 500 }).scenes).toBe(24);
+    expect(normalizeMotionOptions({ length: "custom", scenes: 1 }).scenes).toBe(4);
+    expect(describeMotionOptions(custom)).toContain("10 scenes");
   });
 
   it("scales the timeline to the chosen resolution", () => {
