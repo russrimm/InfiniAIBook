@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { Notebook } from "@/lib/types";
 import AboutModal from "@/components/AboutModal";
 import ScreenHelperModal from "@/components/ScreenHelperModal";
+import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useDeferredDelete } from "@/components/UndoToast";
@@ -137,10 +138,7 @@ export default function Home() {
         className="mb-14 flex items-center justify-between gap-4"
       >
         <div className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-          <span
-            aria-hidden
-            className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--accent)]"
-          />
+          <Logo size={28} />
           InfiniAIBook
         </div>
         <div className="flex flex-wrap items-center justify-end gap-x-1 gap-y-0.5 text-[13px]">

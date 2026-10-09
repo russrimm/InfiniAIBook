@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 import { backgroundColor, presenter, presenterVoice } from "@/lib/avatars";
+import { gestureMode } from "@/lib/gestures";
 import { cleanSpoken, normalizeSections } from "@/lib/training";
 import { isRendering } from "@/lib/trainingbuild";
 import type { TrainingContent } from "@/lib/types";
@@ -53,6 +54,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       music: unknown;
       watermark: unknown;
       composition: unknown;
+      gestureMode: unknown;
     }>;
 
     const next: TrainingContent = { ...current };
@@ -113,6 +115,11 @@ export async function PATCH(req: Request, { params }: Ctx) {
       if (picked.style) next.voiceStyle = picked.style;
       else delete next.voiceStyle;
       scriptChanged ||= beforeVoice !== next.voice || beforeStyle !== next.voiceStyle;
+    }
+    if (body.gestureMode !== undefined) {
+      const before = gestureMode(current.gestureMode);
+      next.gestureMode = gestureMode(body.gestureMode);
+      scriptChanged ||= before !== next.gestureMode;
     }
     if (typeof body.background === "string") {
       const before = next.background;

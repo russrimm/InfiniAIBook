@@ -29,6 +29,7 @@ import {
   MAX_AVATAR_MINUTES,
 } from "./avatars";
 import { buildTrainingSsml, countWords } from "./training";
+import { gestureMode } from "./gestures";
 import { WORDS_PER_MINUTE } from "./voices";
 import type { TrainingClip, TrainingContent, TrainingStage } from "./types";
 import { applyReplacements, readNarration } from "./narration";
@@ -160,7 +161,10 @@ export async function startTrainingRender(id: string): Promise<void> {
     ...s,
     text: applyReplacements(s.text, replacements),
   }));
-  const ssml = buildTrainingSsml(spoken, voice, c.voiceStyle);
+  const ssml = buildTrainingSsml(spoken, voice, c.voiceStyle, {
+    presenter: c.presenter,
+    mode: gestureMode(c.gestureMode),
+  });
   if (Buffer.byteLength(ssml) > 450_000) {
     throw userError(
       "The transcript is too long for a single avatar job. Shorten it first.",

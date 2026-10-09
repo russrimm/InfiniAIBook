@@ -50,7 +50,7 @@ Success means the user ends up with output they can use or share without re-chec
 - Name: **InfiniAIBook**. Tagline in metadata: "grounded research studio."
 - Language: US English in UI copy, docs, and generated content (owner preference).
 - Voice in the docs is plain, precise, and candid about limits and costs. For example, the docs explain why a fallback exists and what it costs _(inferred from docs)_.
-- No logo or brand asset beyond the name and favicon was found.
+- The logo is an infinity loop over an open book with a spark (public/brand/). Regenerate every icon with `python scripts/brand/make-icons.py`.
 
 ## Evidence on Hand
 

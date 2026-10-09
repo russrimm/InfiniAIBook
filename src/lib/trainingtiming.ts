@@ -12,6 +12,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { presenter, presenterVoice } from "./avatars";
+import { gestureMode } from "./gestures";
 import { applyReplacements, readNarration } from "./narration";
 import { addBreaths } from "./prosody";
 import { synthesizeRawSsml } from "./speech";
@@ -50,7 +51,12 @@ export function sectionSsml(c: TrainingContent, index: number): string {
   const voice = presenterVoice(c.voice, preset.voice);
   const { replacements } = readNarration(c.narration);
   const s = c.sections[index];
-  return buildTrainingSsml([{ title: s.title, text: applyReplacements(s.text, replacements) }], voice, c.voiceStyle);
+  return buildTrainingSsml(
+    [{ title: s.title, text: applyReplacements(s.text, replacements), gesture: s.gesture }],
+    voice,
+    c.voiceStyle,
+    { presenter: c.presenter, mode: gestureMode(c.gestureMode), index, count: c.sections.length }
+  );
 }
 
 /**

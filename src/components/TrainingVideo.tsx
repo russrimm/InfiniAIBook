@@ -16,6 +16,13 @@ import type {
 import { WORDS_PER_MINUTE } from "@/lib/voices";
 import { AVATAR_PRESETS, BACKGROUNDS, MAX_AVATAR_MINUTES } from "@/lib/avatars";
 import {
+  GESTURE_NONE,
+  gestureCatalog,
+  gestureMode,
+  sectionGesture,
+  type GestureMode,
+} from "@/lib/gestures";
+import {
   EMPTY_NARRATION,
   readNarration,
   type NarrationSettings,
@@ -87,6 +94,7 @@ type Draft = {
   voice: string;
   /** Empty for the voice's default delivery. */
   voiceStyle: string;
+  gestureMode: GestureMode;
   background: string;
   music: MusicChoice | null;
   watermark: WatermarkChoice | null;
@@ -104,6 +112,7 @@ const toDraft = (c: TrainingContent): Draft => ({
   presenter: c.presenter,
   voice: c.voice,
   voiceStyle: c.voiceStyle ?? "",
+  gestureMode: gestureMode(c.gestureMode),
   background: c.background,
   music: normalizeMusicChoice(c.musicChoice),
   watermark: normalizeWatermark(c.watermarkChoice),
@@ -380,6 +389,7 @@ export default function TrainingVideo({
       presenter: draft.presenter,
       voice: draft.voice,
       voiceStyle: draft.voiceStyle || null,
+      gestureMode: draft.gestureMode,
       background: draft.background,
       music: draft.music,
       watermark: draft.watermark,
@@ -632,12 +642,16 @@ export default function TrainingVideo({
     [draft.sections, timings],
   );
 
+  const gestures = useMemo(() => gestureCatalog(draft.presenter), [draft.presenter]);
+
   // Sections whose presenter clip is already rendered for these exact words
   // cost nothing to render again; only the rest are billed.
   const presenterChanged =
     draft.presenter !== content.presenter ||
     draft.voice !== content.voice ||
     draft.voiceStyle !== (content.voiceStyle ?? "") ||
+    draft.gestureMode !== gestureMode(content.gestureMode) ||
+    draft.sections.some((s, i) => s.gesture !== content.sections[i]?.gesture) ||
     JSON.stringify(draft.narration) !==
       JSON.stringify(
         content.narration ? readNarration(content.narration) : EMPTY_NARRATION,
@@ -956,7 +970,25 @@ export default function TrainingVideo({
                   className="h-6 w-6 rounded-md border border-[var(--border)]"
                   style={{ background: draft.background }}
                 />
+                <select
+                  aria-label="Body language"
+                  title="Gestures the presenter makes while speaking"
+                  className={`${inputCls} !w-auto`}
+                  value={draft.gestureMode}
+                  disabled={locked || !gestures.length}
+                  onChange={(e) =>
+                    edit({ gestureMode: gestureMode(e.target.value) })
+                  }
+                >
+                  <option value="auto">Body language: varied</option>
+                  <option value="off">Body language: still</option>
+                </select>
               </div>
+              <p className="mt-2 text-[10px] leading-snug text-[var(--muted)]">
+                {gestures.length
+                  ? "Varied adds a wave to open, open-handed gestures while explaining, and a thank-you to close. To choose a gesture for a section, use the menu on its heading. Gestures show only in the rendered video."
+                  : "This presenter has no selectable gestures. Lisa casual seated, Lori, Harry, Max and Meg do."}
+              </p>
               <div className="mt-3 space-y-2">
                 <MusicPicker
                   value={draft.music}
@@ -1042,6 +1074,28 @@ export default function TrainingVideo({
                         }
                         aria-label={`Section ${i + 1} title`}
                       />
+                      {gestures.length > 0 && (
+                        <select
+                          aria-label={`Section ${i + 1} opening gesture`}
+                          title="How the presenter moves as this section begins"
+                          className={`${inputCls} !w-auto max-w-[11rem]`}
+                          value={sectionGesture(draft.presenter, s.gesture) ?? ""}
+                          disabled={locked}
+                          onChange={(e) =>
+                            editSection(i, {
+                              gesture: e.target.value || undefined,
+                            })
+                          }
+                        >
+                          <option value="">Gesture: follow video</option>
+                          <option value={GESTURE_NONE}>Gesture: none</option>
+                          {gestures.map((g) => (
+                            <option key={g.id} value={g.id}>
+                              {g.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                       <button
                         className="btn !px-2 !py-1 !text-xs"
                         disabled={locked || i === 0}

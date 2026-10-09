@@ -14,6 +14,7 @@ import {
   type TrainingScript,
 } from "@/lib/training";
 import { backgroundColor, presenter, presenterVoice } from "@/lib/avatars";
+import { gestureMode } from "@/lib/gestures";
 import { AUDIO_LENGTHS, WORDS_PER_MINUTE, audioLength } from "@/lib/voices";
 import type { TrainingContent } from "@/lib/types";
 import {
@@ -63,6 +64,7 @@ async function writeTranscript(req: Request) {
       music?: unknown;
       watermark?: unknown;
       composition?: unknown;
+      gestureMode?: unknown;
     };
     const { notebookId, sourceIds } = body;
     const none = noSourcesSelected(sourceIds);
@@ -175,6 +177,7 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"}, keeping the same structure. ${
       presenter: presenterKey,
       voice,
       ...(voiceStyle ? { voiceStyle } : {}),
+      gestureMode: gestureMode(body.gestureMode ?? "auto"),
       background: backgroundColor(body.background),
       length: wanted,
       targetMinutes: AUDIO_LENGTHS[wanted].minutes,

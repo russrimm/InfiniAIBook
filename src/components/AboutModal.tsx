@@ -1,6 +1,7 @@
 "use client";
 
 import { AUTHOR, GITHUB_URL, LINKEDIN_URL, MIT_LICENSE, REPO_URL } from "@/lib/about";
+import Logo from "./Logo";
 import { useDialog } from "./useDialog";
 
 const DOCS = `${REPO_URL}/blob/main/docs`;
@@ -59,6 +60,7 @@ export default function AboutModal({ onClose }: { onClose: () => void }) {
         className="fade-up card flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden !p-0 outline-none"
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+          <Logo size={32} />
           <div className="flex-1">
             <h2 id="about-title" className="text-[15px] font-semibold">
               InfiniAIBook
