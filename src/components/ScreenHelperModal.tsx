@@ -593,11 +593,11 @@ export default function ScreenHelperModal({
                   ))}
                 </div>
               )}
-              <div className="flex items-end gap-2">
+              <div className="flex flex-col gap-2">
                 <textarea
                   aria-label={goal ? "Ask a follow-up" : "What do you need help with?"}
-                  className="input min-h-[2.5rem] flex-1 resize-none !text-[13px]"
-                  rows={2}
+                  className="input min-h-[4.5rem] w-full resize-none !text-[13px]"
+                  rows={3}
                   maxLength={1000}
                   placeholder={
                     goal
@@ -615,7 +615,7 @@ export default function ScreenHelperModal({
                 />
                 <button
                   type="submit"
-                  className="btn btn-primary shrink-0"
+                  className={`btn btn-primary ${sharing ? "self-end" : "w-full"}`}
                   disabled={!input.trim() || !!busy || !!unsupported || shareState === "starting"}
                 >
                   {sharing ? "Ask" : "Share screen & ask"}

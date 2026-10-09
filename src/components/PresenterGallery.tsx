@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AVATAR_PRESETS, avatarPicture } from "@/lib/avatars";
+import { AVATAR_PRESETS, avatarPicture, presenterName } from "@/lib/avatars";
 import { HD_ALTERNATES, hdCandidates, PINNED_VOICES } from "@/lib/voices";
 import type { CatalogVoice } from "@/lib/voicecatalog";
 import { loadVoices } from "./VoicePicker";
@@ -83,7 +83,10 @@ export default function PresenterGallery({
       const id = hd || PINNED_VOICES[voice] || voice;
       const tag = hd ? `${key}|${hd}` : key;
       const a = new Audio(
-        `/api/voices/preview?${new URLSearchParams({ voice: id })}`,
+        `/api/voices/preview?${new URLSearchParams({
+          voice: id,
+          as: presenterName(AVATAR_PRESETS[key].label),
+        })}`,
       );
       audio.current = a;
       setPlaying(tag);

@@ -25,8 +25,16 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "That voice has no such style." }, { status: 400 });
   }
 
+  // The name the sample introduces itself with, so a presenter's card and its
+  // audio agree. Letters only: it is spoken inside SSML.
+  const asParam = q.get("as");
+  const as = asParam && /^\p{L}{1,24}$/u.test(asParam) ? asParam : undefined;
+  if (asParam && !as) {
+    return NextResponse.json({ error: "Invalid name." }, { status: 400 });
+  }
+
   try {
-    const mp3 = await voiceSample(voice, style);
+    const mp3 = await voiceSample(voice, style, as);
     return new NextResponse(new Uint8Array(mp3), {
       status: 200,
       headers: {

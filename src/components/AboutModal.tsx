@@ -1,6 +1,6 @@
 "use client";
 
-import { AUTHOR, GITHUB_URL, LINKEDIN_URL, MIT_LICENSE, REPO_URL } from "@/lib/about";
+import { APP_VERSION, AUTHOR, GITHUB_URL, LINKEDIN_URL, MIT_LICENSE, REPO_URL } from "@/lib/about";
 import Logo from "./Logo";
 import { useDialog } from "./useDialog";
 
@@ -107,6 +107,11 @@ export default function AboutModal({ onClose }: { onClose: () => void }) {
           </section>
 
           <h3 className="mt-5 text-[13px] font-semibold">About</h3>
+          {APP_VERSION && (
+            <p className="mt-1 text-sm text-prose" data-testid="app-version">
+              Version {APP_VERSION}
+            </p>
+          )}
           <p className="mt-1 text-sm text-prose">Created by {AUTHOR}</p>
           <div className="mt-3 flex flex-wrap gap-2 text-[13px]">
             <a className="btn !text-[12px]" href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer">
