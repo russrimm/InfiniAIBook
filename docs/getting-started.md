@@ -5,18 +5,23 @@
 
 **Prerequisites**
 
-- **Node.js 22.13 or later** — the database uses the built-in `node:sqlite`.
-- **A model provider** — a key for one of the [named providers](configuration.md#named-providers),
-  an Azure OpenAI resource with a chat and an embedding deployment, or any
-  OpenAI-compatible server (see [Configuration](configuration.md)).
-- *Optional:* the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
-  for Entra sign-in; an image model and an Azure Speech resource for audio
-  overviews, whiteboard videos and motion explainers; Python 3 with `numpy`,
-  `Pillow` and `imageio-ffmpeg` for whiteboard and motion videos; Gemini /
-  YouTube / search API keys for the features described in the [docs](README.md).
-  Everything optional degrades cleanly when unset. See
+- **A model endpoint, set up first.** Reuse an existing Microsoft Foundry /
+  Azure OpenAI resource or create a new one, or use a
+  [named provider](configuration.md#named-providers) or any OpenAI-compatible
+  server. Only a **chat** deployment is required; embeddings, Studio script,
+  vision, transcription, image, realtime voice and Azure AI Speech are each
+  optional and switch on their own features. The
+  [install guide](install-guide.md#1-decide-what-you-need) walks through
+  choosing and creating each one, with `az` commands;
   [Models and what they're used for](configuration.md#models-and-what-theyre-used-for)
-  for which setting turns on which feature.
+  lists the settings. Copilot Studio agents are not model endpoints and can't
+  be used here.
+- **Node.js 22.13 or later**: the database uses the built-in `node:sqlite`.
+- *Optional:* the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
+  for Entra sign-in; Python 3 with `numpy`, `Pillow` and `imageio-ffmpeg` for
+  whiteboard and motion videos; Gemini / YouTube / search API keys for the
+  features described in the [docs](README.md). Everything optional degrades
+  cleanly when unset.
 
 ```bash
 npm install
