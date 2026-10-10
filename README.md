@@ -189,11 +189,14 @@ videos also need an image model and Python; see
 
 ## Quick start
 
-Requires **Node.js 22.13+** and a model provider.
+Requires **Node.js 22.13+** and a model endpoint: reuse or create one
+(Microsoft Foundry, OpenAI, Gemini, a local model…) before you install. Only a
+chat model is required; embeddings, voices, images and the rest are optional.
 
 > **New to this?** Follow [Install step by step](docs/install-guide.md). It
-> explains every step on Windows and Mac, including how to create the settings
-> file, with no prior experience needed.
+> starts with choosing and creating your model endpoint, then explains every
+> step on Windows and Mac, including how to create the settings file, with no
+> prior experience needed.
 
 ```bash
 npm install

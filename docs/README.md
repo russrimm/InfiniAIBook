@@ -3,8 +3,9 @@
 **Setup**
 
 - [Install step by step](install-guide.md): a beginner's walkthrough for
-  Windows, Mac and Linux, covering the settings file, choosing a provider,
-  where your data lives, and troubleshooting
+  Windows, Mac and Linux. It starts with reusing or creating a model endpoint
+  (Foundry, Speech and more, marking what's optional), then covers the settings
+  file, where your data lives, and troubleshooting
 - [Getting started](getting-started.md) — prerequisites, local install, Docker
   and password protection
 - [Running in Azure](azure-deployment.md) — Container Apps with private
