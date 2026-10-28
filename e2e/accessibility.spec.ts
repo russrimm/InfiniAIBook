@@ -34,6 +34,40 @@ test("a notebook card opens from the keyboard and the tab is titled", async ({ p
   await expect(page.getByRole("main")).toBeVisible();
 });
 
+test("notebook delete icons stay visible without hover and keep confirmation and undo", async ({ page }) => {
+  const title = `Delete icon notebook ${Date.now()}`;
+  await createNotebook(page, title);
+  await page.goto("/");
+  await page.mouse.move(0, 0);
+
+  const link = page.getByRole("link", { name: title, exact: true });
+  const deleteButton = page.getByRole("button", { name: `Delete notebook ${title}`, exact: true });
+  await expect(deleteButton).toBeVisible();
+  await expect(deleteButton).toHaveCSS("opacity", "1");
+  await expect(deleteButton.locator("svg")).toBeVisible();
+
+  await deleteButton.focus();
+  await page.keyboard.press("Enter");
+  const confirmation = page.getByRole("alertdialog", { name: "Delete this notebook?" });
+  await expect(confirmation).toBeVisible();
+  await expect(page).toHaveURL("/");
+  await page.keyboard.press("Escape");
+  await expect(confirmation).toBeHidden();
+  await expect(link).toBeVisible();
+
+  await deleteButton.click();
+  await confirmation.getByRole("button", { name: "Delete notebook", exact: true }).click();
+  await expect(link).toHaveCount(0);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(link).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.mouse.move(0, 0);
+  await deleteButton.blur();
+  await expect(deleteButton).toBeVisible();
+  await expect(deleteButton).toHaveCSS("opacity", "1");
+});
+
 test("dialogs trap focus, close on Escape and restore focus", async ({ page }) => {
   const id = await createNotebook(page, "Dialog notebook", true);
   await page.goto(`/notebook/${id}`);
