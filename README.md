@@ -142,6 +142,11 @@ How it works, customization and setup: [Motion explainers](docs/motion-explainer
 - **Reduced motion** — honors the OS or browser `prefers-reduced-motion`
   setting: entrances fade instead of moving, spinners and mind maps stop
   animating, and scrolling jumps instead of gliding.
+- **Render progress** — training videos, whiteboard videos and motion explainers
+  show each stage's progress while they render, and report why a render failed.
+- **Spend ceiling** — estimated model, speech and image spend stops at $25 per
+  UTC day when a cloud provider is configured; set `DAILY_BUDGET_USD` to change
+  or turn it off. [More](SECURITY.md)
 - **Everything is local** — sources, embeddings, chat history, artifacts and
   media live under `.data/`. Password protection and a Docker image included.
 
@@ -219,6 +224,11 @@ Open <http://localhost:3000>. See [Getting started](docs/getting-started.md) for
 Docker and password protection, and [Configuration](docs/configuration.md) for
 providers and environment variables.
 
+Useful commands: `npm run lint`, `npm test` (unit tests), `npm run test:e2e`
+(browser tests) and `npm run build`. Without credentials, `npm run check:ssrf`,
+`npm run check:motion` and `npm run check:training` verify URL-fetch safety and
+the video renderers.
+
 ### Models and what they're used for
 
 Only a chat model is required; each of the others switches features on. Azure
@@ -239,7 +249,10 @@ defaults and what happens without each one.
 | Gemini | `GEMINI_API_KEY` | YouTube transcripts |
 
 Whiteboard videos and motion explainers also need Python 3 with `numpy`,
-`Pillow` and `imageio-ffmpeg`.
+`Pillow` and `imageio-ffmpeg`. Training videos and motion explainers can
+optionally be composed with [HyperFrames](docs/training-videos.md#the-hyperframes-compositor)
+(`TRAINING_RENDERER=hyperframes`, `MOTION_RENDERER=hyperframes`), falling back
+to the Python renderer if it fails.
 
 ## Documentation
 
