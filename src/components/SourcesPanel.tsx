@@ -108,6 +108,9 @@ export default function SourcesPanel({
   onBrowse,
   onLibrary,
   addRef,
+  pinned,
+  onTogglePin,
+  onClose,
 }: {
   notebookId: string;
   sources: Source[];
@@ -126,6 +129,9 @@ export default function SourcesPanel({
   /** Reuse a source that already lives in another notebook. */
   onLibrary: () => void;
   addRef: React.MutableRefObject<((hits: DiscoverHit[]) => void) | null>;
+  pinned: boolean;
+  onTogglePin: () => void;
+  onClose: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -135,6 +141,7 @@ export default function SourcesPanel({
   // Escape dismisses the inline form and hands focus back to the button that opened it.
   const closeInline = (e: React.KeyboardEvent) => {
     if (e.key !== "Escape") return;
+    e.preventDefault();
     e.stopPropagation();
     (mode === "url" ? linkBtn : textBtn).current?.focus();
     setMode("none");
@@ -310,6 +317,28 @@ export default function SourcesPanel({
           <h2 id="sources-heading" className="text-sm font-semibold tracking-wide">
             Sources
           </h2>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn !px-2 !py-1 !text-[11px]"
+              aria-label={pinned ? "Unpin sources panel" : "Pin sources panel"}
+              aria-pressed={pinned}
+              title={pinned ? "Unpin to collapse when you click outside" : "Keep Sources open"}
+              onClick={onTogglePin}
+            >
+              {pinned ? "Unpin" : "Pin"}
+            </button>
+            <button
+              type="button"
+              className="btn !px-2 !py-1 !text-[11px]"
+              aria-label="Collapse sources panel"
+              onClick={onClose}
+            >
+              <span aria-hidden>×</span>
+            </button>
+          </div>
+        </div>
+        <div className="mt-2">
           {sources.length > 0 && (
             <button
               className="text-xs text-[var(--muted)] transition hover:text-[var(--fg)]"

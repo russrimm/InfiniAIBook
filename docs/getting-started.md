@@ -32,7 +32,11 @@ npm run dev
 
 Open <http://localhost:3000>, press **+ New notebook**, and follow the
 getting-started steps in the chat panel: add sources, tick the ones to use, then
-ask a question or create something in Studio. **? Help** in the header
+ask a question or create something in Studio. Sources starts collapsed; use
+**Add sources** in the header to open it. **Pin** keeps it open while you work
+elsewhere; **Unpin** lets it collapse when you click outside or press Escape.
+The close button collapses it even when pinned. On narrow screens, use the
+Sources tab to switch back to it. **? Help** in the header
 explains the rest. For a production build, `npm run build` then
 `npm start`. Both listen on `127.0.0.1` only, so other devices on your network
 cannot reach the server. To open it to your network, set

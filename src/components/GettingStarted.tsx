@@ -82,6 +82,7 @@ export default function GettingStarted({
             {step.action?.onClick && (
               <button
                 type="button"
+                aria-controls={i === 0 ? "sources-panel" : undefined}
                 className={`btn h-fit shrink-0 self-center !px-2.5 !py-1 !text-[11px] ${
                   isCurrent && i < 2 ? "btn-primary" : ""
                 }`}

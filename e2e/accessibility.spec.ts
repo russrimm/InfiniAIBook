@@ -97,6 +97,7 @@ test("Escape dismisses the inline add-source forms and returns focus", async ({ 
   const id = await createNotebook(page, "Inline forms notebook");
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/notebook/${id}`);
+  await page.locator("header").getByRole("button", { name: "Add sources", exact: true }).click();
   for (const name of ["Add link", "Paste text"]) {
     const opener = page.getByRole("button", { name });
     await opener.click();
