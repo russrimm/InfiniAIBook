@@ -71,6 +71,10 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [budgetNote, setBudgetNote] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [tab, setTab] = useState<Tab>("chat");
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [sourcesPinned, setSourcesPinned] = useState(false);
+  const sourcesPanel = useRef<HTMLDivElement>(null);
+  const sourcesButton = useRef<HTMLButtonElement>(null);
   /** Which panel fills the right-hand column on wide screens. */
   const [right, setRight] = useState<"studio" | "notes">("studio");
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
@@ -94,9 +98,6 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const loadSeq = useRef(0);
   /** Set by SourcesPanel so Discover can queue URLs through the same pipeline. */
   const addSources = useRef<((hits: DiscoverHit[]) => void) | null>(null);
-
-  /** The first load picks the opening tab on narrow screens. */
-  const firstLoad = useRef(true);
 
   const load = useCallback(async (): Promise<Data | null> => {
     const seq = ++loadSeq.current;
@@ -129,11 +130,6 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     seenSources.current = live;
 
     setData(d);
-    if (firstLoad.current) {
-      firstLoad.current = false;
-      // An empty notebook's next step is adding a source, not chatting.
-      if (d.sources.length === 0) setTab("sources");
-    }
     setSelected((prev) => {
       const next = new Set([...prev].filter((id) => live.has(id)));
       for (const id of fresh) next.add(id);
@@ -294,9 +290,50 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
 
   /** Bring the Sources panel into view and put focus on its upload control. */
   const showSources = () => {
+    setSourcesOpen(true);
     setTab("sources");
     setTimeout(() => document.getElementById("add-sources")?.focus(), 0);
   };
+
+  const closeSources = useCallback(() => {
+    setSourcesOpen(false);
+    setSourcesPinned(false);
+    setTab((current) => current === "sources" ? "chat" : current);
+    sourcesButton.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!sourcesOpen || sourcesPinned) return;
+    const dismissOutside = (event: MouseEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof Element) ||
+        sourcesPanel.current?.contains(target) ||
+        target.closest('[aria-controls="sources-panel"]') ||
+        document.querySelector('[role="dialog"], [role="alertdialog"]')
+      ) return;
+      setSourcesOpen(false);
+      setTab((current) => current === "sources" ? "chat" : current);
+    };
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (
+        event.key === "Escape" &&
+        !event.defaultPrevented &&
+        !document.querySelector('[role="dialog"], [role="alertdialog"]')
+      ) {
+        event.preventDefault();
+        closeSources();
+      }
+    };
+    document.addEventListener("click", dismissOutside);
+    document.addEventListener("keydown", dismissOnEscape);
+    return () => {
+      document.removeEventListener("click", dismissOutside);
+      document.removeEventListener("keydown", dismissOnEscape);
+    };
+  }, [sourcesOpen, sourcesPinned, closeSources]);
+
+  const sourcesVisible = sourcesOpen || sourcesPinned;
 
   const selectedIds = [...selected].filter((id) => !hidden.has(id));
   const visibleSourceCount = data ? data.sources.filter((s) => !hidden.has(s.id)).length : 0;
@@ -455,7 +492,16 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             ? "Checking links…"
             : `Using ${selectedIds.length} of ${sources.length} source${sources.length === 1 ? "" : "s"}`}
         </span>
-        <div className="ml-auto flex shrink-0 items-center gap-3">
+        <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center gap-3">
+          <button
+            ref={sourcesButton}
+            className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
+            aria-controls="sources-panel"
+            aria-expanded={sourcesVisible}
+            onClick={showSources}
+          >
+            Add sources
+          </button>
           <Link
             href={`/search?notebookId=${notebookId}`}
             className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
@@ -529,7 +575,14 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         {(["sources", "chat", "studio", "notes"] as Tab[]).map((t) => (
           <button
             key={t}
-            onClick={() => setTab(t)}
+            aria-controls={t === "sources" ? "sources-panel" : undefined}
+            onClick={() => {
+              if (t === "sources") showSources();
+              else {
+                setTab(t);
+                setSourcesOpen(false);
+              }
+            }}
             aria-pressed={tab === t}
             className={`flex-1 rounded-lg px-2 py-1.5 text-sm whitespace-nowrap capitalize transition ${
               tab === t
@@ -550,11 +603,17 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         ))}
       </nav>
 
-      <main className="grid min-h-0 flex-1 lg:grid-cols-[17rem_minmax(0,1fr)_20rem] xl:grid-cols-[320px_minmax(0,1fr)_380px]">
+      <main className={`grid min-h-0 flex-1 ${
+        sourcesVisible
+          ? "lg:grid-cols-[17rem_minmax(0,1fr)_20rem] xl:grid-cols-[320px_minmax(0,1fr)_380px]"
+          : "lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_380px]"
+      }`}>
         <div
-          className={`min-h-0 border-[var(--border)] lg:block lg:border-r ${
+          ref={sourcesPanel}
+          id="sources-panel"
+          className={`min-h-0 border-[var(--border)] lg:border-r ${
             tab === "sources" ? "block" : "hidden"
-          }`}
+          } ${sourcesVisible ? "lg:block" : "lg:hidden"}`}
         >
           <SourcesPanel
             notebookId={notebookId}
@@ -582,6 +641,12 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             onBrowse={() => setBrowsing(true)}
             onLibrary={() => setPickingLibrary(true)}
             addRef={addSources}
+            pinned={sourcesPinned}
+            onTogglePin={() => {
+              setSourcesOpen(true);
+              setSourcesPinned((pinned) => !pinned);
+            }}
+            onClose={closeSources}
           />
         </div>
 

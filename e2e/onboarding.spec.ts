@@ -33,6 +33,7 @@ test("an empty notebook walks through adding and choosing sources", async ({ pag
 
   await steps.getByRole("button", { name: "Add sources" }).click();
   await expect(page.locator("#add-sources")).toBeFocused();
+  await page.getByRole("button", { name: "Pin sources panel", exact: true }).click();
 
   await page.getByRole("button", { name: /Paste text/ }).click();
   await page.getByLabel("Title (optional)").fill("Field notes");
@@ -47,6 +48,105 @@ test("an empty notebook walks through adding and choosing sources", async ({ pag
   await expect(steps.locator('[aria-current="step"]')).toContainText("Choose which sources");
   await steps.getByRole("button", { name: "Use all sources" }).click();
   await expect(page.getByRole("checkbox", { name: /Field notes/ })).toBeChecked();
+});
+
+for (const withSource of [false, true]) {
+  test(`Sources starts collapsed ${withSource ? "with sources" : "in an empty notebook"} and can be pinned`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const id = await createNotebook(page, withSource);
+    await page.goto(`/notebook/${id}`);
+
+    const sources = page.getByRole("complementary", { name: "Sources", exact: true });
+    const opener = page.locator("header").getByRole("button", { name: "Add sources", exact: true });
+    const chat = page.getByRole("region", { name: "Chat", exact: true });
+    await expect(sources).toBeHidden();
+    await expect(opener).toHaveAttribute("aria-expanded", "false");
+    const collapsedWidth = (await chat.boundingBox())!.width;
+
+    await opener.click();
+    await expect(sources).toBeVisible();
+    await expect(opener).toHaveAttribute("aria-expanded", "true");
+    await expect(page.locator("#add-sources")).toBeFocused();
+    expect((await chat.boundingBox())!.width).toBeLessThan(collapsedWidth);
+    if (!withSource) {
+      await chat.getByRole("button", { name: "Add sources", exact: true }).click();
+      await expect(sources).toBeVisible();
+    }
+
+    await sources.getByRole("button", { name: "Pin sources panel", exact: true }).click();
+    await expect(sources.getByRole("button", { name: "Unpin sources panel" })).toHaveAttribute("aria-pressed", "true");
+    await chat.click({ position: { x: 20, y: 120 } });
+    await page.keyboard.press("Escape");
+    await expect(sources).toBeVisible();
+
+    await sources.getByRole("button", { name: "Unpin sources panel" }).click();
+    await expect(sources).toBeVisible();
+    await chat.click({ position: { x: 20, y: 120 } });
+    await expect(sources).toBeHidden();
+    expect((await chat.boundingBox())!.width).toBe(collapsedWidth);
+
+    await opener.click();
+    await page.keyboard.press("Escape");
+    await expect(sources).toBeHidden();
+    await expect(opener).toBeFocused();
+
+    await opener.click();
+    await sources.getByRole("button", { name: "Pin sources panel", exact: true }).click();
+    await sources.getByRole("button", { name: "Collapse sources panel" }).click();
+    await expect(sources).toBeHidden();
+    await expect(opener).toBeFocused();
+    await opener.click();
+    await expect(sources.getByRole("button", { name: "Pin sources panel", exact: true })).toHaveAttribute("aria-pressed", "false");
+    await page.reload();
+    await expect(sources).toBeHidden();
+  });
+}
+
+test("collapsing Sources preserves drafts and source dialogs do not dismiss it", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const id = await createNotebook(page, true);
+  await page.goto(`/notebook/${id}`);
+  const opener = page.locator("header").getByRole("button", { name: "Add sources", exact: true });
+  const sources = page.getByRole("complementary", { name: "Sources", exact: true });
+  await opener.click();
+  await sources.getByRole("button", { name: /Paste text/ }).click();
+  await sources.getByLabel("Text to add").fill("An unfinished source");
+  await sources.getByRole("button", { name: "Collapse sources panel" }).click();
+  await opener.click();
+  await expect(sources.getByLabel("Text to add")).toHaveValue("An unfinished source");
+  await sources.getByLabel("Text to add").press("Escape");
+  await expect(sources).toBeVisible();
+  await sources.getByRole("button", { name: /^Field notes/ }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(sources).toBeVisible();
+});
+
+test("Sources is collapsed on mobile and opens through the header or panel tabs", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const id = await createNotebook(page);
+  await page.goto(`/notebook/${id}`);
+  const sources = page.getByRole("complementary", { name: "Sources", exact: true });
+  const panels = page.getByRole("navigation", { name: "Notebook panels" });
+  await expect(sources).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await expect(page.getByRole("region", { name: "Chat", exact: true })).toBeVisible();
+  await page.locator("header").getByRole("button", { name: "Add sources", exact: true }).click();
+  await expect(sources).toBeVisible();
+  await expect(page.locator("#add-sources")).toBeFocused();
+  await panels.getByRole("button", { name: "chat", exact: true }).click();
+  await expect(sources).toBeHidden();
+  await panels.getByRole("button", { name: "sources", exact: true }).click();
+  await panels.getByRole("button", { name: "sources", exact: true }).click();
+  await expect(sources).toBeVisible();
+  await sources.getByRole("button", { name: "Pin sources panel", exact: true }).click();
+  await panels.getByRole("button", { name: "studio", exact: true }).click();
+  await expect(sources).toBeHidden();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(sources).toBeVisible();
+  await sources.getByRole("button", { name: "Collapse sources panel" }).click();
+  await expect(sources).toBeHidden();
 });
 
 test("Studio folds settings behind Options and lists results in its Library", async ({ page }) => {

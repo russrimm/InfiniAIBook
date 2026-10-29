@@ -689,6 +689,7 @@ export default function StudioPanel({
                 <button
                   className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
                   onClick={onShowSources}
+                  aria-controls="sources-panel"
                 >
                   Go to Sources
                 </button>
