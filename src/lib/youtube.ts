@@ -12,7 +12,7 @@
  * 3. oEmbed — title and author only, but works almost anywhere.
  */
 
-import { GeminiError, hasGemini, transcribeYouTube } from "./gemini";
+import { hasGemini, transcribeYouTube } from "./gemini";
 
 const WEB_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -319,19 +319,23 @@ async function blockedMessage(videoId: string, meta: Meta): Promise<string> {
   const availability = langs?.length
     ? `The Data API confirms ${langs.length} caption track${
         langs.length === 1 ? "" : "s"
-      } (${langs.slice(0, 6).join(", ")}), so the captions exist — YouTube simply will not release the text. `
+      } (${langs.slice(0, 6).join(", ")}), but their text could not be retrieved. `
     : meta.hasCaptions
-      ? "The Data API reports this video has captions, but will not release their text. "
+      ? "The Data API reports this video has captions, but their text could not be retrieved. "
       : "";
 
   return (
     `YouTube would not return the transcript for "${meta.title}". ${availability}` +
-    `Its public transcript endpoint is gated behind a proof-of-origin token, and the ` +
-    `official captions.download endpoint rejects API keys — it requires OAuth as the ` +
-    `video's owner. ` +
+    `Public captions may be blocked by YouTube's proof-of-origin checks. ` +
+    `Set GEMINI_API_KEY on the app server to a Gemini API key from Google AI Studio ` +
+    `(https://aistudio.google.com/apikey), then restart or redeploy the app and retry the link. ` +
+    `The app can use Gemini to transcribe public YouTube videos without a YouTube session cookie. ` +
+    `A YouTube Data API key (YOUTUBE_API_KEY) provides metadata, not transcript access; ` +
+    `the official captions.download endpoint requires OAuth as the video's owner. ` +
     (hasCookie()
-      ? "YOUTUBE_COOKIE is set but was not accepted; the session may have expired."
-      : 'Set YOUTUBE_COOKIE to the Cookie header from a signed-in youtube.com session, or use "Paste" to add the transcript as a text source.')
+      ? "YOUTUBE_COOKIE is set, but public captions still could not be retrieved. "
+      : "") +
+    `Alternatively, use "Paste" to add a transcript you have as a text source.`
   );
 }
 
@@ -371,7 +375,7 @@ export async function fetchYouTubeTranscript(input: string): Promise<YouTubeResu
         `[youtube] Gemini transcript failed for ${videoId}:`,
         e instanceof Error ? e.message : e
       );
-      geminiNote = e instanceof GeminiError ? e.message : null;
+      geminiNote = e instanceof Error ? e.message : "The transcription request failed.";
     }
   }
 
