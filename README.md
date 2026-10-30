@@ -248,6 +248,14 @@ defaults and what happens without each one.
 | Azure Speech | `AZURE_SPEECH_REGION` + `AZURE_SPEECH_RESOURCE_ID` (or `AZURE_SPEECH_KEY`) | Every voice: audio overviews, video narration, training-video avatars |
 | Gemini | `GEMINI_API_KEY` | YouTube transcripts |
 
+If a YouTube source says its transcript could not be retrieved, configure
+`GEMINI_API_KEY` on the app server with a key from
+[Google AI Studio](https://aistudio.google.com/apikey), then restart or redeploy
+the app and retry the link. Gemini transcription is separate from the chat and
+audio-upload transcription providers. `YOUTUBE_API_KEY` only supplies metadata;
+a signed-in `YOUTUBE_COOKIE` does not guarantee access to public captions.
+You can also use **Paste** to add a transcript you already have.
+
 Whiteboard videos and motion explainers also need Python 3 with `numpy`,
 `Pillow` and `imageio-ffmpeg`. Training videos and motion explainers can
 optionally be composed with [HyperFrames](docs/training-videos.md#the-hyperframes-compositor)
