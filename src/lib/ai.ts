@@ -1,10 +1,6 @@
 import OpenAI, { AzureOpenAI, toFile } from "openai";
-import {
-  DefaultAzureCredential,
-  ClientSecretCredential,
-  getBearerTokenProvider,
-  type TokenCredential,
-} from "@azure/identity";
+import { getBearerTokenProvider } from "@azure/identity";
+import { buildCredential } from "./azureCredential";
 import { reserve } from "./budget";
 import { getSetting, SETTING_CHAT_MODEL, SETTING_EMBED_MODEL, SETTING_IMAGE_MODEL, SETTING_VISION_MODEL } from "./settings";
 import { resolveEndpoint, type ResolvedEndpoint } from "./providers";
@@ -288,23 +284,6 @@ async function requestImage(prompt: string, opts: ImageOptions): Promise<Generat
 }
 
 export class MissingConfigError extends Error {}
-
-function buildCredential(): TokenCredential {
-  const tenantId = process.env.AZURE_TENANT_ID;
-  const clientId = process.env.AZURE_CLIENT_ID;
-  const clientSecret = process.env.AZURE_CLIENT_SECRET;
-
-  // Explicit service principal, when one is supplied (CI, containers).
-  if (tenantId && clientId && clientSecret) {
-    return new ClientSecretCredential(tenantId, clientId, clientSecret);
-  }
-
-  // Otherwise walk the standard chain: env vars, workload identity, managed
-  // identity, then the developer's `az login` / VS Code / Azure PowerShell session.
-  return new DefaultAzureCredential(
-    clientId ? { managedIdentityClientId: clientId } : undefined
-  );
-}
 
 let client: OpenAI | AzureOpenAI | null = null;
 let tokenProvider: (() => Promise<string>) | null = null;

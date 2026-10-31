@@ -13,7 +13,52 @@ type Loose = Record<string, unknown>;
 
 const ACCENTS = ["indigo", "emerald", "amber", "rose", "sky", "violet"];
 
-const str = (v: unknown, fallback = ""): string => (typeof v === "string" ? v : fallback);
+/**
+ * Markdown the model sometimes wraps around fields that are shown as plain
+ * text ("**Confirm the lease**"). Paired bold, italic and code markers are
+ * unwrapped, and a stray unpaired `**` is dropped. A lone `*` or `_` is left
+ * alone, since either can be real text ("5 * 3", "__init__", "snake_case").
+ */
+export function stripEmphasis(s: string): string {
+  return s
+    .replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, "$1")
+    .replace(/`([^`\n]+)`/g, "$1")
+    .replace(/(^|[^*\w])\*(?=\S)([^*\n]*?\S)\*(?![*\w])/g, "$1$2")
+    .replace(/\*\*/g, "");
+}
+
+/** Keys whose strings are identifiers or URLs, not text a reader sees. */
+const NON_TEXT_KEYS = new Set([
+  "style",
+  "accent",
+  "orientation",
+  "imageUrl",
+  "imageModel",
+  "imageSize",
+  "metaphor",
+]);
+
+/**
+ * A copy of stored infographic content with emphasis markers removed from every
+ * text field. Artifacts saved before the normalizer did this still render
+ * cleanly, and layouts that print a field raw need no per-field handling.
+ */
+export function cleanInfographic<T>(value: T): T {
+  const walk = (v: unknown, key?: string): unknown => {
+    if (typeof v === "string") return key && NON_TEXT_KEYS.has(key) ? v : stripEmphasis(v);
+    if (Array.isArray(v)) return v.map((x) => walk(x));
+    if (v && typeof v === "object") {
+      return Object.fromEntries(
+        Object.entries(v as Loose).map(([k, x]) => [k, k === "citations" ? x : walk(x, k)])
+      );
+    }
+    return v;
+  };
+  return walk(value) as T;
+}
+
+const str = (v: unknown, fallback = ""): string =>
+  typeof v === "string" ? stripEmphasis(v) : fallback;
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const obj = (v: unknown): Loose =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Loose) : {};
