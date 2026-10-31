@@ -341,6 +341,7 @@ export default function SourcesPanel({
         <div className="mt-2">
           {sources.length > 0 && (
             <button
+              id="select-all-sources"
               className="text-xs text-[var(--muted)] transition hover:text-[var(--fg)]"
               onClick={onToggleAll}
             >

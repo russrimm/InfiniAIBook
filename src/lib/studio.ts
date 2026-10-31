@@ -375,7 +375,8 @@ Rules: 3-4 stats whose "value" is a short figure taken literally from the source
 (e.g. "68%", "$2.4B", "3x", "12 weeks"); never fabricate a number — if the sources have
 few numbers, use counts of things the sources enumerate. 3-4 sections, each with 2-4 short
 bullets (<= 14 words each) and a single emoji as "icon". "takeaway" is one memorable sentence.
-Include citation markers inside bullets and stat captions.
+Include citation markers inside bullets and stat captions. Write every field as plain
+text: no markdown, asterisks, underscores or backticks; the layout sets the emphasis.
 Omit "pullQuote", "nextSteps", "flow", "chart", "compare", "checklist", "regions",
 "hub", "scale", "matrix", "milestones", "levels", "myths", "pros", "cons" and "terms"
 unless the style guidance below asks for them. Where the style guidance gives

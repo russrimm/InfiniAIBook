@@ -149,7 +149,7 @@ commentary. Only a model provider is required.
 | `AZURE_OPENAI_REALTIME_DEPLOYMENT`, `AI_REALTIME_MODEL`, `AI_REALTIME_TRANSCRIPTION_MODEL`, `DISCUSSION_CONTEXT_CHARS` | Realtime voice model, transcription and starting context for [live discussions](discussions.md#setup) |
 | `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT` | Optional Whisper / gpt-4o-transcribe deployment for audio/video sources |
 | `AZURE_OPENAI_API_KEY` | Legacy key auth; takes precedence over Entra when set |
-| `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | Service principal or user-assigned identity for Entra auth |
+| `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | Service principal (all three), user-assigned identity (`AZURE_CLIENT_ID`), or the tenant to sign in to with `az login` (`AZURE_TENANT_ID` alone). See [Authentication](#authentication-microsoft-entra-id) |
 | `AZURE_SPEECH_REGION`, `AZURE_SPEECH_RESOURCE_ID`, `AZURE_SPEECH_KEY` | Azure Speech for audio overviews, video narration and training-video avatars |
 | `AZURE_SPEECH_ENDPOINT` | Custom-domain Speech endpoint for the avatar service; derived from `AZURE_SPEECH_RESOURCE_ID` when unset |
 | `AZURE_AVATAR_BACKGROUND_URL`, `AZURE_AVATAR_PRICE_PER_MINUTE`, `AZURE_AVATAR_CONCURRENCY`, `TRAINING_IMAGES` | Optional training-video background image, cost estimate, parallel section renders and AI-image planning ([Training videos](training-videos.md)) |
@@ -255,6 +255,17 @@ identity, set `AZURE_CLIENT_ID` to its client id.
 
 **CI / off-Azure containers** — supply a service principal via
 `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and `AZURE_CLIENT_SECRET`.
+
+**More than one tenant** — if your `az login` has several tenants and the Azure
+OpenAI resource is not in the CLI's current one, requests fail with *Token
+tenant … does not match resource tenant*. Set `AZURE_TENANT_ID` to the
+resource's tenant (without a client id or secret) and the app signs in to that
+tenant with the account you are already signed in with, so there is no need to
+run `az account set` first. This applies to chat, Azure Speech and the avatar
+service alike. That account must hold the **Cognitive Services OpenAI User**
+role in that tenant. If the resource is held by a *different* account (for
+example, the one behind another subscription), select it with
+`az account set --subscription <id>` instead.
 
 Token acquisition, caching and refresh are handled per request, so long-running
 servers never serve an expired token. Auth failures are translated into

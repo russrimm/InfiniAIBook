@@ -23,15 +23,18 @@ test("an empty notebook walks through adding and choosing sources", async ({ pag
   await page.goto(`/notebook/${id}`);
 
   const steps = page.getByRole("list", { name: "Getting started" });
+  const card = page.getByRole("group", { name: /^Step \d of 3/ });
+  const current = steps.locator('[aria-current="step"]');
   await expect(steps).toBeVisible();
-  await expect(steps.locator('[aria-current="step"]')).toContainText("Add sources");
+  await expect(current).toContainText("Add sources");
+  await expect(card).toContainText("Step 1 of 3");
 
   // Studio says why it is locked and where to go next.
   const studio = page.getByRole("complementary", { name: "Studio" });
   await expect(studio).toContainText("Add a source to start creating");
   await expect(studio.getByRole("button", { name: "Generate Report" })).toBeDisabled();
 
-  await steps.getByRole("button", { name: "Add sources" }).click();
+  await card.getByRole("button", { name: "Add sources" }).click();
   await expect(page.locator("#add-sources")).toBeFocused();
   await page.getByRole("button", { name: "Pin sources panel", exact: true }).click();
 
@@ -41,13 +44,77 @@ test("an empty notebook walks through adding and choosing sources", async ({ pag
   await page.getByRole("button", { name: "Add source", exact: true }).click();
 
   await expect(page.getByText("Using 1 of 1 source").first()).toBeVisible({ timeout: 30_000 });
-  await expect(steps.locator('[aria-current="step"]')).toContainText("Ask or create");
+  await expect(current).toContainText("Open Studio");
 
   // Unticking the only source makes choosing sources the current step again.
   await page.getByRole("checkbox", { name: /Field notes/ }).uncheck();
-  await expect(steps.locator('[aria-current="step"]')).toContainText("Choose which sources");
-  await steps.getByRole("button", { name: "Use all sources" }).click();
+  await expect(current).toContainText("Choose sources");
+  await card.getByRole("button", { name: "Use all sources" }).click();
   await expect(page.getByRole("checkbox", { name: /Field notes/ })).toBeChecked();
+});
+
+test("the three steps can be walked forward and back, and keep Sources open", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const id = await createNotebook(page, true);
+  await page.goto(`/notebook/${id}`);
+
+  const steps = page.getByRole("list", { name: "Getting started" });
+  const card = page.getByRole("group", { name: /^Step \d of 3/ });
+  const current = steps.locator('[aria-current="step"]');
+  const sources = page.getByRole("complementary", { name: "Sources", exact: true });
+
+  // A notebook with a chosen source lands on the last step, with both before it done.
+  await expect(current).toContainText("Open Studio");
+  await expect(steps).toContainText("1 of 1 in use");
+  await expect(card.getByRole("button", { name: /^Next/ })).toHaveCount(0);
+
+  // Change your mind: step back one at a time, then forward again.
+  await card.getByRole("button", { name: "Back to Choose sources" }).click();
+  await expect(current).toContainText("Choose sources");
+  await expect(card).toContainText("Step 2 of 3");
+  await card.getByRole("button", { name: "Back to Add sources" }).click();
+  await expect(current).toContainText("Add sources");
+  await expect(card.getByRole("button", { name: "Back", exact: true })).toBeDisabled();
+  await card.getByRole("button", { name: "Next: Choose sources" }).click();
+  await expect(current).toContainText("Choose sources");
+
+  // Choosing sources opens the Sources panel on its Select all control.
+  await card.getByRole("button", { name: "Choose in Sources" }).click();
+  await expect(sources).toBeVisible();
+  await expect(page.locator("#select-all-sources")).toBeFocused();
+
+  // Moving between the two Sources steps leaves the panel open; the rail jumps too.
+  await card.getByRole("button", { name: "Back to Add sources" }).click();
+  await expect(current).toContainText("Add sources");
+  await expect(sources).toBeVisible();
+  await steps.getByRole("button", { name: /Choose sources/ }).click();
+  await expect(current).toContainText("Choose sources");
+  await expect(sources).toBeVisible();
+
+  // Going on to Studio is a move away from Sources, so the panel folds again.
+  await steps.getByRole("button", { name: /Open Studio/ }).click();
+  await expect(current).toContainText("Open Studio");
+  await expect(sources).toBeHidden();
+  await card.getByRole("button", { name: "Open Studio" }).click();
+  await expect(page.getByRole("complementary", { name: "Studio" })).toBeVisible();
+});
+
+test("an empty notebook can read ahead and says why Studio is locked", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const id = await createNotebook(page);
+  await page.goto(`/notebook/${id}`);
+
+  const steps = page.getByRole("list", { name: "Getting started" });
+  const card = page.getByRole("group", { name: /^Step \d of 3/ });
+  const current = steps.locator('[aria-current="step"]');
+
+  await card.getByRole("button", { name: "Next: Choose sources" }).click();
+  await expect(current).toContainText("Choose sources");
+  await expect(card).toContainText("Add a source first");
+  await card.getByRole("button", { name: "Next: Open Studio" }).click();
+  await expect(current).toContainText("Open Studio");
+  await expect(card).toContainText("Choose at least one source");
+  await expect(card.getByRole("button", { name: "Open Studio" })).toHaveCount(0);
 });
 
 for (const withSource of [false, true]) {

@@ -91,6 +91,26 @@ async function probeTransientClasses(page: Page) {
   });
 }
 
+/** Computed motion of the getting-started stepper on a fresh, empty notebook. */
+async function openStepper(page: Page) {
+  const res = await page.request.post("/api/notebooks", { data: { title: "Stepper motion" } });
+  const { id } = (await res.json()) as { id: string };
+  await page.goto(`/notebook/${id}`);
+  await expect(page.getByRole("list", { name: "Getting started" })).toBeVisible();
+
+  const card = page.locator(".step-card");
+  const sweep = await card.evaluate((el) => getComputedStyle(el, "::after").animationName);
+  return {
+    card: { ...(await motionOf(card)), sweep },
+    pop: await page.locator(".step-pop").first().evaluate((el) => getComputedStyle(el).animationName),
+    ping: await page.locator(".step-ping").evaluate((el) => getComputedStyle(el).animationName),
+    linkTransition: await page
+      .locator(".step-link-fill")
+      .first()
+      .evaluate((el) => getComputedStyle(el).transitionDuration),
+  };
+}
+
 const REPLY = {
   status: "next_step",
   say: "Sharing starts from the **Share** button.",
@@ -169,6 +189,16 @@ test.describe("with prefers-reduced-motion: reduce", () => {
     expect(probe.shimmerTransform).toBe("none");
     expect(probe.dotAnimation).toBe("typingDotFade");
   });
+
+  test("the getting-started stepper fades in place and its connectors jump", async ({ page }) => {
+    const stepper = await openStepper(page);
+    expect(stepper.card.animationName).toBe("fadeIn");
+    expect(stepper.card.movesSpatially).toBe(false);
+    expect(stepper.card.sweep).toBe("none");
+    expect(stepper.pop).toBe("none");
+    expect(stepper.ping).toBe("none");
+    expect(stepper.linkTransition).toBe("0s");
+  });
 });
 
 test.describe("without a motion preference", () => {
@@ -195,5 +225,15 @@ test.describe("without a motion preference", () => {
     release();
     await expect(dialog.getByText("Click the blue Share button at the top right.")).toBeVisible();
     expect(await page.evaluate(() => window.__scrolls)).toContain("smooth");
+  });
+
+  test("keeps the getting-started stepper motion", async ({ page }) => {
+    const stepper = await openStepper(page);
+    expect(stepper.card.animationName).toBe("stepIn");
+    expect(stepper.card.movesSpatially).toBe(true);
+    expect(stepper.card.sweep).toBe("stepSweep");
+    expect(stepper.pop).toBe("stepPop");
+    expect(stepper.ping).toBe("stepPing");
+    expect(stepper.linkTransition).toBe("0.6s");
   });
 });

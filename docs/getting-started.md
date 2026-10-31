@@ -30,9 +30,17 @@ az login                     # Entra sign-in; see docs/configuration.md
 npm run dev
 ```
 
-Open <http://localhost:3000>, press **+ New notebook**, and follow the
-getting-started steps in the chat panel: add sources, tick the ones to use, then
-ask a question or create something in Studio. Sources starts collapsed; use
+Open <http://localhost:3000>, press **+ New notebook**, and follow the three
+getting-started steps in the chat panel: **Add sources**, **Choose sources**,
+then **Open Studio** (or ask a question). They are a stepper: the rail shows
+which steps are done and which one you are on, and **Back**, **Next** or a click
+on the rail moves between them, so you can return to add more sources or change
+what is ticked at any time. Adding the first source or ticking one moves you on
+by itself, and **Choose in Sources** opens the Sources panel ready to tick.
+
+![Getting-started guide with Add sources done, Choose sources current and Open Studio next, beside the open Sources panel](screenshots/getting-started.png)
+
+Sources starts collapsed; use
 **Add sources** in the header to open it. **Pin** keeps it open while you work
 elsewhere; **Unpin** lets it collapse when you click outside or press Escape.
 The close button collapses it even when pinned. On narrow screens, use the

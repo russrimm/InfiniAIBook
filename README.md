@@ -164,13 +164,13 @@ passage it came from.
 
 | 📄 Report | 🧾 Briefing doc |
 |---|---|
-| ![Report with an executive summary, analysis sections, a comparison table and inline citations](docs/screenshots/studio/report.png) | ![One-page briefing with a bottom line, what the sources say, risks and caveats, and recommended next steps](docs/screenshots/studio/briefing.png) |
+| ![Report with an executive summary, numbered analysis sections and inline citations](docs/screenshots/studio/report.png) | ![One-page briefing with a bottom line and a cited bulleted summary of what the sources say](docs/screenshots/studio/briefing.png) |
 | An in-depth write-up with an executive summary, analysis, tables, key takeaways and open questions | An executive one-pager: bottom line, evidence, risks and next steps |
 | **🎓 Study guide** | **❓ FAQ** |
-| ![Study guide with core concepts, a glossary table and short-answer questions](docs/screenshots/studio/study-guide.png) | ![FAQ with expandable questions and cited answers](docs/screenshots/studio/faq.png) |
+| ![Study guide with core concepts explained in short, cited sections](docs/screenshots/studio/study-guide.png) | ![FAQ with expandable questions and cited answers](docs/screenshots/studio/faq.png) |
 | Core concepts, a glossary, ten short-answer questions and an answer key | The questions the sources actually answer, as expandable items |
 | **🗓️ Timeline** | **📽️ [PowerPoint deck](docs/studio.md#powerpoint-deck)** |
-| ![Vertical timeline of the pilot from the February survey to the October lease decision](docs/screenshots/studio/timeline.png) | ![Slide preview with thumbnails and cited speaker notes](docs/screenshots/studio/powerpoint-deck.png) |
+| ![Vertical timeline of the pilot from the January grant approval through the build day, planting and routine care](docs/screenshots/studio/timeline.png) | ![Slide preview with thumbnails and cited speaker notes](docs/screenshots/studio/powerpoint-deck.png) |
 | A dated chronology of the events in the sources | Slides with speaker notes and a sources slide; download as PPTX |
 
 ### Visuals
@@ -184,7 +184,7 @@ passage it came from.
 
 | 🧠 [Quiz](docs/studio.md#quiz) | 🗂️ [Flashcards](docs/studio.md#flashcards) |
 |---|---|
-| ![Scored quiz showing 5 of 6 correct with a retry button and cited explanations](docs/screenshots/studio/quiz.png) | ![Flashcard deck in Browse all view with two cards marked got it and one marked missed](docs/screenshots/studio/flashcards.png) |
+| ![Scored quiz showing 10 of 12 correct with a retry button and cited explanations](docs/screenshots/studio/quiz.png) | ![Flashcard deck in Browse all view with two cards marked got it and one marked missed](docs/screenshots/studio/flashcards.png) |
 | Scored multiple choice with cited explanations; retry only the ones you missed | Flip, self-grade and shuffle, or browse the deck as a list; export to Anki or Quizlet |
 
 ### Audio & video
@@ -267,6 +267,15 @@ to the Python renderer if it fails.
 Full documentation is in [docs/](docs/README.md), including
 [how grounding works](docs/grounding.md), the [architecture](docs/architecture.md)
 and the [REST API](docs/API.md).
+
+### Use it from your coding agent
+
+An [Agent Skill](docs/agent-skill.md) teaches GitHub Copilot, Claude Code, Codex,
+Cursor and other agents to install, configure and drive InfiniAIBook for you:
+
+```bash
+npx skills add russrimm/InfiniAIBook --skill infiniaibook
+```
 
 ## Contributing
 

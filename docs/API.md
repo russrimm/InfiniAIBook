@@ -74,6 +74,8 @@ just after the response, so it appears on the next `GET /api/notebooks/{id}`.
 | GET | `/api/sources/{id}` | Full text and metadata. `?part=n` also returns `passage`, the text of that cited part |
 | POST | `/api/sources/{id}` | `{ action: "apply"\|"dismiss" }` — accept or discard a detected change to a linked source |
 | DELETE | `/api/sources/{id}` | |
+| GET | `/api/sources/{id}/structure` | Discovers the structure of a JSON, XML, CSV, TSV or HAR source: a path tree with types, counts and value stats, or a table. For HAR, `?request=n` returns one request's headers, cookies and bodies, and `?download=sanitized` returns the archive with secrets redacted. 422 for a source that cannot be parsed |
+| POST | `/api/sources/{id}/diagnose` | `{ problem? }` (up to 600 characters) → `{ diagnosis, model }`: asks the Studio model what is likely wrong in a HAR source. Only a redacted digest leaves the server, never the archive. 422 for a source that is not HAR |
 
 ## Chat and sessions
 
@@ -143,6 +145,17 @@ and cannot be edited or deleted.
 
 ## Studio
 
+**Slow requests.** `/api/generate`, `/api/podcast`, `/api/video`, `/api/motion`,
+`/api/training`, `/api/podcast/{id}/narrate`, `/api/training/{id}/render`,
+`/api/training/{id}/assets/find` and `/api/sources/{id}/diagnose` can run for
+minutes. A proxy in front of the app (Azure Container Apps answers
+`stream timeout` after 240 idle seconds) would drop a silent connection, so a
+request still running after about five seconds returns `200` at once and sends
+spaces, which JSON ignores, until the result is ready. A failure after that
+point therefore arrives as `{ "error": "...", "status": 502 }` in the body, not
+as the HTTP status. When you script these routes, parse the whole body and check
+for `error` before using the result.
+
 | Method | Path | Body |
 |---|---|---|
 | POST | `/api/generate` | `{ notebookId, type, topic?, sourceIds?, style?, theme?, difficulty?, length?, orientation?, detail?, instructions? }` (`theme` applies to `type: "slides"`; `style`, `orientation` (`landscape`/`portrait`/`square`), `detail` (`concise`/`standard`/`detailed`) and `instructions` (free text, up to 600 characters) to `type: "infographic"`). Unknown types and styles, a `topic` over 2,000 characters and malformed `sourceIds` are refused with 400 |
@@ -174,6 +187,8 @@ and cannot be edited or deleted.
 | GET/DELETE | `/api/watermark/{id}` | The watermark image (PNG) / delete it → `{ ok, images }` |
 | GET/DELETE | `/api/artifacts/{id}` | A saved artifact |
 | GET | `/api/audio/{id}`, `/api/image/{id}`, `/api/voice-preview/{name}` | Binary media |
+| GET | `/api/voices` | `{ voices, live }`: the voices, and the styles each supports, that the Speech resource offers for presenters |
+| GET | `/api/voices/preview?voice=&style=&as=` | A short MP3 sample of one voice, optionally in one of its styles and introducing itself as `as` (letters only, up to 24). 400 for an unknown voice or style, 501 without Azure Speech |
 
 Spoken formats take two optional fields. `narration` is
 `{ instructions?: string, replacements?: [{ from, to }] }`: the instructions go

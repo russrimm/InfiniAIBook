@@ -1,9 +1,10 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useMemo } from "react";
 import { InlineCited } from "./Markdown";
 import Metaphor from "./Metaphors";
 import { styleDef, type InfographicTheme } from "@/lib/infographic";
+import { cleanInfographic } from "@/lib/infographicNormalize";
 import type { Citation, InfographicContent } from "@/lib/types";
 
 type Props = { content: InfographicContent; citations?: Citation[] };
@@ -15,7 +16,10 @@ const STAT_COLS: Record<number, string> = {
   4: "grid-cols-2 lg:grid-cols-4",
 };
 
-export default function Infographic({ content, citations }: Props) {
+export default function Infographic({ content: stored, citations }: Props) {
+  // Stored text can still carry the model's markdown ("**Confirm the lease**"),
+  // and several layouts print their fields as they are.
+  const content = useMemo(() => cleanInfographic(stored), [stored]);
   // Distinct per instance: the gallery shows several infographics at once,
   // and SVG marker ids are document-wide.
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
@@ -258,13 +262,7 @@ export default function Infographic({ content, citations }: Props) {
                       {section?.heading || stage}
                     </h3>
                   </div>
-                  {section ? (
-                    <Bullets items={section.bullets} />
-                  ) : (
-                    <p className="text-[13px]" style={{ color: t.muted }}>
-                      {stage}
-                    </p>
-                  )}
+                  {section && <Bullets items={section.bullets} />}
                 </div>
               </div>
               {i < stages.length - 1 && (
