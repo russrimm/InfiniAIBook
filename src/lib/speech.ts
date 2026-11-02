@@ -1,9 +1,5 @@
-import {
-  DefaultAzureCredential,
-  ClientSecretCredential,
-  getBearerTokenProvider,
-  type TokenCredential,
-} from "@azure/identity";
+import { getBearerTokenProvider } from "@azure/identity";
+import { buildCredential } from "./azureCredential";
 import { reserve } from "./budget";
 import { addBreaths, turnLeadIn } from "./prosody";
 import { VOICE_PRESETS, type SpeakerId, type VoiceSelection } from "./voices";
@@ -24,18 +20,6 @@ export const MULTITALKER_VOICE = "en-Multitalker:DragonHDLatestNeural";
 export class SpeechNotConfiguredError extends Error {}
 
 export type Turn = { speaker: SpeakerId; text: string };
-
-function buildCredential(): TokenCredential {
-  const tenantId = process.env.AZURE_TENANT_ID;
-  const clientId = process.env.AZURE_CLIENT_ID;
-  const clientSecret = process.env.AZURE_CLIENT_SECRET;
-  if (tenantId && clientId && clientSecret) {
-    return new ClientSecretCredential(tenantId, clientId, clientSecret);
-  }
-  return new DefaultAzureCredential(
-    clientId ? { managedIdentityClientId: clientId } : undefined
-  );
-}
 
 let tokenProvider: (() => Promise<string>) | null = null;
 

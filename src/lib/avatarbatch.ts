@@ -1,12 +1,8 @@
 import fs from "node:fs";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import {
-  DefaultAzureCredential,
-  ClientSecretCredential,
-  getBearerTokenProvider,
-  type TokenCredential,
-} from "@azure/identity";
+import { getBearerTokenProvider } from "@azure/identity";
+import { buildCredential } from "./azureCredential";
 import { BATCH_PHOTO_MODELS, DEFAULT_PHOTO_MODEL } from "./avatars";
 import { reserve } from "./budget";
 
@@ -25,18 +21,6 @@ const API_VERSION = "2024-08-01";
 const SCOPE = "https://cognitiveservices.azure.com/.default";
 
 export class AvatarNotConfiguredError extends Error {}
-
-function buildCredential(): TokenCredential {
-  const tenantId = process.env.AZURE_TENANT_ID;
-  const clientId = process.env.AZURE_CLIENT_ID;
-  const clientSecret = process.env.AZURE_CLIENT_SECRET;
-  if (tenantId && clientId && clientSecret) {
-    return new ClientSecretCredential(tenantId, clientId, clientSecret);
-  }
-  return new DefaultAzureCredential(
-    clientId ? { managedIdentityClientId: clientId } : undefined,
-  );
-}
 
 let tokenProvider: (() => Promise<string>) | null = null;
 

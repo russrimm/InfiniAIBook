@@ -55,7 +55,7 @@ Success means the user ends up with output they can use or share without re-chec
 ## Evidence on Hand
 
 - Screenshots: `docs/screenshots/*.png` (workspace, infographic, mind map, notes, search, transformations, and training card/editor).
-- Infographic style samples: `docs/infographics/*.png` (20 styles).
+- Infographic style samples: `docs/screenshots/infographics/*.png` (17 of the 33 styles; the rest are shown in the in-app style gallery).
 - A sample avatar training video (3:37, from two public Copilot Studio pages), linked from the README.
 - Feature docs in `docs/`.
 - **Absent, so don't fabricate:** testimonials, customer names, usage numbers, benchmarks, press, pricing, or hosted/SaaS claims. The app is MIT-licensed open source.

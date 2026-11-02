@@ -564,6 +564,136 @@ mark.cited-passage {
 }
 
 /*
+ * Getting-started stepper. The motion is borrowed from the HyperFrames
+ * registry, re-timed for the UI: Onboarding Stepper Flow (nodes pop in on a
+ * stagger, the step card rises in), Spring Pop (one small overshoot, then
+ * rest), Shimmer Sweep (one 120deg light pass over the card and the filled
+ * connector), Blur-in (the card clears from a soft blur, sliding from the side
+ * you are moving toward) and a line-draw for the connectors and the check mark.
+ * Everything plays once per change, never on a loop, except the three-beat ping
+ * around the current step.
+ */
+@keyframes stepPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes stepIn {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--step-dir, 1) * 14px));
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+@keyframes stepPing {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+@keyframes stepCheck {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes stepSweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+.step-pop {
+  animation: stepPop 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--step-i, 0) * 80ms);
+}
+.step-card {
+  position: relative;
+  overflow: hidden;
+  animation: stepIn 0.34s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+/* One light pass across the card as it settles. */
+.step-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    120deg,
+    transparent 35%,
+    color-mix(in srgb, var(--fg) 7%, transparent) 50%,
+    transparent 65%
+  );
+  transform: translateX(-100%);
+  animation: stepSweep 1s cubic-bezier(0.45, 0, 0.55, 1) 0.25s 1 forwards;
+}
+.step-ping {
+  position: absolute;
+  inset: -4px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  pointer-events: none;
+  animation: stepPing 1.6s cubic-bezier(0, 0, 0.2, 1) 0.2s 3 backwards;
+}
+.step-check path {
+  stroke-dasharray: 1;
+  animation: stepCheck 0.4s ease-out 0.12s backwards;
+}
+/* The connector between two nodes: a hairline track the Lamplight fill draws along. */
+.step-link {
+  position: absolute;
+  top: 17px;
+  right: calc(50% + 20px);
+  width: calc(100% - 40px);
+  height: 2px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--border-strong);
+}
+.step-link-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.step-link[data-filled="true"] .step-link-fill {
+  transform: scaleX(1);
+}
+.step-link[data-filled="true"] .step-link-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.75) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: stepSweep 1.2s cubic-bezier(0.45, 0, 0.55, 1) 0.45s 1 forwards;
+}
+
+/*
  * Reduced motion (The Still Room Rule). Nothing slides, rises, spins, sweeps,
  * flips or glides; busy states stay visible as slow opacity changes so
  * "working…" never disappears. Hover/focus color and opacity transitions
@@ -636,6 +766,33 @@ mark.cited-passage {
   .shimmer::after {
     transform: none;
     animation: shimmerFade 2s ease-in-out infinite;
+  }
+
+  /* Getting-started stepper: the card fades in place (no slide or blur), the
+     nodes and check mark simply appear, the connectors jump to their fill and
+     the current step keeps a still ring and plain label. */
+  .step-card {
+    animation-name: fadeIn;
+  }
+  .step-card::after {
+    content: none;
+    animation: none;
+  }
+  .step-pop,
+  .step-check path {
+    animation: none;
+  }
+  .step-link-fill {
+    transition: none;
+  }
+  .step-link[data-filled="true"] .step-link-fill::after {
+    content: none;
+    animation: none;
+  }
+  .step-ping {
+    animation: none;
+    opacity: 0.35;
+    transform: scale(1.2);
   }
 
   /* Buttons keep their tone fade but never animate geometry. */

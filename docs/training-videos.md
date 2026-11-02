@@ -116,7 +116,8 @@ around it on one timeline:
 
 ### Editing and previewing
 
-The editor has four tabs:
+The editor of a composed video has four tabs. A presenter-only video, one made
+without a composition, shows just **Script** and **Design**.
 
 | Tab | What it does |
 |---|---|

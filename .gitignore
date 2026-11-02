@@ -51,13 +51,15 @@ next-env.d.ts
 # working tree. Listed here rather than excluded by hand at commit time, which
 # is how skills/ reached the repo in the first place. The pull request template,
 # issue templates, CI workflows and Dependabot config are the exceptions; a
-# directory rule (.github/) could not be overridden.
+# directory rule (.github/) could not be overridden. skills/infiniaibook/ is
+# the one skill that is published on purpose, so `npx skills add` finds it.
 .github/*
 !.github/pull_request_template.md
 !.github/workflows/
 !.github/dependabot.yml
 !.github/ISSUE_TEMPLATE/
-skills/
+skills/*
+!skills/infiniaibook/
 skills-lock.json
 .impeccable/
 

@@ -26,7 +26,7 @@
   Q&A, interviews, oral quizzes and tutoring over your sources, with citations
 - [Screen helper](screen-helper.md) — share any app's window and get coached
   through it step by step, with the next control highlighted
-- [Infographic styles](infographics.md) — all 20 styles, with a gallery
+- [Infographic styles](infographics.md) — all 33 styles, with a gallery
 - [Audio overviews](audio-overviews.md) — multi-speaker podcasts, voices and pacing
 - [Whiteboard videos](whiteboard-videos.md) — narrated, hand-drawn explainer videos
 - [Motion explainers](motion-explainers.md) — narrated 2D animated explainer videos,
@@ -41,6 +41,8 @@
   changing the embedding model
 - [Architecture](architecture.md) — source layout and storage
 - [REST API](API.md)
+- [Agent skill](agent-skill.md) — install the InfiniAIBook skill so a coding
+  agent can set it up, run it and script it for you
 - [Recreation prompt](recreation-prompt.md) — a beginner-level LLM prompt for
   building something like InfiniAIBook yourself
 

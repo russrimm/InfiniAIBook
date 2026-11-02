@@ -190,7 +190,7 @@ InfiniAIBook is a quiet workroom, dark by default. The user's sources fill the s
 
 The workspace is dense, like a working tool. Three panels sit side by side (Sources, Chat, and Studio/Notes) with hairline borders between them. Chrome type runs from 10 to 13px; answers and notes switch to a comfortable 15px reading measure at 1.7 line height. Surfaces are flat. Depth comes from tonal steps and 1px hairlines, not shadows. Emoji serve as the icon set and give each notebook, source type, and Studio tool a friendly, recognizable mark without an icon library.
 
-Generated artifacts (infographics in 20 styles, mind maps, slide decks, videos) are content, not chrome. Their styles sit inside the room, and they don't redefine the room's palette.
+Generated artifacts (infographics in 33 styles, mind maps, slide decks, videos) are content, not chrome. Their styles sit inside the room, and they don't redefine the room's palette.
 
 **Key Characteristics:**
 - Dark by default, with an optional light theme. A Light / Dark / Auto toggle (`ThemeToggle`) sits in the home nav, the notebook header and the login page; Auto follows the OS setting. Every chrome color is a token in `globals.css`; the light palette is a `:root[data-theme="light"]` override of the same names, so components never branch on theme.
@@ -326,6 +326,9 @@ Formats with settings use a **Studio Card** (`src/components/StudioCard.tsx`) in
 ### Source Row (signature)
 A checkbox, an emoji for the source type, a 13px title clamped to two lines, and an 11px Fog summary. Selected rows sit on Raised Slate with a Hairline Strong border. Unselected rows have no border and are dimmed to 55% opacity, brightening on hover. The selection you're grounding on is visibly "in the light."
 
+### Getting-started Stepper (signature)
+The empty chat's three-step guide (`src/components/GettingStarted.tsx`): **Add sources → Choose sources → Open Studio**. A rail of three numbered nodes joined by a hairline track sits above one Raised Slate step card. Each node shows a live status line in Fog ("2 of 3 in use"). The current node has a Lamplight border and a soft ring, finished steps show an emerald check, and the track fills with Lamplight up to the step you're viewing. The card holds the step's text, **Back** and **Next**, and that step's actions. The rail and Back/Next move freely in both directions; real progress (the first source, the first tick) advances it, and moving by hand holds until the notebook's state next changes. Only one button is lit: the step's action while it's unfinished, **Next** once it's done. Steps one and two live in the Sources panel, so moving between them carries `data-keeps-sources-open` and doesn't collapse it.
+
 ### Chat Messages
 User messages are User Bubble pills with Sheet corners and a 6px tail corner, right-aligned at up to 85% width. Assistant answers are unboxed prose (the Body register) with inline citation chips. Three Lamplight typing dots pulse while the answer streams.
 
@@ -341,8 +344,9 @@ Every modal uses `useDialog` (`src/components/useDialog.ts`) and carries `role="
 - **State changes:** 150ms transitions.
 - **Mind map:** nodes and links glide on `cubic-bezier(0.22, 1, 0.36, 1)` over 280ms.
 - **Busy states:** a 0.7s linear spinner (Lamplight arc on a Hairline Strong track) and a 1.4s shimmer sweep.
+- **Stepper:** borrowed from HyperFrames' Onboarding Stepper Flow, Spring Pop, Shimmer Sweep and Blur-in, re-timed for the UI and all played once per change. Nodes pop in on an 80ms stagger with one 8% overshoot (400ms); the connector draws on over 600ms with a single 120deg light pass; the check mark draws its stroke over 400ms; the card clears from a 4px blur while sliding 14px from the side you're moving toward (340ms) with one faint light pass; the current node pings three times and rests.
 - **Reduced motion:** under `prefers-reduced-motion: reduce`, spatial and decorative motion stops while state stays communicated:
-  - **Removed:** the fade-up rise (entrances become a 250ms opacity-only fade), the shimmer sweep, the mind-map glide (nodes and links jump into place), smooth scrolling from script (it jumps instead), the flashcard reveal rise (the answer fades in place), disclosure-chevron rotation easing, and progress-bar width easing.
+  - **Removed:** the fade-up rise (entrances become a 250ms opacity-only fade), the shimmer sweep, the mind-map glide (nodes and links jump into place), smooth scrolling from script (it jumps instead), the flashcard reveal rise (the answer fades in place), disclosure-chevron rotation easing, progress-bar width easing, and the stepper's pop, blur-slide, light passes, connector draw-on and check-mark draw (the card fades in place, the connectors jump to their fill, the current node keeps a still ring).
   - **Busy indicators stay visible:** the spinner stops rotating and becomes a still ring that breathes between full and 45% opacity every 1.6s. The shimmer glow fades in and out in place over 2s. The three typing dots keep their staggered pulse as an opacity-only fade, so they still read as "answer streaming". Tailwind `animate-pulse` status dots already change only opacity and are unchanged.
   - **Kept:** 150ms color and opacity transitions on hover and focus, because they change tone without moving anything. Buttons are limited to color, border, opacity, and shadow transitions so they can't animate geometry.
   - **Real-time visuals:** the discussion host orb still scales with the live voice level, and media and progress bars still track playback, but without smoothing transitions. The ping ring around a speaking host is already motion-safe only, so it rests as a static ring.

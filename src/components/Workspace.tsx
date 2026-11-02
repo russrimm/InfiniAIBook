@@ -288,12 +288,14 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     if (notebookTitle) document.title = `${notebookTitle} — InfiniAIBook`;
   }, [notebookTitle]);
 
-  /** Bring the Sources panel into view and put focus on its upload control. */
-  const showSources = () => {
+  /** Bring the Sources panel into view and put focus on one of its controls. */
+  const revealSources = (focusId: string) => {
     setSourcesOpen(true);
     setTab("sources");
-    setTimeout(() => document.getElementById("add-sources")?.focus(), 0);
+    setTimeout(() => document.getElementById(focusId)?.focus(), 0);
   };
+  const showSources = () => revealSources("add-sources");
+  const chooseSources = () => revealSources("select-all-sources");
 
   const closeSources = useCallback(() => {
     setSourcesOpen(false);
@@ -309,7 +311,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       if (
         !(target instanceof Element) ||
         sourcesPanel.current?.contains(target) ||
-        target.closest('[aria-controls="sources-panel"]') ||
+        target.closest('[aria-controls="sources-panel"], [data-keeps-sources-open]') ||
         document.querySelector('[role="dialog"], [role="alertdialog"]')
       ) return;
       setSourcesOpen(false);
@@ -659,6 +661,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             sessions={data.sessions ?? []}
             onNoteSaved={() => void load()}
             onAddSources={showSources}
+            onChooseSources={chooseSources}
             onUseAll={() => setSelected(new Set(sources.map((s) => s.id)))}
             onOpenStudio={() => {
               setRight("studio");

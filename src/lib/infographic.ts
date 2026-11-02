@@ -480,7 +480,7 @@ Keep "sections" to at most two, for context either side cannot cover alone.`,
     icon: "✅",
     layout: "checklist",
     hint: `Turn the material into something the reader can act on.
-Populate "checklist" with 6-10 entries of { "title": a bold imperative of 2-6
+Populate "checklist" with 6-10 entries of { "title": an imperative of 2-6
 words, "detail": one short sentence of explanation with a citation }.
 Order them the way someone would actually work through them.
 Every item must come from the sources — do not pad the list to reach a count.

@@ -27,6 +27,7 @@ export default function ChatPanel({
   sessions,
   onNoteSaved,
   onAddSources,
+  onChooseSources,
   onUseAll,
   onOpenStudio,
 }: {
@@ -39,6 +40,7 @@ export default function ChatPanel({
   onNoteSaved?: () => void;
   /** Getting-started actions; each takes the user to the panel that does it. */
   onAddSources?: () => void;
+  onChooseSources?: () => void;
   onUseAll?: () => void;
   onOpenStudio?: () => void;
 }) {
@@ -462,6 +464,7 @@ export default function ChatPanel({
                     sourceCount={sources.length}
                     selectedCount={selectedIds.length}
                     onAddSources={onAddSources}
+                    onChooseSources={onChooseSources}
                     onUseAll={onUseAll}
                     onOpenStudio={onOpenStudio}
                   />
