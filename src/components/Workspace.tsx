@@ -10,6 +10,7 @@ import StudioPanel from "./StudioPanel";
 import ArtifactModal from "./ArtifactModal";
 import SourceModal from "./SourceModal";
 import DiscoverModal, { type DiscoverHit } from "./DiscoverModal";
+import LearnCitationModal from "./LearnCitationModal";
 import BrowserModal from "./BrowserModal";
 import ModelPicker from "./ModelPicker";
 import NotesPanel from "./NotesPanel";
@@ -61,6 +62,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const deferDelete = useDeferredDelete();
   const [discovering, setDiscovering] = useState(false);
+  const [learning, setLearning] = useState(false);
+  const [learnCitation, setLearnCitation] = useState<Citation | null>(null);
   const [browsing, setBrowsing] = useState(false);
   const [pickingModel, setPickingModel] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -149,7 +152,10 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
 
   /** Every citation in chat, artifacts and notes opens here, at its passage. */
   const openCitation = useCallback(
-    (c: Citation) => openSource(c.sourceId, { part: c.part, snippet: c.snippet }),
+    (c: Citation) => {
+      if (c.url) setLearnCitation(c);
+      else openSource(c.sourceId, { part: c.part, snippet: c.snippet });
+    },
     [openSource]
   );
 
@@ -206,6 +212,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       openArtifact ||
         openSourceId ||
         discovering ||
+        learning ||
+        learnCitation ||
         browsing ||
         pickingModel ||
         aboutOpen ||
@@ -218,6 +226,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     openArtifact,
     openSourceId,
     discovering,
+    learning,
+    learnCitation,
     browsing,
     pickingModel,
     aboutOpen,
@@ -492,7 +502,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         <span aria-live="polite" className="hidden shrink-0 text-xs text-[var(--muted)] sm:block">
           {checkingSources
             ? "Checking links…"
-            : `Using ${selectedIds.length} of ${sources.length} source${sources.length === 1 ? "" : "s"}`}
+            : `Using ${selectedIds.length} of ${sources.length} source${sources.length === 1 ? "" : "s"}${data.notebook.liveLearn ? " + live Learn" : ""}`}
         </span>
         <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center gap-3">
           <button
@@ -640,6 +650,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             onRemove={(s) => deferRemove(s.id, `Source “${s.title}”`, `/api/sources/${s.id}`)}
             onChanged={() => void load()}
             onDiscover={() => setDiscovering(true)}
+            onLearn={() => setLearning(true)}
+            liveLearn={data.notebook.liveLearn}
             onBrowse={() => setBrowsing(true)}
             onLibrary={() => setPickingLibrary(true)}
             addRef={addSources}
@@ -657,6 +669,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             notebookId={notebookId}
             sources={sources}
             selectedIds={selectedIds}
+            liveLearn={data.notebook.liveLearn}
             initialMessages={data.messages}
             sessions={data.sessions ?? []}
             onNoteSaved={() => void load()}
@@ -802,6 +815,30 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           onAdd={(hits) => addSources.current?.(hits)}
         />
       )}
+      {learning && (
+        <DiscoverModal
+          notebookId={notebookId}
+          provider="microsoft-learn"
+          liveLearn={data.notebook.liveLearn}
+          onLiveLearnChange={async (enabled) => {
+            const response = await fetch(`/api/notebooks/${notebookId}`, {
+              method: "PATCH",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ liveLearn: enabled }),
+            });
+            if (!response.ok) {
+              const reply = await response.json();
+              throw new Error(reply.error || "Could not save the live Learn setting.");
+            }
+            ++loadSeq.current;
+            setData((current) => current ? { ...current, notebook: { ...current.notebook, liveLearn: enabled } } : current);
+            await load();
+          }}
+          onClose={() => setLearning(false)}
+          onAdd={(hits) => addSources.current?.(hits)}
+        />
+      )}
+      {learnCitation && <LearnCitationModal citation={learnCitation} onClose={() => setLearnCitation(null)} />}
       {browsing && (
         <BrowserModal
           notebookId={notebookId}

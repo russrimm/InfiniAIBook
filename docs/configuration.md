@@ -155,7 +155,7 @@ commentary. Only a model provider is required.
 | `AZURE_AVATAR_BACKGROUND_URL`, `AZURE_AVATAR_PRICE_PER_MINUTE`, `AZURE_AVATAR_CONCURRENCY`, `TRAINING_IMAGES` | Optional training-video background image, cost estimate, parallel section renders and AI-image planning ([Training videos](training-videos.md)) |
 | `STUDIO_CONTEXT_CHARS` | Starting source budget for Studio generation (default `30000`) |
 | `AI_STUDIO_MODEL`, `AI_STUDIO_ENDPOINT`, `AI_STUDIO_API`, `AI_STUDIO_BASE_URL`, `AI_STUDIO_API_KEY`, `AI_STUDIO_MAX_TOKENS` | Separate model for audio-overview, video and training scripts and scene plans; see [Studio script model](#studio-script-model) |
-| `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX` | Optional discovery providers; DuckDuckGo is used without them |
+| `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX` | Optional discovery API fallbacks; Bing RSS is always searched first |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | YouTube transcripts via Gemini |
 | `YOUTUBE_API_KEY`, `YOUTUBE_COOKIE`, `YOUTUBE_CAPTION_LANG` | YouTube metadata and transcript fallbacks |
 | `PYTHON_BIN` | Python interpreter for the whiteboard, motion and training renderers (default `python`; `python3` in the Docker image) |
@@ -172,6 +172,12 @@ commentary. Only a model provider is required.
 | `INFINIAIBOOK_SESSION_SECRET` | Optional extra key for signing session cookies; change it to sign every browser out |
 | `ALLOWED_HOSTS` | Extra hostnames the server answers to, comma-separated (`*` for any). Loopback names are always allowed. Without a password, other hosts get a 403 |
 | `TRUST_PROXY` | `true` behind a reverse proxy: honor `X-Forwarded-Host` / `X-Forwarded-Proto` |
+
+Microsoft Learn source search and page import use the public MCP endpoint
+`https://learn.microsoft.com/api/mcp`, with no additional API key or environment
+variable. Enable **Use live Microsoft Learn in chat** separately for each
+notebook under **Sources → Microsoft Learn**. It is off by default and affects
+only notebook chat; see [Microsoft Learn sources](sources.md#microsoft-learn-imports-and-live-chat).
 
 ## Checking a provider
 

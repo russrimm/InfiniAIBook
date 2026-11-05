@@ -137,8 +137,8 @@ export default function Home() {
         aria-label="Primary"
         className="mb-14 flex items-center justify-between gap-4"
       >
-        <div className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-          <Logo size={28} />
+        <div className="flex shrink-0 items-center gap-3 text-lg font-semibold tracking-tight">
+          <Logo size={40} />
           InfiniAIBook
         </div>
         <div className="flex flex-wrap items-center justify-end gap-x-1 gap-y-0.5 text-[13px]">

@@ -8,6 +8,7 @@ export type Passage = {
   idx: number;
   text: string;
   score?: number;
+  url?: string;
 };
 
 type ChunkRow = {
@@ -440,7 +441,7 @@ export function buildContext(passages: Passage[]): string {
   return passages
     .map(
       (p, i) =>
-        `[${i + 1}] (source: "${p.sourceTitle}", part ${p.idx + 1})\n${p.text}`
+        `[${i + 1}] (source: "${p.sourceTitle}", part ${p.idx + 1}${p.url ? `, live Microsoft Learn documentation: ${p.url}` : ""})\n${p.text}`
     )
     .join("\n\n---\n\n");
 }
@@ -452,5 +453,6 @@ export function citationList(passages: Passage[]) {
     sourceTitle: p.sourceTitle,
     part: p.idx + 1,
     snippet: p.text.slice(0, 320),
+    ...(p.url ? { url: p.url, content: p.text } : {}),
   }));
 }

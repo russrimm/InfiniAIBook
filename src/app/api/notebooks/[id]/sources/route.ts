@@ -6,6 +6,7 @@ import { chunkText, extractFromFile, extractFromUrl, extractFromZip, isZipUpload
 import { fetchYouTubeTranscript, isYouTubeUrl } from "@/lib/youtube";
 import { chatText, embed, describeAuthError, embedModel } from "@/lib/ai";
 import { MAX_TITLE_CHARS, MAX_UPLOAD_BYTES, mb } from "@/lib/limits";
+import { fetchLearnPage, normalizeLearnUrl } from "@/lib/learn";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,13 +36,21 @@ async function summarize(sourceId: string, text: string) {
   }
 }
 
+function alreadyImported(notebookId: string, url: string): boolean {
+  const rows = db.prepare("SELECT url FROM sources WHERE notebook_id = ? AND url IS NOT NULL")
+    .all(notebookId) as { url: string }[];
+  const canonical = (value: string) => value.split(/[?#]/)[0].replace(/\/$/, "");
+  return rows.some((row) => canonical(row.url) === canonical(url));
+}
+
 async function ingestOne(
   notebookId: string,
   title: string,
   kind: string,
   url: string | null,
   text: string,
-  warnings: string[]
+  warnings: string[],
+  deduplicateUrl = false
 ) {
   if (!text.trim()) throw new Error(`No readable text found in "${title}".`);
   title = title.slice(0, MAX_TITLE_CHARS);
@@ -70,6 +79,9 @@ async function ingestOne(
   // One transaction: one disk sync instead of one per chunk, and the source
   // never exists without its chunks.
   transaction(() => {
+    if (deduplicateUrl && url && alreadyImported(notebookId, url)) {
+      throw new Error("That Microsoft Learn page is already in this notebook.");
+    }
     db.prepare(
       `INSERT INTO sources (id, notebook_id, title, kind, url, text, chars, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
@@ -269,6 +281,7 @@ export async function POST(req: Request, { params }: Ctx) {
       }
     } else {
       const body = (await req.json()) as {
+        learnUrl?: string;
         url?: string;
         text?: string;
         title?: string;
@@ -277,7 +290,17 @@ export async function POST(req: Request, { params }: Ctx) {
         /** Marks pasted text that came from one of the notebook's notes. */
         kind?: "note" | "pptx";
       };
-      if (body.url) {
+      if (body.learnUrl !== undefined) {
+        try {
+          if (typeof body.learnUrl !== "string") throw new Error("Enter a Microsoft Learn documentation URL.");
+          const url = normalizeLearnUrl(body.learnUrl);
+          if (alreadyImported(notebookId, url)) throw new Error("That Microsoft Learn page is already in this notebook.");
+          const page = await fetchLearnPage(url);
+          added.push(await ingestOne(notebookId, page.title, "url", page.url, page.text, warnings, true));
+        } catch (e) {
+          errors.push(e instanceof Error ? e.message : "Could not import that Microsoft Learn page.");
+        }
+      } else if (body.url) {
         try {
           if (isYouTubeUrl(body.url)) {
             const yt = await fetchYouTubeTranscript(body.url);

@@ -175,6 +175,9 @@ function migrate(db: DatabaseSync) {
   const nbCols = (db.prepare("PRAGMA table_info(notebooks)").all() as unknown as {
     name: string;
   }[]).map((c) => c.name);
+  if (!nbCols.includes("live_learn")) {
+    db.exec("ALTER TABLE notebooks ADD COLUMN live_learn INTEGER NOT NULL DEFAULT 0");
+  }
   for (const name of ["narration_instructions", "narration_replacements"]) {
     if (!nbCols.includes(name)) {
       db.exec(`ALTER TABLE notebooks ADD COLUMN ${name} TEXT`);

@@ -56,6 +56,9 @@ export type Citation = {
   sourceTitle: string;
   part: number;
   snippet: string;
+  /** Live documentation citations keep the exact excerpt used by this answer. */
+  url?: string;
+  content?: string;
 };
 
 export type DocContent = { title: string; subtitle?: string; markdown: string };
@@ -374,6 +377,7 @@ export type Notebook = {
   emoji: string;
   createdAt: number;
   sourceCount?: number;
+  liveLearn?: boolean;
   /** Saved narration defaults for the spoken Studio formats (detail view only). */
   narration?: NarrationSettings;
 };

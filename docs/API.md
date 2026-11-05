@@ -40,7 +40,7 @@ Two checks apply whether or not a password is set:
 | GET | `/api/notebooks` | — | All notebooks with counts |
 | POST | `/api/notebooks` | `{ title }` | The new notebook |
 | GET | `/api/notebooks/{id}` | — | Notebook, `sources`, `artifacts` (summaries), `sessions`, `notes`, and `messages` of the latest session |
-| PATCH | `/api/notebooks/{id}` | `{ title?, narration? }` | Rename, or save the notebook's default narration instructions and replacements |
+| PATCH | `/api/notebooks/{id}` | `{ title?, narration?, liveLearn? }` | Rename, save narration defaults, or persist the boolean live Microsoft Learn chat setting (off by default; also returned in notebook detail) |
 | DELETE | `/api/notebooks/{id}` | — | Deletes it and everything in it |
 | GET | `/api/notebooks/{id}/export` | — | Zip of sources, notes, chats, artifacts and finished media |
 | POST | `/api/notebooks/import` | multipart `file` | Restores an export as a new notebook. Semantic search stays off until re-embed |
@@ -56,6 +56,9 @@ Two checks apply whether or not a password is set:
   video — media is transcribed, up to 25 MB — PowerPoint decks, or ZIP
   archives, whose supported files are each added as a source);
 - `{ url, title? }` — web page, YouTube link, RSS/Atom feed, or direct media link;
+- `{ learnUrl }` — full documentation fetched through Microsoft Learn MCP;
+  accepts only HTTPS documentation URLs on `learn.microsoft.com` and refuses
+  duplicate pages in the same notebook;
 - `{ text, title?, kind?: "note" | "pptx" }` — pasted text (`kind: "note"` marks a
   note turned into a source; `kind: "pptx"` marks text the browser extracted
   from a deck too large to upload);
@@ -82,6 +85,8 @@ just after the response, so it appears on the next `GET /api/notebooks/{id}`.
 **`sourceIds`**, here and on the Studio routes below, limits grounding to those
 sources. If you omit it, every source in the notebook is used. An empty list
 `[]` is refused with `400 {"code": "no_sources"}` rather than treated as "all".
+The exception is notebook chat with its saved `liveLearn` setting enabled:
+an empty list searches only live Microsoft Learn, never all saved sources.
 
 `POST /api/chat` with `{ notebookId, message, sourceIds?, sessionId? }` streams
 newline-delimited JSON events:
@@ -102,6 +107,17 @@ An unknown `sessionId` returns `404`; no configured model returns
 Closing the connection mid-answer (the UI's **Stop** button) aborts the model
 request. The text received so far is saved as the answer, ending with
 "_(Stopped before the answer was finished.)_".
+
+When the notebook's saved `liveLearn` setting is true, each question also
+retrieves fresh Microsoft Learn passages. A client cannot enable this by
+passing a `liveLearn` field to `/api/chat`; use notebook PATCH explicitly.
+Live citations include `url` and `content` (the exact excerpt used), alongside
+the normal citation fields. These snapshots are saved with the answer without
+creating sources or chunks. MCP failures return
+`502 {"code":"learn_unavailable","error":"..."}` before model generation.
+Zero live matches produce a notice when selected local passages exist, or
+400 with a specific no-matches error otherwise. Studio and library Search/Ask
+do not use the live setting.
 
 | Method | Path | Body | Notes |
 |---|---|---|---|
@@ -242,5 +258,5 @@ stored. A model that cannot read images returns `400` with `code: "vision"`.
 | Method | Path | Notes |
 |---|---|---|
 | GET/POST | `/api/models` | Read / change the active chat, embedding, image and vision models (`null` resets one to the environment value) |
-| POST | `/api/discover` | Web search for candidate sources |
+| POST | `/api/discover` | `{ topic, notebookId?, expand?, provider?: "microsoft-learn" }` → `{ queries, provider, results }`; defaults to Bing-first web search. The Learn provider searches official documentation directly (topic up to 1,000 characters, no query expansion), with no API key; import selected results using `learnUrl` |
 | GET | `/api/browse?url=` | Server-side page fetch for the in-app browser |

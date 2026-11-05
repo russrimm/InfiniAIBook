@@ -6,8 +6,25 @@ import { imageDir, imagePath, videoDir, videoPath } from "@/lib/paths";
 import { exportNotebookZip, importNotebookZip } from "@/lib/notebookpack";
 import { listNotes } from "@/lib/notes";
 import { listSessions, sessionMessages } from "@/lib/sessions";
+import JSZip from "jszip";
 
 describe("notebook export and import", () => {
+  it("preserves live Learn opt-in and defaults older exports to off", async () => {
+    const notebookId = nanoid(12);
+    db.prepare("INSERT INTO notebooks (id,title,emoji,created_at,live_learn) VALUES (?,?,?,?,?)")
+      .run(notebookId, "Learn", "L", 1, 1);
+    const packed = await exportNotebookZip(notebookId);
+    const restored = await importNotebookZip(packed!.buffer);
+    expect(db.prepare("SELECT live_learn FROM notebooks WHERE id=?").get(restored.id)).toMatchObject({ live_learn: 1 });
+    const zip = await JSZip.loadAsync(packed!.buffer);
+    const manifestName = Object.keys(zip.files).find((name) => name.endsWith(".json"))!;
+    const manifest = JSON.parse(await zip.file(manifestName)!.async("string"));
+    delete manifest.notebook.liveLearn;
+    zip.file(manifestName, JSON.stringify(manifest));
+    const legacy = await importNotebookZip(await zip.generateAsync({ type: "nodebuffer" }));
+    expect(db.prepare("SELECT live_learn FROM notebooks WHERE id=?").get(legacy.id)).toMatchObject({ live_learn: 0 });
+  });
+
   it("round-trips sources, notes and cited chats under new ids", async () => {
     const notebookId = nanoid(12);
     const sourceId = nanoid(12);

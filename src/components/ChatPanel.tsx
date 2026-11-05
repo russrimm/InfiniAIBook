@@ -23,6 +23,7 @@ export default function ChatPanel({
   notebookId,
   sources,
   selectedIds,
+  liveLearn = false,
   initialMessages,
   sessions,
   onNoteSaved,
@@ -34,6 +35,7 @@ export default function ChatPanel({
   notebookId: string;
   sources: Source[];
   selectedIds: string[];
+  liveLearn?: boolean;
   /** Messages of `sessions[0]`, the most recent conversation. */
   initialMessages: Message[];
   sessions: ChatSession[];
@@ -209,7 +211,7 @@ export default function ChatPanel({
 
   const send = async (text: string) => {
     const q = text.trim();
-    if (!q || streaming || selectedIds.length === 0) return;
+    if (!q || streaming || (!liveLearn && selectedIds.length === 0)) return;
     if (q.length > MAX_MESSAGE_CHARS) {
       setError(
         `That message is ${q.length.toLocaleString()} characters; the limit is ${MAX_MESSAGE_CHARS.toLocaleString()}. Add long text as a source instead.`
@@ -218,6 +220,7 @@ export default function ChatPanel({
     }
     setInput("");
     setError(null);
+    setNotice(null);
     setDraft("");
     setDraftCites([]);
     stickToBottom.current = true;
@@ -351,9 +354,9 @@ export default function ChatPanel({
     }
   };
 
-  const disabled = sources.length === 0;
+  const disabled = !liveLearn && sources.length === 0;
   /** Sources exist but none is ticked: nothing to ground an answer in. */
-  const noneSelected = !disabled && selectedIds.length === 0;
+  const noneSelected = !liveLearn && !disabled && selectedIds.length === 0;
   const blocked = disabled || noneSelected;
   /** No chat has ever been started here, so the getting-started steps still help. */
   const firstRun = sessionList.length === 0;
@@ -454,11 +457,13 @@ export default function ChatPanel({
               </div>
               <h2 className="text-lg font-medium">Ask your sources anything</h2>
               <p className="mx-auto mt-2 max-w-md text-sm text-[var(--muted)]">
-                {blocked
+                {liveLearn
+                  ? "Answers use your selected saved sources and fresh Microsoft Learn documentation. Live citations keep the excerpt used."
+                  : blocked
                   ? "Answers come only from your sources. Here is how to get started."
                   : "Every answer is drawn only from your selected sources, with numbered citations that open the passage they came from."}
               </p>
-              {(blocked || firstRun) && (
+              {!liveLearn && (blocked || firstRun) && (
                 <div className="mt-6">
                   <GettingStarted
                     sourceCount={sources.length}
@@ -553,7 +558,7 @@ export default function ChatPanel({
                 ? "Add a source to start chatting…"
                 : noneSelected
                   ? "Select at least one source to chat…"
-                  : "Ask about your sources…"
+                  : liveLearn ? "Ask your sources and Microsoft Learn…" : "Ask about your sources…"
             }
             value={input}
             disabled={blocked}
@@ -592,7 +597,9 @@ export default function ChatPanel({
         </form>
         <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-dim">
           Using {selectedIds.length} of {sources.length} source
-          {sources.length === 1 ? "" : "s"} · answers come only from these documents
+          {sources.length === 1 ? "" : "s"}{liveLearn
+            ? " + live Microsoft Learn"
+            : " · answers come only from these documents"}
         </p>
       </div>
     </section>
@@ -677,7 +684,7 @@ function CiteFooter({ citations }: { citations: Citation[] }) {
                 <span className="mb-1 flex items-center gap-2">
                   <span className="cite">{c.n}</span>
                   <span className="truncate text-[11px] font-medium">{c.sourceTitle}</span>
-                  <span className="text-[10px] text-dim">part {c.part}</span>
+                  <span className="text-[10px] text-dim">{c.url ? "live excerpt" : `part ${c.part}`}</span>
                 </span>
                 <span className="line-clamp-3 text-[11px] leading-snug text-[var(--muted)]">
                   {c.snippet}…

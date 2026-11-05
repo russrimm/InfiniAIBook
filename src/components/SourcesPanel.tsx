@@ -105,6 +105,8 @@ export default function SourcesPanel({
   onRemove,
   onChanged,
   onDiscover,
+  onLearn,
+  liveLearn = false,
   onBrowse,
   onLibrary,
   addRef,
@@ -125,6 +127,8 @@ export default function SourcesPanel({
   onRemove: (s: Source) => void;
   onChanged: () => Promise<void> | void;
   onDiscover: () => void;
+  onLearn: () => void;
+  liveLearn?: boolean;
   onBrowse: () => void;
   /** Reuse a source that already lives in another notebook. */
   onLibrary: () => void;
@@ -277,7 +281,7 @@ export default function SourcesPanel({
     }
   };
 
-  const addUrl = (url: string, title?: string) => {
+  const addUrl = (url: string, title?: string, learn = false) => {
     const label =
       title ??
       (() => {
@@ -290,14 +294,14 @@ export default function SourcesPanel({
       })();
     return startJob(label.slice(0, 90), /youtu\.?be/i.test(url) ? "📺" : "🌐", {
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ url, title }),
+      body: JSON.stringify(learn ? { learnUrl: url } : { url, title }),
     });
   };
 
   // Lets the Discover modal queue its selections through the same pipeline.
   useEffect(() => {
     addRef.current = (hits: DiscoverHit[]) =>
-      hits.forEach((h) => addUrl(h.url, h.title));
+      hits.forEach((h) => addUrl(h.url, h.title, h.provider === "microsoft-learn"));
     return () => {
       addRef.current = null;
     };
@@ -350,7 +354,9 @@ export default function SourcesPanel({
           )}
         </div>
         <p className="mt-1 text-[11px] text-[var(--muted)]">
-          {sources.length > 0
+          {liveLearn
+            ? "Chat uses ticked sources and live Microsoft Learn. Studio uses only ticked saved sources."
+            : sources.length > 0
             ? "Ticked sources are the only ones Chat and Studio use. Click a source to read it."
             : "Add what you want to research. Chat and Studio use only these."}
         </p>
@@ -432,12 +438,22 @@ export default function SourcesPanel({
           </button>
           <button
             className="btn col-span-2 !px-2 !py-1.5 !text-xs"
+            onClick={onLearn}
+            title="Import Microsoft Learn documentation or enable live Learn in chat"
+          >
+            Microsoft Learn
+          </button>
+          <button
+            className="btn col-span-2 !px-2 !py-1.5 !text-xs"
             onClick={onLibrary}
             title="Reuse a source that is already in another notebook"
           >
             <span aria-hidden>📚</span> From other notebooks
           </button>
         </div>
+        {liveLearn && (
+          <p className="mt-2 text-[11px] text-[var(--muted)]">Microsoft Learn live chat is on.</p>
+        )}
 
         {mode === "url" && (
           <form
@@ -505,8 +521,9 @@ export default function SourcesPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         {jobs.length === 0 && sources.length === 0 ? (
           <p className="px-2 py-8 text-center text-xs text-[var(--muted)]">
-            No sources yet. Everything you ask and generate is grounded in what you add
-            here.
+            {liveLearn
+              ? "No saved sources yet. Live Microsoft Learn is available in chat. Import pages to use them in Studio."
+              : "No sources yet. Everything you ask and generate is grounded in what you add here."}
           </p>
         ) : (
           <ul className="space-y-1">
