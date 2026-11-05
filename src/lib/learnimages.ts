@@ -13,10 +13,11 @@
  */
 import * as cheerio from "cheerio";
 import { readCapped, safeFetch } from "./safefetch";
+import { searchLearn as searchLearnDocs, type LearnPassage } from "./learn";
+export { parseLearnSearch } from "./learn";
 
 export const LEARN_CREDIT = "Microsoft Learn";
 const LEARN_HOST = "learn.microsoft.com";
-const MCP_URL = "https://learn.microsoft.com/api/mcp";
 const MAX_PAGE_BYTES = 3 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const TIMEOUT_MS = 15_000;
@@ -40,7 +41,7 @@ export type LearnScreenshot = {
   page: string;
 };
 
-export type LearnPassage = { title: string; content: string; url: string };
+export type { LearnPassage } from "./learn";
 
 const STOP = new Set(
   "a an and are as at be by for from how in into is it of on or the to use using with your you what when where which".split(
@@ -156,41 +157,6 @@ export function imageSize(b: Buffer): { mime: LearnScreenshot["mime"]; width: nu
   return null;
 }
 
-/**
- * The docs-search reply of the Learn MCP server: a JSON-RPC result, sent as
- * plain JSON or as one server-sent event, whose text content is itself JSON.
- */
-export function parseLearnSearch(body: string): LearnPassage[] {
-  const messages = body.trimStart().startsWith("{")
-    ? [body]
-    : body
-        .split(/\r?\n/)
-        .filter((l) => l.startsWith("data:"))
-        .map((l) => l.slice(5).trim());
-  for (const m of messages) {
-    try {
-      const rpc = JSON.parse(m) as { result?: { content?: { type?: string; text?: string }[] } };
-      const text = rpc.result?.content?.find((c) => c.type === "text")?.text;
-      if (!text) continue;
-      const inner = JSON.parse(text) as { results?: { title?: unknown; content?: unknown; contentUrl?: unknown }[] };
-      return (inner.results ?? []).flatMap((r) => {
-        if (typeof r.contentUrl !== "string" || typeof r.content !== "string") return [];
-        try {
-          const u = new URL(r.contentUrl);
-          if (!isLearn(u)) return [];
-          u.hash = "";
-          return [{ title: typeof r.title === "string" ? r.title : "", content: r.content, url: u.href }];
-        } catch {
-          return [];
-        }
-      });
-    } catch {
-      /* not this message */
-    }
-  }
-  return [];
-}
-
 async function get(
   url: string,
   init: RequestInit,
@@ -214,21 +180,12 @@ async function get(
 
 /** Documentation passages for a query, best first. */
 export async function searchLearn(query: string): Promise<LearnPassage[]> {
-  const r = await get(
-    MCP_URL,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "tools/call",
-        params: { name: "microsoft_docs_search", arguments: { query } },
-      }),
-    },
-    2 * 1024 * 1024
-  );
-  return r ? parseLearnSearch(r.body.toString("utf8")) : [];
+  try {
+    return await searchLearnDocs(query);
+  } catch (e) {
+    console.warn("[learn] Screenshot search unavailable:", e);
+    return [];
+  }
 }
 
 /**

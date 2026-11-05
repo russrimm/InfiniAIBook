@@ -37,7 +37,7 @@ Features
    a vision model), audio and video (transcribed), and ZIP archives (import the
    supported files inside). Also accept pasted text, web URLs, YouTube links
    (transcripts via Gemini when a key is set) and RSS/Atom feeds. Process uploads
-   in the background. Add "discover sources" (web search by topic, DuckDuckGo by
+   in the background. Add "discover sources" (web search by topic, Bing RSS by
    default, or Tavily, Brave or Google with a key) and an in-app browser. Let
    users reuse a source from another notebook.
 3. Grounded chat: streaming answers built only from the selected sources, with

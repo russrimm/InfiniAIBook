@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 import { chatJSON } from "@/lib/ai";
-import { activeProvider, checkReachable, searchWeb, type SearchHit } from "@/lib/websearch";
+import { activeProvider, checkReachable, searchWeb, SearchUnavailableError, type SearchHit } from "@/lib/websearch";
+import { LearnError, searchLearn } from "@/lib/learn";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,29 +44,29 @@ Each query is 3-10 words, plain keywords, no quotes or operators.`,
 
 export async function POST(req: Request) {
   try {
-    const { notebookId, topic, expand } = (await req.json()) as {
+    const { notebookId, topic, expand, provider } = (await req.json()) as {
       notebookId?: string;
       topic: string;
       expand?: boolean;
+      provider?: string;
     };
 
-    const query = topic?.trim();
+    const query = typeof topic === "string" ? topic.trim() : "";
     if (!query) {
       return NextResponse.json({ error: "Enter a topic to search for." }, { status: 400 });
     }
 
-    const queries = expand === false ? [query] : await expandQueries(query);
-    const hits: SearchHit[] = await searchWeb(queries, 10);
-
-    if (!hits.length) {
-      return NextResponse.json(
-        {
-          error:
-            "No results came back. The search provider may be rate-limiting this network — try again shortly, or add the link directly.",
-        },
-        { status: 502 }
-      );
+    if (provider !== undefined && provider !== "microsoft-learn") {
+      return NextResponse.json({ error: "Unknown discovery provider." }, { status: 400 });
     }
+    const learn = provider === "microsoft-learn";
+    const queries = learn || expand === false ? [query] : await expandQueries(query);
+    const hits: SearchHit[] = learn
+      ? (await searchLearn(query)).map((p) => ({
+          title: p.title, url: p.url, snippet: p.content.slice(0, 300),
+          host: "learn.microsoft.com", provider: "microsoft-learn",
+        }))
+      : await searchWeb(queries, 10);
 
     // Flag anything already in this notebook so the user cannot add duplicates.
     let existing = new Set<string>();
@@ -79,15 +80,24 @@ export async function POST(req: Request) {
     }
 
     const canonical = (u: string) => u.replace(/[#?].*$/, "").replace(/\/$/, "");
-    const checked = await checkReachable(hits.slice(0, 24));
+    const checked = learn ? hits : await checkReachable(hits.slice(0, 24));
 
     // Surface the sources that will actually ingest, without hiding the rest.
     const results = checked
       .map((h) => ({ ...h, added: existing.has(canonical(h.url)) }))
       .sort((a, b) => Number(b.reachable ?? true) - Number(a.reachable ?? true));
 
-    return ok({ queries, provider: activeProvider(), results });
+    return ok({ queries, provider: learn ? "microsoft-learn" : hits[0]?.provider ?? activeProvider(), results });
   } catch (e) {
+    if (e instanceof LearnError) {
+      return NextResponse.json({ error: e.message }, { status: e.status });
+    }
+    if (e instanceof SearchUnavailableError) {
+      return NextResponse.json(
+        { error: e.message, code: "search_unavailable" },
+        { status: 502 }
+      );
+    }
     return fail(e);
   }
 }

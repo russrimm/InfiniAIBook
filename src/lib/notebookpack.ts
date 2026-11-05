@@ -70,6 +70,7 @@ type Pack = {
     emoji: string;
     narrationInstructions: string;
     narrationReplacements: string;
+    liveLearn?: boolean;
   };
   sources: PackSource[];
   notes: PackNote[];
@@ -127,8 +128,8 @@ export async function exportNotebookZip(
   notebookId: string
 ): Promise<{ filename: string; buffer: Buffer } | null> {
   const nb = db
-    .prepare("SELECT id, title, emoji FROM notebooks WHERE id = ?")
-    .get(notebookId) as { id: string; title: string; emoji: string } | undefined;
+    .prepare("SELECT id, title, emoji, live_learn FROM notebooks WHERE id = ?")
+    .get(notebookId) as { id: string; title: string; emoji: string; live_learn: number } | undefined;
   if (!nb) return null;
 
   const sources = db
@@ -169,6 +170,7 @@ export async function exportNotebookZip(
       emoji: nb.emoji,
       narrationInstructions: narration.instructions,
       narrationReplacements: JSON.stringify(narration.replacements),
+      liveLearn: Boolean(nb.live_learn),
     },
     sources: sources.map((s) => ({
       id: s.id,
@@ -369,14 +371,15 @@ export async function importNotebookZip(buffer: Buffer): Promise<{ id: string; t
 
   transaction(() => {
     db.prepare(
-      "INSERT INTO notebooks (id, title, emoji, created_at, narration_instructions, narration_replacements) VALUES (?, ?, ?, ?, ?, ?)"
+      "INSERT INTO notebooks (id, title, emoji, created_at, narration_instructions, narration_replacements, live_learn) VALUES (?, ?, ?, ?, ?, ?, ?)"
     ).run(
       notebookId,
       title,
       emoji,
       Date.now(),
       str(notebook.narrationInstructions, 4000),
-      str(notebook.narrationReplacements, 8000) || "[]"
+      str(notebook.narrationReplacements, 8000) || "[]",
+      Number(notebook.liveLearn === true)
     );
 
     const insertSource = db.prepare(

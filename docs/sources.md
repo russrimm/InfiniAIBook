@@ -60,6 +60,38 @@ Two things make the results usable rather than noisy:
   import**, sorted last, and left out of the default selection. Pages already in
   the notebook are marked and cannot be added twice.
 
+### Microsoft Learn: imports and live chat
+
+Open **Sources → Microsoft Learn** to search official documentation through the
+public Microsoft Learn MCP server. No additional API key is needed. The app
+server needs outbound HTTPS access to `https://learn.microsoft.com/api/mcp`.
+
+**Import pages.** Search a topic, review the results, and choose **Add sources**.
+The app fetches each selected page's full documentation, not just its search
+excerpt, and sends it through the normal source queue. Imported pages are saved
+URL sources: select them for chat, Studio, and other notebook tools. Pages
+already imported into that notebook are marked, and duplicate imports are
+refused. Linked-source change checks apply as they do to other saved URLs.
+
+**Connect live chat.** Turn on **Use live Microsoft Learn in chat** in the same
+dialog. This setting is saved separately for each notebook and is off by
+default. Each new chat question searches Learn for fresh passages alongside
+only the saved sources you have selected. Live chat also works when no saved
+sources are selected; it never includes unselected saved documents.
+
+Live results do **not** create notebook sources. Their numbered citations open
+the exact excerpt saved with the answer, plus a link to the original page.
+Historical excerpts remain available after the page changes and survive chat
+history, notes, and notebook export/import. The live setting also travels with
+an export; older exports default to off.
+
+Live retrieval applies only to notebook chat, not Studio, live discussion, or
+library-wide Search/Ask. Import pages explicitly to use them in those tools.
+Turning live mode off restores normal saved-source-only chat. If Learn is
+unavailable, chat shows an explicit error instead of silently omitting the
+connection. If Learn has no matches, chat can still use selected saved sources
+with a notice; without those sources, it asks for a more specific question.
+
 ### Built-in browser (🌐 Browse web)
 
 An address bar, the page, and **Add to sources**. It tells you when a page is
@@ -96,10 +128,14 @@ the whole body would have given.
 
 For anything genuinely blocked, open the page and use **Paste**.
 
-No API key is needed — discovery uses DuckDuckGo by default. Set any of
+No API key is needed — discovery searches Bing's public RSS search feed first.
+Public endpoints may block automated requests on some networks. To enable API
+fallbacks, set any of
 `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, or `GOOGLE_SEARCH_API_KEY` +
-`GOOGLE_SEARCH_CX` to use a higher-quality provider instead; the first one
-configured wins.
+`GOOGLE_SEARCH_CX` on the app server, then restart or redeploy. Configured API
+providers are tried in that order if Bing fails or returns no usable results.
+A provider outage shows an actionable
+error; a successful search with no matches suggests trying different wording.
 
 ## Images as sources
 

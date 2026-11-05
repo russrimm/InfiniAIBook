@@ -3,7 +3,9 @@ import { db } from "@/lib/db";
 import { fail, noSourcesSelected } from "@/lib/http";
 import { chatStream, describeAuthError, type ChatMsg } from "@/lib/ai";
 import { citationsUsed, historyForPrompt } from "@/lib/citations";
-import { buildContext, citationList, retrieveWithDiagnostics } from "@/lib/retrieve";
+import { buildContext, citationList } from "@/lib/retrieve";
+import { notebookLiveLearn, retrieveChatContext } from "@/lib/learnchat";
+import { LearnError } from "@/lib/learn";
 import { GROUNDING_RULES } from "@/lib/studio";
 import { createSession, getSession, touchSession } from "@/lib/sessions";
 import { NextResponse } from "next/server";
@@ -30,7 +32,8 @@ export async function POST(req: Request) {
     if (!notebookId || !message?.trim()) {
       return NextResponse.json({ error: "Missing notebookId or message" }, { status: 400 });
     }
-    const none = noSourcesSelected(sourceIds);
+    const liveLearn = notebookLiveLearn(notebookId);
+    const none = liveLearn ? null : noSourcesSelected(sourceIds);
     if (none) return none;
     if (message.length > MAX_MESSAGE_CHARS) {
       return NextResponse.json(
@@ -42,15 +45,16 @@ export async function POST(req: Request) {
       );
     }
 
-    const { passages, mismatch } = await retrieveWithDiagnostics(
+    const { passages, mismatch, notice } = await retrieveChatContext(
       notebookId,
       message,
-      sourceIds,
-      12
+      sourceIds
     );
     if (!passages.length) {
       return NextResponse.json(
-        { error: "This notebook has no sources yet. Add one to start asking questions." },
+        { error: liveLearn
+          ? "Microsoft Learn found no matching documentation. Try a more specific question or select a saved source."
+          : "This notebook has no sources yet. Add one to start asking questions." },
         { status: 400 }
       );
     }
@@ -138,15 +142,15 @@ export async function POST(req: Request) {
         try {
           send({ type: "session", session: getSession(session.id) });
           send({ type: "citations", citations });
+          const notices: string[] = notice ? [notice] : [];
           if (mismatch) {
-            send({
-              type: "notice",
-              notice:
-                `${mismatch.staleChunks} of ${mismatch.totalChunks} passages were embedded with ` +
-                `${mismatch.models.join(", ")}, not the current ${mismatch.currentModel}, so they ` +
-                `were ranked by keyword only. Re-embed this notebook to restore semantic search.`,
-            });
+            notices.push(
+              `${mismatch.staleChunks} of ${mismatch.totalChunks} passages were embedded with ` +
+              `${mismatch.models.join(", ")}, not the current ${mismatch.currentModel}, so they ` +
+              `were ranked by keyword only. Re-embed this notebook to restore semantic search.`
+            );
           }
+          if (notices.length) send({ type: "notice", notice: notices.join(" ") });
           for await (const part of stream) {
             const delta = part.choices?.[0]?.delta?.content;
             if (delta) {
@@ -197,6 +201,9 @@ export async function POST(req: Request) {
       },
     });
   } catch (e) {
+    if (e instanceof LearnError) {
+      return NextResponse.json({ error: e.message, code: "learn_unavailable" }, { status: e.status });
+    }
     return fail(e);
   }
 }
