@@ -1,7 +1,9 @@
 /** From package.json, injected at build time by next.config.ts. */
 export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "";
 
-export const AUTHOR = "Russ Rimmerman";
+export const AUTHOR = "Russ RImmerman";
+export const AUTHOR_TITLE = "Principal Microsoft Cloud Solution Architect";
+export const AUTHOR_MAILTO = "mailto:russ@russ.net";
 export const LINKEDIN_URL = "https://www.linkedin.com/in/russrimm";
 export const GITHUB_URL = "https://github.com/russrimm";
 export const REPO_URL = "https://github.com/russrimm/InfiniAIBook";

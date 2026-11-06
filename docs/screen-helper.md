@@ -28,7 +28,7 @@ might do next. **Start over** keeps sharing and clears the goal.
 
 ### Auto-watch
 
-With **Auto-watch** on (the default), the helper checks your screen every few
+**Auto-watch is off by default.** Turn it on to let the helper check your screen every few
 seconds. When the screen has **changed** since the last screenshot it analyzed
 and has **stopped moving**, it looks again and suggests the next step. You do
 not have to switch back and ask. Typing, scrolling and playing video do not

@@ -15,10 +15,18 @@
    page one alone. Each selected source is guaranteed its opening passage first
    (shortened if many sources share the context budget), then the remaining
    budget is shared round-robin with passages spread through each document.
-   With no source selected, chat and the studio refuse rather than falling back
-   to all sources.
+   With no source selected, saved-source chat and Studio refuse rather than
+   falling back to all sources. The optional per-notebook **Use live Microsoft
+   Learn in chat** setting is a chat-only exception: it retrieves fresh Learn
+   passages alongside the selected saved sources, or by itself when none are
+   selected. It never includes unselected saved documents. Training videos also
+   use every note in the notebook.
 5. **Cite** — passages are numbered in the prompt, the model emits `[n]` markers,
    and the UI resolves them back to source title, part number and the raw excerpt.
+   Live Learn citations instead open the exact excerpt saved with the answer and
+   a link to the original page. These snapshots survive history, saved notes and
+   notebook export/import without becoming notebook sources; explicitly import
+   pages to use them in Studio, discussions or library-wide Search/Ask.
 
 Studio outputs are requested as JSON, then parsed defensively and normalized
 (clamped answer indices, depth-limited mind-map trees, validated stat blocks) so a
