@@ -39,9 +39,9 @@ closing it.
 
 ### Auto-watch
 
-**Auto-watch is off by default.** Enable it to let the helper check your screen
-every few seconds. When the screen has **changed** since the last screenshot
-it analyzed and has **stopped moving**, it looks again and suggests the next step. You do
+**Auto-watch is off by default.** Turn it on to let the helper check your screen every few
+seconds. When the screen has **changed** since the last screenshot it analyzed
+and has **stopped moving**, it looks again and suggests the next step. You do
 not have to switch back and ask. Typing, scrolling and playing video do not
 trigger a call on every sample, because the screen must settle first. Calls are
 at least 10 seconds apart, and only one runs at a time. Check-ins where nothing

@@ -26,12 +26,16 @@ work the same way.
 
 ### Review the script first
 
-Generating one of these writes the **script only** and opens it in an editor.
-Nothing is narrated, drawn or rendered until you press **Narrate** (audio) or
-**Render video**. You can change any wording, reassign a line to another
-speaker, reorder or remove lines and scenes, and switch the voice. After it has
-been made, **Edit script** reopens the editor so you can change it and narrate or
+Generating one of these writes an editable **script**. Composed training
+videos also plan visuals and may fetch or generate pictures at this stage.
+Narration and finished video rendering wait until you press **Narrate**
+(audio) or **Render video**. You can change any wording, reassign a line to another
+speaker, reorder or remove lines and scenes, and switch the voice. After audio,
+whiteboard or motion output has been made, **Edit script** reopens the editor;
+training videos keep their **Script** tab available. Save changes and narrate or
 render again. Rendering a whiteboard or motion video again redraws its artwork.
+Script generation uses the configured model; narration, image generation and
+avatar rendering can incur separate charges.
 
 ### Instructions
 
@@ -180,13 +184,15 @@ theme colors and speaker notes.
 | Artifact | Formats |
 |---|---|
 | Audio overview | **MP3**, Markdown transcript |
+| Whiteboard video / Motion explainer | **MP4**, Markdown script |
+| Training video | **MP4**, Markdown transcript; **WebVTT** when separate captions are selected |
 | PowerPoint deck | **PPTX**, Markdown |
 | Infographic | **PNG**, Markdown |
 | Mind map | **PNG**, Markdown outline |
 | Flashcards | **CSV** (Anki/Quizlet), Markdown table |
-| Everything else | Markdown |
+| Other written formats and study aids | Markdown |
 
-PNG export rasterises the artifact at 2× for a sharp image. The AI image style
+PNG export rasterizes the artifact at 2× for a sharp image. The AI image style
 is downloaded from the server instead of being captured from the screen, since
 capturing it would resample the original through whatever width the window
 happens to be. CSV is written with a BOM so Excel does not mangle accented

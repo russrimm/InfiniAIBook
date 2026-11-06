@@ -90,12 +90,17 @@ How it works, customization and setup: [Motion explainers](docs/motion-explainer
 
 - **Sources** — PDF, DOCX, PPTX, TXT, MD, CSV, JSON, HTML, images, audio/video, ZIP archives,
   pasted text, URLs, YouTube links and RSS/Atom feeds; discover sources from a topic,
-  browse the web in-app, or reuse a source from another notebook. Uploads are
-  processed in the background, and linked sources are re-checked for changes.
+  browse the web in-app, import full **Microsoft Learn** pages, or reuse a source
+  from another notebook. Uploads are processed in the background, and linked
+  sources are re-checked for changes.
   [More](docs/sources.md)
-- **Grounded chat** — streaming answers built only from your selected sources,
-  with clickable inline citations that open the highlighted passage, **Stop**
-  that keeps the partial answer, and multiple chat sessions per notebook.
+- **Grounded chat** — streaming answers from your selected saved sources,
+  optionally joined by fresh documentation with per-notebook **Use live Microsoft
+  Learn in chat** (off by default). Click citations to open the saved source
+  passage or the Learn excerpt captured with that answer. Live results do not
+  become notebook sources; import pages explicitly for Studio, discussions or
+  library-wide Search/Ask. **Stop** keeps a partial answer, and each notebook
+  supports multiple chat sessions. [More](docs/sources.md#microsoft-learn-imports-and-live-chat)
 - **Notes and transformations** — Markdown notes, saved chat answers (citations
   kept), notes turned into sources, and reusable prompts run on a source.
   [More](docs/notes-and-search.md)

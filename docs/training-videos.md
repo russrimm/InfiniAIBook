@@ -126,7 +126,7 @@ without a composition, shows just **Script** and **Design**.
 | **Design** | The video-level look described above |
 | **Preview** | Plays the composed video in the browser from the same timeline the renderer uses. Markers on the strip below the player show every visual; clicking one opens it for editing |
 
-The preview costs nothing. It times the speech by synthesizing each sentence
+The browser preview has no avatar-rendering charge. It times the speech by synthesizing each sentence
 with the presenter's own standard neural voice through the ordinary speech
 endpoint, which costs a fraction of a cent per video and is cached. It plays
 that voice under the visuals. Until the presenter has been rendered, the spot
