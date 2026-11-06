@@ -6,7 +6,9 @@ spreadsheet", "Share this document with my team"), and the helper looks at your
 screen and walks you through it **one step at a time**, with a numbered box
 on a snapshot of your screen showing where to click.
 
-Open it from the header on the home page or in any notebook.
+Open it from the header on the home page or in any notebook. The helper fills
+the browser viewport, giving the shared screen and conversation the full
+available width without unused margins on either side.
 
 ## How it works
 

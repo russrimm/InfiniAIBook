@@ -268,7 +268,7 @@ Status colors use Tailwind's amber, red, emerald, and rose families. They're nev
 - **Workspace:** fills the full viewport height. A 1px-bordered header (16px × 12px padding) sits above a three-column grid at `lg` and up: Sources (320px) | Chat (flexible) | Studio/Notes (380px). The columns are separated by hairline borders, not gutters. Studio and Notes share the right column through a small segmented tab bar.
 - **`lg` to `xl`:** the side columns narrow to 17rem and 20rem so Chat keeps room; the full 320px / 380px widths arrive at `xl`.
 - **Below `lg`:** the three panels collapse into a single column switched by a full-width tab bar. Header button labels collapse to emoji below `md`.
-- **Modals:** fill the viewport on small screens. From `sm` up they float with 24px of inset and Sheet corners.
+- **Modals:** fill the viewport on small screens. From `sm` up they float with 24px of inset and Sheet corners. Screen helper is an immersive workspace: it fills the browser viewport at every size, without outer insets or rounded corners.
 - **Rhythm:** a 4px base. Dense UI uses 8px gaps (`gap-2` is by far the most common) and 12px between groups. Cards use 20px of internal padding. Lists stack at 8px.
 
 ## Elevation & Depth
