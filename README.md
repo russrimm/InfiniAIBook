@@ -108,8 +108,10 @@ How it works, customization and setup: [Motion explainers](docs/motion-explainer
   across every notebook. [More](docs/notes-and-search.md#search-and-ask)
 - **Screen helper** — share any app's window, type what you need help with,
   and get coached one step at a time, with the next control highlighted on a
-  screenshot. Auto-watch notices when you have done a step and suggests the
-  next. [More](docs/screen-helper.md)
+  screenshot in a full-browser workspace. Turn on **Auto-watch** to get the
+  next suggestion after the screen changes, or **Read steps aloud** to hear
+  the instructions. Inside a notebook, save the session as a note.
+  [More](docs/screen-helper.md)
 - **Studio** — fourteen generators, each producing a structured, interactive
   artifact ([see an example of each](#studio-examples)):
 
