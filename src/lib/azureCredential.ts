@@ -17,12 +17,15 @@ import {
  * `az login` session signs in to whichever tenant the CLI currently has
  * selected, which is the wrong one when the resource lives in another tenant
  * ("Token tenant ... does not match resource tenant"). The signed-in account
- * still needs access to the resource in that tenant.
+ * still needs access to the resource in that tenant. `AZURE_SUBSCRIPTION_ID`
+ * also selects the CLI account for that subscription without changing the
+ * developer's global Azure CLI defaults.
  */
 type CredentialEnv = Readonly<Record<string, string | undefined>>;
 
 export function buildCredential(env: CredentialEnv = process.env): TokenCredential {
   const tenantId = env.AZURE_TENANT_ID?.trim() || undefined;
+  const subscription = env.AZURE_SUBSCRIPTION_ID?.trim() || undefined;
   const clientId = env.AZURE_CLIENT_ID?.trim() || undefined;
   const clientSecret = env.AZURE_CLIENT_SECRET?.trim() || undefined;
 
@@ -32,6 +35,7 @@ export function buildCredential(env: CredentialEnv = process.env): TokenCredenti
 
   return new DefaultAzureCredential({
     ...(clientId ? { managedIdentityClientId: clientId } : {}),
-    ...(tenantId ? { tenantId } : {}),
+    // Azure CLI rejects both selectors; a subscription already identifies its tenant.
+    ...(subscription ? { subscription } : tenantId ? { tenantId } : {}),
   });
 }
