@@ -32,6 +32,36 @@ describe("buildCredential", () => {
     expect(calls).toEqual([{ kind: "default", args: [{ tenantId: "tenant-a" }] }]);
   });
 
+  it("selects the CLI account for a subscription without requiring a tenant", () => {
+    buildCredential({ AZURE_SUBSCRIPTION_ID: "subscription-1" });
+    expect(calls).toEqual([{ kind: "default", args: [{ subscription: "subscription-1" }] }]);
+  });
+
+  it("lets a CLI subscription select its tenant without changing managed identity selection", () => {
+    buildCredential({
+      AZURE_TENANT_ID: "tenant-a",
+      AZURE_SUBSCRIPTION_ID: "subscription-1",
+      AZURE_CLIENT_ID: "client-1",
+    });
+    expect(calls).toEqual([{
+      kind: "default",
+      args: [{ managedIdentityClientId: "client-1", subscription: "subscription-1" }],
+    }]);
+  });
+
+  it("trims tenant and subscription hints from local configuration", () => {
+    buildCredential({ AZURE_TENANT_ID: " tenant-a ", AZURE_SUBSCRIPTION_ID: " subscription-1 " });
+    expect(calls).toEqual([{
+      kind: "default",
+      args: [{ subscription: "subscription-1" }],
+    }]);
+  });
+
+  it("retains tenant selection when the subscription hint is blank", () => {
+    buildCredential({ AZURE_TENANT_ID: " tenant-a ", AZURE_SUBSCRIPTION_ID: " " });
+    expect(calls).toEqual([{ kind: "default", args: [{ tenantId: "tenant-a" }] }]);
+  });
+
   it("treats a client id alone as a user-assigned managed identity", () => {
     buildCredential({ AZURE_CLIENT_ID: "client-1" });
     expect(calls).toEqual([{ kind: "default", args: [{ managedIdentityClientId: "client-1" }] }]);
@@ -49,12 +79,18 @@ describe("buildCredential", () => {
       AZURE_TENANT_ID: "tenant-a",
       AZURE_CLIENT_ID: "client-1",
       AZURE_CLIENT_SECRET: "shh",
+      AZURE_SUBSCRIPTION_ID: "subscription-1",
     });
     expect(calls).toEqual([{ kind: "secret", args: ["tenant-a", "client-1", "shh"] }]);
   });
 
   it("ignores blank values, which an empty .env line produces", () => {
-    buildCredential({ AZURE_TENANT_ID: "  ", AZURE_CLIENT_ID: "", AZURE_CLIENT_SECRET: "" });
+    buildCredential({
+      AZURE_TENANT_ID: "  ",
+      AZURE_SUBSCRIPTION_ID: "  ",
+      AZURE_CLIENT_ID: "",
+      AZURE_CLIENT_SECRET: "",
+    });
     expect(calls).toEqual([{ kind: "default", args: [{}] }]);
   });
 });

@@ -150,6 +150,8 @@ commentary. Only a model provider is required.
 | `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT` | Optional Whisper / gpt-4o-transcribe deployment for audio/video sources |
 | `AZURE_OPENAI_API_KEY` | Legacy key auth; takes precedence over Entra when set |
 | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | Service principal (all three), user-assigned identity (`AZURE_CLIENT_ID`), or the tenant to sign in to with `az login` (`AZURE_TENANT_ID` alone). See [Authentication](#authentication-microsoft-entra-id) |
+| `AZURE_SUBSCRIPTION_ID` | Optional subscription hint selecting the local Azure CLI account without changing global CLI defaults |
+| `AZURE_TOKEN_CREDENTIALS` | Optional Azure Identity credential-chain selector; `AzureCliCredential` uses only the existing local `az login` session |
 | `AZURE_SPEECH_REGION`, `AZURE_SPEECH_RESOURCE_ID`, `AZURE_SPEECH_KEY` | Azure Speech for audio overviews, video narration and training-video avatars |
 | `AZURE_SPEECH_ENDPOINT` | Custom-domain Speech endpoint for the avatar service; derived from `AZURE_SPEECH_RESOURCE_ID` when unset |
 | `AZURE_AVATAR_BACKGROUND_URL`, `AZURE_AVATAR_PRICE_PER_MINUTE`, `AZURE_AVATAR_CONCURRENCY`, `TRAINING_IMAGES` | Optional training-video background image, cost estimate, parallel section renders and AI-image planning ([Training videos](training-videos.md)) |
@@ -270,8 +272,15 @@ tenant with the account you are already signed in with, so there is no need to
 run `az account set` first. This applies to chat, Azure Speech and the avatar
 service alike. That account must hold the **Cognitive Services OpenAI User**
 role in that tenant. If the resource is held by a *different* account (for
-example, the one behind another subscription), select it with
-`az account set --subscription <id>` instead.
+example, the one behind another subscription), also set `AZURE_SUBSCRIPTION_ID`
+in `.env.local` to select that subscription's CLI account and owning tenant
+without changing global defaults. The subscription takes precedence over the
+tenant hint in the default credential chain because Azure CLI accepts only one
+selector. These hints do not change service-principal or managed-identity
+authentication. If another developer credential stalls before Azure CLI is
+tried, local development can set `AZURE_TOKEN_CREDENTIALS=AzureCliCredential`
+to use only the existing `az login` session. Restart the server after changing
+authentication settings.
 
 Token acquisition, caching and refresh are handled per request, so long-running
 servers never serve an expired token. Auth failures are translated into
