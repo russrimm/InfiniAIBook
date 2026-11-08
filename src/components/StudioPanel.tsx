@@ -10,6 +10,7 @@ import MusicPicker from "@/components/MusicPicker";
 import WatermarkPicker from "@/components/WatermarkPicker";
 import NarrationOptions from "@/components/NarrationOptions";
 import StudioCard from "@/components/StudioCard";
+import GenerationModal, { type GenerationJob } from "@/components/GenerationModal";
 import VoicePicker from "@/components/VoicePicker";
 import PresenterGallery from "@/components/PresenterGallery";
 import { voiceNickname } from "@/lib/voicecatalog";
@@ -346,6 +347,8 @@ export default function StudioPanel({
     keyof typeof MOTION_PALETTES
   >(DEFAULT_COMPOSITION.palette);
   const [running, setRunning] = useState<Set<ArtifactType>>(new Set());
+  const [generationJobs, setGenerationJobs] = useState<Partial<Record<ArtifactType, GenerationJob>>>({});
+  const [statusOpen, setStatusOpen] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<ArtifactType, string>>>(
     {},
   );
@@ -399,6 +402,17 @@ export default function StudioPanel({
     url: string,
     body: Record<string, unknown>,
   ) => {
+    const report = (status: string) => setGenerationJobs((prev) => ({
+      ...prev,
+      [type]: { id: type, label: studioLabel(type), status },
+    }));
+    const removeJob = () => setGenerationJobs((prev) => {
+      const next = { ...prev };
+      delete next[type];
+      return next;
+    });
+    report("Sending generation request");
+    setStatusOpen(true);
     setRunning((prev) => new Set(prev).add(type));
     setErrors((prev) => {
       const next = { ...prev };
@@ -408,21 +422,29 @@ export default function StudioPanel({
     try {
       const res = await fetch(url, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", accept: "application/x-ndjson" },
         body: JSON.stringify(body),
       });
       const json = await readJSONReply<ArtifactSummary & { error?: string }>(
         res,
         "Generation failed",
+        report,
       );
+      report("Refreshing the library");
       await onChanged();
       // Opened through the same path as a list entry so the modal always shows
       // the stored row rather than whatever the POST happened to return.
+      removeJob();
       onOpen(json as ArtifactSummary);
     } catch (e) {
+      const error = e instanceof Error ? e.message : "Generation failed";
+      setGenerationJobs((prev) => ({
+        ...prev,
+        [type]: { id: type, label: studioLabel(type), status: "Generation failed", error },
+      }));
       setErrors((prev) => ({
         ...prev,
-        [type]: e instanceof Error ? e.message : "Generation failed",
+        [type]: error,
       }));
     } finally {
       setRunning((prev) => {
@@ -621,6 +643,9 @@ export default function StudioPanel({
             in the background. It opens when ready, and you can keep working
             meanwhile.
           </span>
+          <button type="button" className="btn shrink-0 !text-[11px]" onClick={() => setStatusOpen(true)}>
+            View status
+          </button>
         </p>
       )}
 
@@ -758,6 +783,7 @@ export default function StudioPanel({
               label="Audio overview"
               testId="audio-card"
               busy={audioBusy}
+              onShowStatus={() => setStatusOpen(true)}
               blocked={blocked}
               error={errors.podcast}
               onGenerate={() => void generateAudio()}
@@ -943,6 +969,7 @@ export default function StudioPanel({
               label="Whiteboard video"
               testId="whiteboard-card"
               busy={videoBusy}
+              onShowStatus={() => setStatusOpen(true)}
               blocked={blocked}
               error={errors.video}
               onGenerate={() => void generateVideo()}
@@ -1020,6 +1047,7 @@ export default function StudioPanel({
               label="Motion explainer"
               testId="motion-card"
               busy={motionBusy}
+              onShowStatus={() => setStatusOpen(true)}
               blocked={blocked}
               error={errors.motion}
               onGenerate={() => void generateMotion()}
@@ -1103,6 +1131,7 @@ export default function StudioPanel({
               label="Training video"
               testId="training-card"
               busy={trainingBusy}
+              onShowStatus={() => setStatusOpen(true)}
               blocked={blocked}
               error={errors.training}
               onGenerate={() => void generateTraining()}
@@ -1110,8 +1139,8 @@ export default function StudioPanel({
                 trainingBusy
                   ? trainingMode === "composed"
                     ? "Writing the transcript and planning its visuals…"
-                    : "Writing the transcript from your sources and notes…"
-                  : "A presenter teaches your sources and notes. Nothing is billed until you render."
+                    : "Writing the transcript from your selected sources…"
+                  : "A presenter teaches your selected sources. Video rendering is billed only when you render."
               }
               summary={`${AVATAR_PRESETS[trainer]?.label ?? trainer} · ${voiceNickname(trainerVoice)}${trainerStyle ? ` (${trainerStyle})` : ""} · about ${
                 AUDIO_LENGTHS[trainingLen].minutes
@@ -1282,7 +1311,7 @@ export default function StudioPanel({
                     onSaveDefault={onSaveNarration ? saveNarration : undefined}
                   />
                   <p className="text-[10px] leading-snug text-[var(--muted)]">
-                    Uses the focus, selected sources and all notes.
+                    Uses only checked sources. Focus guides the topic, not the evidence.
                   </p>
                 </>
               }
@@ -1314,6 +1343,7 @@ export default function StudioPanel({
                           icon={s.icon}
                           label={s.label}
                           busy={isBusy}
+                          onShowStatus={() => setStatusOpen(true)}
                           blocked={blocked}
                           error={errors[type]}
                           onGenerate={() => void generate(type)}
@@ -1372,6 +1402,7 @@ export default function StudioPanel({
                           icon={s.icon}
                           label={s.label}
                           busy={isBusy}
+                          onShowStatus={() => setStatusOpen(true)}
                           blocked={blocked}
                           error={errors[type]}
                           onGenerate={() => void generate(type)}
@@ -1426,6 +1457,7 @@ export default function StudioPanel({
                           icon={s.icon}
                           label={s.label}
                           busy={isBusy}
+                          onShowStatus={() => setStatusOpen(true)}
                           blocked={blocked}
                           error={errors[type]}
                           onGenerate={() => void generate(type)}
@@ -1468,6 +1500,7 @@ export default function StudioPanel({
                           icon={s.icon}
                           label={s.label}
                           busy={isBusy}
+                          onShowStatus={() => setStatusOpen(true)}
                           blocked={blocked}
                           error={errors[type]}
                           onGenerate={() => void generate(type)}
@@ -1660,9 +1693,9 @@ export default function StudioPanel({
                   return (
                     <div key={type} className="flex flex-col">
                       <button
-                        disabled={blocked || isBusy}
-                        onClick={() => void generate(type)}
-                        aria-label={`Generate ${s.label}`}
+                        disabled={blocked && !isBusy}
+                        onClick={() => isBusy ? setStatusOpen(true) : void generate(type)}
+                        aria-label={isBusy ? `View ${s.label} generation status` : `Generate ${s.label}`}
                         className={`card group relative flex flex-1 flex-col overflow-hidden px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
                           isBusy
                             ? "shimmer border-[var(--accent)]"
@@ -1697,6 +1730,17 @@ export default function StudioPanel({
             </section>
           ))}
         </div>
+      )}
+      {statusOpen && Object.keys(generationJobs).length > 0 && (
+        <GenerationModal
+          jobs={Object.values(generationJobs).filter((job): job is GenerationJob => !!job)}
+          onClose={() => {
+            setStatusOpen(false);
+            setGenerationJobs((prev) => Object.fromEntries(
+              Object.entries(prev).filter(([, job]) => !job.error),
+            ));
+          }}
+        />
       )}
     </aside>
   );

@@ -111,6 +111,8 @@ export default function SourcesPanel({
   onLibrary,
   addRef,
   pinned,
+  adding,
+  onToggleAdding,
   onTogglePin,
   onClose,
 }: {
@@ -134,6 +136,8 @@ export default function SourcesPanel({
   onLibrary: () => void;
   addRef: React.MutableRefObject<((hits: DiscoverHit[]) => void) | null>;
   pinned: boolean;
+  adding: boolean;
+  onToggleAdding: () => void;
   onTogglePin: () => void;
   onClose: () => void;
 }) {
@@ -360,9 +364,22 @@ export default function SourcesPanel({
             ? "Ticked sources are the only ones Chat and Studio use. Click a source to read it."
             : "Add what you want to research. Chat and Studio use only these."}
         </p>
+        <button
+          type="button"
+          className="btn mt-3 w-full !py-1.5 !text-xs"
+          aria-controls="source-add-tools"
+          aria-expanded={adding}
+          onClick={onToggleAdding}
+        >
+          {adding ? "Hide upload tools" : "Add sources"}
+        </button>
       </div>
 
-      <div className="px-4 pb-3">
+      <div
+        id="source-add-tools"
+        hidden={!adding}
+        className="max-h-[55%] shrink-0 overflow-y-auto px-4 pb-3"
+      >
         <button
           type="button"
           id="add-sources"
@@ -518,7 +535,13 @@ export default function SourcesPanel({
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+      <div
+        id="source-list"
+        role="region"
+        aria-label="Source synopses"
+        tabIndex={-1}
+        className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]"
+      >
         {jobs.length === 0 && sources.length === 0 ? (
           <p className="px-2 py-8 text-center text-xs text-[var(--muted)]">
             {liveLearn
@@ -592,11 +615,9 @@ export default function SourcesPanel({
                       {s.title}
                     </span>
                   </div>
-                  {s.summary && (
-                    <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-[var(--muted)]">
-                      {s.summary}
-                    </p>
-                  )}
+                  <p className="mt-1 text-[13px] leading-relaxed break-words text-[var(--muted)]">
+                    {s.summary?.trim() || "No synopsis available."}
+                  </p>
                   <p className="mt-1 text-[10px] text-dim">{bytes(s.chars)}</p>
                 </button>
                 <button

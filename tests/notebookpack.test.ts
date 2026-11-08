@@ -40,6 +40,11 @@ describe("notebook export and import", () => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(sourceId, notebookId, "Plot", "text", null, "Rain fell on Tuesday.", 22, 2);
     db.prepare(
+      "INSERT INTO artifacts (id, notebook_id, type, title, content, created_at) VALUES (?,?,?,?,?,?)"
+    ).run(nanoid(12), notebookId, "report", "Rain", JSON.stringify({
+      title: "Rain", markdown: "It rained.", sourceIds: [sourceId],
+    }), 2);
+    db.prepare(
       `INSERT INTO notes (id, notebook_id, title, content, kind, source_id, citations, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(nanoid(12), notebookId, "Remember", "Check the plot.", "human", sourceId, null, 3, 3);
@@ -72,6 +77,8 @@ describe("notebook export and import", () => {
       .prepare("SELECT id, text FROM sources WHERE notebook_id = ?")
       .get(imported.id) as { id: string; text: string };
     expect(source.text).toBe("Rain fell on Tuesday.");
+    const artifact = db.prepare("SELECT content FROM artifacts WHERE notebook_id = ?").get(imported.id);
+    expect(JSON.parse(String(artifact?.content)).sourceIds).toEqual([source.id]);
     expect(listNotes(imported.id)[0]?.content).toBe("Check the plot.");
 
     const session = listSessions(imported.id)[0];

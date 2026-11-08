@@ -76,8 +76,10 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [tab, setTab] = useState<Tab>("chat");
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [sourcesPinned, setSourcesPinned] = useState(false);
+  const [sourceAdding, setSourceAdding] = useState(false);
   const sourcesPanel = useRef<HTMLDivElement>(null);
   const sourcesButton = useRef<HTMLButtonElement>(null);
+  const sourcesReturnFocus = useRef<HTMLElement | null>(null);
   /** Which panel fills the right-hand column on wide screens. */
   const [right, setRight] = useState<"studio" | "notes">("studio");
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
@@ -299,19 +301,28 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   }, [notebookTitle]);
 
   /** Bring the Sources panel into view and put focus on one of its controls. */
-  const revealSources = (focusId: string) => {
+  const revealSources = (focusId: string, adding = false) => {
+    if (
+      document.activeElement instanceof HTMLElement &&
+      !sourcesPanel.current?.contains(document.activeElement)
+    ) {
+      sourcesReturnFocus.current = document.activeElement;
+    }
+    setSourceAdding(adding);
     setSourcesOpen(true);
     setTab("sources");
     setTimeout(() => document.getElementById(focusId)?.focus(), 0);
   };
-  const showSources = () => revealSources("add-sources");
+  const viewSources = () => revealSources("source-list");
+  const showSources = () => revealSources("add-sources", true);
   const chooseSources = () => revealSources("select-all-sources");
 
   const closeSources = useCallback(() => {
     setSourcesOpen(false);
     setSourcesPinned(false);
     setTab((current) => current === "sources" ? "chat" : current);
-    sourcesButton.current?.focus();
+    if (sourcesReturnFocus.current?.isConnected) sourcesReturnFocus.current.focus();
+    else sourcesButton.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -506,6 +517,15 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         </span>
         <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center gap-3">
           <button
+            className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
+            aria-controls="sources-panel"
+            aria-expanded={sourcesVisible}
+            title="View added sources and their synopses"
+            onClick={viewSources}
+          >
+            Sources ({sources.length})
+          </button>
+          <button
             ref={sourcesButton}
             className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
             aria-controls="sources-panel"
@@ -589,8 +609,10 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             key={t}
             aria-controls={t === "sources" ? "sources-panel" : undefined}
             onClick={() => {
-              if (t === "sources") showSources();
-              else {
+              if (t === "sources") {
+                if (sources.length) viewSources();
+                else showSources();
+              } else {
                 setTab(t);
                 setSourcesOpen(false);
               }
@@ -656,6 +678,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             onLibrary={() => setPickingLibrary(true)}
             addRef={addSources}
             pinned={sourcesPinned}
+            adding={sourceAdding}
+            onToggleAdding={() => sourceAdding ? viewSources() : showSources()}
             onTogglePin={() => {
               setSourcesOpen(true);
               setSourcesPinned((pinned) => !pinned);
@@ -786,7 +810,10 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
               // row's progress.
               const res = await fetch(`/api/artifacts/${openArtifact.id}`);
               if (!res.ok) return;
-              setOpenArtifact((await res.json()) as Artifact);
+              const updated = (await res.json()) as Artifact;
+              // A preparation request can finish after its editor was closed.
+              // Refresh only the same still-open artifact; never reopen it.
+              setOpenArtifact((current) => current?.id === updated.id ? updated : current);
             } catch {
               // Polled in the background; a dropped request is not an error
               // worth showing, and the next tick will pick it up.

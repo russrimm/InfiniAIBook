@@ -19,8 +19,8 @@
    falling back to all sources. The optional per-notebook **Use live Microsoft
    Learn in chat** setting is a chat-only exception: it retrieves fresh Learn
    passages alongside the selected saved sources, or by itself when none are
-   selected. It never includes unselected saved documents. Training videos also
-   use every note in the notebook.
+   selected. It never includes unselected saved documents. Training videos use
+   only selected sources too; notebook notes are not automatically included.
 5. **Cite** — passages are numbered in the prompt, the model emits `[n]` markers,
    and the UI resolves them back to source title, part number and the raw excerpt.
    Live Learn citations instead open the exact excerpt saved with the answer and
@@ -31,6 +31,30 @@
 Studio outputs are requested as JSON, then parsed defensively and normalized
 (clamped answer indices, depth-limited mind-map trees, validated stat blocks) so a
 malformed model response can never break the UI.
+
+## Studio and Library boundaries
+
+Every Studio generation request requires an explicit, nonempty `sourceIds` list.
+All IDs must belong to the current notebook; missing selections and mixed
+cross-notebook selections are rejected rather than expanded or silently filtered.
+Artifacts save the selected IDs and citations from the actual input excerpts.
+Focus, style instructions and editable scripts steer presentation, not evidence.
+To include a note or a live web result, first add its content as a notebook source
+and check it.
+
+Training visual planning also receives the original selected-source excerpts.
+Reused infographics must have verifiable provenance entirely within the video's
+selection; the editor and API reject incompatible references. Screenshot lookup
+uses only selected Microsoft Learn source pages, not a live search of other
+articles. Generated illustrations are decorative, not evidence. User uploads
+and manual edits are not automatically verified against the sources.
+
+These checks enforce the input boundary, not a guarantee that a model cannot
+hallucinate. Review important claims against their excerpts. Library items are
+saved snapshots: changing a source or the current checkboxes does not rewrite
+existing items. Generate a new item to reflect updated sources. Older artifacts
+without verifiable provenance cannot be reused as grounded infographics or
+replanned training visuals; existing saved media is not deleted or regenerated.
 
 ## Changing the embedding model
 

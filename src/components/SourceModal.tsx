@@ -7,6 +7,8 @@ import { isExplorable } from "@/lib/explorekinds";
 import LoadingRows from "./LoadingRows";
 import { useDialog } from "./useDialog";
 import DataExplorerModal from "./DataExplorerModal";
+import GenerationModal from "./GenerationModal";
+import { readJSONReply } from "@/lib/jsonreply";
 
 type Full = {
   id: string;
@@ -40,6 +42,8 @@ export default function SourceModal({
   const [transformations, setTransformations] = useState<Transformation[]>([]);
   const [chosen, setChosen] = useState("");
   const [applying, setApplying] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState("");
   const [applyError, setApplyError] = useState<string | null>(null);
   const [exploring, setExploring] = useState(false);
 
@@ -56,16 +60,21 @@ export default function SourceModal({
   const apply = async () => {
     if (!chosen) return;
     setApplying(true);
+    setStatusOpen(true);
+    setGenerationStatus("Sending transformation request");
     setApplyError(null);
     try {
       const res = await fetch("/api/transformations/apply", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", accept: "application/x-ndjson" },
         body: JSON.stringify({ transformationId: chosen, sourceId }),
       });
-      const j = (await res.json()) as { note?: Note; error?: string };
-      if (!res.ok || !j.note) throw new Error(j.error || "The transformation failed.");
+      const j = await readJSONReply<{ note?: Note; error?: string }>(
+        res, "The transformation failed.", setGenerationStatus,
+      );
+      if (!j.note) throw new Error("The transformation did not return a note.");
       onNoteCreated?.(j.note);
+      setStatusOpen(false);
     } catch (e) {
       setApplyError(e instanceof Error ? e.message : "The transformation failed.");
     } finally {
@@ -184,8 +193,9 @@ export default function SourceModal({
             </select>
             <button
               className="btn btn-primary !px-3 !py-1 !text-[12px]"
-              disabled={applying || !chosen}
-              onClick={() => void apply()}
+              disabled={!chosen}
+              onClick={() => applying ? setStatusOpen(true) : void apply()}
+              aria-label={applying ? "View transformation generation status" : undefined}
               title="Run on this source and save the result as a note"
             >
               {applying ? "Working…" : "Apply → note"}
@@ -237,6 +247,17 @@ export default function SourceModal({
       </div>
       {exploring && src && (
         <DataExplorerModal sourceId={sourceId} title={src.title} onClose={() => setExploring(false)} />
+      )}
+      {statusOpen && (applying || applyError) && (
+        <GenerationModal
+          jobs={[{
+            id: sourceId,
+            label: transformations.find((t) => t.id === chosen)?.name ?? "Source transformation",
+            status: generationStatus,
+            error: applyError ?? undefined,
+          }]}
+          onClose={() => setStatusOpen(false)}
+        />
       )}
     </div>
   );

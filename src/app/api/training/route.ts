@@ -1,8 +1,8 @@
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ok, fail, noSourcesSelected } from "@/lib/http";
-import { keepAliveJSON } from "@/lib/keepalive";
+import { ok, fail, generationSourceError } from "@/lib/http";
+import { generationReply, type GenerationStatus } from "@/lib/keepalive";
 import { studioJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
@@ -45,10 +45,10 @@ type Loose = Record<string, unknown>;
  */
 export function POST(req: Request) {
   // A long transcript plus visual planning can outlast an idle-proxy timeout.
-  return keepAliveJSON(() => writeTranscript(req));
+  return generationReply(req, (report) => writeTranscript(req, report));
 }
 
-async function writeTranscript(req: Request) {
+async function writeTranscript(req: Request, report: GenerationStatus) {
   const started = Date.now();
   try {
     const body = (await req.json()) as {
@@ -67,19 +67,21 @@ async function writeTranscript(req: Request) {
       gestureMode?: unknown;
     };
     const { notebookId, sourceIds } = body;
-    const none = noSourcesSelected(sourceIds);
+    const none = generationSourceError(notebookId, sourceIds);
     if (none) return none;
     const narration =
       body.narration === undefined ? notebookNarration(notebookId) : readNarration(body.narration);
     const topic = body.topic?.trim() ?? "";
     const wanted = audioLength(body.length);
     const { key: presenterKey, preset } = presenter(body.presenter);
+    report("Checking the presenter voice");
     const { voice, style: voiceStyle } = await resolveVoice(
       presenterVoice(body.voice, preset.voice),
       body.voiceStyle,
       preset.voice
     );
 
+    report("Researching selected sources");
     let budget = MAX_CONTEXT_CHARS;
     let passages: Passage[] = await researchPassages(notebookId, sourceIds, topic, budget);
     if (!passages.some((p) => !p.sourceId.startsWith("note:"))) {
@@ -93,13 +95,14 @@ async function writeTranscript(req: Request) {
       `${GROUNDING_RULES}\n\n${TRAINING_INSTRUCTION(topic, wanted)}${narrationPromptBlock(
         narration
       )}${note}`;
-    const user = () => `RESEARCH (source excerpts and notes)
+    const user = () => `RESEARCH (selected source excerpts)
 =====================================
 ${buildContext(passages)}`;
 
     let script: TrainingScript | null = null;
     for (let attempt = 0; attempt < 4 && !script; attempt++) {
       try {
+        report(attempt ? "Retrying the training transcript" : "Writing the training transcript");
         const raw = await studioJSON<Loose>(
           [
             { role: "system", content: system() },
@@ -128,6 +131,7 @@ ${buildContext(passages)}`;
 
     // Models overshoot or undershoot stated word budgets badly, and here the
     // length is also the bill. One correction pass with the real numbers.
+    report("Checking the transcript and running time");
     const target = AUDIO_LENGTHS[wanted].words;
     const words = countWords(script.sections);
     const ratio = words / target;
@@ -142,6 +146,7 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"}, keeping the same structure. ${
           : "Go deeper with more examples from the research rather than padding."
       }`;
       try {
+        report("Adjusting the transcript to the requested running time");
         const retry = normalizeScript(
           await studioJSON<Loose>(
             [
@@ -187,11 +192,13 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"}, keeping the same structure. ${
       watermarkChoice: normalizeWatermark(body.watermark),
       progress: { stage: "transcript" },
       composition,
+      sourceIds: [...new Set(sourceIds)],
       citations: citationList(passages),
     };
 
     if (composition.mode === "composed") {
       try {
+        report("Planning training visuals and preparing pictures");
         const cues = await planTrainingVisuals(notebookId, content, undefined, { pictureDeadline: started + 200_000 });
         content.sections = content.sections.map((s, i) => (cues[i]?.length ? { ...s, cues: cues[i] } : s));
       } catch (e) {
@@ -202,6 +209,7 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"}, keeping the same structure. ${
       }
     }
 
+    report("Saving the training script for review");
     const now = Date.now();
     db.prepare(
       "INSERT INTO artifacts (id, notebook_id, type, title, content, created_at) VALUES (?,?,?,?,?,?)"

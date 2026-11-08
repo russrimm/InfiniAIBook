@@ -4,9 +4,10 @@ The 🧑‍🏫 **Training video** card turns a notebook's research into a short
 training session delivered by a realistic, lip-synced presenter. It works in
 two steps, so nothing is billed for video until you are happy with the script.
 
-1. **Write transcript.** The selected sources, every note in the notebook
-   (including chat answers you saved as notes) and the focus box are combined
-   into a trainer's script: a welcome and learning objectives, a handful of
+1. **Write transcript.** Only checked sources supply the evidence; the focus
+   box guides the topic. Notebook notes, including saved chat answers, are not
+   included unless you add their content as sources and check them. The model
+   writes a welcome and learning objectives, a handful of
    teaching sections, a recap, and a spoken knowledge check. The script is saved
    as a `training` artifact and opens in an editor.
 2. **Render video.** Edit the title, sections and presenter, then press
@@ -18,7 +19,7 @@ The card's **Style** (under **Options ▸**) picks one of two kinds of video:
 
 - **Presenter with slides and visuals** (the default). Title cards, bullet
   points, key numbers, quotes, knowledge checks, AI pictures, screenshots and
-  the notebook's infographics slide in beside or behind the presenter, each at
+  source-compatible notebook infographics slide in beside or behind the presenter, each at
   the moment the presenter says the words it illustrates. See
   [Presenter with visuals](#presenter-with-visuals).
 - **Presenter only.** The presenter speaking on a solid brand background, with
@@ -76,20 +77,29 @@ around it on one timeline:
   returns to the presenter alone.
 - **Kinds of visual.** Title card, learning objectives, bullet points, key
   number, quote, knowledge check, AI image (drawn on demand by the image model),
-  screenshot or picture (upload, paste or capture a screen), and any of the
-  notebook's infographics.
+  screenshot or picture (upload, paste or capture a screen), and notebook
+  infographics grounded entirely in the video's selected sources.
 - **A picture on every slide.** Title cards, objectives, bullet points, key
   numbers, quotes and knowledge checks show a picture of the idea beside their
   words: above them on the side panel, beside them on a wide one. When the idea
   concerns a Microsoft product, the planner writes a Microsoft Learn search and
-  a real screenshot is taken from the matching Learn article, credited
-  "Microsoft Learn" on the slide. Otherwise, or when Learn has nothing
+  a real screenshot is taken only from a selected Learn source page, credited
+  "Microsoft Learn" on the slide. No outside articles are searched.
+  Otherwise, or when selected Learn pages have nothing
   suitable, the image model draws an illustration from the planner's
   description. Pictures are found while the visuals are planned, as time
   allows; **Add pictures to N visuals** on the **Visuals** and **Preview** tabs
-  fills the rest, and rendering does too. Each visual's editor can search Learn
-  again (**Find another**), draw, upload or remove its picture. A slide whose
+  fills the rest, and rendering does too. Each visual's editor can search the
+  same selected Learn pages again (**Find another**), draw, upload or remove its picture. A slide whose
   search and drawing both fail shows its words alone.
+
+Visual replanning uses the original selected-source excerpts as evidence, not
+just the edited transcript. Unverified or unrelated infographics are excluded
+and direct API references are rejected. Generated illustrations are decorative;
+manual text and picture edits are not automatically fact-checked. Existing
+scripts and videos remain snapshots and are not automatically regenerated when
+source content changes. See [Grounding boundaries](grounding.md#studio-and-library-boundaries).
+
 - **Capitalization.** On-screen text is shown as an edited slide would be:
   sentence case, with product names and acronyms written the way the script
   writes them ("Copilot Studio", "AI"), even when the planner copied the words
@@ -265,7 +275,7 @@ Optional settings:
 | `AZURE_AVATAR_BACKGROUND_URL` | A public image shown behind the presenter instead of the chosen color (presenter-only videos) |
 | `AZURE_AVATAR_PRICE_PER_MINUTE` | Shows an estimated cost in the editor before rendering |
 | `AZURE_AVATAR_CONCURRENCY` | Section clips of a composed video rendered at once (default 2, at most 8) |
-| `TRAINING_IMAGES` | Set to `off` to stop the visual planner proposing AI images and drawing illustrations for slides. Microsoft Learn screenshots are still found |
+| `TRAINING_IMAGES` | Set to `off` to stop the visual planner proposing AI images and drawing illustrations for slides. Screenshots can still be found within selected Microsoft Learn source pages |
 
 ## Presenters and voices
 

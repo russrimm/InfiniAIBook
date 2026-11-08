@@ -12,12 +12,38 @@ and flashcards). **Library** lists everything already generated in the
 notebook; open an item to read, play or export it.
 
 Every format uses only the sources you have ticked, steered by the optional
-**Focus** box at the top of Create. Formats with settings fold them behind
+**Focus** box at the top of Create. Notes and outside web results are not added
+automatically; add their content as sources and check them to include them.
+Focus and custom instructions cannot expand the evidence boundary. Library
+items retain their generation-time selection and are not automatically rewritten
+when sources change. See [Grounding boundaries](grounding.md#studio-and-library-boundaries).
+Formats with settings fold them behind
 **Options ▸**, which shows a one-line summary of the current choices while it is
 closed; nothing starts until you press **Generate**. A job runs in the
-background, a status line at the top of Studio says what is running, and the
-result opens when it is ready. If a job fails, the error appears on that
-format's card.
+background and opens a **Generation status** modal. The modal follows the
+server's current stage, such as reading sources, writing a script, adjusting its
+running time, drawing an infographic, planning training visuals or saving the
+result. It does not estimate percentages while waiting for a model.
+Close the modal to keep working; closing it does not cancel generation.
+Reopen it with **View status** or the format's **Working…** button.
+Concurrent jobs appear together, and the result opens when it is ready.
+If a job fails, its error appears in the modal and on that format's card.
+Source transformations that show **Working…** use the same status modal while
+applying the transformation and saving the generated note.
+
+Video **Preparing…** and **Rendering…** actions open **Video processing status**.
+It shows preparation steps, the current render stage, and scene counts, presenter
+section counts or composition percentages when the renderer supplies them.
+Close it and use **View status** to reopen it. Changing focus, switching browser
+tabs or closing either the status modal or video editor does not cancel
+preparation or a submitted render. Keep the browser tab open until browser-side
+visual preparation has finished; closing the tab or browser can interrupt that
+preparation. Submitted renders continue on the server.
+
+If a render request fails without an HTTP response, check the server connection
+and the video's stored progress before submitting it again. A connection error
+does not prove that the server never accepted the job; the app does not
+automatically repeat a potentially billable submission.
 
 ## Spoken formats: script review, instructions and music
 

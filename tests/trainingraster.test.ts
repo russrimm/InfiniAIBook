@@ -3,12 +3,12 @@ import type { TrainingContent } from "@/lib/types";
 import { prepareRasters } from "@/components/trainingRaster";
 
 const mocks = vi.hoisted(() => ({
-  toPng: vi.fn(),
+  toSvg: vi.fn(),
   getFontEmbedCSS: vi.fn(),
   root: { render: vi.fn(), unmount: vi.fn() },
 }));
 vi.mock("html-to-image", () => ({
-  toPng: mocks.toPng,
+  toSvg: mocks.toSvg,
   getFontEmbedCSS: mocks.getFontEmbedCSS,
 }));
 vi.mock("react-dom/client", () => ({ createRoot: () => mocks.root }));
@@ -44,15 +44,23 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.stubGlobal("document", {
     hidden: false,
-    createElement: () => host,
+    createElement: (tag: string) => tag === "canvas" ? {
+      getContext: () => ({ drawImage: vi.fn() }),
+      toDataURL: () => "data:image/png;base64,test",
+    } : host,
     body: { appendChild: vi.fn() },
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     fonts: { ready: Promise.resolve() },
   });
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
+  vi.stubGlobal("Image", class {
+    onload: (() => void) | null = null;
+    set src(_value: string) { queueMicrotask(() => this.onload?.()); }
+    decode() { return Promise.resolve(); }
+  });
   mocks.getFontEmbedCSS.mockResolvedValue("");
-  mocks.toPng.mockResolvedValue("data:image/png;base64,test");
+  mocks.toSvg.mockResolvedValue("data:image/svg+xml,test");
 });
 
 afterEach(() => {
@@ -63,7 +71,7 @@ afterEach(() => {
 describe("render visual preparation", () => {
   it("explains a capture failure before any raster upload or render submission", async () => {
     const cause = new TypeError("Failed to fetch");
-    mocks.toPng.mockRejectedValue(cause);
+    mocks.toSvg.mockRejectedValue(cause);
     const fetch = vi.fn().mockResolvedValue(json({ missing: [{ key: "visual-key", state: 0 }] }));
     vi.stubGlobal("fetch", fetch);
     await expect(prepare()).rejects.toThrow(/Drawing visual 1 of 1.*section 1.*Failed to fetch.*render has not been submitted/);

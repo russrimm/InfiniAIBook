@@ -245,6 +245,8 @@ function remapSourceIds(value: unknown, ids: Map<string, string>): unknown {
     for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
       if ((key === "sourceId" || key === "notebookId") && typeof item === "string" && ids.has(item)) {
         out[key] = ids.get(item);
+      } else if (key === "sourceIds" && Array.isArray(item)) {
+        out[key] = item.map((id) => typeof id === "string" && ids.has(id) ? ids.get(id) : id);
       } else {
         out[key] = remapSourceIds(item, ids);
       }

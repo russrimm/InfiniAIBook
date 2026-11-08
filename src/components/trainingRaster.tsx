@@ -26,6 +26,7 @@ const tick = () =>
     const { port1, port2 } = new MessageChannel();
     port1.onmessage = () => {
       port1.close();
+      port2.close();
       resolve();
     };
     port2.postMessage(null);
@@ -113,7 +114,7 @@ export async function prepareRasters(opts: {
   let fontEmbedCSS: string | undefined;
 
   try {
-    const { toPng, getFontEmbedCSS } = await import("html-to-image");
+    const { toSvg, getFontEmbedCSS } = await import("html-to-image");
     let done = 0;
     opts.onProgress?.(0, missing.length);
     for (const m of missing) {
@@ -143,13 +144,30 @@ export async function prepareRasters(opts: {
       fontEmbedCSS ??= await getFontEmbedCSS(node).catch(() => "");
       let dataUrl: string;
       try {
-        dataUrl = await toPng(node, {
+        // toPng waits for an animation frame after decoding its SVG, which
+        // never arrives in a hidden tab. Decode and draw without waiting for paint.
+        const svg = await toSvg(node, {
           width: job.width,
           height: job.height,
           pixelRatio: 1,
           fontEmbedCSS,
           skipFonts: !fontEmbedCSS,
         });
+        const image = new Image();
+        image.decoding = "async";
+        await new Promise<void>((resolve, reject) => {
+          image.onload = () => resolve();
+          image.onerror = () => reject(new Error("The visual's SVG could not be loaded."));
+          image.src = svg;
+        });
+        await image.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = job.width;
+        canvas.height = job.height;
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("The browser could not create a drawing canvas.");
+        context.drawImage(image, 0, 0, job.width, job.height);
+        dataUrl = canvas.toDataURL("image/png");
       } catch (cause) {
         const detail = cause instanceof Error ? cause.message : "Unknown error";
         console.error("[training] visual capture failed", {

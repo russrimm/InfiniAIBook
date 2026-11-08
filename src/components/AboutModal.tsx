@@ -95,7 +95,7 @@ const HELP: {
         title: "Reuse, select and update saved sources",
         body: [
           "From other notebooks opens Add from your library. Filter by source or notebook, select sources and choose Add. Their text, summaries and embeddings are copied without fetching them again; the copies are independent.",
-          "Tick individual sources, Select all or Deselect all to control Chat and Studio. Newly added sources are ticked automatically; the header shows how many are in use. With nothing ticked, saved-source chat and Studio will not silently use everything. Live Learn is the chat-only exception described above; training videos also use all notebook notes.",
+          "Tick individual sources, Select all or Deselect all to control Chat and Studio. Newly added sources are ticked automatically; the header shows how many are in use. With nothing ticked, saved-source chat and Studio will not silently use everything. Live Learn is the chat-only exception described above. Every Studio format, including training videos, uses only checked sources, not notebook notes.",
           "Linked pages and feeds are checked in the background when a notebook opens, normally at most once every six hours per source. Open the changed-source banner's Review, compare changes and choose Re-index, Keep current or Decide later. Nothing is replaced automatically.",
         ],
         doc: "sources.md#keeping-linked-sources-current",
@@ -223,7 +223,7 @@ const HELP: {
       {
         title: "Training video: presenter, script and live preview",
         body: [
-          "Training video uses selected sources, all notebook notes and Focus. Options include Trainer, Compare, Presenter voice and supported delivery style, Training video length, Background, Style (Presenter with slides and visuals or Presenter only) and Visual theme, plus music, watermark and instructions.",
+          "Training video uses only checked sources; Focus guides the topic without adding evidence. Options include Trainer, Compare, Presenter voice and supported delivery style, Training video length, Background, Style (Presenter with slides and visuals or Presenter only) and Visual theme, plus music, watermark and instructions.",
           "Generate the transcript; composed mode also plans visuals and can fetch or generate pictures before rendering. Use Script to edit sections, their order, presenter, voice and Body language or supported section gestures. Compare presenters opens the gallery. Preview live (VASA-2) speaks the transcript interactively with a supported Azure Speech resource; it is a separate live session, is not recorded into the MP4 and can incur speech charges.",
           "Render video submits the avatar work and shows stage progress or failure details. MP4 downloads the finished file. Script changes need Render again; when only visuals, design or music change, Recompose video reuses unchanged cached presenter clips instead of billing for new avatar speech.",
         ],
@@ -233,7 +233,7 @@ const HELP: {
         title: "Training visuals, design, animation and preview",
         body: [
           "In a composed training video, Visuals lets you Plan all visuals again or Plan this section. Select words and Add visual at selected words to anchor a title, objectives, bullets, key number, quote, knowledge check, AI image, screenshot/picture, notebook infographic or Back to presenter cue. Edit its anchor, content, layout, transition, picture motion and timing shift; fix anchors marked not found.",
-          "Add pictures to missing visuals, Find another Microsoft Learn picture, draw with the image model, or upload, paste or capture your own screenshot. Preview plays the timeline and its visual markers open the corresponding editor. Retime or Save and retime refreshes speech timing; timing can use paid, cached speech synthesis, or silent estimates when Speech is unavailable.",
+          "Add pictures to missing visuals, find another picture within selected Microsoft Learn source pages, draw an illustration, or upload, paste or capture your own screenshot. Uploaded pictures are your edits, not verified source evidence. Infographics must be grounded entirely in the video's selected sources. Preview plays the timeline and its visual markers open the corresponding editor. Retime or Save and retime refreshes speech timing; timing can use paid, cached speech synthesis, or silent estimates when Speech is unavailable.",
           "Design sets Style, Theme, default layout and transition, presenter location/size, opening and closing cards, section cards, presenter name/role, Logo, Resolution and Captions (burned in, WebVTT or none). Animation offers None, Light (transitions only), Full or individual toggles for transitions, fades, picture push-ins, bullet reveals and presenter movement. Download separate captions when available. These changes apply to preview and the recomposed MP4.",
         ],
         doc: "training-videos.md#presenter-with-visuals",

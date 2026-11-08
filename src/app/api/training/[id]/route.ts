@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, generationSourceError } from "@/lib/http";
 import { backgroundColor, presenter, presenterVoice } from "@/lib/avatars";
 import { gestureMode } from "@/lib/gestures";
 import { cleanSpoken, normalizeSections } from "@/lib/training";
@@ -11,6 +11,8 @@ import { normalizeMusicChoice } from "@/lib/musicchoice";
 import { normalizeWatermark } from "@/lib/watermarkchoice";
 import { normalizeComposition } from "@/lib/trainingvisuals";
 import { resolveVoice } from "@/lib/voicelist";
+import { artifactSourceIds, SourceBoundaryError } from "@/lib/artifactsources";
+import { notebookInfographics } from "@/lib/trainingplan";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,8 +30,8 @@ export async function PATCH(req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
     const row = db
-      .prepare("SELECT type, content FROM artifacts WHERE id = ?")
-      .get(id) as unknown as { type: string; content: string } | undefined;
+      .prepare("SELECT type, content, notebook_id FROM artifacts WHERE id = ?")
+      .get(id) as unknown as { type: string; content: string; notebook_id: string } | undefined;
     if (!row || row.type !== "training") {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -87,6 +89,17 @@ export async function PATCH(req: Request, { params }: Ctx) {
           { error: "Keep at least one section with something to say." },
           { status: 400 }
         );
+      }
+      const infographicIds = sections.flatMap((s) => (s.cues ?? []).flatMap((c) => c.infographicId ? [c.infographicId] : []));
+      if (infographicIds.length) {
+        const sourceIds = artifactSourceIds(current);
+        if (generationSourceError(row.notebook_id, sourceIds)) {
+          throw new SourceBoundaryError("This video's source selection cannot be verified. Generate a new training script before adding infographics.");
+        }
+        const compatible = new Set(notebookInfographics(row.notebook_id, sourceIds, Infinity).map((g) => g.id));
+        if (infographicIds.some((id) => !compatible.has(id))) {
+          throw new SourceBoundaryError("Use only infographics backed entirely by this video's selected sources.");
+        }
       }
       scriptChanged ||= JSON.stringify(sections) !== JSON.stringify(current.sections);
       next.sections = sections;

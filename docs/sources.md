@@ -1,5 +1,21 @@
 # Sources
 
+## Viewing sources and synopses
+
+Open **Sources (count)** in the notebook header to see every added source and
+its full synopsis in the pop-out Sources panel. Upload tools start folded in
+this view so the list has room. Click a source to read its content, or use its
+checkbox to choose whether Chat and Studio use it. **Pin** keeps the panel open
+while you work elsewhere; the close button or Escape collapses an unpinned
+panel.
+
+**Add sources** in the header opens the same panel with upload tools expanded.
+You can also expand or hide those tools inside the panel without losing an
+unfinished link or pasted-text draft. On narrow screens, the **Sources** tab
+opens the list when sources exist. A source without a saved summary explicitly
+shows **No synopsis available**; viewing the list does not generate another
+summary or re-import the source.
+
 ## Adding sources
 
 Open **Add sources** in the notebook header. Use **Drop files or click to

@@ -6,6 +6,7 @@ import { buildContext, citationList, sampleCorpus } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
 import { getTransformation } from "@/lib/transformations";
 import { NextResponse } from "next/server";
+import { generationReply, type GenerationStatus } from "@/lib/keepalive";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,11 @@ const MAX_CONTEXT_CHARS = Number(process.env.STUDIO_CONTEXT_CHARS || 30000);
  * Runs a transformation over one source and saves the result as an AI note
  * in the source's notebook.
  */
-export async function POST(req: Request) {
+export function POST(req: Request) {
+  return generationReply(req, (report) => applyTransformation(req, report));
+}
+
+async function applyTransformation(req: Request, report: GenerationStatus) {
   try {
     const { transformationId, sourceId } = (await req.json()) as {
       transformationId?: string;
@@ -33,11 +38,13 @@ export async function POST(req: Request) {
       : undefined;
     if (!src) return NextResponse.json({ error: "Source not found" }, { status: 404 });
 
+    report("Reading the source");
     const passages = sampleCorpus(src.notebook_id, [src.id], MAX_CONTEXT_CHARS);
     if (!passages.length) {
       return NextResponse.json({ error: "That source has no text to work with." }, { status: 400 });
     }
 
+    report(`Applying ${t.name}`);
     const content = await chatText(
       [
         {
@@ -51,6 +58,7 @@ export async function POST(req: Request) {
       0.3
     );
 
+    report("Saving the generated note");
     const used = new Set([...content.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
     const note = createNote({
       notebookId: src.notebook_id,

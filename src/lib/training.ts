@@ -1,4 +1,3 @@
-import { listNotes } from "./notes";
 import { retrieve, sampleCorpus, type Passage } from "./retrieve";
 import { AUDIO_LENGTHS, type AudioLength } from "./voices";
 import { cleanStyle, voiceServiceName } from "./voicecatalog";
@@ -17,9 +16,8 @@ import { normalizeCues, type TrainingComposition } from "./trainingvisuals";
 /**
  * Training videos: one trainer, one script, rendered by a talking avatar.
  *
- * The transcript is written from everything the notebook holds — the selected
- * sources and every note, including saved chat answers — because a notebook's
- * notes are usually where the user's own synthesis of the research lives.
+ * The transcript is written only from the selected saved sources. Notes and
+ * saved chat answers are not evidence unless explicitly imported as sources.
  */
 
 const jsonNote =
@@ -67,7 +65,7 @@ minutes: roughly ${len.words} words across all section texts. Do not pad; if
 the research supports less, write less.
 
 RULES
-- Ground every claim in the excerpts and notes. Attribute naturally in speech
+- Ground every claim in the source excerpts. Attribute naturally in speech
   ("the report puts it at about a third"). Never invent figures, names or dates.
 - This is synthesised speech with burned-in subtitles. Write ONLY the words to
   be spoken: no markdown, bullets, headings inside text, citation markers,
@@ -81,9 +79,8 @@ RULES
 }
 
 /**
- * Selected sources, with focused retrieval when a topic is given, plus the
- * notebook's notes. Notes are capped so a large notebook of saved answers
- * cannot crowd out the primary material.
+ * Selected sources, with focused retrieval when a topic is given. Never add
+ * notes or saved answers outside the caller's source selection.
  */
 export async function researchPassages(
   notebookId: string,
@@ -91,38 +88,17 @@ export async function researchPassages(
   topic: string,
   budget: number
 ): Promise<Passage[]> {
-  const noteBudget = Math.round(budget * 0.3);
-  const sourceBudget = budget - noteBudget;
-
   let sources: Passage[];
   if (topic) {
     const focused = await retrieve(notebookId, topic, sourceIds, 24);
-    const broad = sampleCorpus(notebookId, sourceIds, Math.round(sourceBudget * 0.4));
+    const broad = sampleCorpus(notebookId, sourceIds, Math.round(budget * 0.4));
     const seen = new Set(focused.map((p) => p.id));
     sources = [...focused, ...broad.filter((p) => !seen.has(p.id))].slice(0, 40);
   } else {
-    sources = sampleCorpus(notebookId, sourceIds, sourceBudget);
+    sources = sampleCorpus(notebookId, sourceIds, budget);
   }
 
-  const notes: Passage[] = [];
-  let used = 0;
-  for (const n of listNotes(notebookId)) {
-    const text = n.content.trim();
-    if (!text) continue;
-    const slice = text.slice(0, Math.min(4000, noteBudget - used));
-    if (slice.length < 200 && used > 0) break;
-    notes.push({
-      id: `note-${n.id}`,
-      sourceId: `note:${n.id}`,
-      sourceTitle: `Note: ${n.title}`,
-      idx: 0,
-      text: slice,
-    });
-    used += slice.length;
-    if (used >= noteBudget) break;
-  }
-
-  return [...sources, ...notes];
+  return sources;
 }
 
 /** Strip anything that the voice would read aloud or the subtitles would show. */

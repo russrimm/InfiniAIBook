@@ -16,6 +16,7 @@ export default function StudioCard({
   blocked,
   error,
   onGenerate,
+  onShowStatus,
   options,
   children,
   testId,
@@ -30,6 +31,7 @@ export default function StudioCard({
   blocked: boolean;
   error?: string;
   onGenerate: () => void;
+  onShowStatus?: () => void;
   /** Settings revealed by the Options toggle. */
   options?: ReactNode;
   /** Always-visible content between the header and Options. */
@@ -57,9 +59,9 @@ export default function StudioCard({
         <button
           type="button"
           className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
-          disabled={blocked || busy}
-          onClick={onGenerate}
-          aria-label={`Generate ${label}`}
+          disabled={busy ? !onShowStatus : blocked}
+          onClick={busy ? onShowStatus : onGenerate}
+          aria-label={busy ? `View ${label} generation status` : `Generate ${label}`}
         >
           {busy ? "Working…" : "Generate"}
         </button>
