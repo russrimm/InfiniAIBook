@@ -79,7 +79,7 @@ Typical sequence, with `B=http://localhost:3000`:
 3. `POST $B/api/chat` `{ "notebookId", "message" }` streams newline-delimited
    JSON; the `delta` events are the answer and `done.citations` lists the cited
    passages.
-4. `POST $B/api/generate` `{ "notebookId", "type": "report" }` creates a Studio
+4. `POST $B/api/generate` `{ "notebookId", "type": "report", "sourceIds": ["{sourceId}"] }` creates a Studio
    artifact. `type` is one of `report`, `briefing`, `study_guide`, `faq`, `quiz`,
    `flashcards`, `mindmap`, `timeline`, `slides`, `infographic`.
 5. `GET $B/api/notebooks/{id}/export` downloads a zip of everything.
@@ -108,8 +108,11 @@ curl examples are in `references/api.md`, and the complete route list is in
   delete or move it without a backup (`GET /api/notebooks/{id}/export`). A copy of
   the project started from another folder reads that folder's own `.data`.
 - **Stay grounded.** Answers are only as good as the selected sources. Pass
-  `sourceIds` to limit grounding, and never pass an empty list: it is refused
-  with `400 no_sources`.
+  a nonempty `sourceIds` list explicitly on every Studio generation and
+  infographic-style suggestion request. Every ID must belong to the notebook;
+  omission is not "all sources". Training excludes notes and only reuses
+  source-compatible infographics and selected Learn source pages. Existing
+  Library items remain snapshots, not automatically updated source mirrors.
 
 ## When something fails
 

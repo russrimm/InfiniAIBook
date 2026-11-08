@@ -29,7 +29,7 @@ function rows(notebookId: string, sourceIds?: string[]): ChunkRow[] {
   let sql = `SELECT c.id, c.source_id, c.idx, c.text, c.embedding,
                     c.embed_model, c.embed_dims, s.title
              FROM chunks c JOIN sources s ON s.id = c.source_id
-             WHERE c.notebook_id = ?`;
+             WHERE c.notebook_id = ? AND s.notebook_id = c.notebook_id`;
   const params: string[] = [notebookId];
   if (sourceIds && sourceIds.length) {
     sql += ` AND c.source_id IN (${sourceIds.map(() => "?").join(",")})`;

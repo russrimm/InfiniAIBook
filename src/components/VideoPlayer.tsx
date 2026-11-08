@@ -17,6 +17,8 @@ import { MULTITALKER_SPEAKERS, WORDS_PER_MINUTE } from "@/lib/voices";
 import MusicPicker from "./MusicPicker";
 import NarrationOptions from "./NarrationOptions";
 import WatermarkPicker from "./WatermarkPicker";
+import GenerationModal from "./GenerationModal";
+import { readJSONReply } from "@/lib/jsonreply";
 
 const STAGES: Record<"whiteboard" | "motion", { key: string; label: string }[]> = {
   whiteboard: [
@@ -60,6 +62,7 @@ export default function VideoPlayer({
 
   const [elapsed, setElapsed] = useState(0);
   const [editing, setEditing] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(building);
 
   // The caller passes a fresh closure on every render. Holding it in a ref
   // keeps it out of the effect's dependencies — with it in there, each poll
@@ -93,6 +96,8 @@ export default function VideoPlayer({
         rendered={Boolean(content.videoUrl) || stage === "failed"}
         onCancel={inScript ? undefined : () => setEditing(false)}
         onRefresh={() => refresh.current()}
+        statusOpen={statusOpen}
+        onStatusOpen={setStatusOpen}
       />
     );
   }
@@ -132,6 +137,18 @@ export default function VideoPlayer({
         )}
         {editButton}
         <SceneList content={content} />
+        {statusOpen && (
+          <GenerationModal
+            title="Video processing status"
+            jobs={[{
+              id: artifactId,
+              label: content.title,
+              status: "Video processing failed",
+              error: progress?.note ?? "The video could not be built.",
+            }]}
+            onClose={() => setStatusOpen(false)}
+          />
+        )}
       </div>
     );
   }
@@ -149,6 +166,9 @@ export default function VideoPlayer({
             <span className="ml-auto font-mono text-[11px] text-[var(--muted)] tabular-nums">
               {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}
             </span>
+            <button type="button" className="btn !text-xs" onClick={() => setStatusOpen(true)}>
+              View status
+            </button>
           </div>
 
           <div className="mt-4 space-y-2">
@@ -205,6 +225,21 @@ export default function VideoPlayer({
           </p>
         </div>
         <SceneList content={content} />
+        {statusOpen && (
+          <GenerationModal
+            title="Video processing status"
+            jobs={[{
+              id: artifactId,
+              label: content.title,
+              status: stages[idx]?.label ?? stage,
+              progress: progress && (stage !== "rendering" || progress.total > 1)
+                ? { done: progress.done, total: progress.total, label: stages[idx]?.label ?? stage }
+                : undefined,
+              detail: progress?.note,
+            }]}
+            onClose={() => setStatusOpen(false)}
+          />
+        )}
       </div>
     );
   }
@@ -370,6 +405,8 @@ function ScriptEditor({
   rendered,
   onCancel,
   onRefresh,
+  statusOpen,
+  onStatusOpen,
 }: {
   artifactId: string;
   content: VideoContent;
@@ -377,11 +414,14 @@ function ScriptEditor({
   rendered: boolean;
   onCancel?: () => void;
   onRefresh: () => Promise<void> | void;
+  statusOpen: boolean;
+  onStatusOpen: (open: boolean) => void;
 }) {
   const [draft, setDraft] = useState<ScriptDraft>(() => toScriptDraft(content, variant));
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState<"save" | "render" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [prep, setPrep] = useState("");
 
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
@@ -439,12 +479,17 @@ function ScriptEditor({
   const run = async (what: "save" | "render") => {
     setBusy(what);
     setError(null);
+    if (what === "render") {
+      onStatusOpen(true);
+      setPrep("Saving the script");
+    }
     try {
       if (dirty) await save();
       if (what === "render") {
+        setPrep("Starting the video render");
         const res = await fetch(`/api/video/${artifactId}/render`, { method: "POST" });
-        const j = (await res.json().catch(() => ({}))) as { error?: string };
-        if (!res.ok) throw new Error(j.error || "Could not start the render.");
+        await readJSONReply(res, "Could not start the render.");
+        setPrep("Refreshing render progress");
         await onRefresh();
       }
     } catch (e) {
@@ -668,12 +713,20 @@ function ScriptEditor({
         </button>
         <button
           className="btn btn-primary !text-xs"
-          disabled={locked || words === 0 || draft.scenes.length < minScenes}
-          onClick={() => void run("render")}
+          disabled={busy !== "render" && (locked || words === 0 || draft.scenes.length < minScenes)}
+          onClick={() => busy === "render" ? onStatusOpen(true) : void run("render")}
+          aria-label={busy === "render" ? "View video processing status" : undefined}
         >
           {busy === "render" ? "Starting…" : rendered ? "Render again" : "Render video"}
         </button>
       </div>
+      {statusOpen && (busy === "render" || error) && (
+        <GenerationModal
+          title="Video processing status"
+          jobs={[{ id: artifactId, label: draft.title, status: prep, error: error ?? undefined }]}
+          onClose={() => onStatusOpen(false)}
+        />
+      )}
     </div>
   );
 }

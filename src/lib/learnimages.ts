@@ -4,9 +4,9 @@
  * Learn documentation is full of annotated screenshots of the Azure portal,
  * the Microsoft 365 admin centers, Copilot Studio and the rest, each with alt
  * text that says what it shows ("Screenshot of the Tile Gallery."). A visual's
- * search query goes to the public Microsoft Learn MCP server's docs search,
- * whose passages carry their screenshots inline; when the best passages have
- * none, the articles they come from are read for theirs.
+ * query ranks screenshots within the selected saved source pages. The
+ * standalone, unrestricted helper can also use Microsoft Learn docs search;
+ * training callers always supply their source-page boundary.
  *
  * Everything is fetched through safeFetch and capped in size, and only
  * learn.microsoft.com pages and images are used.
@@ -192,16 +192,22 @@ export async function searchLearn(query: string): Promise<LearnPassage[]> {
  * The best screenshot on Microsoft Learn for `query`, skipping any picture
  * whose URL is in `exclude` so one video does not repeat itself. Null when
  * nothing suitable is found or Learn cannot be reached.
+ * With `sourcePages`, read only those pages without calling Learn search.
  */
 export async function findLearnScreenshot(
   query: string,
   exclude: Set<string> = new Set(),
-  pages: Map<string, LearnImage[]> = new Map()
+  pages: Map<string, LearnImage[]> = new Map(),
+  sourcePages?: string[]
 ): Promise<(LearnScreenshot & { src: string }) | null> {
   const q = query.replace(/\s+/g, " ").trim().slice(0, 120);
   if (!q) return null;
-  const passages = await searchLearn(q);
-  const urls = [...new Set(passages.map((p) => p.url))];
+  const passages = sourcePages === undefined ? await searchLearn(q) : [];
+  const urls = [...new Set(
+    sourcePages === undefined
+      ? passages.map((p) => p.url)
+      : sourcePages.filter((u) => URL.canParse(u) && isLearn(new URL(u)))
+  )];
   const rank = new Map(urls.map((u, i) => [u, i]));
   const usable = (list: LearnImage[]) => rankLearnImages(list, q, rank).filter((x) => !exclude.has(x.src));
 

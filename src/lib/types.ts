@@ -61,6 +61,12 @@ export type Citation = {
   content?: string;
 };
 
+export type SourceProvenance = {
+  /** Saved source selection used for generation, not the current checkbox state. */
+  sourceIds?: string[];
+  citations?: Citation[];
+};
+
 export type DocContent = { title: string; subtitle?: string; markdown: string };
 export type FaqContent = { title: string; items: { q: string; a: string }[] };
 export type QuizQuestion = {
@@ -281,7 +287,7 @@ export type TrainingClip = {
   billedSec?: number;
 };
 
-export type TrainingContent = SpokenExtras & VideoExtras & {
+export type TrainingContent = SpokenExtras & VideoExtras & SourceProvenance & {
   title: string;
   description?: string;
   objectives: string[];
@@ -342,7 +348,7 @@ export type Artifact = {
   notebookId: string;
   type: ArtifactType;
   title: string;
-  content: ArtifactContent & { citations?: Citation[] };
+  content: ArtifactContent & SourceProvenance;
   createdAt: number;
 };
 

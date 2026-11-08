@@ -68,6 +68,7 @@ import VoicePicker from "./VoicePicker";
 import type { VisualContext } from "./TrainingVisual";
 import { prepareRasters } from "./trainingRaster";
 import { trainingRequest, TrainingRequestError } from "@/lib/trainingrequest";
+import GenerationModal from "./GenerationModal";
 
 const PRESENTER_STAGES: { key: string; label: string }[] = [
   { key: "submitting", label: "Sending the transcript to Azure" },
@@ -186,6 +187,7 @@ export default function TrainingVideo({
     "save" | "render" | "plan" | "pictures" | null
   >(null);
   const [prep, setPrep] = useState<string | null>(null);
+  const [statusOpen, setStatusOpen] = useState(rendering);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [tab, setTab] = useState<Tab>("script");
@@ -549,6 +551,10 @@ export default function TrainingVideo({
   const run = async (what: "save" | "render") => {
     setBusy(what);
     setError(null);
+    if (what === "render") {
+      setStatusOpen(true);
+      setPrep("Saving the transcript");
+    }
     let step = "Saving the transcript";
     try {
       let saved = content;
@@ -586,6 +592,8 @@ export default function TrainingVideo({
 
   const plan = async (section?: number) => {
     setBusy("plan");
+    setStatusOpen(true);
+    setPrep("Planning the training visuals");
     setError(null);
     try {
       if (dirty) await save();
@@ -601,11 +609,14 @@ export default function TrainingVideo({
       setError(e instanceof Error ? e.message : "Could not plan the visuals.");
     } finally {
       setBusy(null);
+      setPrep(null);
     }
   };
 
   const pictures = async () => {
     setBusy("pictures");
+    setStatusOpen(true);
+    setPrep("Finding pictures for the visuals");
     setError(null);
     try {
       const saved = dirty ? await save() : content;
@@ -736,6 +747,13 @@ export default function TrainingVideo({
   const clipsReady = clips.filter(
     (k) => k.status === "cached" || k.status === "done",
   ).length;
+  const processing = rendering || busy === "render" || busy === "plan" || busy === "pictures";
+  const processingStatus = prep ?? stages.find((s) => s.key === stage)?.label ?? "Preparing the video";
+  const processingProgress = stage === "composing" && typeof content.progress.renderPct === "number"
+    ? { done: content.progress.renderPct, total: 100, label: "Composing the video" }
+    : clips.length > 0
+      ? { done: clipsReady, total: clips.length, label: "Presenter sections ready" }
+      : undefined;
 
   const tabs: { key: Tab; label: string }[] = composed
     ? [
@@ -814,6 +832,9 @@ export default function TrainingVideo({
             <span className="ml-auto font-mono text-[11px] text-[var(--muted)] tabular-nums">
               {fmt(elapsed)}
             </span>
+            <button type="button" className="btn !text-xs" onClick={() => setStatusOpen(true)}>
+              View status
+            </button>
           </div>
           <ol className="mt-3 space-y-1.5">
             {stages.map((s, i) => {
@@ -1459,8 +1480,9 @@ export default function TrainingVideo({
         </button>
         <button
           className="btn btn-primary !text-xs"
-          disabled={locked || tooLong || wordCount === 0}
-          onClick={() => void run("render")}
+          disabled={!processing && (locked || tooLong || wordCount === 0)}
+          onClick={() => processing ? setStatusOpen(true) : void run("render")}
+          aria-label={processing ? "View video processing status" : undefined}
         >
           {busy === "render"
             ? "Preparing…"
@@ -1473,6 +1495,22 @@ export default function TrainingVideo({
                   : "Render video"}
         </button>
       </div>
+      {statusOpen && (processing || error || stage === "failed") && (
+        <GenerationModal
+          title="Video processing status"
+          jobs={[{
+            id: artifactId,
+            label: content.title,
+            status: processingStatus,
+            progress: rendering ? processingProgress : undefined,
+            detail: content.progress.note,
+            error: stage === "failed"
+              ? content.progress.note ?? "The render failed."
+              : !processing ? error ?? undefined : undefined,
+          }]}
+          onClose={() => setStatusOpen(false)}
+        />
+      )}
     </div>
   );
 }

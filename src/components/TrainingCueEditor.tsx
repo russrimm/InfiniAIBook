@@ -365,7 +365,7 @@ export default function TrainingCueEditor({
             disabled={locked}
             onChange={(e) => set({ infographicId: e.target.value || undefined })}
           >
-            <option value="">{infographics.length ? "Choose one of this notebook's infographics" : "This notebook has no infographics yet"}</option>
+            <option value="">{infographics.length ? "Choose a source-compatible infographic" : "No infographics match this video's sources"}</option>
             {infographics.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.title}
@@ -382,7 +382,7 @@ export default function TrainingCueEditor({
           )}
           {cue.kind !== "screenshot" && (
             <label className="block">
-              <span className={labelCls}>Microsoft Learn screenshot search</span>
+              <span className={labelCls}>Screenshot search within selected Learn sources</span>
               <div className="flex gap-2">
                 <input
                   className={inputCls}

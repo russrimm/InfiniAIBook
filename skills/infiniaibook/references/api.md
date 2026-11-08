@@ -86,17 +86,19 @@ One-off grounded answers that are not saved to a session:
 ## Generate Studio artifacts
 
 ```bash
-curl -s -X POST $B/api/generate -H "$H" -d '{"notebookId":"{id}","type":"report"}'
+curl -s -X POST $B/api/generate -H "$H" -d '{"notebookId":"{id}","type":"report","sourceIds":["{sourceId}"]}'
 curl -s -X POST $B/api/generate -H "$H" \
-  -d '{"notebookId":"{id}","type":"infographic","style":"bento","orientation":"landscape","detail":"concise"}'
+  -d '{"notebookId":"{id}","type":"infographic","sourceIds":["{sourceId}"],"style":"bento","orientation":"landscape","detail":"concise"}'
 ```
 
 `type` is `report`, `briefing`, `study_guide`, `faq`, `quiz`, `flashcards`,
 `mindmap`, `timeline`, `slides` or `infographic`. Optional: `topic` (up to 2,000
-characters), `sourceIds`, `difficulty` and `length` (study aids), `theme`
+characters), `difficulty` and `length` (study aids), `theme`
 (slides), and for infographics `style`, `orientation`, `detail` and
 `instructions` (up to 600 characters). `POST /api/infographic/suggest` returns up
-to three styles that suit the sources. Unknown types and styles get `400`.
+to three styles that suit the sources. Every Studio generation and style
+suggestion requires explicit, nonempty `sourceIds` belonging to the notebook.
+Missing selections, cross-notebook IDs, and unknown types or styles get `400`.
 
 The response is `{ id, type, title, content, createdAt }`. For text formats the
 body is `content.markdown`. Retrieve it later with `GET /api/artifacts/{id}`.

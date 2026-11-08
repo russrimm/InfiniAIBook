@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, generationSourceError } from "@/lib/http";
 import { loadTraining } from "@/lib/trainingroute";
 import { findPicture, pictureSession } from "@/lib/trainingpictures";
 import { compositionPalette, normalizeComposition } from "@/lib/trainingvisuals";
 import { keepAliveJSON } from "@/lib/keepalive";
+import { artifactSourceIds, SourceBoundaryError } from "@/lib/artifactsources";
+import { trainingSourcePages } from "@/lib/trainingplan";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +16,7 @@ type Ctx = { params: Promise<{ id: string }> };
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
 
 /**
- * A picture for one visual: `{ query }` searches Microsoft Learn for a real
+ * A picture for one visual: `{ query }` searches selected Learn source pages for a real
  * screenshot, and `{ prompt }` draws an illustration when no screenshot is
  * found or no search is given. Screenshots already used in the video, or
  * listed in `exclude`, are skipped. → `{ imageId, url, credit?, source? }`, or
@@ -29,6 +31,10 @@ async function find(req: Request, params: Ctx["params"]) {
     const { id } = await params;
     const t = loadTraining(id);
     if (!t) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const sourceIds = artifactSourceIds(t.content);
+    if (generationSourceError(t.notebookId, sourceIds)) {
+      throw new SourceBoundaryError("This video's source selection cannot be verified. Generate a new training script before finding pictures.");
+    }
     const body = (await req.json().catch(() => ({}))) as { query?: unknown; prompt?: unknown; exclude?: unknown };
     const query = text(body.query, 120);
     const prompt = text(body.prompt, 600);
@@ -39,10 +45,12 @@ async function find(req: Request, params: Ctx["params"]) {
       return NextResponse.json({ error: "Give a Microsoft Learn search or describe the picture first." }, { status: 400 });
     }
     const pal = compositionPalette(normalizeComposition(t.content.composition));
-    const got = await findPicture({ query, prompt }, pal, pictureSession(t.content.sections, exclude));
+    const got = await findPicture({ query, prompt }, pal, pictureSession(t.content.sections, exclude), {
+      sourcePages: trainingSourcePages(t.notebookId, sourceIds),
+    });
     if (!got) {
       return NextResponse.json(
-        { error: "No matching screenshot was found on Microsoft Learn. Try other words, or describe a picture to draw." },
+        { error: "No matching screenshot was found in the selected Microsoft Learn source pages. Select a relevant source, or describe an illustration to draw." },
         { status: 404 }
       );
     }

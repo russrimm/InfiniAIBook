@@ -133,3 +133,45 @@ test("draws every visual in the browser before handing the render to the avatar"
   const after = (await (await request.get(`/api/training/${id}/raster`)).json()) as { missing: unknown[] };
   expect(after.missing).toEqual([]);
 });
+
+test("prepares and uploads training visuals with no animation frames after closing the modals", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const notebookId = await notebookWithSource(request);
+  await page.goto(`/notebook/${notebookId}`);
+  await page.getByRole("button", { name: "Generate Training video" }).click();
+  const editor = page.getByRole("dialog").last();
+  await expect(editor.getByRole("button", { name: "Render video", exact: true })).toBeVisible();
+  const { artifacts } = await (await request.get(`/api/notebooks/${notebookId}`)).json() as {
+    artifacts: { id: string; type: string }[];
+  };
+  const id = artifacts.find((a) => a.type === "training")!.id;
+  // Stop at the network boundary: do not start a billable avatar job.
+  await page.route(`**/api/training/${id}/render`, (route) =>
+    route.fulfill({ json: { ok: true } }));
+  const submitted = page.waitForRequest(
+    (req) => req.method() === "POST" && req.url().endsWith(`/api/training/${id}/render`),
+    { timeout: 30_000 },
+  );
+  await page.evaluate(() => {
+    // Reproduce a background tab that does not deliver animation frames.
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+    window.requestAnimationFrame = () => 0;
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await editor.getByRole("button", { name: "Render video", exact: true }).click();
+  const status = page.getByRole("dialog", { name: "Video processing status" });
+  await expect(status).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(status).toBeHidden();
+  // Close the editor as well; preparation must not depend on either dialog.
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await submitted;
+  await page.waitForLoadState("networkidle");
+  const after = await (await request.get(`/api/training/${id}/raster`)).json() as { missing: unknown[] };
+  expect(after.missing).toEqual([]);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});

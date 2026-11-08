@@ -82,11 +82,16 @@ just after the response, so it appears on the next `GET /api/notebooks/{id}`.
 
 ## Chat and sessions
 
-**`sourceIds`**, here and on the Studio routes below, limits grounding to those
-sources. If you omit it, every source in the notebook is used. An empty list
+**`sourceIds`** on chat routes limits grounding to those
+sources. If you omit it on chat, every source in the notebook is used. An empty list
 `[]` is refused with `400 {"code": "no_sources"}` rather than treated as "all".
 The exception is notebook chat with its saved `liveLearn` setting enabled:
 an empty list searches only live Microsoft Learn, never all saved sources.
+
+Studio routes instead require explicit, nonempty `sourceIds`. Every ID must
+belong to the requested notebook; missing or cross-notebook selections return
+400 without generating an artifact. The selection is saved in artifact content
+as provenance. Notes and live web results are not automatically included.
 
 `POST /api/chat` with `{ notebookId, message, sourceIds?, sessionId? }` streams
 newline-delimited JSON events:
@@ -174,26 +179,26 @@ for `error` before using the result.
 
 | Method | Path | Body |
 |---|---|---|
-| POST | `/api/generate` | `{ notebookId, type, topic?, sourceIds?, style?, theme?, difficulty?, length?, orientation?, detail?, instructions? }` (`theme` applies to `type: "slides"`; `style`, `orientation` (`landscape`/`portrait`/`square`), `detail` (`concise`/`standard`/`detailed`) and `instructions` (free text, up to 600 characters) to `type: "infographic"`). Unknown types and styles, a `topic` over 2,000 characters and malformed `sourceIds` are refused with 400 |
-| POST | `/api/infographic/suggest` | `{ notebookId, sourceIds?, topic? }` → `{ suggestions: [{ style, reason }], source: "model" \| "heuristic" }`: up to three infographic styles that suit the sources, best first. Falls back to a model-free guess when the model is unavailable |
-| POST | `/api/podcast` | `{ notebookId, topic?, sourceIds?, preset?, speakers?: [{ voice?, name?, role? }] (1–4), rate?, breath?, length?, narration?, music? }` → audio-overview **script** (`stage: "script"`), not yet narrated |
+| POST | `/api/generate` | `{ notebookId, type, sourceIds, topic?, style?, theme?, difficulty?, length?, orientation?, detail?, instructions? }` (`theme` applies to `type: "slides"`; `style`, `orientation` (`landscape`/`portrait`/`square`), `detail` (`concise`/`standard`/`detailed`) and `instructions` (free text, up to 600 characters) to `type: "infographic"`). Unknown types and styles, a `topic` over 2,000 characters and malformed `sourceIds` are refused with 400 |
+| POST | `/api/infographic/suggest` | `{ notebookId, sourceIds, topic? }` → `{ suggestions: [{ style, reason }], source: "model" \| "heuristic" }`: up to three infographic styles that suit the sources, best first. Falls back to a model-free guess when the model is unavailable |
+| POST | `/api/podcast` | `{ notebookId, sourceIds, topic?, preset?, speakers?: [{ voice?, name?, role? }] (1–4), rate?, breath?, length?, narration?, music? }` → audio-overview **script** (`stage: "script"`), not yet narrated |
 | PATCH | `/api/podcast/{id}` | Edit `title`, `description`, `script: { segments: [{ title, turns: [{ speaker, text }] }] }`, `voices`, `rate`, `music`, `narration`; 409 while narrating |
 | POST | `/api/podcast/{id}/narrate` | Synthesize the script (and mix any music); returns the artifact with `audioUrl` and timed `turns` |
-| POST | `/api/video` | `{ notebookId, topic?, sourceIds?, voice?, narration?, music?, watermark? }` → whiteboard scene plan (`progress.stage: "script"`) |
-| POST | `/api/motion` | `{ notebookId, topic?, sourceIds?, voice?, music?, watermark?, narration?, length?, tone?, audience?, visual?, palette?, customPalette?, character?, characterDescription?, closing?, resolution?, movement? }` → motion scene plan (`progress.stage: "script"`). Customization values are in [Motion explainers](motion-explainers.md#customizing-a-video); unknown values fall back to the defaults |
+| POST | `/api/video` | `{ notebookId, sourceIds, topic?, voice?, narration?, music?, watermark? }` → whiteboard scene plan (`progress.stage: "script"`) |
+| POST | `/api/motion` | `{ notebookId, sourceIds, topic?, voice?, music?, watermark?, narration?, length?, tone?, audience?, visual?, palette?, customPalette?, character?, characterDescription?, closing?, resolution?, movement? }` → motion scene plan (`progress.stage: "script"`). Customization values are in [Motion explainers](motion-explainers.md#customizing-a-video); unknown values fall back to the defaults |
 | PATCH | `/api/video/{id}` | Edit a whiteboard or motion script: `title`, `description`, `scenes`, `voice`, `music`, `watermark`, `narration`, and `movement` for motion; 409 while building |
 | POST | `/api/video/{id}/render` | Build the reviewed script; poll `GET /api/artifacts/{id}` for `progress.stage`, play `GET /api/video/{id}` |
 | GET | `/api/motion` | `{ music }`: whether any background-music track is available |
-| POST | `/api/training` | `{ notebookId, topic?, sourceIds?, presenter?, voice?, background?, length?, narration?, music?, watermark?, composition? }` → training transcript artifact. With `composition.mode: "composed"`, visuals are planned too; without `composition` the video is presenter only |
-| PATCH | `/api/training/{id}` | Edit `title`, `description`, `objectives`, `sections` (each with optional `cues`), `presenter`, `voice`, `background`, `music`, `watermark`, `narration`, `composition`; 409 while rendering |
+| POST | `/api/training` | `{ notebookId, sourceIds, topic?, presenter?, voice?, background?, length?, narration?, music?, watermark?, composition? }` → training transcript artifact. With `composition.mode: "composed"`, visuals are planned too; without `composition` the video is presenter only |
+| PATCH | `/api/training/{id}` | Edit `title`, `description`, `objectives`, `sections` (each with optional `cues`), `presenter`, `voice`, `background`, `music`, `watermark`, `narration`, `composition`; 409 while rendering, 400 for an infographic outside the video's source selection |
 | POST | `/api/training/{id}/render` | Start the render; poll `GET /api/artifacts/{id}` for `progress.stage` (and `progress.clips` for composed videos). Composed videos return 409 until every visual is drawn (`/raster`) |
 | POST | `/api/training/{id}/visuals` | `{ section? }` → plan the visuals again for the whole video or one 0-based section |
 | GET | `/api/training/{id}/timing` | Per-section speech timing and preview voice tracks (rendered clips, measured speech, or estimates) |
 | GET, PUT | `/api/training/{id}/raster` | `GET` → `{ missing: [{ key, state }] }` visuals still to draw; `PUT { key, state, dataUrl }` stores one PNG |
 | POST | `/api/training/{id}/assets` | `{ dataUrl }` (PNG) → `{ imageId, url }` for screenshots, pictures and logos |
 | POST | `/api/training/{id}/assets/generate` | `{ prompt }` → `{ imageId, url }` drawn by the image model |
-| POST | `/api/training/{id}/assets/find` | `{ query?, prompt?, exclude? }` → `{ imageId, url, credit?, source? }`: a Microsoft Learn screenshot for `query`, else an illustration drawn from `prompt`; 404 when neither fits. Screenshots already in the video or in `exclude` are skipped |
-| GET | `/api/training/{id}/infographics` | The notebook's infographics, for infographic visuals |
+| POST | `/api/training/{id}/assets/find` | `{ query?, prompt?, exclude? }` → `{ imageId, url, credit?, source? }`: a screenshot from the video's selected Microsoft Learn source pages for `query`, else an illustration drawn from `prompt`; 404 when neither fits. No outside articles are searched. Screenshots already in the video or in `exclude` are skipped |
+| GET | `/api/training/{id}/infographics` | Up to 20 notebook infographics with verifiable provenance entirely within the video's source selection |
 | GET | `/api/training/{id}/clips/{hash}` | A rendered transparent presenter clip (WebM), with byte ranges |
 | GET | `/api/training/{id}/speech/{hash}` | A section's preview voice track (MP3), with byte ranges |
 | GET | `/api/training/{id}/captions` | WebVTT captions of the last composed render |
