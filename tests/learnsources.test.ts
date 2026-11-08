@@ -46,6 +46,42 @@ describe("Microsoft Learn source APIs", () => {
     });
   });
 
+  it.each(["", "#intro", "?view=latest", "/"])(
+    "returns one selectable source per Learn page despite duplicate passage URLs (%s)",
+    async (suffix) => {
+      const otherUrl = "https://learn.microsoft.com/en-us/azure/architecture";
+      mocks.searchLearn.mockResolvedValue([
+        { title: "Azure overview", url, content: "First ranked excerpt" },
+        { title: "Another passage", url: url + suffix, content: "Second excerpt" },
+        { title: "Azure architecture", url: otherUrl, content: "Architecture excerpt" },
+      ]);
+
+      const response = await discover(request({ notebookId: id, topic: "Azure", provider: "microsoft-learn" }));
+      expect(response.status).toBe(200);
+      expect((await response.json()).results).toEqual([
+        {
+          title: "Azure overview", url, snippet: "First ranked excerpt",
+          host: "learn.microsoft.com", provider: "microsoft-learn", added: false,
+        },
+        {
+          title: "Azure architecture", url: otherUrl, snippet: "Architecture excerpt",
+          host: "learn.microsoft.com", provider: "microsoft-learn", added: false,
+        },
+      ]);
+    },
+  );
+
+  it("marks a deduplicated Learn page as already added", async () => {
+    await addSource(request({ learnUrl: url }), ctx);
+    mocks.searchLearn.mockResolvedValue([
+      { title: "Azure overview", url: url + "#intro", content: "First excerpt" },
+      { title: "Azure overview", url, content: "Second excerpt" },
+    ]);
+    const response = await discover(request({ notebookId: id, topic: "Azure", provider: "microsoft-learn" }));
+    expect(response.status).toBe(200);
+    expect((await response.json()).results).toMatchObject([{ url: url + "#intro", added: true }]);
+  });
+
   it("imports full documentation and chunks it as a saved URL source", async () => {
     const response = await addSource(request({ learnUrl: url }), ctx);
     expect(response.status).toBe(200);
