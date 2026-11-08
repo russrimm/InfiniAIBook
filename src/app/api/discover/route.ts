@@ -68,19 +68,26 @@ export async function POST(req: Request) {
         }))
       : await searchWeb(queries, 10);
 
+    const canonical = (u: string) => u.replace(/[#?].*$/, "").replace(/\/$/, "");
+    // Learn returns passages, but discovery selects pages, not individual excerpts.
+    const seen = new Set<string>();
+    const uniqueHits = hits.filter((hit) => {
+      const key = canonical(hit.url);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
     // Flag anything already in this notebook so the user cannot add duplicates.
     let existing = new Set<string>();
     if (notebookId) {
       const rows = db
         .prepare("SELECT url FROM sources WHERE notebook_id = ? AND url IS NOT NULL")
         .all(notebookId) as unknown as { url: string }[];
-      existing = new Set(
-        rows.map((r) => r.url.replace(/[#?].*$/, "").replace(/\/$/, ""))
-      );
+      existing = new Set(rows.map((r) => canonical(r.url)));
     }
 
-    const canonical = (u: string) => u.replace(/[#?].*$/, "").replace(/\/$/, "");
-    const checked = learn ? hits : await checkReachable(hits.slice(0, 24));
+    const checked = learn ? uniqueHits : await checkReachable(uniqueHits.slice(0, 24));
 
     // Surface the sources that will actually ingest, without hiding the rest.
     const results = checked
