@@ -70,7 +70,12 @@ rather than `az login`. Whiteboard, motion and composed training videos need
 Python; build with `docker compose build --build-arg WITH_PYTHON=true` (or
 `docker build --build-arg WITH_PYTHON=true .`) to include it.
 
-To run it in Azure instead, see [Running in Azure](azure-deployment.md).
+The container reports its health to Docker (`docker compose ps`, `docker inspect`).
+The probe calls `GET /api/health`, which returns `{"status":"ok"}`, or `503` with
+`{"status":"unavailable"}` when the SQLite database cannot be read. It needs no
+password and accepts any `Host`, so probes from a load balancer or orchestrator
+work; the body carries no version, path or configuration. Every other route is
+still protected. instead, see [Running in Azure](azure-deployment.md).
 
 ## Password protection
 

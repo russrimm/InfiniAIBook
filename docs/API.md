@@ -32,6 +32,7 @@ Two checks apply whether or not a password is set:
 | POST | `/api/auth/login` | `{ password }` | Sets a signed 30-day HTTP-only cookie. Attempts are serialized; each failure delays the next one longer (up to 30 s) |
 | POST | `/api/auth/logout` | — | Clears the cookie |
 | GET | `/api/auth/status` | — | `{ auth }`: whether a password is required |
+| GET | `/api/health` | — | Health probe, served without a session and under any `Host`. `200 {"status":"ok"}`, or `503 {"status":"unavailable"}` when the database cannot be read. Nothing else is returned |
 
 ## Notebooks
 

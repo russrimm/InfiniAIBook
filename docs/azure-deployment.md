@@ -79,6 +79,14 @@ if: >-
   github.event.workflow_run.head_repository.full_name == github.repository)
 ```
 
+After the revision reports healthy, the last step is a smoke test: it looks up the
+Container App's ingress hostname with `az containerapp show` and requests
+`https://<fqdn>/api/health`, retrying with backoff for about five minutes. The job
+fails unless it gets `200 {"status":"ok"}`, which also proves the app can read its
+SQLite database on the Azure Files share. The endpoint needs no password and is
+safe to expose; see [SECURITY.md](../SECURITY.md). You can run the same check by
+hand with `curl https://<fqdn>/api/health`.
+
 The workflow only changes the app image. Run the Bicep deployment above when
 `infra/` changes, passing the `containerImage` that is currently running.
 
