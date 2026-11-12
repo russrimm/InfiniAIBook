@@ -481,8 +481,9 @@ async function createChat(
   reserve("chat", Math.max(4, Math.ceil(JSON.stringify(params.messages ?? "").length / 8000)));
   const model = params.model;
   const withoutTemp = () => {
-    const { temperature: _omit, ...rest } = params;
-    return rest as ChatParams;
+    const rest: ChatParams & { temperature?: number } = { ...params };
+    delete rest.temperature;
+    return rest;
   };
 
   return withRetry(async () => {
