@@ -79,3 +79,27 @@ jobs:
           done
           echo "::error::Revision did not become healthy in time"
           exit 1
+
+      - name: Smoke test the deployed app
+        run: |
+          fqdn=$(az containerapp show \
+            --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_CONTAINER_APP" \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          if [ -z "$fqdn" ]; then
+            echo "::error::The Container App has no ingress FQDN"
+            exit 1
+          fi
+          url="https://$fqdn/api/health"
+          delay=5
+          for i in $(seq 1 8); do
+            code=$(curl -sS -o /tmp/health.json -w '%{http_code}' --max-time 15 "$url" || true)
+            echo "attempt $i: HTTP ${code:-none}"
+            if [ "$code" = "200" ] && grep -q '"status":"ok"' /tmp/health.json; then
+              echo "Healthy: $url"
+              exit 0
+            fi
+            sleep "$delay"
+            delay=$((delay * 2 > 60 ? 60 : delay * 2))
+          done
+          echo "::error::$url did not report healthy"
+          exit 1
