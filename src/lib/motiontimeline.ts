@@ -100,6 +100,8 @@ export type RenderConfig = {
   height: number;
   fps: number;
   palette: MotionPalette;
+  /** Set for the high-tech style, which only the HyperFrames renderer draws in full. */
+  look?: "hightech";
   duration: number;
   fadeOut: number;
   scenes: RenderScene[];
@@ -321,6 +323,7 @@ export function compileTimeline(
     height: H,
     fps: opts.fps ?? 24,
     palette,
+    ...(plan.style.visual === "hightech" ? { look: "hightech" as const } : {}),
     duration: round(clock),
     fadeOut: FADE_OUT,
     scenes,

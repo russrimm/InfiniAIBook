@@ -10,6 +10,18 @@
  */
 import type { Cutout } from "./hyperframes";
 import { GSAP_FILE, assetBook, esc, num, type HyperframesProject } from "./hyperframesproject";
+import { NUMBER, statText } from "./statcount";
+import { hightechTheme, jsStr, type HtTheme } from "./hightech";
+import {
+  htChips,
+  htCss,
+  htHeadline,
+  htOverlay,
+  htSceneChrome,
+  htStat,
+  htSubline,
+  htTransition,
+} from "./motionhightech";
 import type {
   ActorLayer,
   ChipsLayer,
@@ -42,7 +54,6 @@ const ORDER: Record<Layer["type"], number> = { actor: 0, stat: 1, chips: 2, subl
 const FPS = [24, 30, 60];
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
-const outCubic = (u: number) => 1 - (1 - u) ** 3;
 const hex = (c: string) => (/^#[0-9a-f]{6}$/i.test(c) ? c : "#000000");
 const rgba = (c: string, a: number) => {
   const h = hex(c).slice(1);
@@ -50,19 +61,7 @@ const rgba = (c: string, a: number) => {
 };
 
 /** The number the stat card counts up to, split so the rest of the value stays put. */
-const NUMBER = /^(\D*?)(\d[\d,]*(?:\.\d+)?)(.*)$/;
-
-export function statText(value: string, u: number): string {
-  const m = NUMBER.exec(value);
-  if (!m || u >= 1) return value;
-  const raw = m[2];
-  const decimals = raw.includes(".") ? raw.split(".")[1].length : 0;
-  const v = parseFloat(raw.replace(/,/g, "")) * outCubic(clamp01(u));
-  const text = raw.includes(",")
-    ? v.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-    : v.toFixed(decimals);
-  return `${m[1]}${text}${m[3]}`;
-}
+export { NUMBER, statText };
 
 type Segment = { at: number; duration: number; y: number; from: number; ease: string };
 
@@ -238,7 +237,7 @@ function statHtml(s: StatLayer, id: string, S: number, T: (t: number) => number,
   // The number counts up for a second, a step every 1/30 s.
   if (NUMBER.test(s.value)) {
     for (let step = 0; step <= 30; step++) {
-      js.push(`tl.set("#${id}v",{textContent:${JSON.stringify(statText(s.value, step / 30))}},${T(s.at + 0.2 + step / 30)});`);
+      js.push(`tl.set("#${id}v",{textContent:${jsStr(statText(s.value, step / 30))}},${T(s.at + 0.2 + step / 30)});`);
     }
   }
   return (
@@ -256,6 +255,7 @@ function sceneHtml(
   js: string[],
   book: Book,
   opts: MotionHyperframesOptions,
+  ht: HtTheme | null,
 ): string {
   const S = cfg.width / 1280;
   const T = (t: number) => num(sc.start + t);
@@ -270,16 +270,20 @@ function sceneHtml(
       );
     }
   }
+  if (ht) parts.push(htSceneChrome(i, cfg.scenes.length, S, T, js, ht));
 
   [...sc.layers]
     .sort((a, b) => ORDER[a.type] - ORDER[b.type])
     .forEach((layer, n) => {
       const id = `l${i}x${n}`;
       if (layer.type === "actor") parts.push(actorHtml(layer, id, sc.duration, T, js, book, opts, S));
-      else if (layer.type === "headline") parts.push(headlineHtml(layer, id, cfg.width, S, T, js));
-      else if (layer.type === "subline") parts.push(sublineHtml(layer, id, S, cfg, T, js));
-      else if (layer.type === "chips") parts.push(chipsHtml(layer, id, S, T, js));
-      else parts.push(statHtml(layer, id, S, T, js));
+      else if (layer.type === "headline")
+        parts.push(ht ? htHeadline(layer, id, cfg.width, S, T, js) : headlineHtml(layer, id, cfg.width, S, T, js));
+      else if (layer.type === "subline")
+        parts.push(ht ? htSubline(layer, id, S, T, js, ht) : sublineHtml(layer, id, S, cfg, T, js));
+      else if (layer.type === "chips")
+        parts.push(ht ? htChips(layer, id, S, T, js, sc.duration) : chipsHtml(layer, id, S, T, js));
+      else parts.push(ht ? htStat(layer, id, S, T, js, ht) : statHtml(layer, id, S, T, js));
     });
   return parts.join("\n");
 }
@@ -295,6 +299,7 @@ export function buildMotionHyperframes(cfg: RenderConfig, opts: MotionHyperframe
   const html: string[] = [];
   const last = cfg.scenes.length - 1;
   const bar = Math.round(56 * S);
+  const ht = cfg.look === "hightech" ? hightechTheme(cfg.palette) : null;
 
   cfg.scenes.forEach((sc, i) => {
     // A scene stays until the next one has finished arriving over it.
@@ -304,12 +309,14 @@ export function buildMotionHyperframes(cfg: RenderConfig, opts: MotionHyperframe
     const z = i * 2 + 1;
     const at = num(sc.start);
     html.push(
-      `<div id="s${i}" class="scene" data-start="${at}" data-duration="${num(hold)}" style="z-index:${z};background:${hex(sc.background.color)}">`,
-      sceneHtml(sc, i, cfg, js, book, opts),
+      `<div id="s${i}" class="scene" data-start="${at}" data-duration="${num(hold)}" style="z-index:${z};background:${ht ? ht.base : hex(sc.background.color)}">`,
+      sceneHtml(sc, i, cfg, js, book, opts, ht),
       `</div>`,
     );
     if (d <= 0) return;
-    if (kind === "slide") {
+    if (ht && kind !== "wipe") {
+      htTransition(i, sc, z, W, H, S, html, js, ht);
+    } else if (kind === "slide") {
       js.push(
         `tl.fromTo("#s${i}",{x:${W}},{x:0,duration:${d},ease:"sine.inOut"},${at});`,
         `tl.fromTo("#s${i - 1}",{x:0},{x:${-W},duration:${d},ease:"sine.inOut",immediateRender:false},${at});`,
@@ -317,7 +324,7 @@ export function buildMotionHyperframes(cfg: RenderConfig, opts: MotionHyperframe
     } else if (kind === "wipe") {
       // The new scene is revealed from the left behind a sweeping accent bar.
       html.push(
-        `<div id="w${i}" class="bar" data-start="${at}" data-duration="${num(d)}" style="z-index:${z + 1};width:${bar}px;height:${H}px;background:${hex(cfg.palette.accent)}"></div>`,
+        `<div id="w${i}" class="bar" data-start="${at}" data-duration="${num(d)}" style="z-index:${z + 1};width:${bar}px;height:${H}px;background:${ht ? ht.a2 : hex(cfg.palette.accent)}"></div>`,
       );
       js.push(
         `tl.fromTo("#s${i}",{clipPath:"inset(0px ${W + bar}px 0px 0px)"},{clipPath:"inset(0px 0px 0px 0px)",duration:${d},ease:"sine.inOut"},${at});`,
@@ -328,17 +335,19 @@ export function buildMotionHyperframes(cfg: RenderConfig, opts: MotionHyperframe
     }
   });
 
+  if (ht) html.push(htOverlay(cfg, S, js, ht));
+
   if (cfg.fadeOut > 0) {
     const from = num(Math.max(0, total - cfg.fadeOut));
     html.push(
-      `<div id="out" class="out" data-start="${from}" data-duration="${num(cfg.fadeOut)}" style="background:${hex(cfg.palette.dark)}"></div>`,
+      `<div id="out" class="out" data-start="${from}" data-duration="${num(cfg.fadeOut)}" style="background:${ht ? ht.deep : hex(cfg.palette.dark)}"></div>`,
     );
     js.push(`tl.fromTo("#out",{opacity:0},{opacity:1,duration:${cfg.fadeOut},ease:"none"},${from});`);
   }
   // Pin the timeline to the video's length.
   js.push(`tl.set("#root",{opacity:1},${num(total)});`);
 
-  const dark = hex(cfg.palette.dark);
+  const dark = ht ? ht.base : hex(cfg.palette.dark);
   const css = `
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: ${W}px; height: ${H}px; overflow: hidden; background: ${dark}; }
@@ -365,7 +374,7 @@ body { font-family: ${FONT}; }
 .stat { position: absolute; transform: translate(-50%, -50%); }
 .statc { width: max-content; text-align: center; }
 .statv { font-weight: 700; line-height: 1; white-space: nowrap; }
-.statl { white-space: nowrap; }`;
+.statl { white-space: nowrap; }${ht ? htCss(ht, S) : ""}`;
 
   // Text is fitted in the browser, as render.py does with its fonts: headlines
   // shrink to two lines, one-liners and chip rows to the frame's width.
@@ -373,8 +382,9 @@ body { font-family: ${FONT}; }
 const S = ${num(S)}, W = ${W};
 document.querySelectorAll(".hlt").forEach(function (el) {
   var size = +el.dataset.size, ws = el.querySelectorAll(".w");
+  var max = +(el.dataset.lines || 2), floor = (max === 1 ? 34 : 24) * S;
   function lines() { var tops = {}; ws.forEach(function (w) { tops[Math.round(w.offsetTop)] = 1; }); return Object.keys(tops).length; }
-  while (lines() > 2 && size > 24 * S) { size -= 4; el.style.fontSize = size + "px"; }
+  while (lines() > max && size > floor) { size -= 4; el.style.fontSize = size + "px"; }
   var p = el.parentElement;
   if (p.dataset.panel === "1") p.style.padding = (size * 0.3) + "px " + (size * 0.6) + "px";
 });

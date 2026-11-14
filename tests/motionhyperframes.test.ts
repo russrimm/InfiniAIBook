@@ -187,6 +187,103 @@ describe("HyperFrames motion project", () => {
   });
 });
 
+describe("high-tech motion style", () => {
+  const tech = (over: Partial<RenderConfig> = {}): RenderConfig => ({ ...config(), look: "hightech", ...over });
+  const build = (cfg: RenderConfig = tech()) => buildMotionHyperframes(cfg, opts);
+
+  it("leaves the standard style untouched", () => {
+    const html = buildMotionHyperframes(config(), opts).html;
+    expect(html).not.toContain("ht-glass");
+    expect(html).not.toContain('id="hud"');
+    expect(html).not.toContain("drop-shadow(");
+  });
+
+  it("is still a root composition timed like the config, with a HUD and a scene counter", () => {
+    const cfg = tech();
+    const p = build(cfg);
+    expect(p.html).toContain(`data-composition-id="root" data-width="1280" data-height="720" data-start="0" data-duration="${cfg.duration}"`);
+    expect(p.html).toContain('window.__timelines["root"] = tl;');
+    expect(p.html).toContain('id="hud"');
+    cfg.scenes.forEach((s, i) => {
+      expect(p.html).toMatch(new RegExp(`id="s${i}" class="scene" data-start="${s.start}" data-duration="`));
+      expect(p.html).toContain(`id="s${i}t" class="ht-tag"`);
+    });
+    expect(p.html).toContain("ht-grid");
+    expect(p.html).toContain("ht-scan");
+  });
+
+  it("swaps fades and slides for glitch bursts, and keeps the wipe behind a neon bar", () => {
+    const html = build().html;
+    expect(html).not.toContain('tl.fromTo("#s2",{x:1280}');
+    expect(html).not.toContain('tl.fromTo("#s1",{opacity:0}');
+    expect(html).toContain('tl.set("#s2",{opacity:0},0);');
+    expect(html).toContain('filter:"drop-shadow(');
+    expect(html).toContain('id="w1" class="bar"');
+  });
+
+  it("reveals the headline letter by letter and types the subline with a cursor", () => {
+    const html = build().html;
+    expect(html).toMatch(/id="l0x\d+w0c0" class="ch" style="opacity:0"/);
+    expect(html).toMatch(/id="l0x\d+tu" style="display:inline-block/);
+    expect(html).toMatch(/tl\.set\("#l0x\d+to",\{textContent:"S"}/);
+  });
+
+  it("gives chips a spinning neon border and decodes their text", () => {
+    const html = build().html;
+    expect(html).toMatch(/class="ht-spin" style="background:conic-gradient/);
+    expect(html).toMatch(/tl\.fromTo\("#l1x\d+c0s",\{rotation:0\},\{rotation:\d+/);
+    expect(html).toMatch(/tl\.set\("#l1x\d+c0t",\{textContent:"Fast"\}/);
+  });
+
+  it("counts the stat up and decodes its label, still ending on the real text", () => {
+    const html = build().html;
+    const steps = html.match(/"#l0x\d+v",\{textContent:"[^"]*"/g) ?? [];
+    expect(steps).toHaveLength(31);
+    expect(steps.at(-1)).toContain('"1,200 tons"');
+    expect(html).toMatch(/tl\.set\("#l0x\d+l",\{textContent:"wasted a year"\}/);
+  });
+
+  it("keeps text legible on any palette: dark glass and light type, never palette text colors", () => {
+    const light = { dark: "#FFFFFF", primary: "#FFFF00", accent: "#EEEEEE", pop: "#DDDDDD", light: "#FFFFFF" };
+    const html = build(tech({ palette: light })).html;
+    expect(html).toContain("color: #EAF8FF");
+    expect(html).toMatch(/\.ht-in \{[^}]*background: rgba\(\d{1,2},\d{1,2},\d{1,2},/);
+    expect(html).toMatch(/html, body \{[^}]*background: #[0-3][0-9A-F]{5}/);
+  });
+
+  it("escapes user text in markup and in the script", () => {
+    const cfg = tech();
+    const evil = '</script><script>alert(1)</script><img src=x onerror=alert(1)>';
+    for (const layer of cfg.scenes[0].layers) {
+      if (layer.type === "headline") layer.words = evil.split(" ").map((text, k) => ({ text, at: 0.3 + k * 0.1 }));
+      if (layer.type === "subline") layer.text = evil;
+      if (layer.type === "chips") layer.items[0].text = evil;
+      if (layer.type === "stat") {
+        layer.value = evil;
+        layer.label = evil;
+      }
+    }
+    const html = build(cfg).html;
+    expect(html).not.toContain("<img src=x");
+    expect(html).not.toContain("<script>alert");
+    expect(html.match(/<script/g)).toHaveLength(2);
+    expect(html.match(/<\/script>/g)).toHaveLength(2);
+  });
+
+  it("is deterministic and has no unseeded randomness", () => {
+    expect(build().html).toBe(build().html);
+    expect(build().html).not.toContain("Math.random");
+    expect(build().html).not.toContain("Date.now");
+  });
+
+  it("scales to the frame", () => {
+    const cfg = { ...config(["wipe", "slide"], 1920, 1080), look: "hightech" as const };
+    const html = build(cfg).html;
+    expect(html).toContain('data-width="1920" data-height="1080"');
+    expect(html).toContain('style="z-index:5000;width:1920px;height:1080px"');
+  });
+});
+
 describe("renderer choice", () => {
   it("defaults to the Python renderer", () => {
     const before = process.env.MOTION_RENDERER;
