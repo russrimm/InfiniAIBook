@@ -6,15 +6,17 @@ spreadsheet", "Share this document with my team"), and the helper looks at your
 screen and walks you through it **one step at a time**, with a numbered box
 on a snapshot of your screen showing where to click.
 
-Open it from the header on the home page or in any notebook.
+Open it from the header on the home page or in any notebook. The helper fills
+the browser viewport, giving the shared screen and conversation the full
+available width without unused margins on either side.
 
 ## How it works
 
 1. **Type what you need help with.** That becomes the goal for the session.
-2. **Choose what to share.** Your browser asks which screen, window or tab to
-   share. Pick the single app window you need help with: it gives the model a
-   clearer picture than the whole screen, and keeps InfiniAIBook itself out of
-   the frame.
+2. **Choose what to share.** Click **Share screen & ask**. Your browser asks
+   which screen, window or tab to share. Pick the single app window you need
+   help with: it gives the model a clearer picture than the whole screen, and
+   keeps InfiniAIBook itself out of the frame.
 3. **Follow the highlighted step.** Each answer explains what you are looking
    at, names the next control exactly as it is labeled, and draws a numbered box
    around it on the screenshot the helper analyzed. The box is approximate, so
@@ -25,6 +27,15 @@ Open it from the header on the home page or in any notebook.
 
 When the goal looks done on screen, the helper says so and suggests what you
 might do next. **Start over** keeps sharing and clears the goal.
+
+The left pane shows the screenshot used for the selected answer, not necessarily
+the current screen. Choose **Show live view** to see what you are sharing now,
+or **Show on screenshot** on an earlier answer to revisit its highlighted step.
+
+Choose **Stop sharing** in the helper or your browser to end capture; the
+conversation stays open. Use **Share screen** to resume. **Close** or **Escape**
+closes the helper and stops sharing. Save any session you want to keep before
+closing it.
 
 ### Auto-watch
 
@@ -102,6 +113,8 @@ of it. A wrong highlight is worse than none.
   `getDisplayMedia` with a canvas that draws a fake app, so no permission
   prompt appears. Most tests script the model's replies. One runs the real
   route against `e2e/mock-llm.mjs`, a local OpenAI-compatible stand-in, so no
-  provider or credentials are needed. The suite starts its own dev server on
+  provider or credentials are needed. Layout checks cover full-viewport sizing
+  before and during sharing on desktop and mobile-sized viewports, composer
+  visibility, and focus restoration after closing. The suite starts its own dev server on
   port 3123 with a temporary `DATA_DIR`. Run `npx playwright install chromium`
   once first.
