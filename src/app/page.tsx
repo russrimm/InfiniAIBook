@@ -137,8 +137,8 @@ export default function Home() {
         aria-label="Primary"
         className="mb-14 flex items-center justify-between gap-4"
       >
-        <div className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-          <Logo size={28} />
+        <div className="flex shrink-0 items-center gap-3 text-lg font-semibold tracking-tight">
+          <Logo size={40} />
           InfiniAIBook
         </div>
         <div className="flex flex-wrap items-center justify-end gap-x-1 gap-y-0.5 text-[13px]">
@@ -337,10 +337,23 @@ export default function Home() {
                 </p>
                 <button
                   aria-label={`Delete notebook ${n.title}`}
-                  className="reveal absolute top-3 right-3 z-10 rounded-lg px-2 py-1 text-xs text-[var(--muted)] transition hover:bg-hover hover:text-red-400"
+                  title="Delete notebook"
+                  className="absolute top-3 right-3 z-10 flex size-9 items-center justify-center rounded-lg text-[var(--muted)] transition hover:bg-hover hover:text-red-400"
                   onClick={() => void remove(n.id, n.title)}
                 >
-                  Delete
+                  <svg
+                    aria-hidden="true"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M5 6l1 14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1l1-14M10 10v7M14 10v7" />
+                  </svg>
                 </button>
               </li>
             ))}

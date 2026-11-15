@@ -47,6 +47,17 @@ https://github.com/user-attachments/assets/7651fdca-42dd-45e4-8e56-f56f07c3b6d9
 
 How it works, setup and costs: [Training videos](docs/training-videos.md).
 
+#### Live VASA-2 presenter (preview)
+
+Open a training video's script and choose **Preview live (VASA-2)** to have one
+of four VASA-2 talking-head avatars (Leonie, Leonie Professional, George or
+Marcel) speak the transcript in your browser, in real time. Nothing is recorded
+or added to the video. It needs an Azure Speech resource in West US 2, Central
+India, Southeast Asia or Sweden Central; see
+[Live VASA-2 presenter](docs/training-videos.md#live-vasa-2-presenter).
+
+![Live presenter dialog offering the four VASA-2 avatars Leonie, Leonie Professional, George and Marcel, a voice picker, a video area and the training transcript](docs/screenshots/live-presenter.png)
+
 ### Sample: a whiteboard video
 
 The 🎬 **Whiteboard video** generator plans a short scene-by-scene story from
@@ -79,12 +90,17 @@ How it works, customization and setup: [Motion explainers](docs/motion-explainer
 
 - **Sources** — PDF, DOCX, PPTX, TXT, MD, CSV, JSON, HTML, images, audio/video, ZIP archives,
   pasted text, URLs, YouTube links and RSS/Atom feeds; discover sources from a topic,
-  browse the web in-app, or reuse a source from another notebook. Uploads are
-  processed in the background, and linked sources are re-checked for changes.
+  browse the web in-app, import full **Microsoft Learn** pages, or reuse a source
+  from another notebook. Uploads are processed in the background, and linked
+  sources are re-checked for changes.
   [More](docs/sources.md)
-- **Grounded chat** — streaming answers built only from your selected sources,
-  with clickable inline citations that open the highlighted passage, **Stop**
-  that keeps the partial answer, and multiple chat sessions per notebook.
+- **Grounded chat** — streaming answers from your selected saved sources,
+  optionally joined by fresh documentation with per-notebook **Use live Microsoft
+  Learn in chat** (off by default). Click citations to open the saved source
+  passage or the Learn excerpt captured with that answer. Live results do not
+  become notebook sources; import pages explicitly for Studio, discussions or
+  library-wide Search/Ask. **Stop** keeps a partial answer, and each notebook
+  supports multiple chat sessions. [More](docs/sources.md#microsoft-learn-imports-and-live-chat)
 - **Notes and transformations** — Markdown notes, saved chat answers (citations
   kept), notes turned into sources, and reusable prompts run on a source.
   [More](docs/notes-and-search.md)
@@ -97,8 +113,10 @@ How it works, customization and setup: [Motion explainers](docs/motion-explainer
   across every notebook. [More](docs/notes-and-search.md#search-and-ask)
 - **Screen helper** — share any app's window, type what you need help with,
   and get coached one step at a time, with the next control highlighted on a
-  screenshot. Auto-watch notices when you have done a step and suggests the
-  next. [More](docs/screen-helper.md)
+  screenshot in a full-browser workspace. Turn on **Auto-watch** to get the
+  next suggestion after the screen changes, or **Read steps aloud** to hear
+  the instructions. Inside a notebook, save the session as a note.
+  [More](docs/screen-helper.md)
 - **Studio** — fourteen generators, each producing a structured, interactive
   artifact ([see an example of each](#studio-examples)):
 
@@ -131,6 +149,11 @@ How it works, customization and setup: [Motion explainers](docs/motion-explainer
 - **Reduced motion** — honors the OS or browser `prefers-reduced-motion`
   setting: entrances fade instead of moving, spinners and mind maps stop
   animating, and scrolling jumps instead of gliding.
+- **Render progress** — training videos, whiteboard videos and motion explainers
+  show each stage's progress while they render, and report why a render failed.
+- **Spend ceiling** — estimated model, speech and image spend stops at $25 per
+  UTC day when a cloud provider is configured; set `DAILY_BUDGET_USD` to change
+  or turn it off. [More](SECURITY.md)
 - **Everything is local** — sources, embeddings, chat history, artifacts and
   media live under `.data/`. Password protection and a Docker image included.
 
@@ -148,13 +171,13 @@ passage it came from.
 
 | 📄 Report | 🧾 Briefing doc |
 |---|---|
-| ![Report with an executive summary, analysis sections, a comparison table and inline citations](docs/screenshots/studio/report.png) | ![One-page briefing with a bottom line, what the sources say, risks and caveats, and recommended next steps](docs/screenshots/studio/briefing.png) |
+| ![Report with an executive summary, numbered analysis sections and inline citations](docs/screenshots/studio/report.png) | ![One-page briefing with a bottom line and a cited bulleted summary of what the sources say](docs/screenshots/studio/briefing.png) |
 | An in-depth write-up with an executive summary, analysis, tables, key takeaways and open questions | An executive one-pager: bottom line, evidence, risks and next steps |
 | **🎓 Study guide** | **❓ FAQ** |
-| ![Study guide with core concepts, a glossary table and short-answer questions](docs/screenshots/studio/study-guide.png) | ![FAQ with expandable questions and cited answers](docs/screenshots/studio/faq.png) |
+| ![Study guide with core concepts explained in short, cited sections](docs/screenshots/studio/study-guide.png) | ![FAQ with expandable questions and cited answers](docs/screenshots/studio/faq.png) |
 | Core concepts, a glossary, ten short-answer questions and an answer key | The questions the sources actually answer, as expandable items |
 | **🗓️ Timeline** | **📽️ [PowerPoint deck](docs/studio.md#powerpoint-deck)** |
-| ![Vertical timeline of the pilot from the February survey to the October lease decision](docs/screenshots/studio/timeline.png) | ![Slide preview with thumbnails and cited speaker notes](docs/screenshots/studio/powerpoint-deck.png) |
+| ![Vertical timeline of the pilot from the January grant approval through the build day, planting and routine care](docs/screenshots/studio/timeline.png) | ![Slide preview with thumbnails and cited speaker notes](docs/screenshots/studio/powerpoint-deck.png) |
 | A dated chronology of the events in the sources | Slides with speaker notes and a sources slide; download as PPTX |
 
 ### Visuals
@@ -168,7 +191,7 @@ passage it came from.
 
 | 🧠 [Quiz](docs/studio.md#quiz) | 🗂️ [Flashcards](docs/studio.md#flashcards) |
 |---|---|
-| ![Scored quiz showing 5 of 6 correct with a retry button and cited explanations](docs/screenshots/studio/quiz.png) | ![Flashcard deck in Browse all view with two cards marked got it and one marked missed](docs/screenshots/studio/flashcards.png) |
+| ![Scored quiz showing 10 of 12 correct with a retry button and cited explanations](docs/screenshots/studio/quiz.png) | ![Flashcard deck in Browse all view with two cards marked got it and one marked missed](docs/screenshots/studio/flashcards.png) |
 | Scored multiple choice with cited explanations; retry only the ones you missed | Flip, self-grade and shuffle, or browse the deck as a list; export to Anki or Quizlet |
 
 ### Audio & video
@@ -208,6 +231,11 @@ Open <http://localhost:3000>. See [Getting started](docs/getting-started.md) for
 Docker and password protection, and [Configuration](docs/configuration.md) for
 providers and environment variables.
 
+Useful commands: `npm run lint`, `npm test` (unit tests), `npm run test:e2e`
+(browser tests) and `npm run build`. Without credentials, `npm run check:ssrf`,
+`npm run check:motion` and `npm run check:training` verify URL-fetch safety and
+the video renderers.
+
 ### Models and what they're used for
 
 Only a chat model is required; each of the others switches features on. Azure
@@ -227,14 +255,34 @@ defaults and what happens without each one.
 | Azure Speech | `AZURE_SPEECH_REGION` + `AZURE_SPEECH_RESOURCE_ID` (or `AZURE_SPEECH_KEY`) | Every voice: audio overviews, video narration, training-video avatars |
 | Gemini | `GEMINI_API_KEY` | YouTube transcripts |
 
+If a YouTube source says its transcript could not be retrieved, configure
+`GEMINI_API_KEY` on the app server with a key from
+[Google AI Studio](https://aistudio.google.com/apikey), then restart or redeploy
+the app and retry the link. Gemini transcription is separate from the chat and
+audio-upload transcription providers. `YOUTUBE_API_KEY` only supplies metadata;
+a signed-in `YOUTUBE_COOKIE` does not guarantee access to public captions.
+You can also use **Paste** to add a transcript you already have.
+
 Whiteboard videos and motion explainers also need Python 3 with `numpy`,
-`Pillow` and `imageio-ffmpeg`.
+`Pillow` and `imageio-ffmpeg`. Training videos and motion explainers can
+optionally be composed with [HyperFrames](docs/training-videos.md#the-hyperframes-compositor)
+(`TRAINING_RENDERER=hyperframes`, `MOTION_RENDERER=hyperframes`), falling back
+to the Python renderer if it fails.
 
 ## Documentation
 
 Full documentation is in [docs/](docs/README.md), including
 [how grounding works](docs/grounding.md), the [architecture](docs/architecture.md)
 and the [REST API](docs/API.md).
+
+### Use it from your coding agent
+
+An [Agent Skill](docs/agent-skill.md) teaches GitHub Copilot, Claude Code, Codex,
+Cursor and other agents to install, configure and drive InfiniAIBook for you:
+
+```bash
+npx skills add russrimm/InfiniAIBook --skill infiniaibook
+```
 
 ## Contributing
 

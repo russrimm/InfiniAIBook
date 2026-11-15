@@ -9,11 +9,22 @@ import MotionCustomize, {
 import MusicPicker from "@/components/MusicPicker";
 import WatermarkPicker from "@/components/WatermarkPicker";
 import NarrationOptions from "@/components/NarrationOptions";
-import StudioCard from "@/components/StudioCard";
+import StudioCard, { StudioBlockedReason } from "@/components/StudioCard";
+import StudioGroup from "@/components/StudioGroup";
+import { SearchIcon } from "@/components/icons";
+import GenerationModal, { type GenerationJob } from "@/components/GenerationModal";
 import VoicePicker from "@/components/VoicePicker";
 import PresenterGallery from "@/components/PresenterGallery";
 import { voiceNickname } from "@/lib/voicecatalog";
-import { STUDIO, STUDIO_SECTIONS, studioIcon, studioLabel } from "@/lib/studio";
+import {
+  STUDIO,
+  STUDIO_SECTIONS,
+  STUDIO_SPOKEN_GROUPS,
+  studioIcon,
+  studioLabel,
+  studioMatches,
+  type StudioItemId,
+} from "@/lib/studio";
 import { DEFAULT_SLIDE_THEME, SLIDE_THEMES } from "@/lib/slides";
 import { EMPTY_NARRATION, type NarrationSettings } from "@/lib/narration";
 import type { MusicChoice } from "@/lib/musicchoice";
@@ -38,7 +49,12 @@ import {
   type WhiteboardPreset,
 } from "@/lib/whiteboard";
 import SceneLengthRow from "@/components/SceneLengthRow";
-import { DEFAULT_COMPOSITION } from "@/lib/trainingvisuals";
+import {
+  DEFAULT_COMPOSITION,
+  TRAINING_LOOKS,
+  TRAINING_LOOK_LABELS,
+  type TrainingLook,
+} from "@/lib/trainingvisuals";
 import { readJSONReply } from "@/lib/jsonreply";
 import {
   DEFAULT_STYLE,
@@ -80,6 +96,7 @@ import {
   BACKGROUNDS,
   DEFAULT_BACKGROUND,
   DEFAULT_PRESENTER,
+  PRESENTER_ENTRIES,
   avatarPicture,
 } from "@/lib/avatars";
 
@@ -222,6 +239,8 @@ export default function StudioPanel({
   onShowSources?: () => void;
 }) {
   const [view, setView] = useState<"create" | "library">("create");
+  const [query, setQuery] = useState("");
+  const [folded, setFolded] = useState<Set<string>>(new Set());
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState<InfographicStyle>(DEFAULT_STYLE);
   const [orientation, setOrientation] =
@@ -344,7 +363,12 @@ export default function StudioPanel({
   const [trainingPalette, setTrainingPalette] = useState<
     keyof typeof MOTION_PALETTES
   >(DEFAULT_COMPOSITION.palette);
+  const [trainingLook, setTrainingLook] = useState<TrainingLook>(
+    DEFAULT_COMPOSITION.look,
+  );
   const [running, setRunning] = useState<Set<ArtifactType>>(new Set());
+  const [generationJobs, setGenerationJobs] = useState<Partial<Record<ArtifactType, GenerationJob>>>({});
+  const [statusOpen, setStatusOpen] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<ArtifactType, string>>>(
     {},
   );
@@ -398,6 +422,17 @@ export default function StudioPanel({
     url: string,
     body: Record<string, unknown>,
   ) => {
+    const report = (status: string) => setGenerationJobs((prev) => ({
+      ...prev,
+      [type]: { id: type, label: studioLabel(type), status },
+    }));
+    const removeJob = () => setGenerationJobs((prev) => {
+      const next = { ...prev };
+      delete next[type];
+      return next;
+    });
+    report("Sending generation request");
+    setStatusOpen(true);
     setRunning((prev) => new Set(prev).add(type));
     setErrors((prev) => {
       const next = { ...prev };
@@ -407,21 +442,29 @@ export default function StudioPanel({
     try {
       const res = await fetch(url, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", accept: "application/x-ndjson" },
         body: JSON.stringify(body),
       });
       const json = await readJSONReply<ArtifactSummary & { error?: string }>(
         res,
         "Generation failed",
+        report,
       );
+      report("Refreshing the library");
       await onChanged();
       // Opened through the same path as a list entry so the modal always shows
       // the stored row rather than whatever the POST happened to return.
+      removeJob();
       onOpen(json as ArtifactSummary);
     } catch (e) {
+      const error = e instanceof Error ? e.message : "Generation failed";
+      setGenerationJobs((prev) => ({
+        ...prev,
+        [type]: { id: type, label: studioLabel(type), status: "Generation failed", error },
+      }));
       setErrors((prev) => ({
         ...prev,
-        [type]: e instanceof Error ? e.message : "Generation failed",
+        [type]: error,
       }));
     } finally {
       setRunning((prev) => {
@@ -517,6 +560,7 @@ export default function StudioPanel({
         ...DEFAULT_COMPOSITION,
         mode: trainingMode,
         palette: trainingPalette,
+        look: trainingLook,
       },
     });
 
@@ -548,6 +592,34 @@ export default function StudioPanel({
     );
 
   const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  // Studio filter and grouping. While a filter is typed every group opens so
+  // matches are never hidden behind a collapsed heading.
+  const filtering = query.trim() !== "";
+  const spokenGroup = (key: string) => STUDIO_SPOKEN_GROUPS.find((g) => g.key === key)!;
+  const listen = spokenGroup("listen");
+  const watch = spokenGroup("watch");
+  const matching = (group: { label: string }, ids: StudioItemId[]) =>
+    ids.filter(
+      (id) => (id !== "discussion" || !!onDiscuss) && studioMatches(query, id, group.label),
+    );
+  const listenShown = matching(listen, listen.items);
+  const watchShown = matching(watch, watch.items);
+  const sectionShown = Object.fromEntries(
+    STUDIO_SECTIONS.map((s) => [s.key, matching(s, s.types) as ArtifactType[]]),
+  );
+  const shownCount =
+    listenShown.length +
+    watchShown.length +
+    Object.values(sectionShown).reduce((n, ids) => n + ids.length, 0);
+  const isOpen = (key: string) => filtering || !folded.has(key);
+  const toggleGroup = (key: string) =>
+    setFolded((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+  const blockedReasonId = "studio-blocked-reason";
   const deliveryLabel = {
     natural: "natural dialogue",
     even: "even delivery",
@@ -620,6 +692,9 @@ export default function StudioPanel({
             in the background. It opens when ready, and you can keep working
             meanwhile.
           </span>
+          <button type="button" className="btn shrink-0 !text-[11px]" onClick={() => setStatusOpen(true)}>
+            View status
+          </button>
         </p>
       )}
 
@@ -678,18 +753,27 @@ export default function StudioPanel({
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           {blocked && (
-            <div className="mb-3 flex items-center gap-2 rounded-lg border border-[var(--border)] bg-well px-3 py-2 text-[11px] text-[var(--muted)]">
-              <span className="flex-1">
+            <div
+              id={blockedReasonId}
+              role="status"
+              data-testid="studio-blocked"
+              className="mb-3 flex items-center gap-3 rounded-lg border border-[var(--border)] bg-well px-3 py-3 text-[11px] text-[var(--muted)]"
+            >
+              <span className="flex-1 leading-snug">
+                <strong className="block text-[12px] font-medium text-[var(--fg)]">
+                  {hasSources ? "Generate is off: no source is ticked" : "Generate is off: no sources yet"}
+                </strong>
                 {hasSources
-                  ? "Tick at least one source to generate. Studio uses only the sources you tick."
-                  : "Add a source to start creating. Everything here is built from your sources."}
+                  ? "Studio only uses ticked sources. Tick at least one in Sources and every Generate button below turns on."
+                  : "Everything here is built from your sources. Add a file, link or pasted text, then tick it, and every Generate button below turns on."}
               </span>
               {onShowSources && (
                 <button
-                  className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
+                  className="btn shrink-0 !min-h-9 !px-2.5 !py-1 !text-[11px]"
                   onClick={onShowSources}
+                  aria-controls="sources-panel"
                 >
-                  Go to Sources
+                  {hasSources ? "Choose sources" : "Add sources"}
                 </button>
               )}
             </div>
@@ -712,50 +796,94 @@ export default function StudioPanel({
             onChange={(e) => setTopic(e.target.value)}
           />
 
-          {onDiscuss && (
-            <>
-              <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
-                Live
-              </h3>
-              <button
-                type="button"
-                disabled={blocked}
-                onClick={() => onDiscuss(topic)}
-                className="card mb-4 flex w-full items-center gap-3 px-3 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <span aria-hidden className="text-xl">
-                  🎙️
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-medium">
-                    Live discussion
-                  </span>
-                  <span className="block text-[10px] leading-snug text-[var(--muted)]">
-                    Talk it through out loud: discuss, debate, Q&amp;A,
-                    interview or quiz, with cited answers
-                  </span>
-                </span>
-                <span className="shrink-0 text-[11px] text-[var(--muted)]">
-                  Start →
-                </span>
-              </button>
-            </>
-          )}
-
-          <h3 className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase">
-            Audio &amp; video
-          </h3>
-          <p className="mb-2 text-[10px] leading-snug text-[var(--muted)]">
-            Each one stops at an editable script, so nothing is narrated or
-            rendered until you approve it.
+          <label htmlFor="studio-filter" className="sr-only">
+            Filter formats
+          </label>
+          <div className="relative mb-4">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[var(--muted)]"
+            >
+              <SearchIcon width={14} height={14} />
+            </span>
+            <input
+              id="studio-filter"
+              type="search"
+              className="input !pl-8"
+              placeholder="Filter formats, e.g. quiz, video, slides"
+              value={query}
+              autoComplete="off"
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape" && query) {
+                  e.preventDefault();
+                  setQuery("");
+                }
+              }}
+            />
+          </div>
+          <p
+            role="status"
+            className={filtering ? "mt-1 mb-3 text-[11px] text-[var(--muted)]" : "sr-only"}
+          >
+            {filtering
+              ? shownCount > 0
+                ? `${shownCount} ${shownCount === 1 ? "format matches" : "formats match"} “${query.trim()}”.`
+                : `No format matches “${query.trim()}”.`
+              : ""}
+            {filtering && shownCount === 0 && (
+              <>
+                {" "}
+                <button type="button" className="underline" onClick={() => setQuery("")}>
+                  Clear filter
+                </button>
+              </>
+            )}
           </p>
 
-          <div className="space-y-2">
+          <StudioBlockedReason.Provider value={blocked ? blockedReasonId : undefined}>
+          {listenShown.length > 0 && (
+            <StudioGroup
+              id={listen.key}
+              label={listen.label}
+              blurb={listen.blurb}
+              count={listenShown.length}
+              expanded={isOpen(listen.key)}
+              onToggle={() => toggleGroup(listen.key)}
+            >
+              <div className="space-y-2">
+                {listenShown.includes("discussion") && onDiscuss && (
+                  <button
+                    type="button"
+                    disabled={blocked}
+                    aria-describedby={blocked ? blockedReasonId : undefined}
+                    onClick={() => onDiscuss(topic)}
+                    className="card flex w-full items-center gap-3 px-3 py-3 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <span aria-hidden className="text-xl">
+                      🎙️
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px] font-medium">
+                        Live discussion
+                      </span>
+                      <span className="block text-[10px] leading-snug text-[var(--muted)]">
+                        Talk it through out loud: discuss, debate, Q&amp;A,
+                        interview or quiz, with cited answers
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-[11px] text-[var(--muted)]">
+                      Start →
+                    </span>
+                  </button>
+                )}
+            {listenShown.includes("podcast") && (
             <StudioCard
               icon="🎧"
               label="Audio overview"
               testId="audio-card"
               busy={audioBusy}
+              onShowStatus={() => setStatusOpen(true)}
               blocked={blocked}
               error={errors.podcast}
               onGenerate={() => void generateAudio()}
@@ -935,12 +1063,28 @@ export default function StudioPanel({
                 </>
               }
             />
+            )}
+              </div>
+            </StudioGroup>
+          )}
 
+          {watchShown.length > 0 && (
+            <StudioGroup
+              id={watch.key}
+              label={watch.label}
+              blurb={watch.blurb}
+              count={watchShown.length}
+              expanded={isOpen(watch.key)}
+              onToggle={() => toggleGroup(watch.key)}
+            >
+              <div className="space-y-2">
+            {watchShown.includes("video") && (
             <StudioCard
               icon="🎬"
               label="Whiteboard video"
               testId="whiteboard-card"
               busy={videoBusy}
+              onShowStatus={() => setStatusOpen(true)}
               blocked={blocked}
               error={errors.video}
               onGenerate={() => void generateVideo()}
@@ -1012,12 +1156,15 @@ export default function StudioPanel({
                 </>
               }
             />
+            )}
 
+            {watchShown.includes("motion") && (
             <StudioCard
               icon={STUDIO.motion.icon}
               label="Motion explainer"
               testId="motion-card"
               busy={motionBusy}
+              onShowStatus={() => setStatusOpen(true)}
               blocked={blocked}
               error={errors.motion}
               onGenerate={() => void generateMotion()}
@@ -1095,12 +1242,15 @@ export default function StudioPanel({
                 </>
               }
             />
+            )}
 
+            {watchShown.includes("training") && (
             <StudioCard
               icon={STUDIO.training.icon}
               label="Training video"
               testId="training-card"
               busy={trainingBusy}
+              onShowStatus={() => setStatusOpen(true)}
               blocked={blocked}
               error={errors.training}
               onGenerate={() => void generateTraining()}
@@ -1108,8 +1258,8 @@ export default function StudioPanel({
                 trainingBusy
                   ? trainingMode === "composed"
                     ? "Writing the transcript and planning its visuals…"
-                    : "Writing the transcript from your sources and notes…"
-                  : "A presenter teaches your sources and notes. Nothing is billed until you render."
+                    : "Writing the transcript from your selected sources…"
+                  : "A presenter teaches your selected sources. Video rendering is billed only when you render."
               }
               summary={`${AVATAR_PRESETS[trainer]?.label ?? trainer} · ${voiceNickname(trainerVoice)}${trainerStyle ? ` (${trainerStyle})` : ""} · about ${
                 AUDIO_LENGTHS[trainingLen].minutes
@@ -1139,7 +1289,7 @@ export default function StudioPanel({
                           key={String(photo)}
                           label={photo ? "Talking heads" : "Full body"}
                         >
-                          {Object.entries(AVATAR_PRESETS)
+                          {PRESENTER_ENTRIES
                             .filter(([, p]) => !!p.photo === photo)
                             .map(([key, p]) => (
                               <option key={key} value={key}>
@@ -1243,9 +1393,31 @@ export default function StudioPanel({
                       </option>
                       <option value="presenter">Presenter only</option>
                     </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Look
+                    </span>
+                    <select
+                      aria-label="Visual look"
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:opacity-50"
+                      value={trainingLook}
+                      disabled={trainingMode !== "composed"}
+                      onChange={(e) => {
+                        const look = e.target.value as TrainingLook;
+                        setTrainingLook(look);
+                        if (look === "hightech") setTrainingPalette("cyber");
+                      }}
+                    >
+                      {TRAINING_LOOKS.map((k) => (
+                        <option key={k} value={k}>
+                          {TRAINING_LOOK_LABELS[k]}
+                        </option>
+                      ))}
+                    </select>
                     <select
                       aria-label="Visual theme"
-                      className="w-28 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:opacity-50"
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:opacity-50"
                       value={trainingPalette}
                       disabled={trainingMode !== "composed"}
                       onChange={(e) =>
@@ -1280,27 +1452,28 @@ export default function StudioPanel({
                     onSaveDefault={onSaveNarration ? saveNarration : undefined}
                   />
                   <p className="text-[10px] leading-snug text-[var(--muted)]">
-                    Uses the focus, selected sources and all notes.
+                    Uses only checked sources. Focus guides the topic, not the evidence.
                   </p>
                 </>
               }
             />
-          </div>
+            )}
+              </div>
+            </StudioGroup>
+          )}
 
-          {STUDIO_SECTIONS.map((section) => (
-            <section
+          {STUDIO_SECTIONS.filter((section) => sectionShown[section.key].length > 0).map((section) => (
+            <StudioGroup
               key={section.key}
-              className="mt-4"
-              aria-labelledby={`studio-${section.key}`}
+              id={section.key}
+              label={section.label}
+              blurb={section.blurb}
+              count={sectionShown[section.key].length}
+              expanded={isOpen(section.key)}
+              onToggle={() => toggleGroup(section.key)}
             >
-              <h3
-                id={`studio-${section.key}`}
-                className="mb-2 text-[11px] font-semibold tracking-widest text-[var(--muted)] uppercase"
-              >
-                {section.label}
-              </h3>
               <div className="grid grid-cols-2 gap-2">
-                {section.types.map((type) => {
+                {sectionShown[section.key].map((type) => {
                   const s = STUDIO[type];
                   const isBusy = running.has(type);
                   const status = isBusy ? "Generating…" : s.blurb;
@@ -1312,6 +1485,7 @@ export default function StudioPanel({
                           icon={s.icon}
                           label={s.label}
                           busy={isBusy}
+                          onShowStatus={() => setStatusOpen(true)}
                           blocked={blocked}
                           error={errors[type]}
                           onGenerate={() => void generate(type)}
@@ -1370,6 +1544,7 @@ export default function StudioPanel({
                           icon={s.icon}
                           label={s.label}
                           busy={isBusy}
+                          onShowStatus={() => setStatusOpen(true)}
                           blocked={blocked}
                           error={errors[type]}
                           onGenerate={() => void generate(type)}
@@ -1424,6 +1599,7 @@ export default function StudioPanel({
                           icon={s.icon}
                           label={s.label}
                           busy={isBusy}
+                          onShowStatus={() => setStatusOpen(true)}
                           blocked={blocked}
                           error={errors[type]}
                           onGenerate={() => void generate(type)}
@@ -1466,6 +1642,7 @@ export default function StudioPanel({
                           icon={s.icon}
                           label={s.label}
                           busy={isBusy}
+                          onShowStatus={() => setStatusOpen(true)}
                           blocked={blocked}
                           error={errors[type]}
                           onGenerate={() => void generate(type)}
@@ -1658,9 +1835,10 @@ export default function StudioPanel({
                   return (
                     <div key={type} className="flex flex-col">
                       <button
-                        disabled={blocked || isBusy}
-                        onClick={() => void generate(type)}
-                        aria-label={`Generate ${s.label}`}
+                        disabled={blocked && !isBusy}
+                        aria-describedby={blocked && !isBusy ? blockedReasonId : undefined}
+                        onClick={() => isBusy ? setStatusOpen(true) : void generate(type)}
+                        aria-label={isBusy ? `View ${s.label} generation status` : `Generate ${s.label}`}
                         className={`card group relative flex flex-1 flex-col overflow-hidden px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
                           isBusy
                             ? "shimmer border-[var(--accent)]"
@@ -1692,9 +1870,21 @@ export default function StudioPanel({
                   );
                 })}
               </div>
-            </section>
+            </StudioGroup>
           ))}
+          </StudioBlockedReason.Provider>
         </div>
+      )}
+      {statusOpen && Object.keys(generationJobs).length > 0 && (
+        <GenerationModal
+          jobs={Object.values(generationJobs).filter((job): job is GenerationJob => !!job)}
+          onClose={() => {
+            setStatusOpen(false);
+            setGenerationJobs((prev) => Object.fromEntries(
+              Object.entries(prev).filter(([, job]) => !job.error),
+            ));
+          }}
+        />
       )}
     </aside>
   );

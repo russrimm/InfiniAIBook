@@ -37,6 +37,17 @@ import { mixMusicInto, resolveMusic } from "./music";
 import { normalizeMusicChoice } from "./musicchoice";
 import { stampWatermark } from "./watermark";
 import { runPythonRenderer } from "./python";
+import {
+  chooseRenderer,
+  clipsHaveAlpha,
+  finishHyperframesRender,
+  hyperframesFailedNote,
+  runHyperframesRender,
+  stageHyperframesProject,
+} from "./hyperframes";
+import { buildHyperframesProject } from "./traininghyperframes";
+import { trainingHightech } from "./traininghightech";
+import { throttleProgress } from "./renderprogress";
 import { compositionPalette, normalizeComposition } from "./trainingvisuals";
 import {
   compileTrainingTimeline,
@@ -187,6 +198,7 @@ export async function startTrainingRender(id: string): Promise<void> {
       character: preset.character,
       style: preset.style,
       photo: preset.photo,
+      photoModel: preset.photoModel,
       background: backgroundColor(c.background),
       description: c.title,
     });
@@ -509,6 +521,7 @@ async function pollComposed(id: string): Promise<void> {
         character: preset.character,
         style: preset.style,
         photo: preset.photo,
+        photoModel: preset.photoModel,
         background: backgroundColor(c.background),
         description: `${c.title} — section ${i + 1}`,
         transparent: true,
@@ -609,23 +622,68 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
     const logo = comp.logoId ? imagePath(comp.logoId) : null;
     const out = path.join(work, "render.mp4");
 
-    const config = renderConfig(tl, {
-      output: slash(out),
-      background: backgroundColor(c.background),
-      palette: compositionPalette(comp),
-      clip: (i) => slash(trainingClipPath(id, hashes[i])),
-      raster: (key, state) => slash(trainingRasterPath(id, key, state)),
-      burnCaptions: comp.captions === "burned",
-      logo: logo && fs.existsSync(logo) ? slash(logo) : null,
-    });
-    const configPath = path.join(work, "training.json");
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-    await runPythonRenderer(["training", "render.py"], configPath);
+    let note: string | undefined;
+    let rendered = false;
+    // A fresh reporter per attempt, so a fallback render starts its bar over.
+    const reporter = () => {
+      writeTraining(id, { progress: { stage: "composing", renderPct: 0 } });
+      return throttleProgress((renderPct) =>
+        writeTraining(id, { progress: { stage: "composing", renderPct } }),
+      );
+    };
+    const hightech = comp.look === "hightech";
+    const choice = chooseRenderer("TRAINING_RENDERER", hightech);
+    note = choice.note;
+    if (choice.renderer === "hyperframes") {
+      try {
+        const clipFiles = hashes.map((h) => trainingClipPath(id, h));
+        const alpha = await clipsHaveAlpha(clipFiles, work);
+        const opaque = clipFiles.findIndex((f) => !alpha[f]);
+        if (opaque >= 0)
+          throw new Error(
+            `the presenter clip for section ${opaque + 1} has no transparency`,
+          );
+        const project = buildHyperframesProject(tl, {
+          background: backgroundColor(c.background),
+          clip: (i) => clipFiles[i],
+          raster: (key, state) => trainingRasterPath(id, key, state),
+          burnCaptions: comp.captions === "burned",
+          logo: logo && fs.existsSync(logo) ? logo : null,
+          ...(hightech
+            ? { hightech: trainingHightech(input, compositionPalette(comp)) }
+            : {}),
+        });
+        const dir = path.join(work, "hyperframes");
+        stageHyperframesProject(project, dir);
+        const mp4 = await runHyperframesRender(dir, project.fps, reporter());
+        await finishHyperframesRender(mp4, out, tl.duration, work);
+        rendered = fs.existsSync(out);
+      } catch (e) {
+        console.warn(
+          "[training] HyperFrames render failed, using the standard compositor",
+          e,
+        );
+        note = hyperframesFailedNote(hightech, "compositor");
+      }
+    }
+    if (!rendered) {
+      const config = renderConfig(tl, {
+        output: slash(out),
+        background: backgroundColor(c.background),
+        palette: compositionPalette(comp),
+        clip: (i) => slash(trainingClipPath(id, hashes[i])),
+        raster: (key, state) => slash(trainingRasterPath(id, key, state)),
+        burnCaptions: comp.captions === "burned",
+        logo: logo && fs.existsSync(logo) ? slash(logo) : null,
+      });
+      const configPath = path.join(work, "training.json");
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      await runPythonRenderer(["training", "render.py"], configPath, reporter());
+    }
     if (!fs.existsSync(out))
       throw new Error("The compositor finished but produced no file.");
 
     let withMusic = false;
-    let note: string | undefined;
     const music = resolveMusic(normalizeMusicChoice(c.musicChoice));
     if (music) {
       try {
@@ -636,8 +694,12 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
           "[training] music mix failed, keeping the video without it",
           e,
         );
-        note =
-          "The music could not be mixed in, so the video was saved without it.";
+        note = [
+          note,
+          "The music could not be mixed in, so the video was saved without it.",
+        ]
+          .filter(Boolean)
+          .join(" ");
       }
     }
     const mark = await stampWatermark(out, c.watermarkChoice, "training");
@@ -669,6 +731,7 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
     writeTraining(id, {
       progress: {
         stage: "done",
+        renderPct: undefined,
         clips: (c.progress.clips ?? []).map((k) => ({
           hash: k.hash,
           status: "cached" as const,

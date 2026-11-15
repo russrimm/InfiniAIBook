@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-type NbRow = { id: string; title: string; emoji: string; created_at: number };
+type NbRow = { id: string; title: string; emoji: string; created_at: number; live_learn: number };
 type SrcRow = {
   id: string;
   title: string;
@@ -42,7 +42,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
     const nb = db
-      .prepare("SELECT id, title, emoji, created_at FROM notebooks WHERE id = ?")
+      .prepare("SELECT id, title, emoji, created_at, live_learn FROM notebooks WHERE id = ?")
       .get(id) as unknown as NbRow | undefined;
     if (!nb) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -79,6 +79,7 @@ export async function GET(_req: Request, { params }: Ctx) {
         emoji: nb.emoji,
         createdAt: nb.created_at,
         narration: notebookNarration(nb.id),
+        liveLearn: Boolean(nb.live_learn),
       },
       sources: sourceRows.map((s) => ({
         id: s.id,
@@ -109,7 +110,15 @@ export async function GET(_req: Request, { params }: Ctx) {
 export async function PATCH(req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
-    const body = (await req.json()) as { title?: string; narration?: unknown };
+    const body = (await req.json()) as { title?: string; narration?: unknown; liveLearn?: unknown };
+    if (body.liveLearn !== undefined) {
+      if (typeof body.liveLearn !== "boolean") {
+        return NextResponse.json({ error: "liveLearn must be a boolean." }, { status: 400 });
+      }
+      const saved = db.prepare("UPDATE notebooks SET live_learn = ? WHERE id = ?")
+        .run(Number(body.liveLearn), id);
+      if (!saved.changes) return NextResponse.json({ error: "Notebook not found" }, { status: 404 });
+    }
     if (body.title?.trim()) {
       db.prepare("UPDATE notebooks SET title = ? WHERE id = ?").run(
         body.title.trim(),

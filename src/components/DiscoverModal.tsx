@@ -23,11 +23,18 @@ export default function DiscoverModal({
   notebookId,
   onClose,
   onAdd,
+  provider,
+  liveLearn = false,
+  onLiveLearnChange,
 }: {
   notebookId: string;
   onClose: () => void;
   onAdd: (hits: DiscoverHit[]) => void;
+  provider?: "microsoft-learn";
+  liveLearn?: boolean;
+  onLiveLearnChange?: (enabled: boolean) => Promise<void>;
 }) {
+  const learn = provider === "microsoft-learn";
   const [topic, setTopic] = useState("");
   const [results, setResults] = useState<DiscoverHit[] | null>(null);
   const [chosen, setChosen] = useState<Set<string>>(new Set());
@@ -35,12 +42,16 @@ export default function DiscoverModal({
   const [error, setError] = useState<string | null>(null);
   const [queries, setQueries] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [savingLive, setSavingLive] = useState(false);
+  const [liveDraft, setLiveDraft] = useState(liveLearn);
+  const [settingError, setSettingError] = useState<string | null>(null);
 
   const { dialogRef, backdropProps } = useDialog(onClose);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+  useEffect(() => setLiveDraft(liveLearn), [liveLearn]);
 
   const search = async (q: string) => {
     const query = q.trim();
@@ -53,7 +64,7 @@ export default function DiscoverModal({
       const res = await fetch("/api/discover", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ notebookId, topic: query }),
+        body: JSON.stringify({ notebookId, topic: query, ...(provider ? { provider } : {}) }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Search failed");
@@ -96,6 +107,7 @@ export default function DiscoverModal({
 
   return (
     <div
+      data-keeps-sources-open
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/65 p-0 backdrop-blur-sm sm:items-center sm:p-6"
       {...backdropProps}
     >
@@ -112,10 +124,10 @@ export default function DiscoverModal({
             <span className="text-lg">🔎</span>
             <div className="min-w-0 flex-1">
               <h2 id="discover-title" className="text-[15px] font-semibold">
-                Discover sources
+                {learn ? "Microsoft Learn" : "Discover sources"}
               </h2>
               <p className="text-[11px] text-[var(--muted)]">
-                Describe a topic and pick the pages worth adding.
+                {learn ? "Import official documentation as saved sources, or connect live chat." : "Describe a topic and pick the pages worth adding."}
               </p>
             </div>
             <button
@@ -127,6 +139,34 @@ export default function DiscoverModal({
             </button>
           </div>
 
+          {learn && onLiveLearnChange && (
+            <div className="mb-4 rounded-xl border border-[var(--border)] bg-well px-3 py-3">
+              <label className="flex cursor-pointer items-start gap-3 text-sm font-medium">
+                <input type="checkbox" className="mt-1 accent-[var(--accent)]" checked={liveDraft} disabled={savingLive}
+                  onChange={async (event) => {
+                    const enabled = event.target.checked;
+                    setLiveDraft(enabled);
+                    setSavingLive(true);
+                    setSettingError(null);
+                    try {
+                      await onLiveLearnChange(enabled);
+                    } catch (e) {
+                      setLiveDraft(liveLearn);
+                      setSettingError(e instanceof Error ? e.message : "Could not save the live Learn setting.");
+                    } finally {
+                      setSavingLive(false);
+                    }
+                  }} />
+                Use live Microsoft Learn in chat
+              </label>
+              <p className="mt-1 pl-7 text-[11px] leading-relaxed text-[var(--muted)]">
+                {savingLive ? "Saving... " : ""}Search fresh documentation for each chat question, without adding pages to Sources.
+                Live citations keep the excerpt used. Import pages below to use them in Studio.
+              </p>
+              {settingError && <p role="alert" className="mt-2 text-xs text-red-400">{settingError}</p>}
+            </div>
+          )}
+
           <form
             className="flex gap-2"
             onSubmit={(e) => {
@@ -137,7 +177,8 @@ export default function DiscoverModal({
             <input
               ref={inputRef}
               className="input"
-              placeholder="e.g. how mRNA vaccines were developed"
+              placeholder={learn ? "e.g. Copilot Studio agent knowledge" : "e.g. how mRNA vaccines were developed"}
+              maxLength={learn ? 1000 : undefined}
               aria-label="Topic"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
@@ -158,10 +199,10 @@ export default function DiscoverModal({
           {!results && !loading && !error && (
             <div className="py-10 text-center">
               <p className="text-sm text-[var(--muted)]">
-                Search the web for pages about a topic, then choose which to add.
+                {learn ? "Search Microsoft Learn, then import the full pages you choose." : "Search the web for pages about a topic, then choose which to add."}
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
-                {SUGGESTIONS.map((s) => (
+                {(learn ? ["Copilot Studio agent knowledge", "Azure AI Search", "Microsoft Graph permissions"] : SUGGESTIONS).map((s) => (
                   <button
                     key={s}
                     className="btn !px-3 !py-1.5 !text-xs"

@@ -1,5 +1,59 @@
 import { fail } from "./http";
 
+export type GenerationStatus = (status: string) => void;
+
+/**
+ * Studio opts into status events; API clients keep the existing JSON response.
+ * Heartbeats protect both formats from idle-proxy timeouts.
+ */
+export function generationReply(
+  req: Request,
+  work: (report: GenerationStatus) => Promise<Response>,
+  { intervalMs = 15_000 }: { intervalMs?: number } = {},
+): Promise<Response> | Response {
+  if (!req.headers.get("accept")?.split(",").some((v) => v.trim() === "application/x-ndjson")) {
+    return keepAliveJSON(() => work(() => {}));
+  }
+
+  const encoder = new TextEncoder();
+  let open = true;
+  let beat: ReturnType<typeof setInterval> | undefined;
+  const body = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const write = (event: unknown) => {
+        if (open) controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+      };
+      const report: GenerationStatus = (status) => write({ event: "status", status });
+      report("Preparing generation");
+      beat = setInterval(() => write({ event: "heartbeat" }), intervalMs);
+      try {
+        const res = await work(report).catch((e) => fail(e));
+        write({ event: "result", status: res.status, body: await res.json() });
+      } catch (e) {
+        const res = fail(e);
+        write({ event: "result", status: res.status, body: await res.json() });
+      } finally {
+        clearInterval(beat);
+        if (open) {
+          open = false;
+          controller.close();
+        }
+      }
+    },
+    cancel() {
+      open = false;
+      clearInterval(beat);
+    },
+  });
+  return new Response(body, {
+    headers: {
+      "content-type": "application/x-ndjson; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+      "x-accel-buffering": "no",
+    },
+  });
+}
+
 /**
  * Proxies in front of the app drop a response that stays silent too long:
  * Azure Container Apps' ingress answers a plain-text "stream timeout" after

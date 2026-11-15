@@ -1,14 +1,15 @@
+import * as cheerio from "cheerio";
 import { FETCH_HEADERS } from "./ingest";
 import { safeFetch } from "./safefetch";
 
 /**
  * Web search for source discovery.
  *
- * Providers are tried in order of result quality. The DuckDuckGo HTML endpoint
- * is last but needs no key, so discovery works out of the box; setting any of
- * the API keys below simply improves results.
+ * Bing RSS is the primary provider and needs no key. Configured API providers
+ * are fallbacks when Bing fails or returns no usable results.
  */
 
+const SEARCH_TIMEOUT_MS = 12_000;
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
@@ -68,6 +69,7 @@ const tavily: Provider = {
   run: async (query, limit) => {
     const res = await fetch("https://api.tavily.com/search", {
       method: "POST",
+      signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS),
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         api_key: process.env.TAVILY_API_KEY,
@@ -97,6 +99,7 @@ const brave: Provider = {
     const res = await fetch(
       `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${limit}`,
       {
+        signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS),
         headers: {
           accept: "application/json",
           "x-subscription-token": process.env.BRAVE_SEARCH_API_KEY ?? "",
@@ -130,7 +133,8 @@ const googleCse: Provider = {
     const res = await fetch(
       `https://www.googleapis.com/customsearch/v1?key=${key}&cx=${cx}&q=${encodeURIComponent(
         query
-      )}&num=${Math.min(limit, 10)}`
+      )}&num=${Math.min(limit, 10)}`,
+      { signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS) }
     );
     if (!res.ok) {
       const body = await res.text();
@@ -155,62 +159,63 @@ const googleCse: Provider = {
   },
 };
 
-const duckduckgo: Provider = {
-  name: "duckduckgo",
+const bing: Provider = {
+  name: "bing",
   available: () => true,
   run: async (query, limit) => {
     const res = await fetch(
-      `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
-      { headers: { "user-agent": UA, "accept-language": "en-US,en;q=0.9" } }
+      `https://www.bing.com/search?format=rss&q=${encodeURIComponent(query)}`,
+      {
+        headers: { "user-agent": UA, "accept-language": "en-US,en;q=0.9" },
+        signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS),
+      }
     );
-    if (!res.ok) throw new Error(`DuckDuckGo returned ${res.status}`);
-    const html = await res.text();
-    if (/anomaly|unusual traffic/i.test(html)) {
-      throw new SearchUnavailableError("DuckDuckGo rate-limited this network.");
+    if (!res.ok) throw new Error(`Bing returned ${res.status}`);
+    const $ = cheerio.load(await res.text(), { xml: true });
+    if (!$("rss > channel").length) {
+      throw new SearchUnavailableError("Bing did not return a search feed.");
     }
-
-    const hits: SearchHit[] = [];
-    const re =
-      /<a[^>]+class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>([\s\S]*?)(?=<a[^>]+class="[^"]*result__a|$)/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(html)) !== null && hits.length < limit) {
-      let href = m[1].replace(/&amp;/g, "&");
-      // Results are wrapped in a redirect carrying the real target in `uddg`.
-      const redirect = /[?&]uddg=([^&]+)/.exec(href);
-      if (redirect) href = decodeURIComponent(redirect[1]);
-      if (!usable(href)) continue;
-      const snip = /class="result__snippet"[^>]*>([\s\S]*?)<\/a>/.exec(m[3]);
-      hits.push({
-        title: stripTags(m[2]),
-        url: href,
-        snippet: snip ? stripTags(snip[1]).slice(0, 300) : "",
-        host: hostOf(href),
-        provider: "duckduckgo",
-      });
-    }
-    return hits;
+    return $("channel > item")
+      .toArray()
+      .map((item): SearchHit => {
+        const url = $(item).children("link").text().trim();
+        return {
+          title: stripTags($(item).children("title").text()),
+          url,
+          snippet: stripTags($(item).children("description").text()).slice(0, 300),
+          host: hostOf(url),
+          provider: "bing",
+        };
+      })
+      .filter((hit) => usable(hit.url) && hit.title)
+      .slice(0, limit);
   },
 };
 
-const PROVIDERS = [tavily, brave, googleCse, duckduckgo];
+const PROVIDERS = [bing, tavily, brave, googleCse];
 
 export function activeProvider(): string {
-  return (PROVIDERS.find((p) => p.available()) ?? duckduckgo).name;
+  return (PROVIDERS.find((p) => p.available()) ?? bing).name;
 }
 
 async function searchOnce(query: string, limit: number): Promise<SearchHit[]> {
   const errors: string[] = [];
+  let answered = false;
   for (const p of PROVIDERS) {
     if (!p.available()) continue;
     try {
-      const hits = await p.run(query, limit);
-      if (hits.length) return hits;
-      errors.push(`${p.name}: no results`);
+      const hits = (await p.run(query, limit)).filter((hit) => usable(hit.url) && hit.title);
+      answered = true;
+      if (hits.length) {
+        if (errors.length) console.warn("[search]", errors.join(" | "));
+        return hits;
+      }
     } catch (e) {
       errors.push(`${p.name}: ${e instanceof Error ? e.message : "failed"}`);
     }
   }
   if (errors.length) console.warn("[search]", errors.join(" | "));
+  if (!answered) throw new SearchUnavailableError(errors.join(" | "));
   return [];
 }
 
@@ -219,15 +224,26 @@ export async function searchWeb(
   queries: string[],
   limitPerQuery = 10
 ): Promise<SearchHit[]> {
-  const settled = await Promise.all(
-    queries.map((q) => searchOnce(q, limitPerQuery).catch(() => [] as SearchHit[]))
+  const settled = await Promise.allSettled(
+    queries.map((q) => searchOnce(q, limitPerQuery))
   );
+  if (settled.length && settled.every((result) => result.status === "rejected")) {
+    const reasons = [...new Set(settled.map((result) =>
+      result.reason instanceof Error ? result.reason.message : "Search request failed"
+    ))];
+    throw new SearchUnavailableError(
+      `Web search is unavailable: ${reasons.join(" | ")}. Try again shortly or add a link directly. ` +
+      "For an API fallback, configure TAVILY_API_KEY, BRAVE_SEARCH_API_KEY, " +
+      "or GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_CX on the app server and restart it."
+    );
+  }
 
   const byUrl = new Map<string, SearchHit>();
   const rank = new Map<string, number>();
 
-  settled.forEach((hits) => {
-    hits.forEach((hit, i) => {
+  settled.forEach((result) => {
+    if (result.status !== "fulfilled") return;
+    result.value.forEach((hit, i) => {
       if (!usable(hit.url) || !hit.title) return;
       const key = hit.url.replace(/[#?].*$/, "").replace(/\/$/, "");
       if (!byUrl.has(key)) {

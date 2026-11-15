@@ -7,6 +7,25 @@ starts a fresh one (created on its first question and named after it), ✎
 renames it in place (Enter saves, Escape cancels) and 🗑 deletes. Follow-up context only comes from the session you are
 in, so an unrelated question in a new session is not colored by an old thread.
 Chat history from before sessions existed is kept as "Earlier conversation".
+⤓ downloads the whole chat as a Markdown file: your questions as quotes, each
+answer with a **Sources** list naming the source, part and the start of the
+excerpt behind every `[n]` marker.
+
+## Message actions
+
+- **📋 Copy** under any message copies it as Markdown. An answer keeps its `[n]`
+  markers and gains a **Sources** list, so the claims stay traceable. A brief
+  "✓ Copied" confirms it.
+- **↻ Regenerate** on the latest answer asks the same question again and
+  replaces the answer; if the new one fails, the old one stays. **Stop** keeps
+  the partial new answer as before.
+- **✎ Edit** on your own message (shown on hover, or on focus) opens it for
+  editing. **Send** asks you to confirm when later messages exist, because they
+  are discarded and the chat is re-answered from that point.
+- After a cited answer, up to three **follow-up questions** appear as buttons;
+  clicking one sends it. They come from one small extra model call per fresh
+  answer, are never made when you reopen a chat, and are skipped silently if
+  the call fails or the daily budget is spent.
 
 ## Notes
 

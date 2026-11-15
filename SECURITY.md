@@ -41,6 +41,9 @@ mind before running it anywhere other than your own machine:
   so the cookie gets the `Secure` flag. It is not multi-user access control,
   so keep the default localhost binding where you can, and use HTTPS or an
   authenticating reverse proxy when it is reachable by others.
+  The one unauthenticated exception is `GET`/`HEAD /api/health`, which skips the
+  host and password checks so container probes and the deploy smoke test work. It
+  returns only `ok` or `unavailable`, with no version, path or error text.
 - **The server fetches URLs on your behalf.** Links, feeds, discovery results
   and the built-in browser are fetched server-side. Addresses that resolve to
   loopback, private, link-local or cloud-metadata ranges are refused on every

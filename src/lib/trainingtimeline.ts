@@ -11,12 +11,14 @@
  * Pure and client-safe, so it can be tested and run live in the editor.
  */
 import { WORDS_PER_MINUTE } from "./voices";
+import { AVATAR_PRESETS } from "./avatars";
 import type { TrainingSection } from "./types";
 import {
   compositionPalette,
   findAnchor,
   hashText,
   normalizeComposition,
+  normalizeAnimation,
   PIP_SCALES,
   resolvePip,
   tokenize,
@@ -169,29 +171,53 @@ export type AvatarPose = { cx: number; cy: number; scale: number; opacity: numbe
 
 export const PRESENTER_POSE: AvatarPose = { cx: 0.5, cy: 0.5, scale: 1, opacity: 1 };
 
+/**
+ * Talking heads (photo avatars) fill their whole frame with a face, so they
+ * are drawn smaller than full-body presenters.
+ */
+const HEAD_SIDE_SCALE = 0.42;
+const HEAD_PIP_FACTOR = 0.55;
+
 export function layoutGeometry(
   layout: TrainingLayout,
   comp: Pick<TrainingComposition, "captions" | "pipCorner" | "pipSize">,
-  cueId = ""
+  cueId = "",
+  head = false
 ): { avatar: AvatarPose; panel: Rect | null } {
   const bottom = comp.captions === "burned" ? 0.84 : 0.92;
   switch (layout) {
     case "side-left":
       return {
-        avatar: { cx: 0.2, cy: 0.56, scale: 0.88, opacity: 1 },
+        avatar: head
+          ? { cx: 0.22, cy: round(1 - HEAD_SIDE_SCALE / 2), scale: HEAD_SIDE_SCALE, opacity: 1 }
+          : { cx: 0.2, cy: 0.56, scale: 0.88, opacity: 1 },
         panel: { x: 0.4, y: 0.08, w: 0.57, h: round(bottom - 0.08) },
       };
     case "side-right":
       return {
-        avatar: { cx: 0.8, cy: 0.56, scale: 0.88, opacity: 1 },
+        avatar: head
+          ? { cx: 0.78, cy: round(1 - HEAD_SIDE_SCALE / 2), scale: HEAD_SIDE_SCALE, opacity: 1 }
+          : { cx: 0.8, cy: 0.56, scale: 0.88, opacity: 1 },
         panel: { x: 0.03, y: 0.08, w: 0.57, h: round(bottom - 0.08) },
       };
     case "pip": {
       const { corner, size } = resolvePip(comp, cueId);
-      const scale = PIP_SCALES[size];
-      const grow = (scale - PIP_SCALES.medium) * 0.5;
       const right = corner.endsWith("right");
       const low = corner.startsWith("bottom");
+      if (head) {
+        const s = round(PIP_SCALES[size] * HEAD_PIP_FACTOR);
+        return {
+          avatar: {
+            cx: round(right ? 0.98 - s / 2 : 0.02 + s / 2),
+            cy: round(low ? 1 - s / 2 : 0.03 + s / 2),
+            scale: s,
+            opacity: 1,
+          },
+          panel: { x: 0.03, y: 0.05, w: 0.94, h: round(bottom - 0.05) },
+        };
+      }
+      const scale = PIP_SCALES[size];
+      const grow = (scale - PIP_SCALES.medium) * 0.5;
       return {
         avatar: {
           cx: round(right ? 0.88 - grow : 0.12 + grow),
@@ -235,6 +261,8 @@ export type ComposeInput = {
   objectives: string[];
   sections: TrainingSection[];
   composition: TrainingComposition;
+  /** The presenter is a talking head, which is drawn smaller than a full body. */
+  head?: boolean;
 };
 
 /** The parts of a training artifact the timeline and the rasters depend on. */
@@ -244,12 +272,14 @@ export const composeInputOf = (c: {
   objectives?: string[];
   sections: TrainingSection[];
   composition?: unknown;
+  presenter?: string;
 }): ComposeInput => ({
   title: c.title,
   description: c.description,
   objectives: c.objectives ?? [],
   sections: c.sections,
   composition: normalizeComposition(c.composition),
+  head: !!(c.presenter && AVATAR_PRESETS[c.presenter]?.photo),
 });
 
 export type RasterJob = {
@@ -411,6 +441,16 @@ export type TrainingTimeline = {
   width: number;
   height: number;
   duration: number;
+  timing: {
+    cueIn: number;
+    cueOut: number;
+    reveal: number;
+    cardFade: number;
+    lowerIn: number;
+    lowerOut: number;
+    edgeIn: number;
+    edgeOut: number;
+  };
   /** Where each section's speech (its presenter clip) plays. */
   sections: { index: number; title: string; start: number; duration: number }[];
   cards: TimelineCard[];
@@ -436,6 +476,7 @@ export function compileTrainingTimeline(
   timingsIn: (SectionTiming | null | undefined)[]
 ): TrainingTimeline {
   const c = input.composition;
+  const animation = normalizeAnimation(c.animation);
   const { width, height } = frameSize(c);
   const timings = usableTimings(input.sections, timingsIn);
   const jobs = rasterJobs(input);
@@ -469,7 +510,7 @@ export function compileTrainingTimeline(
     // Keyframes stay in time order even when a cue starts with its section.
     const from = Math.max(t, avatar.at(-1)?.t ?? 0);
     avatar.push({ t: round(from), ...pose, ease: "linear" });
-    avatar.push({ t: round(from + (instant ? 0.001 : LAYOUT_MOVE_S)), ...next, ease: "inOutSine" });
+    avatar.push({ t: round(from + (!animation.layout ? 0 : instant ? 0.001 : LAYOUT_MOVE_S)), ...next, ease: "inOutSine" });
     pose = next;
   };
 
@@ -555,7 +596,7 @@ export function compileTrainingTimeline(
     placed.forEach((p, k) => {
       const cueStart = start + Math.min(p.t, Math.max(0, duration - 0.2));
       const cueEnd = Math.min(end, k + 1 < placed.length ? start + placed[k + 1].t : end);
-      const { avatar: nextPose, panel } = layoutGeometry(p.cue.layout, c, p.cue.id);
+      const { avatar: nextPose, panel } = layoutGeometry(p.cue.layout, c, p.cue.id, input.head);
       setPose(cueStart, p.cue.kind === "presenter" ? PRESENTER_POSE : nextPose);
       if (p.cue.kind === "presenter") return;
 
@@ -565,6 +606,8 @@ export function compileTrainingTimeline(
         const a = at(p.cue.answerAnchor);
         const t = a ? start + a.t : cueStart + (cueEnd - cueStart) * 0.6;
         states.push(Math.min(cueEnd - 0.3, Math.max(cueStart + 0.6, t)));
+      } else if (count > 1 && !animation.bullets) {
+        states.push(...Array<number>(count - 1).fill(cueStart));
       } else if (count > 1) {
         const bullets = cueBullets(p.cue, input.objectives);
         const span = cueEnd - cueStart;
@@ -586,13 +629,13 @@ export function compileTrainingTimeline(
         section: i,
         kind: p.cue.kind,
         layout: p.cue.layout,
-        transition: p.cue.transition,
+        transition: animation.transitions ? p.cue.transition : "cut",
         start: round(cueStart),
         end: round(cueEnd),
         panel,
         rasterKey: cueKeyOf(p.cue),
         states: states.map(round),
-        kenBurns: Boolean(p.cue.kenBurns),
+        kenBurns: animation.pictures && Boolean(p.cue.kenBurns),
         match: p.match,
       });
     });
@@ -632,6 +675,16 @@ export function compileTrainingTimeline(
     width,
     height,
     duration: round(clock),
+    timing: {
+      cueIn: animation.transitions ? CUE_IN_S : 0,
+      cueOut: animation.transitions ? CUE_OUT_S : 0,
+      reveal: animation.transitions ? REVEAL_S : 0,
+      cardFade: animation.transitions ? 0.4 : 0,
+      lowerIn: animation.transitions ? 0.5 : 0,
+      lowerOut: animation.transitions ? 0.4 : 0,
+      edgeIn: animation.transitions ? 0.4 : 0,
+      edgeOut: animation.transitions ? 0.6 : 0,
+    },
     sections,
     cards,
     cues,
@@ -650,14 +703,14 @@ const easeInOutSine = (u: number) => -(Math.cos(Math.PI * u) - 1) / 2;
 
 /** The presenter's pose at time t. */
 export function sampleAvatar(frames: AvatarKeyframe[], t: number): AvatarPose {
-  if (!frames.length || t <= frames[0].t) {
+  if (!frames.length || t < frames[0].t) {
     const f = frames[0];
     return f ? { cx: f.cx, cy: f.cy, scale: f.scale, opacity: f.opacity } : PRESENTER_POSE;
   }
   for (let i = 1; i < frames.length; i++) {
     const a = frames[i - 1];
     const b = frames[i];
-    if (t <= b.t) {
+    if (t < b.t) {
       const span = b.t - a.t;
       const u = span > 0 ? (t - a.t) / span : 1;
       const e = b.ease === "inOutSine" ? easeInOutSine(u) : u;
@@ -720,7 +773,7 @@ export function renderConfig(
     duration: tl.duration,
     background: opts.background,
     palette: opts.palette,
-    timing: { cueIn: CUE_IN_S, cueOut: CUE_OUT_S, reveal: REVEAL_S },
+    timing: tl.timing,
     clips: tl.sections.map((s) => ({ src: opts.clip(s.index), start: s.start, duration: s.duration })),
     avatar: tl.avatar,
     cues: tl.cues

@@ -69,7 +69,7 @@ export function sessionMessages(sessionId: string): Message[] {
   const rows = db
     .prepare(
       `SELECT id, role, content, citations, created_at FROM messages
-        WHERE session_id = ? ORDER BY created_at`
+        WHERE session_id = ? ORDER BY created_at, rowid`
     )
     .all(sessionId) as unknown as {
     id: string;
@@ -87,6 +87,39 @@ export function sessionMessages(sessionId: string): Message[] {
   }));
 }
 
+export type TurnRow = { id: string; role: "user" | "assistant"; content: string };
+
+/** Every turn of a session in the order it was said. */
+export function sessionTurns(sessionId: string): TurnRow[] {
+  return db
+    .prepare(
+      "SELECT id, role, content FROM messages WHERE session_id = ? ORDER BY created_at, rowid"
+    )
+    .all(sessionId) as unknown as TurnRow[];
+}
+
+/** What a chat is named after its first question; see touchSession. */
+const derivedTitle = (question: string) => question.replace(/\s+/g, " ").trim().slice(0, 60);
+
+/**
+ * Discard a message and everything said after it, for edit-and-resend. A chat
+ * still carrying the name derived from the edited first question is renamed
+ * back to the default so the new question names it. Returns how many messages
+ * were removed.
+ */
+export function truncateFrom(sessionId: string, messageId: string): number {
+  const turns = sessionTurns(sessionId);
+  const index = turns.findIndex((t) => t.id === messageId);
+  if (index < 0) return 0;
+  const doomed = turns.slice(index);
+  for (const t of doomed) db.prepare("DELETE FROM messages WHERE id = ?").run(t.id);
+  const session = getSession(sessionId);
+  if (index === 0 && session && session.title === derivedTitle(doomed[0].content)) {
+    db.prepare("UPDATE chat_sessions SET title = ? WHERE id = ?").run(NEW_SESSION_TITLE, sessionId);
+  }
+  return doomed.length;
+}
+
 /** Bump the session so the list stays ordered by activity. */
 export function touchSession(sessionId: string, firstQuestion?: string) {
   const s = getSession(sessionId);
@@ -95,7 +128,7 @@ export function touchSession(sessionId: string, firstQuestion?: string) {
   // people scan the list for; renaming later is still possible.
   const title =
     s.title === NEW_SESSION_TITLE && firstQuestion
-      ? firstQuestion.replace(/\s+/g, " ").trim().slice(0, 60)
+      ? derivedTitle(firstQuestion)
       : s.title;
   db.prepare("UPDATE chat_sessions SET title = ?, updated_at = ? WHERE id = ?").run(
     title,

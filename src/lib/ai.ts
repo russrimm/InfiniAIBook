@@ -1,10 +1,6 @@
 import OpenAI, { AzureOpenAI, toFile } from "openai";
-import {
-  DefaultAzureCredential,
-  ClientSecretCredential,
-  getBearerTokenProvider,
-  type TokenCredential,
-} from "@azure/identity";
+import { getBearerTokenProvider } from "@azure/identity";
+import { buildCredential } from "./azureCredential";
 import { reserve } from "./budget";
 import { getSetting, SETTING_CHAT_MODEL, SETTING_EMBED_MODEL, SETTING_IMAGE_MODEL, SETTING_VISION_MODEL } from "./settings";
 import { resolveEndpoint, type ResolvedEndpoint } from "./providers";
@@ -289,23 +285,6 @@ async function requestImage(prompt: string, opts: ImageOptions): Promise<Generat
 
 export class MissingConfigError extends Error {}
 
-function buildCredential(): TokenCredential {
-  const tenantId = process.env.AZURE_TENANT_ID;
-  const clientId = process.env.AZURE_CLIENT_ID;
-  const clientSecret = process.env.AZURE_CLIENT_SECRET;
-
-  // Explicit service principal, when one is supplied (CI, containers).
-  if (tenantId && clientId && clientSecret) {
-    return new ClientSecretCredential(tenantId, clientId, clientSecret);
-  }
-
-  // Otherwise walk the standard chain: env vars, workload identity, managed
-  // identity, then the developer's `az login` / VS Code / Azure PowerShell session.
-  return new DefaultAzureCredential(
-    clientId ? { managedIdentityClientId: clientId } : undefined
-  );
-}
-
 let client: OpenAI | AzureOpenAI | null = null;
 let tokenProvider: (() => Promise<string>) | null = null;
 
@@ -355,6 +334,17 @@ export function getClient(): OpenAI | AzureOpenAI {
   return client;
 }
 
+/** The SDK reports an unreachable host as a bare "Connection error." with no status. */
+export function isConnectionError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  const code = (e as { code?: string })?.code;
+  return (
+    code === "ECONNREFUSED" ||
+    code === "ENOTFOUND" ||
+    /connection error|fetch failed|ECONNREFUSED|ENOTFOUND/i.test(msg)
+  );
+}
+
 /** Turn provider failures into actionable setup guidance rather than a raw code. */
 export function describeAuthError(e: unknown): string | null {
   if (e instanceof StudioModelError) {
@@ -386,6 +376,12 @@ export function describeAuthError(e: unknown): string | null {
       } if it requires one.`;
     }
     return null;
+  }
+
+  if (isConnectionError(e)) {
+    return /YOUR-RESOURCE/i.test(endpoint ?? "")
+      ? `AZURE_OPENAI_ENDPOINT is still the placeholder "${endpoint}". Set it to your Azure OpenAI resource's endpoint in .env.local and restart the server.`
+      : `Could not reach Azure OpenAI at ${endpoint}. Check AZURE_OPENAI_ENDPOINT is correct, the resource is reachable from this machine (network, VPN, firewall), and restart the server after changing .env.local.`;
   }
 
   // A 404 here almost always means a misconfigured api-version or a deployment
@@ -481,11 +477,13 @@ async function createChat(
   options: { signal?: AbortSignal } = {},
   client: OpenAI | AzureOpenAI = getClient()
 ) {
-  reserve("chat", 4);
+  // Priced by prompt size: studio calls send tens of thousands of characters.
+  reserve("chat", Math.max(4, Math.ceil(JSON.stringify(params.messages ?? "").length / 8000)));
   const model = params.model;
   const withoutTemp = () => {
-    const { temperature: _omit, ...rest } = params;
-    return rest as ChatParams;
+    const rest: ChatParams & { temperature?: number } = { ...params };
+    delete rest.temperature;
+    return rest;
   };
 
   return withRetry(async () => {
@@ -816,7 +814,7 @@ function sideClient(ep: ResolvedEndpoint): OpenAI | null {
   return c;
 }
 
-export async function embed(texts: string[]): Promise<number[][]> {
+export async function embed(texts: string[], model: string = embedModel()): Promise<number[][]> {
   const unavailable = embeddingUnavailableReason();
   if (unavailable) throw new Error(unavailable);
   const c = sideClient(embedEndpoint) ?? getClient();
@@ -827,7 +825,7 @@ export async function embed(texts: string[]): Promise<number[][]> {
     reserve("embed", 1);
     const slice = texts.slice(i, i + BATCH).map((t) => t.slice(0, 8000) || " ");
     const res = await withRetry(
-      () => c.embeddings.create({ model: embedModel(), input: slice }),
+      () => c.embeddings.create({ model, input: slice }),
       "embeddings"
     );
     for (const d of res.data) out.push(d.embedding as number[]);

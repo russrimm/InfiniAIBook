@@ -1,8 +1,8 @@
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ok, fail, noSourcesSelected } from "@/lib/http";
-import { keepAliveJSON } from "@/lib/keepalive";
+import { ok, fail, generationSourceError } from "@/lib/http";
+import { generationReply, type GenerationStatus } from "@/lib/keepalive";
 import { studioJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
@@ -35,10 +35,10 @@ export async function GET() {
  * when the user presses Render (POST /api/video/[id]/render).
  */
 export function POST(req: Request) {
-  return keepAliveJSON(() => planMotion(req));
+  return generationReply(req, (report) => planMotion(req, report));
 }
 
-async function planMotion(req: Request) {
+async function planMotion(req: Request, report: GenerationStatus) {
   try {
     const body = (await req.json()) as {
       notebookId: string;
@@ -71,9 +71,10 @@ async function planMotion(req: Request) {
 
     const speaker =
       ALL_SPEAKERS.find((s) => s.toLowerCase() === (voice ?? "").toLowerCase()) ?? "Ava";
-    const none = noSourcesSelected(sourceIds);
+    const none = generationSourceError(notebookId, sourceIds);
     if (none) return none;
 
+    report("Reading selected sources");
     const focused = topic?.trim() ? await retrieve(notebookId, topic, sourceIds, 24) : [];
     const broad = sampleCorpus(notebookId, sourceIds, MAX_CONTEXT_CHARS);
     const seen = new Set(focused.map((p) => p.id));
@@ -102,7 +103,9 @@ async function planMotion(req: Request) {
       },
     ];
 
+    report("Writing the motion scene plan");
     const raw = await studioJSON<Record<string, unknown>>(messages, 0.7);
+    report("Checking the scenes and narration");
     const normalized = normalizeMotionPlan(raw, options);
     if (!normalized) {
       return NextResponse.json(
@@ -125,9 +128,11 @@ async function planMotion(req: Request) {
       plan,
       scenes: motionScenes(plan),
       progress: { stage: "script", done: 0, total: plan.scenes.length },
+      sourceIds: [...new Set(sourceIds)],
       citations: citationList(passages),
     };
 
+    report("Saving the motion script for review");
     const now = Date.now();
     db.prepare(
       "INSERT INTO artifacts (id, notebook_id, type, title, content, created_at) VALUES (?,?,?,?,?,?)"

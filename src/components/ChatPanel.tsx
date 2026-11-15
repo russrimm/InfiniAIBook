@@ -4,13 +4,19 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "./Markdown";
 import GettingStarted from "./GettingStarted";
 import { useCitationHandler } from "./CitationContext";
+import { useConfirm } from "./ConfirmDialog";
 import { useDeferredDelete } from "./UndoToast";
 import { UNCITED_LABEL } from "@/lib/citations";
+import { STOPPED_MARK, exportFilename, messageToMarkdown } from "@/lib/chatmarkdown";
 import type { ChatSession, Citation, Message, Source } from "@/lib/types";
 
 /** Mirrors MAX_MESSAGE_CHARS in src/app/api/chat/route.ts. */
 const MAX_MESSAGE_CHARS = 20_000;
-const STOPPED_MARK = "\n\n_(Stopped before the answer was finished.)_";
+
+/** Ids made in the browser before the server has named the message; they contain a colon, a server id never does. */
+const isLocalId = (id: string) => id.includes(":");
+
+type Turn = { mode: "regenerate" | "edit"; messageId: string };
 
 const STARTERS = [
   "Summarize the key arguments across my sources.",
@@ -23,22 +29,26 @@ export default function ChatPanel({
   notebookId,
   sources,
   selectedIds,
+  liveLearn = false,
   initialMessages,
   sessions,
   onNoteSaved,
   onAddSources,
+  onChooseSources,
   onUseAll,
   onOpenStudio,
 }: {
   notebookId: string;
   sources: Source[];
   selectedIds: string[];
+  liveLearn?: boolean;
   /** Messages of `sessions[0]`, the most recent conversation. */
   initialMessages: Message[];
   sessions: ChatSession[];
   onNoteSaved?: () => void;
   /** Getting-started actions; each takes the user to the panel that does it. */
   onAddSources?: () => void;
+  onChooseSources?: () => void;
   onUseAll?: () => void;
   onOpenStudio?: () => void;
 }) {
@@ -49,8 +59,18 @@ export default function ChatPanel({
   /** Chats deleted but still within their undo window. */
   const [hiddenSessions, setHiddenSessions] = useState<Set<string>>(new Set());
   const deferDelete = useDeferredDelete();
+  const askConfirm = useConfirm();
   const [loadingSession, setLoadingSession] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  /** The answer being regenerated; hidden while its replacement streams, restored if that fails. */
+  const [replacingId, setReplacingId] = useState<string | null>(null);
+  /** The message just copied, for the brief "Copied" confirmation. */
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Follow-up questions for the latest answer. Optional: absent whenever they could not be made. */
+  const [suggestions, setSuggestions] = useState<{ forId: string; items: string[] } | null>(null);
+  const suggestAbort = useRef<AbortController | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -73,6 +93,8 @@ export default function ChatPanel({
 
   const openSession = async (id: string | null) => {
     if (streaming) return;
+    suggestAbort.current?.abort();
+    setSuggestions(null);
     setError(null);
     setNotice(null);
     setSessionId(id);
@@ -177,6 +199,113 @@ export default function ChatPanel({
     [notebookId]
   );
 
+  const copyMessage = useCallback(async (m: Message) => {
+    try {
+      // Unavailable outside a secure context, e.g. when opened over plain http on a LAN.
+      await navigator.clipboard.writeText(messageToMarkdown(m));
+    } catch {
+      setError("Copying is blocked by the browser here. Select the text and copy it instead.");
+      return;
+    }
+    setCopiedId(m.id);
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    copyTimer.current = setTimeout(() => setCopiedId(null), 1800);
+  }, []);
+
+  /**
+   * The server's id for the message at `index`. Messages made in this browser
+   * (a question just sent, an answer cut short by Stop) carry a local id until
+   * the chat is read back, and the server only knows its own.
+   */
+  const serverId = async (index: number): Promise<string | null> => {
+    const local = messagesRef.current[index];
+    if (!local) return null;
+    if (!isLocalId(local.id)) return local.id;
+    if (!sessionId) return null;
+    const res = await fetch(`/api/sessions/${sessionId}`).catch(() => null);
+    if (!res?.ok) return null;
+    const fresh = ((await res.json()) as { messages: Message[] }).messages;
+    if (fresh[index]?.role !== local.role) return null;
+    setMessages(fresh);
+    messagesRef.current = fresh;
+    return fresh[index].id;
+  };
+
+  const regenerate = async (m: Message) => {
+    const list = messagesRef.current;
+    const index = list.findIndex((x) => x.id === m.id);
+    const question = list[index - 1];
+    if (index < 0 || index !== list.length - 1 || question?.role !== "user") return;
+    const id = await serverId(index);
+    if (!id) {
+      setError("That answer could not be regenerated. Reopen the chat and try again.");
+      return;
+    }
+    await send(question.content, { mode: "regenerate", messageId: id });
+  };
+
+  const editAndResend = async (m: Message, text: string): Promise<boolean> => {
+    const list = messagesRef.current;
+    const index = list.findIndex((x) => x.id === m.id);
+    if (index < 0) return false;
+    const later = list.length - index - 1;
+    if (later > 0) {
+      const ok = await askConfirm({
+        title: "Edit and resend this message?",
+        message: `Your earlier question and the ${later} message${later === 1 ? "" : "s"} after it will be replaced by a new answer. This chat is saved that way and cannot be undone.`,
+        confirmLabel: "Edit and resend",
+        destructive: true,
+      });
+      if (!ok) return false;
+    }
+    const id = await serverId(index);
+    if (!id) {
+      setError("That message could not be edited. Reopen the chat and try again.");
+      return false;
+    }
+    await send(text, { mode: "edit", messageId: id });
+    return true;
+  };
+
+  const exportChat = async () => {
+    if (!sessionId || exporting) return;
+    setExporting(true);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/export`);
+      if (!res.ok) throw new Error();
+      const url = URL.createObjectURL(await res.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = exportFilename(sessionList.find((s) => s.id === sessionId)?.title ?? "chat");
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("That chat could not be exported. Try again.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  /** Ask for follow-up questions. Never blocks or reports: they are a bonus, not part of the answer. */
+  const loadSuggestions = async (sid: string, messageId: string) => {
+    suggestAbort.current?.abort();
+    const controller = new AbortController();
+    suggestAbort.current = controller;
+    try {
+      const res = await fetch("/api/chat/suggest", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId: sid, messageId }),
+        signal: controller.signal,
+      });
+      if (!res.ok) return;
+      const { suggestions: items } = (await res.json()) as { suggestions?: string[] };
+      if (!controller.signal.aborted && items?.length) setSuggestions({ forId: messageId, items });
+    } catch {
+      /* optional; stay silent */
+    }
+  };
+
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
@@ -198,6 +327,8 @@ export default function ChatPanel({
   useEffect(
     () => () => {
       abortRef.current?.abort();
+      suggestAbort.current?.abort();
+      if (copyTimer.current) clearTimeout(copyTimer.current);
       if (frame.current !== null) cancelAnimationFrame(frame.current);
     },
     []
@@ -205,24 +336,37 @@ export default function ChatPanel({
 
   const stop = () => abortRef.current?.abort();
 
-  const send = async (text: string) => {
+  /**
+   * Ask a question, or with `turn` redo one: `regenerate` replaces the latest
+   * answer, `edit` replaces a user message and everything after it.
+   */
+  const send = async (text: string, turn?: Turn) => {
     const q = text.trim();
-    if (!q || streaming || selectedIds.length === 0) return;
+    if (!q || streaming || (!liveLearn && selectedIds.length === 0)) return;
     if (q.length > MAX_MESSAGE_CHARS) {
       setError(
         `That message is ${q.length.toLocaleString()} characters; the limit is ${MAX_MESSAGE_CHARS.toLocaleString()}. Add long text as a source instead.`
       );
       return;
     }
-    setInput("");
+    // A half-typed draft survives starters, suggestions and redoing a turn.
+    if (text === input) setInput("");
     setError(null);
+    setNotice(null);
     setDraft("");
     setDraftCites([]);
+    suggestAbort.current?.abort();
+    setSuggestions(null);
     stickToBottom.current = true;
-    setMessages((m) => [
-      ...m,
-      { id: `tmp-${Date.now()}`, role: "user", content: q, createdAt: Date.now() },
-    ]);
+    const before = messagesRef.current;
+    const localUserId = `local:user-${Date.now()}`;
+    const replaceId = turn?.mode === "regenerate" ? turn.messageId : null;
+    if (replaceId) {
+      setReplacingId(replaceId);
+    } else {
+      const keep = turn ? before.slice(0, before.findIndex((x) => x.id === turn.messageId)) : before;
+      setMessages([...keep, { id: localUserId, role: "user", content: q, createdAt: Date.now() }]);
+    }
     setStreaming(true);
 
     const controller = new AbortController();
@@ -230,11 +374,15 @@ export default function ChatPanel({
     let acc = "";
     let cites: Citation[] = [];
     let finished = false;
+    /** The server has taken the request; before that a refused edit changed nothing. */
+    let accepted = false;
+    let sid = sessionId;
 
     const flushDraft = () => {
       if (frame.current !== null) cancelAnimationFrame(frame.current);
       frame.current = null;
     };
+    const withoutReplaced = (list: Message[]) => (replaceId ? list.filter((x) => x.id !== replaceId) : list);
 
     try {
       const res = await fetch("/api/chat", {
@@ -245,6 +393,7 @@ export default function ChatPanel({
           message: q,
           sourceIds: selectedIds,
           sessionId: sessionId ?? undefined,
+          ...turn,
         }),
         signal: controller.signal,
       });
@@ -273,12 +422,20 @@ export default function ChatPanel({
             error?: string;
             notice?: string;
             id?: string;
+            stopped?: boolean;
             session?: ChatSession;
+            userId?: string;
           };
           if (ev.type === "session" && ev.session) {
             const s = ev.session;
+            accepted = true;
+            sid = s.id;
             setSessionId(s.id);
             setSessionList((l) => [s, ...l.filter((x) => x.id !== s.id)]);
+            const userId = ev.userId;
+            if (userId) {
+              setMessages((m) => m.map((x) => (x.id === localUserId ? { ...x, id: userId } : x)));
+            }
           } else if (ev.type === "citations" && ev.citations) {
             cites = ev.citations;
             setDraftCites(cites);
@@ -307,10 +464,11 @@ export default function ChatPanel({
               setDraftCites([]);
               continue;
             }
+            const id = ev.id ?? `local:a-${Date.now()}`;
             setMessages((m) => [
-              ...m,
+              ...withoutReplaced(m),
               {
-                id: ev.id ?? `a-${Date.now()}`,
+                id,
                 role: "assistant",
                 content: acc,
                 citations: ev.citations ?? cites,
@@ -319,6 +477,9 @@ export default function ChatPanel({
             ]);
             setDraft("");
             setDraftCites([]);
+            if (ev.id && sid && !ev.stopped && (ev.citations ?? cites).length) {
+              void loadSuggestions(sid, ev.id);
+            }
           }
         }
       }
@@ -328,9 +489,9 @@ export default function ChatPanel({
         // Stopped by the reader: keep what arrived, as the server does.
         if (acc && !finished) {
           setMessages((m) => [
-            ...m,
+            ...withoutReplaced(m),
             {
-              id: `stopped-${Date.now()}`,
+              id: `local:stopped-${Date.now()}`,
               role: "assistant",
               content: acc + STOPPED_MARK,
               citations: cites,
@@ -339,19 +500,30 @@ export default function ChatPanel({
           ]);
         }
       } else {
+        // A refused edit changed nothing on the server, so put the chat back.
+        if (turn?.mode === "edit" && !accepted) setMessages(before);
         setError(e instanceof Error ? e.message : "Something went wrong");
       }
       setDraft("");
       setDraftCites([]);
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
+      setReplacingId(null);
       setStreaming(false);
     }
   };
 
-  const disabled = sources.length === 0;
+  // Stable handlers for the memoised rows, which must not re-render per streamed token.
+  const redoRef = useRef({ regenerate, editAndResend });
+  useEffect(() => {
+    redoRef.current = { regenerate, editAndResend };
+  });
+  const onRegenerate = useCallback((m: Message) => redoRef.current.regenerate(m), []);
+  const onEdit = useCallback((m: Message, text: string) => redoRef.current.editAndResend(m, text), []);
+
+  const disabled = !liveLearn && sources.length === 0;
   /** Sources exist but none is ticked: nothing to ground an answer in. */
-  const noneSelected = !disabled && selectedIds.length === 0;
+  const noneSelected = !liveLearn && !disabled && selectedIds.length === 0;
   const blocked = disabled || noneSelected;
   /** No chat has ever been started here, so the getting-started steps still help. */
   const firstRun = sessionList.length === 0;
@@ -426,6 +598,15 @@ export default function ChatPanel({
             </button>
             <button
               className="btn shrink-0 !px-2 !py-1 !text-[11px]"
+              disabled={streaming || exporting || messages.length === 0}
+              onClick={() => void exportChat()}
+              title="Download this chat as Markdown"
+              aria-label="Export this chat as Markdown"
+            >
+              ⤓
+            </button>
+            <button
+              className="btn shrink-0 !px-2 !py-1 !text-[11px]"
               disabled={streaming}
               onClick={deleteCurrentSession}
               title="Delete this chat"
@@ -452,16 +633,19 @@ export default function ChatPanel({
               </div>
               <h2 className="text-lg font-medium">Ask your sources anything</h2>
               <p className="mx-auto mt-2 max-w-md text-sm text-[var(--muted)]">
-                {blocked
+                {liveLearn
+                  ? "Answers use your selected saved sources and fresh Microsoft Learn documentation. Live citations keep the excerpt used."
+                  : blocked
                   ? "Answers come only from your sources. Here is how to get started."
                   : "Every answer is drawn only from your selected sources, with numbered citations that open the passage they came from."}
               </p>
-              {(blocked || firstRun) && (
+              {!liveLearn && (blocked || firstRun) && (
                 <div className="mt-6">
                   <GettingStarted
                     sourceCount={sources.length}
                     selectedCount={selectedIds.length}
                     onAddSources={onAddSources}
+                    onChooseSources={onChooseSources}
                     onUseAll={onUseAll}
                     onOpenStudio={onOpenStudio}
                   />
@@ -484,14 +668,42 @@ export default function ChatPanel({
           )}
 
           <div className="space-y-6" aria-live="polite" aria-busy={streaming}>
-            {messages.map((m) => (
+            {messages.map((m, i) => (
               <MessageRow
                 key={m.id}
                 m={m}
                 saved={savedIds.has(m.id)}
+                copied={copiedId === m.id}
+                hidden={m.id === replacingId}
+                canRedo={!streaming && !blocked}
+                isLatestAnswer={i === messages.length - 1 && i > 0 && messages[i - 1].role === "user"}
                 onSave={saveAsNote}
+                onCopy={copyMessage}
+                onRegenerate={onRegenerate}
+                onEdit={onEdit}
               />
             ))}
+
+            {!streaming &&
+              !blocked &&
+              suggestions &&
+              suggestions.forId === messages[messages.length - 1]?.id && (
+                <div
+                  role="group"
+                  aria-label="Suggested follow-up questions"
+                  className="fade-up -mt-2 flex flex-wrap gap-2"
+                >
+                  {suggestions.items.map((s) => (
+                    <button
+                      key={s}
+                      className="rounded-xl border border-[var(--border)] bg-well px-3 py-1.5 text-left text-[13px] text-[var(--muted)] transition hover:border-line-hover hover:text-[var(--fg)]"
+                      onClick={() => void send(s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
 
             {streaming && (
               <div className="fade-up">
@@ -550,7 +762,7 @@ export default function ChatPanel({
                 ? "Add a source to start chatting…"
                 : noneSelected
                   ? "Select at least one source to chat…"
-                  : "Ask about your sources…"
+                  : liveLearn ? "Ask your sources and Microsoft Learn…" : "Ask about your sources…"
             }
             value={input}
             disabled={blocked}
@@ -589,7 +801,9 @@ export default function ChatPanel({
         </form>
         <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-dim">
           Using {selectedIds.length} of {sources.length} source
-          {sources.length === 1 ? "" : "s"} · answers come only from these documents
+          {sources.length === 1 ? "" : "s"}{liveLearn
+            ? " + live Microsoft Learn"
+            : " · answers come only from these documents"}
         </p>
       </div>
     </section>
@@ -604,17 +818,126 @@ export default function ChatPanel({
 const MessageRow = memo(function MessageRow({
   m,
   saved,
+  copied,
+  hidden,
+  canRedo,
+  isLatestAnswer,
   onSave,
+  onCopy,
+  onRegenerate,
+  onEdit,
 }: {
   m: Message;
   saved: boolean;
+  /** Briefly true after this message was copied. */
+  copied: boolean;
+  /** An answer being regenerated gives way to its replacement. */
+  hidden: boolean;
+  /** False while another answer streams or there is nothing to ask against. */
+  canRedo: boolean;
+  /** The chat's last answer, the only one that can be regenerated. */
+  isLatestAnswer: boolean;
   onSave: (m: Message) => Promise<void>;
+  onCopy: (m: Message) => Promise<void>;
+  onRegenerate: (m: Message) => Promise<void>;
+  /** Resolves true once the edit was sent; false if it was declined, so the editor stays open. */
+  onEdit: (m: Message, text: string) => Promise<boolean>;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(m.content);
+  const editButton = useRef<HTMLButtonElement>(null);
+
+  const copyStatus = (
+    <span role="status" className="text-[11px] text-[var(--muted)]">
+      {copied ? "✓ Copied" : ""}
+    </span>
+  );
+  const actionClass =
+    "text-[11px] text-[var(--muted)] transition hover:text-[var(--fg)] disabled:opacity-60";
+
+  if (hidden) return null;
+
   if (m.role === "user") {
+    const closeEditor = () => {
+      setEditing(false);
+      requestAnimationFrame(() => editButton.current?.focus());
+    };
+    const submit = async () => {
+      const next = text.trim();
+      if (!next) return;
+      if (await onEdit(m, next)) setEditing(false);
+    };
+    if (editing) {
+      return (
+        <div className="fade-up flex flex-col items-end gap-2">
+          <textarea
+            className="input min-h-[44px] w-full max-w-[85%] resize-y py-3"
+            aria-label="Edit your message"
+            autoFocus
+            rows={Math.min(8, Math.max(2, text.split("\n").length))}
+            value={text}
+            maxLength={MAX_MESSAGE_CHARS}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.stopPropagation();
+                setText(m.content);
+                closeEditor();
+              } else if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                void submit();
+              }
+            }}
+          />
+          <div className="flex gap-2">
+            <button
+              className="btn !px-2.5 !py-1 !text-[11px]"
+              aria-label="Cancel editing"
+              onClick={() => {
+                setText(m.content);
+                closeEditor();
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn btn-primary !px-2.5 !py-1 !text-[11px]"
+              aria-label="Send edited message"
+              disabled={!text.trim() || !canRedo}
+              onClick={() => void submit()}
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      );
+    }
     return (
-      <div className="fade-up flex justify-end">
+      <div className="group fade-up flex flex-col items-end gap-1">
         <div className="max-w-[85%] rounded-2xl rounded-br-md bg-user-bubble px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap">
           {m.content}
+        </div>
+        <div className="flex items-center gap-3 px-1">
+          {copyStatus}
+          <button
+            className={`reveal ${actionClass}`}
+            aria-label="Copy your message"
+            onClick={() => void onCopy(m)}
+          >
+            📋 Copy
+          </button>
+          <button
+            ref={editButton}
+            className={`reveal ${actionClass}`}
+            aria-label="Edit and resend your message"
+            disabled={!canRedo}
+            onClick={() => {
+              setText(m.content);
+              setEditing(true);
+            }}
+          >
+            ✎ Edit
+          </button>
         </div>
       </div>
     );
@@ -633,13 +956,25 @@ const MessageRow = memo(function MessageRow({
         <p className="mt-2 text-[12px] leading-snug text-amber-200/90">{UNCITED_LABEL}</p>
       )}
       {m.content.trim() && (
-        <button
-          className="mt-2 text-[11px] text-[var(--muted)] transition hover:text-[var(--fg)] disabled:opacity-60"
-          disabled={saved}
-          onClick={() => void onSave(m)}
-        >
-          {saved ? "✓ Saved to notes" : "🗒️ Save to notes"}
-        </button>
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <button className={actionClass} aria-label="Copy this answer" onClick={() => void onCopy(m)}>
+            📋 Copy
+          </button>
+          {isLatestAnswer && (
+            <button
+              className={actionClass}
+              aria-label="Regenerate this answer"
+              disabled={!canRedo}
+              onClick={() => void onRegenerate(m)}
+            >
+              ↻ Regenerate
+            </button>
+          )}
+          <button className={actionClass} disabled={saved} onClick={() => void onSave(m)}>
+            {saved ? "✓ Saved to notes" : "🗒️ Save to notes"}
+          </button>
+          {copyStatus}
+        </div>
       )}
     </div>
   );
@@ -674,7 +1009,7 @@ function CiteFooter({ citations }: { citations: Citation[] }) {
                 <span className="mb-1 flex items-center gap-2">
                   <span className="cite">{c.n}</span>
                   <span className="truncate text-[11px] font-medium">{c.sourceTitle}</span>
-                  <span className="text-[10px] text-dim">part {c.part}</span>
+                  <span className="text-[10px] text-dim">{c.url ? "live excerpt" : `part ${c.part}`}</span>
                 </span>
                 <span className="line-clamp-3 text-[11px] leading-snug text-[var(--muted)]">
                   {c.snippet}…

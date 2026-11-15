@@ -56,6 +56,15 @@ export type Citation = {
   sourceTitle: string;
   part: number;
   snippet: string;
+  /** Live documentation citations keep the exact excerpt used by this answer. */
+  url?: string;
+  content?: string;
+};
+
+export type SourceProvenance = {
+  /** Saved source selection used for generation, not the current checkbox state. */
+  sourceIds?: string[];
+  citations?: Citation[];
 };
 
 export type DocContent = { title: string; subtitle?: string; markdown: string };
@@ -278,7 +287,7 @@ export type TrainingClip = {
   billedSec?: number;
 };
 
-export type TrainingContent = SpokenExtras & VideoExtras & {
+export type TrainingContent = SpokenExtras & VideoExtras & SourceProvenance & {
   title: string;
   description?: string;
   objectives: string[];
@@ -304,6 +313,8 @@ export type TrainingContent = SpokenExtras & VideoExtras & {
     submittedAt?: number;
     /** Composed renders: one presenter clip per section, in order. */
     clips?: TrainingClip[];
+    /** While composing: how far the video has been drawn, as a whole percent. */
+    renderPct?: number;
   };
   /** Absent on videos made before composition: they render presenter only. */
   composition?: TrainingComposition;
@@ -337,7 +348,7 @@ export type Artifact = {
   notebookId: string;
   type: ArtifactType;
   title: string;
-  content: ArtifactContent & { citations?: Citation[] };
+  content: ArtifactContent & SourceProvenance;
   createdAt: number;
 };
 
@@ -372,6 +383,7 @@ export type Notebook = {
   emoji: string;
   createdAt: number;
   sourceCount?: number;
+  liveLearn?: boolean;
   /** Saved narration defaults for the spoken Studio formats (detail view only). */
   narration?: NarrationSettings;
 };

@@ -1,12 +1,10 @@
 import fs from "node:fs";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import {
-  DefaultAzureCredential,
-  ClientSecretCredential,
-  getBearerTokenProvider,
-  type TokenCredential,
-} from "@azure/identity";
+import { getBearerTokenProvider } from "@azure/identity";
+import { buildCredential } from "./azureCredential";
+import { BATCH_PHOTO_MODELS, DEFAULT_PHOTO_MODEL } from "./avatars";
+import { reserve } from "./budget";
 
 /**
  * Azure Speech "Text to Speech Avatar" batch synthesis — the Foundry model
@@ -23,18 +21,6 @@ const API_VERSION = "2024-08-01";
 const SCOPE = "https://cognitiveservices.azure.com/.default";
 
 export class AvatarNotConfiguredError extends Error {}
-
-function buildCredential(): TokenCredential {
-  const tenantId = process.env.AZURE_TENANT_ID;
-  const clientId = process.env.AZURE_CLIENT_ID;
-  const clientSecret = process.env.AZURE_CLIENT_SECRET;
-  if (tenantId && clientId && clientSecret) {
-    return new ClientSecretCredential(tenantId, clientId, clientSecret);
-  }
-  return new DefaultAzureCredential(
-    clientId ? { managedIdentityClientId: clientId } : undefined,
-  );
-}
 
 let tokenProvider: (() => Promise<string>) | null = null;
 
@@ -85,6 +71,21 @@ async function headers(): Promise<Record<string, string>> {
     h.Authorization = `Bearer ${await tokenProvider()}`;
   }
   return h;
+}
+
+export const speechHeaders = headers;
+
+/** The resource endpoint avatar calls go to, or undefined when none is configured. */
+export const speechEndpoint = (): string | undefined => config().endpoint;
+
+/** Whether the resource is addressed by key rather than Entra ID. */
+export const speechKeyAuth = (): string | undefined => config().key;
+
+/** An Entra access token for Azure Speech. */
+export async function speechBearerToken(): Promise<string> {
+  if (!tokenProvider)
+    tokenProvider = getBearerTokenProvider(buildCredential(), SCOPE);
+  return tokenProvider();
 }
 
 function url(synthesisId: string): string {
@@ -142,8 +143,10 @@ export type AvatarJobOptions = {
   character: string;
   /** Omitted for characters Microsoft lists without a style. */
   style?: string;
-  /** A head-only photo avatar, driven by the VASA-1 model. */
+  /** A head-only photo avatar, driven by a VASA model. */
   photo?: boolean;
+  /** The VASA base model for a photo avatar; VASA-1 when omitted. */
+  photoModel?: string;
   /** #RRGGBB; ignored when a background image is configured or `transparent` is set. */
   background: string;
   description?: string;
@@ -167,7 +170,16 @@ export async function submitAvatarJob(
   ssml: string,
   opts: AvatarJobOptions,
 ): Promise<AvatarJob> {
+  const photoModel = opts.photoModel ?? DEFAULT_PHOTO_MODEL;
+  if (opts.photo && !(BATCH_PHOTO_MODELS as readonly string[]).includes(photoModel)) {
+    throw new Error(
+      `${photoModel} avatars are not supported by batch synthesis yet. Choose another presenter.`,
+    );
+  }
   const image = process.env.AZURE_AVATAR_BACKGROUND_URL?.trim();
+  // Batch avatar video is billed by running time, so price the spoken minutes.
+  const spokenWords = ssml.replace(/<[^>]*>/g, " ").split(/\s+/).filter(Boolean).length;
+  reserve("avatar", Math.max(25, Math.ceil((spokenWords / 150) * 40)));
   const body = {
     description: opts.description?.slice(0, 200),
     inputKind: "SSML",
@@ -175,7 +187,9 @@ export async function submitAvatarJob(
     avatarConfig: {
       talkingAvatarCharacter: opts.character,
       ...(opts.style ? { talkingAvatarStyle: opts.style } : {}),
-      ...(opts.photo ? { photoAvatarBaseModel: "vasa-1" } : {}),
+      ...(opts.photo
+        ? { photoAvatarBaseModel: photoModel }
+        : {}),
       ...(opts.transparent
         ? {
             videoFormat: "webm",

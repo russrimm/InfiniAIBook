@@ -4,9 +4,10 @@ The 🧑‍🏫 **Training video** card turns a notebook's research into a short
 training session delivered by a realistic, lip-synced presenter. It works in
 two steps, so nothing is billed for video until you are happy with the script.
 
-1. **Write transcript.** The selected sources, every note in the notebook
-   (including chat answers you saved as notes) and the focus box are combined
-   into a trainer's script: a welcome and learning objectives, a handful of
+1. **Write transcript.** Only checked sources supply the evidence; the focus
+   box guides the topic. Notebook notes, including saved chat answers, are not
+   included unless you add their content as sources and check them. The model
+   writes a welcome and learning objectives, a handful of
    teaching sections, a recap, and a spoken knowledge check. The script is saved
    as a `training` artifact and opens in an editor.
 2. **Render video.** Edit the title, sections and presenter, then press
@@ -18,7 +19,7 @@ The card's **Style** (under **Options ▸**) picks one of two kinds of video:
 
 - **Presenter with slides and visuals** (the default). Title cards, bullet
   points, key numbers, quotes, knowledge checks, AI pictures, screenshots and
-  the notebook's infographics slide in beside or behind the presenter, each at
+  source-compatible notebook infographics slide in beside or behind the presenter, each at
   the moment the presenter says the words it illustrates. See
   [Presenter with visuals](#presenter-with-visuals).
 - **Presenter only.** The presenter speaking on a solid brand background, with
@@ -35,6 +36,22 @@ time it is sent for rendering. See
 [Spoken formats](studio.md#spoken-formats-script-review-instructions-and-music).
 The **Mark** picker stamps an optional text or image watermark in one of nine
 positions after the music is mixed; see [Watermark](studio.md#watermark).
+
+### Troubleshooting render preparation
+
+**Render video** saves edits, finds missing pictures, draws and uploads visuals,
+then submits the render. A failure identifies the step; request failures include
+the HTTP method, endpoint and status, or **no HTTP response** when the browser
+could not obtain one. The browser **Console** contains the original error and
+request context. Drawing failures identify the visual and section instead:
+image or font loading during browser capture can fail before any render request
+is sent, so there may be no render response in the Network panel.
+
+Slow picture lookup and render submission keep the connection active while
+waiting for the server.
+If the connection drops during submission, check the video's progress before
+clicking **Render video** again: Azure may already have accepted the job.
+Completed visual uploads are cached and reused on the next attempt.
 
 ## Presenter with visuals
 
@@ -60,35 +77,62 @@ around it on one timeline:
   returns to the presenter alone.
 - **Kinds of visual.** Title card, learning objectives, bullet points, key
   number, quote, knowledge check, AI image (drawn on demand by the image model),
-  screenshot or picture (upload, paste or capture a screen), and any of the
-  notebook's infographics.
+  screenshot or picture (upload, paste or capture a screen), and notebook
+  infographics grounded entirely in the video's selected sources.
 - **A picture on every slide.** Title cards, objectives, bullet points, key
   numbers, quotes and knowledge checks show a picture of the idea beside their
   words: above them on the side panel, beside them on a wide one. When the idea
   concerns a Microsoft product, the planner writes a Microsoft Learn search and
-  a real screenshot is taken from the matching Learn article, credited
-  "Microsoft Learn" on the slide. Otherwise, or when Learn has nothing
+  a real screenshot is taken only from a selected Learn source page, credited
+  "Microsoft Learn" on the slide. No outside articles are searched.
+  Otherwise, or when selected Learn pages have nothing
   suitable, the image model draws an illustration from the planner's
   description. Pictures are found while the visuals are planned, as time
   allows; **Add pictures to N visuals** on the **Visuals** and **Preview** tabs
-  fills the rest, and rendering does too. Each visual's editor can search Learn
-  again (**Find another**), draw, upload or remove its picture. A slide whose
+  fills the rest, and rendering does too. Each visual's editor can search the
+  same selected Learn pages again (**Find another**), draw, upload or remove its picture. A slide whose
   search and drawing both fail shows its words alone.
+
+Visual replanning uses the original selected-source excerpts as evidence, not
+just the edited transcript. Unverified or unrelated infographics are excluded
+and direct API references are rejected. Generated illustrations are decorative;
+manual text and picture edits are not automatically fact-checked. Existing
+scripts and videos remain snapshots and are not automatically regenerated when
+source content changes. See [Grounding boundaries](grounding.md#studio-and-library-boundaries).
+
 - **Capitalization.** On-screen text is shown as an edited slide would be:
   sentence case, with product names and acronyms written the way the script
   writes them ("Copilot Studio", "AI"), even when the planner copied the words
   in lowercase from mid-sentence. Text is only ever capitalized, never lowered.
 - **Transitions.** Cut, fade, slide in, wipe or zoom, plus a slow push-in on
   pictures.
-- **Design.** The **Design** tab sets the theme colors, the default layout and
+- **Animation controls.** In **Design > Animation**, choose **None**,
+  **Light (transitions only)**, or **Full**, then customize the toggles for
+  visual transitions and fades, picture push-ins, progressive bullet reveals,
+  and presenter gliding between layouts. These settings apply to existing and
+  new visuals in both the preview and exported MP4. **Full** preserves the
+  original behavior. **None** uses instant cuts, keeps pictures still, shows
+  all bullets together, and switches presenter layouts without gliding.
+  Knowledge-check answers still appear when spoken, and the presenter's own
+  gestures and speech are unchanged. Individual visuals' transition and
+  picture-motion choices are preserved and take effect again when their
+  animation toggle is enabled. Changing only animation requires recomposition,
+  not new avatar clips.
+- **Design.** The **Design** tab sets the look (Standard or High-tech HUD), the
+  theme colors, the default layout and
   transition, the corner for the small presenter, opening and closing cards, a
   title card between sections, an on-screen name for the presenter, a logo, the
   resolution (720p or 1080p) and captions: burned in, a separate WebVTT file,
   or none.
+- **High-tech look.** Choose **High-tech HUD** under **Look** (in the Studio
+  card's style row or **Design**) for a futuristic style. It also selects the
+  **High-tech** theme colors, which you can change afterward. The default,
+  **Standard**, is unchanged. See [The high-tech look](#the-high-tech-look).
 
 ### Editing and previewing
 
-The editor has four tabs:
+The editor of a composed video has four tabs. A presenter-only video, one made
+without a composition, shows just **Script** and **Design**.
 
 | Tab | What it does |
 |---|---|
@@ -97,7 +141,7 @@ The editor has four tabs:
 | **Design** | The video-level look described above |
 | **Preview** | Plays the composed video in the browser from the same timeline the renderer uses. Markers on the strip below the player show every visual; clicking one opens it for editing |
 
-The preview costs nothing. It times the speech by synthesizing each sentence
+The browser preview has no avatar-rendering charge. It times the speech by synthesizing each sentence
 with the presenter's own standard neural voice through the ordinary speech
 endpoint, which costs a fraction of a cent per video and is cached. It plays
 that voice under the visuals. Until the presenter has been rendered, the spot
@@ -131,10 +175,82 @@ configured, timing is estimated from the word count and the preview is silent.
    background is keyed out.
 
 Compositing takes roughly a minute of computer time per minute of 720p video,
-and longer at 1080p. It needs Python with `numpy`, `Pillow` and
+and longer at 1080p. While it runs, the card shows a bar and percentage of the
+video drawn so far; the renderer reports it every couple of seconds of video.
+It needs Python with `numpy`, `Pillow` and
 `imageio-ffmpeg`, the same as whiteboard and motion videos. Run
 `npm run check:training` to compose a short synthetic video and confirm the
 setup works. It needs no Azure or model access.
+Use `npm run check:training -- --no-animation` to check the animation-free
+rendering path.
+
+### The HyperFrames compositor
+
+Set `TRAINING_RENDERER=hyperframes` to compose with
+[HyperFrames](https://github.com/heygen-com/hyperframes) instead of
+`render.py`. The timeline is the same, so the preview, the captions file and the
+timing do not change. Only step 4 differs:
+`src/lib/traininghyperframes.ts` turns the timeline into one HTML composition
+(the stage, each visual's drawings, the presenter's clips inside a wrapper that
+glides between poses, cards, lower third, captions and logo, all animated with
+GSAP), and `src/lib/hyperframes.ts` renders it in headless Chrome at 30 fps.
+`scripts/training/hf_assist.py` then normalizes the loudness to −16 LUFS, so the
+music mix and watermark steps work as before. Captions are real text, so they
+render sharper than the compositor's.
+
+It needs, besides Python: Node (the app's own), `ffmpeg` on `PATH`, Chrome (which
+HyperFrames downloads on first use) and network access for `npx` to fetch the
+pinned HyperFrames release the first time. Set `HYPERFRAMES_BIN` to use an
+installed `hyperframes` instead. Each worker is a Chrome process, so
+`HYPERFRAMES_WORKERS` limits how many run at once. The Docker image does not include
+these; the app falls back to the Python compositor, and the video's note says
+so, whenever HyperFrames cannot render, or when a presenter clip arrived
+without transparency (only `render.py` keys out a flat background).
+
+Run `npm run check:training -- --hyperframes` to compose the synthetic video
+this way. The bundled `scripts/hyperframes/gsap.min.js` is GSAP, used under its
+[standard license](https://gsap.com/standard-license/).
+
+### The high-tech look
+
+![Frames from a training video in the high-tech look: a decoding title card, a lower third, a visual in a HUD frame and a section card](screenshots/high-tech-training.jpg)
+
+*Frames from a short sample rendered with HyperFrames. The pictures and
+presenter are placeholders.*
+
+Set **Look** to **High-tech HUD** (`composition.look: "hightech"`) to draw the
+video in a futuristic HUD style. The timeline, slides, presenter clips, captions
+file and audio are the same; the frame around them changes:
+
+- A dark stage with a drifting grid, glow, scanlines and a vignette, and corner
+  brackets that draw in and pulse.
+- Every visual sits in a neon frame with corner brackets and a scan line that
+  sweeps down it, and arrives with a glitch burst (jitter and a red/cyan
+  channel split) instead of the usual slide, zoom or wipe. Cuts stay cuts.
+- Title, section and closing cards are live text: a spread-out eyebrow that
+  closes up, a title that reveals letter by letter through random symbols, a
+  neon rule, a typewriter line with a cursor, and a large section number.
+- The lower third decodes the presenter's name and types their role.
+- Captions get a neon-edged dark panel.
+
+Text stays legible on any theme: panels are always dark glass and type is
+always near-white; the theme only supplies the neon accents. The style uses only
+system fonts (Consolas, DejaVu Sans Mono, Segoe UI) and CSS, so a render needs
+no network beyond `npx`. Randomness comes from a PRNG seeded by the text, so
+the same video always renders the same frames.
+
+The animation setting still applies: with **None**, the style is drawn but
+nothing moves. Frames and slides already drawn in the browser are not
+restyled, so the **High-tech** theme (dark navy with cyan, green and magenta)
+is what makes them match.
+
+**Renderer.** The high-tech look needs HyperFrames, so it is used
+automatically whenever `npx` (or `HYPERFRAMES_BIN`) can start, without setting
+`TRAINING_RENDERER`. Setting `TRAINING_RENDERER=python` turns that off. If
+HyperFrames is not available or its render fails, the video is made with the
+Python compositor in the standard style, and the video's note says the
+high-tech effects were skipped. The in-browser preview shows the standard
+style either way, with no added animation.
 
 ## Sample
 
@@ -205,7 +321,7 @@ Optional settings:
 | `AZURE_AVATAR_BACKGROUND_URL` | A public image shown behind the presenter instead of the chosen color (presenter-only videos) |
 | `AZURE_AVATAR_PRICE_PER_MINUTE` | Shows an estimated cost in the editor before rendering |
 | `AZURE_AVATAR_CONCURRENCY` | Section clips of a composed video rendered at once (default 2, at most 8) |
-| `TRAINING_IMAGES` | Set to `off` to stop the visual planner proposing AI images and drawing illustrations for slides. Microsoft Learn screenshots are still found |
+| `TRAINING_IMAGES` | Set to `off` to stop the visual planner proposing AI images and drawing illustrations for slides. Screenshots can still be found within selected Microsoft Learn source pages |
 
 ## Presenters and voices
 
@@ -215,10 +331,39 @@ neural voice. The voice picker lists the en-US voices from the Speech `voices/li
 API (cached for 24 hours; a built-in list is used if the service is unreachable),
 including HD and preview MAI voices. Voices with speaking styles offer a style
 menu, and a Sample button plays a short clip of the chosen voice and style. Styles
-that measurably do nothing are hidden. The talking-head
-(photo) avatars are not offered, because the compositor needs a transparent
-full-body presenter. Jeff is left out because Microsoft retires him in December
-2026.
+that measurably do nothing are hidden. The 30 VASA-1 talking-head (photo) avatars
+are offered too. Four newer VASA-2 avatars (Leonie, Leonie Professional, George
+and Marcel) are defined but hidden and blocked, because Microsoft's docs say batch
+synthesis does not support `vasa-2` yet; add `"vasa-2"` to `BATCH_PHOTO_MODELS`
+in `src/lib/avatars.ts` once it does. Jeff is left out because Microsoft
+retires him in December 2026.
+
+### Live VASA-2 presenter
+
+The four VASA-2 avatars can be used today through the training video editor:
+open a generated training video and choose **Script > Preview live (VASA-2)**.
+It streams the avatar in your browser over WebRTC with the Speech SDK (real-time
+synthesis, which supports `vasa-2`), so it does not use batch synthesis. Pick a
+presenter and voice, press **Start session**, then **Play transcript** (or **Play
+from here** on any section). The presenter speaks the transcript the app wrote,
+including your edits, so nothing needs typing.
+
+![Live presenter dialog with the four VASA-2 avatars Leonie, Leonie Professional, George and Marcel, a voice picker, a video area and the transcript](screenshots/live-presenter.png)
+
+- Live only: nothing is recorded, saved or added to a training video, and the
+  background cannot be transparent.
+- The server hands the browser a short-lived Speech token and a relay server
+  (`/api/live-presenter`). The server exchanges its own credential (the key, or
+  its Entra token) for that short-lived Speech token and returns only the
+  exchanged token, so keys and Entra tokens never reach the page. With Entra, set
+  `AZURE_SPEECH_RESOURCE_ID` (or `AZURE_SPEECH_ENDPOINT`) so the server can reach
+  the resource's endpoint.
+- `AZURE_SPEECH_REGION` must be West US 2, Central India, Southeast Asia or
+  Sweden Central, the only regions Microsoft lists for `vasa-2` (preview). The
+  panel says so when it is not.
+- Your network must allow WebRTC to `relay.communication.microsoft.com` (UDP 3478,
+  TCP 443). Sessions end after 5 idle minutes or 30 minutes in total. Each session
+  start counts about 25 cents against the daily budget.
 
 ## Limits and behavior
 

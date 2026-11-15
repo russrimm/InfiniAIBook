@@ -334,7 +334,7 @@ export default function ScreenHelperModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/65 p-0 backdrop-blur-sm sm:p-6"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/65 backdrop-blur-sm"
       {...backdropProps}
     >
       <div
@@ -343,7 +343,7 @@ export default function ScreenHelperModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="screen-helper-title"
-        className="fade-up flex h-full w-full max-w-6xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:rounded-2xl"
+        className="fade-up flex h-full w-full flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none"
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <span className="text-xl" aria-hidden>

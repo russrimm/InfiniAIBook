@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
-import { ok, fail, noSourcesSelected } from "@/lib/http";
-import { keepAliveJSON } from "@/lib/keepalive";
+import { ok, fail, generationSourceError } from "@/lib/http";
+import { generationReply, type GenerationStatus } from "@/lib/keepalive";
 import { chatJSON, generateImage, type ChatMsg } from "@/lib/ai";
 import { imageDir } from "@/lib/paths";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
@@ -57,8 +57,9 @@ function normalize(type: ArtifactType, raw: Loose): Loose {
           const o = q as Loose;
           const choices = arr(o.choices).map((c) => str(c)).filter(Boolean);
           if (!str(o.question) || choices.length < 2) return null;
-          let idx = Number(o.answerIndex);
-          if (!Number.isInteger(idx) || idx < 0 || idx >= choices.length) idx = 0;
+          const idx = Number(o.answerIndex);
+          // Guessing the first choice would mark an arbitrary answer correct.
+          if (!Number.isInteger(idx) || idx < 0 || idx >= choices.length) return null;
 
           // Models cluster the correct answer in the first position however
           // firmly the prompt asks otherwise — a generated six-question quiz
@@ -146,7 +147,7 @@ function normalize(type: ArtifactType, raw: Loose): Loose {
       return {
         title: str(raw.title, STUDIO[type].label),
         subtitle: str(raw.subtitle),
-        markdown: str(raw.markdown) || str(raw.content) || "_No content returned._",
+        markdown: str(raw.markdown) || str(raw.content),
       };
     }
   }
@@ -172,10 +173,10 @@ const OWN_ROUTE = new Set<string>(["podcast", "video", "motion", "training"]);
 const bad = (error: string) => NextResponse.json({ error, code: "invalid" }, { status: 400 });
 
 export function POST(req: Request) {
-  return keepAliveJSON(() => generateArtifact(req));
+  return generationReply(req, (report) => generateArtifact(req, report));
 }
 
-async function generateArtifact(req: Request) {
+async function generateArtifact(req: Request, report: GenerationStatus) {
   try {
     const body = (await req.json().catch(() => null)) as Loose | null;
     if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -216,7 +217,7 @@ async function generateArtifact(req: Request) {
     ) {
       return bad("sourceIds must be a list of source ids.");
     }
-    const none = noSourcesSelected(sourceIds);
+    const none = generationSourceError(notebookId, sourceIds);
     if (none) return none;
 
     // Reject unknown values rather than passing them into the prompt, where
@@ -283,6 +284,7 @@ async function generateArtifact(req: Request) {
       return sampleCorpus(notebookId, sourceIds, budget);
     };
 
+    report("Reading selected sources");
     const focusedPassages = topic?.trim()
       ? await retrieve(notebookId, topic, sourceIds, 24)
       : [];
@@ -315,6 +317,7 @@ async function generateArtifact(req: Request) {
         },
       ];
       try {
+        report(attempt ? "Retrying with a smaller source context" : `Writing ${spec.label.toLowerCase()}`);
         raw = await chatJSON<Loose>(messages, 0.5);
         break;
       } catch (e) {
@@ -333,6 +336,7 @@ async function generateArtifact(req: Request) {
 
     if (!raw) throw lastError;
 
+    report("Checking the generated content and citations");
     const citations = citationList(passages);
     const content =
       type === "slides" ? normalizeSlides(raw, theme, citations) : normalize(type, raw);
@@ -360,6 +364,7 @@ async function generateArtifact(req: Request) {
     let imageFallback: { from: string; reason: string } | undefined;
     if (activeStyle && isImageStyle(activeStyle)) {
       try {
+        report("Drawing the infographic");
         const { png, model, size } = await generateImage(
           buildImagePrompt(
             content as Parameters<typeof buildImagePrompt>[0],
@@ -385,6 +390,7 @@ async function generateArtifact(req: Request) {
       }
     }
 
+    report("Saving the generated artifact");
     const stored = {
       ...content,
       ...(storedStyle ? { style: storedStyle } : {}),
@@ -394,6 +400,7 @@ async function generateArtifact(req: Request) {
       ...(imageFallback ? { imageFallback } : {}),
       ...(studyOpts ? { difficulty: studyOpts.difficulty } : {}),
       ...(image ?? {}),
+      sourceIds: [...new Set(sourceIds)],
       citations,
     };
     db.prepare(

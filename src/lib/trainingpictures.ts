@@ -1,5 +1,5 @@
 /**
- * Pictures for training-video slides: a real screenshot from Microsoft Learn
+ * Pictures for training-video slides: a real screenshot from selected Learn sources
  * when the visual has a search for one, otherwise an illustration from the
  * image model when it has a description.
  */
@@ -51,10 +51,10 @@ export async function findPicture(
   want: { query?: string; prompt?: string },
   pal: MotionPalette,
   session: PictureSession = pictureSession(),
-  opts: { ai?: boolean } = {}
+  opts: { ai?: boolean; sourcePages?: string[] } = {}
 ): Promise<FoundPicture | null> {
   if (want.query?.trim()) {
-    const shot = await findLearnScreenshot(want.query, session.used, session.pages);
+    const shot = await findLearnScreenshot(want.query, session.used, session.pages, opts.sourcePages ?? []);
     if (shot) {
       session.used.add(shot.src);
       return { imageId: store(shot.bytes), credit: LEARN_CREDIT, source: shot.src };
@@ -74,7 +74,7 @@ export async function findPicture(
 export async function fillCuePictures(
   sections: TrainingSection[],
   pal: MotionPalette,
-  opts: { ai: boolean; deadline: number; concurrency?: number }
+  opts: { ai: boolean; deadline: number; concurrency?: number; sourcePages?: string[] }
 ): Promise<{ filled: number; missing: number }> {
   const queue: TrainingCue[] = sections.flatMap((s) => (s.cues ?? []).filter(cueNeedsPicture));
   const session = pictureSession(sections);
@@ -83,7 +83,9 @@ export async function fillCuePictures(
     for (let cue = queue.shift(); cue; cue = queue.shift()) {
       if (Date.now() > opts.deadline) return;
       try {
-        const got = await findPicture({ query: cue.imageQuery, prompt: cue.imagePrompt }, pal, session, { ai: opts.ai });
+        const got = await findPicture({ query: cue.imageQuery, prompt: cue.imagePrompt }, pal, session, {
+          ai: opts.ai, sourcePages: opts.sourcePages ?? [],
+        });
         if (!got) continue;
         cue.imageId = got.imageId;
         if (got.credit) cue.imageCredit = got.credit;

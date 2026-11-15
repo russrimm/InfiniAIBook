@@ -30,9 +30,21 @@ az login                     # Entra sign-in; see docs/configuration.md
 npm run dev
 ```
 
-Open <http://localhost:3000>, press **+ New notebook**, and follow the
-getting-started steps in the chat panel: add sources, tick the ones to use, then
-ask a question or create something in Studio. **? Help** in the header
+Open <http://localhost:3000>, press **+ New notebook**, and follow the three
+getting-started steps in the chat panel: **Add sources**, **Choose sources**,
+then **Open Studio** (or ask a question). They are a stepper: the rail shows
+which steps are done and which one you are on, and **Back**, **Next** or a click
+on the rail moves between them, so you can return to add more sources or change
+what is ticked at any time. Adding the first source or ticking one moves you on
+by itself, and **Choose in Sources** opens the Sources panel ready to tick.
+
+![Getting-started guide with Add sources done, Choose sources current and Open Studio next, beside the open Sources panel](screenshots/getting-started.png)
+
+Sources starts collapsed; use
+**Add sources** in the header to open it. **Pin** keeps it open while you work
+elsewhere; **Unpin** lets it collapse when you click outside or press Escape.
+The close button collapses it even when pinned. On narrow screens, use the
+Sources tab to switch back to it. **? Help** in the header
 explains the rest. For a production build, `npm run build` then
 `npm start`. Both listen on `127.0.0.1` only, so other devices on your network
 cannot reach the server. To open it to your network, set
@@ -58,7 +70,12 @@ rather than `az login`. Whiteboard, motion and composed training videos need
 Python; build with `docker compose build --build-arg WITH_PYTHON=true` (or
 `docker build --build-arg WITH_PYTHON=true .`) to include it.
 
-To run it in Azure instead, see [Running in Azure](azure-deployment.md).
+The container reports its health to Docker (`docker compose ps`, `docker inspect`).
+The probe calls `GET /api/health`, which returns `{"status":"ok"}`, or `503` with
+`{"status":"unavailable"}` when the SQLite database cannot be read. It needs no
+password and accepts any `Host`, so probes from a load balancer or orchestrator
+work; the body carries no version, path or configuration. Every other route is
+still protected. instead, see [Running in Azure](azure-deployment.md).
 
 ## Password protection
 

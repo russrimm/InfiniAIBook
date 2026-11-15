@@ -67,8 +67,8 @@ back.
 | **Length** | Short (5 scenes, about 1 min) · Standard (7, about 1.5–2 min) · Long (9, about 2.5 min) | Standard | How many "how" scenes the story gets, and so the running time, picture count and build time |
 | **Tone** | Friendly · Professional · Energetic · Calm · Playful | Friendly | How the narration and headlines are written |
 | **Audience** | General · Beginners · Executives · Technical | General | Depth and framing: beginners get defined terms and an analogy, executives get outcomes and risks, technical viewers get mechanisms and trade-offs |
-| **Look** | Flat vector · Isometric · Paper cutout · Hand-drawn · Soft 3D clay · Minimal line art | Flat vector | The illustration style sent with every picture, so backgrounds, character and props match |
-| **Colors** | Auto · Ocean · Sunset · Forest · Berry · Corporate · Monochrome · Custom | Auto | The five-color palette used by the pictures, text panels, chips, stat cards and closing card. Auto lets the planner pick colors to suit the subject; Custom shows five color pickers (text, primary, accent, highlight, background) |
+| **Look** | Flat vector · Isometric · Paper cutout · Hand-drawn · Soft 3D clay · Minimal line art · High-tech HUD | Flat vector | The illustration style sent with every picture, so backgrounds, character and props match. **High-tech HUD** also switches the render to the animated HUD style ([below](#the-high-tech-look)) |
+| **Colors** | Auto · Ocean · Sunset · Forest · Berry · Corporate · Monochrome · High-tech · Custom | Auto | The five-color palette used by the pictures, text panels, chips, stat cards and closing card. Auto lets the planner pick colors to suit the subject (bright neons on dark for High-tech HUD); Custom shows five color pickers (text, primary, accent, highlight, background) |
 | **Character** | Designed to suit the subject · Describe my own · No character | Designed | The recurring character. Describe your own (for example "a nurse in blue scrubs with a stethoscope") to fix its look, or choose none for a video told with objects and settings only |
 | **Closing** | Free text, up to 160 characters | none | The call to action on the closing card and in the last line of narration. It is used as written, so it may include a link or contact detail that is not in the sources |
 | **Quality** | 720p · 1080p | 720p | Output resolution. Every layer scales, so the layout is the same; 1080p takes longer to render and makes a larger file. Pictures are drawn at the image model's own sizes either way |
@@ -113,6 +113,10 @@ a description directly. Unknown values fall back to the default.
 sources ─► scene planner ─► pictures ─► narration ─► timeline ─► renderer ─► MP4
 ```
 
+While it builds, the card lists each stage with a bar. Pictures and narration
+count scenes done; the animating stage shows the percent of the video rendered,
+which both renderers report as they go.
+
 1. **Plan** (`src/lib/motion.ts`). One JSON call to the studio script model
    writes the scenes, a palette and a description of the recurring character,
    following the chosen length, tone, audience and closing message. The
@@ -138,6 +142,8 @@ sources ─► scene planner ─► pictures ─► narration ─► timeline �
    bob, kinetic type, transitions, a closing card and a fade out. Frames are
    piped to FFmpeg, then narration is placed on the soundtrack, the music (if
    any) is ducked under the voice, and the mix is normalized to −16 LUFS.
+   Set `MOTION_RENDERER=hyperframes` to render with HyperFrames instead; see
+   [The HyperFrames renderer](#the-hyperframes-renderer).
 
 **The image model never draws text.** Headlines, sublines, chips, stats and the
 closing card are set by the renderer in a real font, because image models
@@ -162,11 +168,68 @@ renderer without spending any model calls:
 ```bash
 npm run check:motion              # 1280x720
 npm run check:motion -- --1080p   # 1920x1080
+npm run check:motion -- --hyperframes   # with the HyperFrames renderer
 ```
 
 That renders a 13-second video from synthetic shapes and tones into
 `.data/motion-check/`. It covers every layer type, every transition, the
 key-out and music ducking.
+
+### The HyperFrames renderer
+
+Set `MOTION_RENDERER=hyperframes` to render with
+[HyperFrames](https://github.com/heygen-com/hyperframes) instead of
+`render.py`. The plan, narration and timeline are the same; only the render
+step differs. `src/lib/motionhyperframes.ts` turns the config into one HTML
+composition (a scene per section, with every layer animated by GSAP), and
+`src/lib/hyperframes.ts` renders it in headless Chrome at the config's frame
+rate. Before that, `scripts/motion/hf_assist.py` keys out and trims each
+character picture with the same code `render.py` uses; afterward it lays the
+narration and music (ducked, normalized to −16 LUFS) under the silent render,
+also with `render.py`'s code, so the sound is identical. Text is real browser
+text, so it is crisp, and set in the system's sans-serif font (Segoe UI where
+the browser finds it).
+
+It needs `ffmpeg` on `PATH`, Chrome (which HyperFrames downloads on first use)
+and network access for `npx` to fetch the pinned release the first time. Set
+`HYPERFRAMES_BIN`, `HYPERFRAMES_WORKERS` and `HYPERFRAMES_TIMEOUT_MIN` as for
+[training videos](training-videos.md#the-hyperframes-compositor). If
+HyperFrames cannot render, the video is made with `render.py` and its note says
+so.
+
+### The high-tech look
+
+![Frames from a motion explainer in the high-tech look: a letter-by-letter headline, a typed subline, neon chips, a counting stat card and a decoding scene title](screenshots/high-tech-motion.jpg)
+
+*Frames from a short sample rendered with HyperFrames. The background and
+character are placeholders.*
+
+Choosing **Look ▸ High-tech HUD** asks the image model for dark, neon,
+interface-style pictures and renders the video in a futuristic HUD style. It is
+a different look for the same plan, narration and timeline:
+
+- Scenes sit on a grid, glow and scanline backdrop under HUD corner brackets
+  that draw in and pulse, a faint scan beam, and a spread-out `SCENE 02 / 07`
+  counter.
+- Headlines are monospaced, reveal letter by letter through random symbols, and
+  sit in dark glass with corner brackets and a neon rule. Sublines type in
+  with a block cursor.
+- Callout chips pop in with decoding text and a neon border that keeps
+  circling. Stat cards count up and decode their label.
+- Scenes arrive with a glitch burst (jitter, red/cyan channel split and neon
+  bars); a wipe stays a wipe, behind a neon bar.
+
+Text is always light on dark glass, so it stays legible whatever colors are
+chosen; the colors supply only the neon accents (brightened if they are dark).
+The **High-tech** colors suit it best. Fonts are system ones (Consolas, DejaVu
+Sans Mono, Segoe UI), nothing is fetched at render time, and the motion is
+deterministic: a seeded generator, never `Math.random`.
+
+**Renderer.** The style needs HyperFrames, so it is used automatically when
+`npx` (or `HYPERFRAMES_BIN`) can start, without setting `MOTION_RENDERER`.
+`MOTION_RENDERER=python` turns that off. When HyperFrames is missing or fails,
+the video is made with `render.py` in the standard layout, and its note says the
+high-tech effects were skipped.
 
 ## Music
 

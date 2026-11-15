@@ -149,16 +149,19 @@ commentary. Only a model provider is required.
 | `AZURE_OPENAI_REALTIME_DEPLOYMENT`, `AI_REALTIME_MODEL`, `AI_REALTIME_TRANSCRIPTION_MODEL`, `DISCUSSION_CONTEXT_CHARS` | Realtime voice model, transcription and starting context for [live discussions](discussions.md#setup) |
 | `AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT` | Optional Whisper / gpt-4o-transcribe deployment for audio/video sources |
 | `AZURE_OPENAI_API_KEY` | Legacy key auth; takes precedence over Entra when set |
-| `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | Service principal or user-assigned identity for Entra auth |
+| `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | Service principal (all three), user-assigned identity (`AZURE_CLIENT_ID`), or the tenant to sign in to with `az login` (`AZURE_TENANT_ID` alone). See [Authentication](#authentication-microsoft-entra-id) |
+| `AZURE_SUBSCRIPTION_ID` | Optional subscription hint selecting the local Azure CLI account without changing global CLI defaults |
+| `AZURE_TOKEN_CREDENTIALS` | Optional Azure Identity credential-chain selector; `AzureCliCredential` uses only the existing local `az login` session |
 | `AZURE_SPEECH_REGION`, `AZURE_SPEECH_RESOURCE_ID`, `AZURE_SPEECH_KEY` | Azure Speech for audio overviews, video narration and training-video avatars |
 | `AZURE_SPEECH_ENDPOINT` | Custom-domain Speech endpoint for the avatar service; derived from `AZURE_SPEECH_RESOURCE_ID` when unset |
 | `AZURE_AVATAR_BACKGROUND_URL`, `AZURE_AVATAR_PRICE_PER_MINUTE`, `AZURE_AVATAR_CONCURRENCY`, `TRAINING_IMAGES` | Optional training-video background image, cost estimate, parallel section renders and AI-image planning ([Training videos](training-videos.md)) |
 | `STUDIO_CONTEXT_CHARS` | Starting source budget for Studio generation (default `30000`) |
 | `AI_STUDIO_MODEL`, `AI_STUDIO_ENDPOINT`, `AI_STUDIO_API`, `AI_STUDIO_BASE_URL`, `AI_STUDIO_API_KEY`, `AI_STUDIO_MAX_TOKENS` | Separate model for audio-overview, video and training scripts and scene plans; see [Studio script model](#studio-script-model) |
-| `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX` | Optional discovery providers; DuckDuckGo is used without them |
+| `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX` | Optional discovery API fallbacks; Bing RSS is always searched first |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | YouTube transcripts via Gemini |
 | `YOUTUBE_API_KEY`, `YOUTUBE_COOKIE`, `YOUTUBE_CAPTION_LANG` | YouTube metadata and transcript fallbacks |
 | `PYTHON_BIN` | Python interpreter for the whiteboard, motion and training renderers (default `python`; `python3` in the Docker image) |
+| `TRAINING_RENDERER`, `MOTION_RENDERER`, `HYPERFRAMES_BIN`, `HYPERFRAMES_WORKERS`, `HYPERFRAMES_TIMEOUT_MIN` | Opt in to the HyperFrames renderer for training videos (`TRAINING_RENDERER=hyperframes`) and motion explainers (`MOTION_RENDERER=hyperframes`); the default is the Python renderer. The **High-tech HUD** style uses HyperFrames automatically whenever `npx` (or `HYPERFRAMES_BIN`) can start, unless the matching variable is set to `python`; if HyperFrames is unavailable or fails, the standard renderer runs and the video's note says so. Tune it with a `hyperframes` executable to use instead of `npx`, parallel browser workers (default 1–4 by CPU count) and a time limit (default 120 minutes) ([Training videos](training-videos.md#the-hyperframes-compositor), [Motion explainers](motion-explainers.md#the-hyperframes-renderer), [High-tech look](training-videos.md#the-high-tech-look)) |
 | `MOTION_MUSIC_DIR` | Optional folder of music tracks, listed read-only in the music picker alongside tracks uploaded in the app ([Background music](studio.md#background-music)) |
 | `ALLOW_PRIVATE_NETWORK_FETCH` | Allow fetching private/loopback addresses (default off; see [SECURITY.md](../SECURITY.md)) |
 | `MAX_FETCH_BYTES`, `FETCH_MAX_REDIRECTS`, `FETCH_TIMEOUT_MS` | Limits on fetched pages and files |
@@ -171,6 +174,12 @@ commentary. Only a model provider is required.
 | `INFINIAIBOOK_SESSION_SECRET` | Optional extra key for signing session cookies; change it to sign every browser out |
 | `ALLOWED_HOSTS` | Extra hostnames the server answers to, comma-separated (`*` for any). Loopback names are always allowed. Without a password, other hosts get a 403 |
 | `TRUST_PROXY` | `true` behind a reverse proxy: honor `X-Forwarded-Host` / `X-Forwarded-Proto` |
+
+Microsoft Learn source search and page import use the public MCP endpoint
+`https://learn.microsoft.com/api/mcp`, with no additional API key or environment
+variable. Enable **Use live Microsoft Learn in chat** separately for each
+notebook under **Sources → Microsoft Learn**. It is off by default and affects
+only notebook chat; see [Microsoft Learn sources](sources.md#microsoft-learn-imports-and-live-chat).
 
 ## Checking a provider
 
@@ -254,6 +263,24 @@ identity, set `AZURE_CLIENT_ID` to its client id.
 
 **CI / off-Azure containers** — supply a service principal via
 `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and `AZURE_CLIENT_SECRET`.
+
+**More than one tenant** — if your `az login` has several tenants and the Azure
+OpenAI resource is not in the CLI's current one, requests fail with *Token
+tenant … does not match resource tenant*. Set `AZURE_TENANT_ID` to the
+resource's tenant (without a client id or secret) and the app signs in to that
+tenant with the account you are already signed in with, so there is no need to
+run `az account set` first. This applies to chat, Azure Speech and the avatar
+service alike. That account must hold the **Cognitive Services OpenAI User**
+role in that tenant. If the resource is held by a *different* account (for
+example, the one behind another subscription), also set `AZURE_SUBSCRIPTION_ID`
+in `.env.local` to select that subscription's CLI account and owning tenant
+without changing global defaults. The subscription takes precedence over the
+tenant hint in the default credential chain because Azure CLI accepts only one
+selector. These hints do not change service-principal or managed-identity
+authentication. If another developer credential stalls before Azure CLI is
+tried, local development can set `AZURE_TOKEN_CREDENTIALS=AzureCliCredential`
+to use only the existing `az login` session. Restart the server after changing
+authentication settings.
 
 Token acquisition, caching and refresh are handled per request, so long-running
 servers never serve an expired token. Auth failures are translated into

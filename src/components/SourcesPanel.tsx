@@ -105,9 +105,16 @@ export default function SourcesPanel({
   onRemove,
   onChanged,
   onDiscover,
+  onLearn,
+  liveLearn = false,
   onBrowse,
   onLibrary,
   addRef,
+  pinned,
+  adding,
+  onToggleAdding,
+  onTogglePin,
+  onClose,
 }: {
   notebookId: string;
   sources: Source[];
@@ -122,10 +129,17 @@ export default function SourcesPanel({
   onRemove: (s: Source) => void;
   onChanged: () => Promise<void> | void;
   onDiscover: () => void;
+  onLearn: () => void;
+  liveLearn?: boolean;
   onBrowse: () => void;
   /** Reuse a source that already lives in another notebook. */
   onLibrary: () => void;
   addRef: React.MutableRefObject<((hits: DiscoverHit[]) => void) | null>;
+  pinned: boolean;
+  adding: boolean;
+  onToggleAdding: () => void;
+  onTogglePin: () => void;
+  onClose: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -135,6 +149,7 @@ export default function SourcesPanel({
   // Escape dismisses the inline form and hands focus back to the button that opened it.
   const closeInline = (e: React.KeyboardEvent) => {
     if (e.key !== "Escape") return;
+    e.preventDefault();
     e.stopPropagation();
     (mode === "url" ? linkBtn : textBtn).current?.focus();
     setMode("none");
@@ -270,7 +285,7 @@ export default function SourcesPanel({
     }
   };
 
-  const addUrl = (url: string, title?: string) => {
+  const addUrl = (url: string, title?: string, learn = false) => {
     const label =
       title ??
       (() => {
@@ -283,14 +298,14 @@ export default function SourcesPanel({
       })();
     return startJob(label.slice(0, 90), /youtu\.?be/i.test(url) ? "📺" : "🌐", {
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ url, title }),
+      body: JSON.stringify(learn ? { learnUrl: url } : { url, title }),
     });
   };
 
   // Lets the Discover modal queue its selections through the same pipeline.
   useEffect(() => {
     addRef.current = (hits: DiscoverHit[]) =>
-      hits.forEach((h) => addUrl(h.url, h.title));
+      hits.forEach((h) => addUrl(h.url, h.title, h.provider === "microsoft-learn"));
     return () => {
       addRef.current = null;
     };
@@ -310,8 +325,31 @@ export default function SourcesPanel({
           <h2 id="sources-heading" className="text-sm font-semibold tracking-wide">
             Sources
           </h2>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn !px-2 !py-1 !text-[11px]"
+              aria-label={pinned ? "Unpin sources panel" : "Pin sources panel"}
+              aria-pressed={pinned}
+              title={pinned ? "Unpin to collapse when you click outside" : "Keep Sources open"}
+              onClick={onTogglePin}
+            >
+              {pinned ? "Unpin" : "Pin"}
+            </button>
+            <button
+              type="button"
+              className="btn !px-2 !py-1 !text-[11px]"
+              aria-label="Collapse sources panel"
+              onClick={onClose}
+            >
+              <span aria-hidden>×</span>
+            </button>
+          </div>
+        </div>
+        <div className="mt-2">
           {sources.length > 0 && (
             <button
+              id="select-all-sources"
               className="text-xs text-[var(--muted)] transition hover:text-[var(--fg)]"
               onClick={onToggleAll}
             >
@@ -320,13 +358,28 @@ export default function SourcesPanel({
           )}
         </div>
         <p className="mt-1 text-[11px] text-[var(--muted)]">
-          {sources.length > 0
+          {liveLearn
+            ? "Chat uses ticked sources and live Microsoft Learn. Studio uses only ticked saved sources."
+            : sources.length > 0
             ? "Ticked sources are the only ones Chat and Studio use. Click a source to read it."
             : "Add what you want to research. Chat and Studio use only these."}
         </p>
+        <button
+          type="button"
+          className="btn mt-3 w-full !py-1.5 !text-xs"
+          aria-controls="source-add-tools"
+          aria-expanded={adding}
+          onClick={onToggleAdding}
+        >
+          {adding ? "Hide upload tools" : "Add sources"}
+        </button>
       </div>
 
-      <div className="px-4 pb-3">
+      <div
+        id="source-add-tools"
+        hidden={!adding}
+        className="max-h-[55%] shrink-0 overflow-y-auto px-4 pb-3"
+      >
         <button
           type="button"
           id="add-sources"
@@ -402,12 +455,22 @@ export default function SourcesPanel({
           </button>
           <button
             className="btn col-span-2 !px-2 !py-1.5 !text-xs"
+            onClick={onLearn}
+            title="Import Microsoft Learn documentation or enable live Learn in chat"
+          >
+            Microsoft Learn
+          </button>
+          <button
+            className="btn col-span-2 !px-2 !py-1.5 !text-xs"
             onClick={onLibrary}
             title="Reuse a source that is already in another notebook"
           >
             <span aria-hidden>📚</span> From other notebooks
           </button>
         </div>
+        {liveLearn && (
+          <p className="mt-2 text-[11px] text-[var(--muted)]">Microsoft Learn live chat is on.</p>
+        )}
 
         {mode === "url" && (
           <form
@@ -472,11 +535,18 @@ export default function SourcesPanel({
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+      <div
+        id="source-list"
+        role="region"
+        aria-label="Source synopses"
+        tabIndex={-1}
+        className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]"
+      >
         {jobs.length === 0 && sources.length === 0 ? (
           <p className="px-2 py-8 text-center text-xs text-[var(--muted)]">
-            No sources yet. Everything you ask and generate is grounded in what you add
-            here.
+            {liveLearn
+              ? "No saved sources yet. Live Microsoft Learn is available in chat. Import pages to use them in Studio."
+              : "No sources yet. Everything you ask and generate is grounded in what you add here."}
           </p>
         ) : (
           <ul className="space-y-1">
@@ -545,11 +615,9 @@ export default function SourcesPanel({
                       {s.title}
                     </span>
                   </div>
-                  {s.summary && (
-                    <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-[var(--muted)]">
-                      {s.summary}
-                    </p>
-                  )}
+                  <p className="mt-1 text-[13px] leading-relaxed break-words text-[var(--muted)]">
+                    {s.summary?.trim() || "No synopsis available."}
+                  </p>
                   <p className="mt-1 text-[10px] text-dim">{bytes(s.chars)}</p>
                 </button>
                 <button

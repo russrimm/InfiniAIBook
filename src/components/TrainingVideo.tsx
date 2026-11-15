@@ -14,7 +14,12 @@ import type {
   TrainingSection,
 } from "@/lib/types";
 import { WORDS_PER_MINUTE } from "@/lib/voices";
-import { AVATAR_PRESETS, BACKGROUNDS, MAX_AVATAR_MINUTES } from "@/lib/avatars";
+import {
+  AVATAR_PRESETS,
+  BACKGROUNDS,
+  MAX_AVATAR_MINUTES,
+  PRESENTER_ENTRIES,
+} from "@/lib/avatars";
 import {
   GESTURE_NONE,
   gestureCatalog,
@@ -57,10 +62,13 @@ import NarrationOptions from "./NarrationOptions";
 import TrainingCueEditor from "./TrainingCueEditor";
 import TrainingDesign from "./TrainingDesign";
 import PresenterGallery from "./PresenterGallery";
+import LivePresenterModal from "./LivePresenterModal";
 import TrainingPreview from "./TrainingPreview";
 import VoicePicker from "./VoicePicker";
 import type { VisualContext } from "./TrainingVisual";
 import { prepareRasters } from "./trainingRaster";
+import { trainingRequest, TrainingRequestError } from "@/lib/trainingrequest";
+import GenerationModal from "./GenerationModal";
 
 const PRESENTER_STAGES: { key: string; label: string }[] = [
   { key: "submitting", label: "Sending the transcript to Azure" },
@@ -174,10 +182,12 @@ export default function TrainingVideo({
   const [draft, setDraft] = useState<Draft>(() => toDraft(content));
   const [dirty, setDirty] = useState(false);
   const [gallery, setGallery] = useState(false);
+  const [liveOpen, setLiveOpen] = useState(false);
   const [busy, setBusy] = useState<
     "save" | "render" | "plan" | "pictures" | null
   >(null);
   const [prep, setPrep] = useState<string | null>(null);
+  const [statusOpen, setStatusOpen] = useState(rendering);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [tab, setTab] = useState<Tab>("script");
@@ -367,16 +377,16 @@ export default function TrainingVideo({
   const patch = async (
     body: Record<string, unknown>,
   ): Promise<TrainingContent> => {
-    const res = await fetch(`/api/training/${artifactId}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const j = (await res.json().catch(() => ({}))) as {
-      error?: string;
-      content?: TrainingContent;
-    };
-    if (!res.ok || !j.content)
+    const j = await trainingRequest<{ error?: string; content?: TrainingContent }>(
+      `/api/training/${artifactId}`,
+      "Saving the transcript",
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    if (!j.content)
       throw new Error(j.error || "Could not save the transcript.");
     return j.content;
   };
@@ -425,21 +435,34 @@ export default function TrainingVideo({
     let n = 0;
     for (const q of pending) {
       onStep(++n, pending.length);
-      const res = await fetch(`/api/training/${artifactId}/assets/find`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          query: q.imageQuery,
-          prompt: q.imagePrompt,
-          exclude: used,
-        }),
-      });
-      const j = (await res.json().catch(() => ({}))) as {
-        imageId?: string;
-        credit?: string;
-        source?: string;
-      };
-      if (!res.ok || !j.imageId) {
+      let j: { imageId?: string; credit?: string; source?: string; error?: string };
+      try {
+        j = await trainingRequest<{
+          imageId?: string;
+          credit?: string;
+          source?: string;
+          error?: string;
+        }>(
+          `/api/training/${artifactId}/assets/find`,
+          `Finding picture ${n} of ${pending.length}`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              query: q.imageQuery,
+              prompt: q.imagePrompt,
+              exclude: used,
+            }),
+          },
+        );
+      } catch (e) {
+        if (e instanceof TrainingRequestError && e.status === 404) {
+          failed++;
+          continue;
+        }
+        throw e;
+      }
+      if (!j.imageId) {
         failed++;
         continue;
       }
@@ -482,10 +505,10 @@ export default function TrainingVideo({
         s.cues?.some((q) => q.infographicId && !graphics.has(q.infographicId)),
       )
     ) {
-      const res = await fetch(`/api/training/${artifactId}/infographics`);
-      const j = (await res.json().catch(() => ({}))) as {
+      const j = await trainingRequest<{
+        error?: string;
         items?: { id: string; title: string; content: InfographicContent }[];
-      };
+      }>(`/api/training/${artifactId}/infographics`, "Loading infographics");
       setInfographics(j.items ?? []);
       graphics = new Map((j.items ?? []).map((g) => [g.id, g.content]));
       const gone = saved.sections
@@ -528,23 +551,39 @@ export default function TrainingVideo({
   const run = async (what: "save" | "render") => {
     setBusy(what);
     setError(null);
+    if (what === "render") {
+      setStatusOpen(true);
+      setPrep("Saving the transcript");
+    }
+    let step = "Saving the transcript";
     try {
       let saved = content;
       if (dirty) saved = await save();
       if (what === "render") {
         if (normalizeComposition(saved.composition).mode === "composed") {
+          step = "Preparing the visuals";
           await prepareComposed(saved);
-          setPrep("Starting the render");
         }
-        const res = await fetch(`/api/training/${artifactId}/render`, {
+        step = "Starting the render";
+        setPrep(step);
+        await trainingRequest<{ error?: string }>(`/api/training/${artifactId}/render`, "Starting the render", {
           method: "POST",
         });
-        const j = (await res.json().catch(() => ({}))) as { error?: string };
-        if (!res.ok) throw new Error(j.error || "Could not start the render.");
+        step = "Refreshing render progress";
         await refresh.current();
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      console.error("[training] action failed", { artifactId, action: what, step }, e);
+      const detail = e instanceof Error ? e.message : "Something went wrong.";
+      setError(
+        e instanceof TrainingRequestError
+          ? e.message
+          : `${step} failed: ${detail}${
+              step === "Refreshing render progress"
+                ? " The render was submitted. Reopen the video to check its progress before rendering again."
+                : ""
+            }`,
+      );
     } finally {
       setBusy(null);
       setPrep(null);
@@ -553,6 +592,8 @@ export default function TrainingVideo({
 
   const plan = async (section?: number) => {
     setBusy("plan");
+    setStatusOpen(true);
+    setPrep("Planning the training visuals");
     setError(null);
     try {
       if (dirty) await save();
@@ -568,11 +609,14 @@ export default function TrainingVideo({
       setError(e instanceof Error ? e.message : "Could not plan the visuals.");
     } finally {
       setBusy(null);
+      setPrep(null);
     }
   };
 
   const pictures = async () => {
     setBusy("pictures");
+    setStatusOpen(true);
+    setPrep("Finding pictures for the visuals");
     setError(null);
     try {
       const saved = dirty ? await save() : content;
@@ -629,6 +673,7 @@ export default function TrainingVideo({
           .filter(Boolean),
         sections: draft.sections,
         composition: draft.composition,
+        presenter: draft.presenter,
         description: content.description,
       }),
     [draft, content.description],
@@ -702,6 +747,13 @@ export default function TrainingVideo({
   const clipsReady = clips.filter(
     (k) => k.status === "cached" || k.status === "done",
   ).length;
+  const processing = rendering || busy === "render" || busy === "plan" || busy === "pictures";
+  const processingStatus = prep ?? stages.find((s) => s.key === stage)?.label ?? "Preparing the video";
+  const processingProgress = stage === "composing" && typeof content.progress.renderPct === "number"
+    ? { done: content.progress.renderPct, total: 100, label: "Composing the video" }
+    : clips.length > 0
+      ? { done: clipsReady, total: clips.length, label: "Presenter sections ready" }
+      : undefined;
 
   const tabs: { key: Tab; label: string }[] = composed
     ? [
@@ -780,6 +832,9 @@ export default function TrainingVideo({
             <span className="ml-auto font-mono text-[11px] text-[var(--muted)] tabular-nums">
               {fmt(elapsed)}
             </span>
+            <button type="button" className="btn !text-xs" onClick={() => setStatusOpen(true)}>
+              View status
+            </button>
           </div>
           <ol className="mt-3 space-y-1.5">
             {stages.map((s, i) => {
@@ -809,6 +864,27 @@ export default function TrainingVideo({
               );
             })}
           </ol>
+          {stage === "composing" &&
+            typeof content.progress?.renderPct === "number" && (
+              <div className="mt-3 flex items-center gap-3">
+                <div
+                  role="progressbar"
+                  aria-label="Composing the video"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={content.progress.renderPct}
+                  className="h-1 flex-1 overflow-hidden rounded-full bg-track-soft"
+                >
+                  <div
+                    className="h-full rounded-full bg-[var(--accent)] transition-all motion-reduce:transition-none"
+                    style={{ width: `${content.progress.renderPct}%` }}
+                  />
+                </div>
+                <span className="w-10 shrink-0 text-right font-mono text-[10px] text-[var(--muted)] tabular-nums">
+                  {content.progress.renderPct}%
+                </span>
+              </div>
+            )}
           {savedComposed && clips.length > 0 && (
             <div
               className="mt-3 flex flex-wrap items-center gap-1"
@@ -912,7 +988,7 @@ export default function TrainingVideo({
                       key={String(photo)}
                       label={photo ? "Talking heads" : "Full body"}
                     >
-                      {Object.entries(AVATAR_PRESETS)
+                      {PRESENTER_ENTRIES
                         .filter(([, p]) => !!p.photo === photo)
                         .map(([key, p]) => (
                           <option key={key} value={key}>
@@ -929,6 +1005,21 @@ export default function TrainingVideo({
                 >
                   Compare presenters
                 </button>
+                <button
+                  className="btn !text-[11px]"
+                  title="A live VASA-2 talking head speaks this transcript"
+                  disabled={!draft.sections.length}
+                  onClick={() => setLiveOpen(true)}
+                >
+                  Preview live (VASA-2)
+                </button>
+                {liveOpen && (
+                  <LivePresenterModal
+                    sections={draft.sections}
+                    voice={draft.voice}
+                    onClose={() => setLiveOpen(false)}
+                  />
+                )}
                 {gallery && (
                   <PresenterGallery
                     current={draft.presenter}
@@ -1389,8 +1480,9 @@ export default function TrainingVideo({
         </button>
         <button
           className="btn btn-primary !text-xs"
-          disabled={locked || tooLong || wordCount === 0}
-          onClick={() => void run("render")}
+          disabled={!processing && (locked || tooLong || wordCount === 0)}
+          onClick={() => processing ? setStatusOpen(true) : void run("render")}
+          aria-label={processing ? "View video processing status" : undefined}
         >
           {busy === "render"
             ? "Preparing…"
@@ -1403,6 +1495,22 @@ export default function TrainingVideo({
                   : "Render video"}
         </button>
       </div>
+      {statusOpen && (processing || error || stage === "failed") && (
+        <GenerationModal
+          title="Video processing status"
+          jobs={[{
+            id: artifactId,
+            label: content.title,
+            status: processingStatus,
+            progress: rendering ? processingProgress : undefined,
+            detail: content.progress.note,
+            error: stage === "failed"
+              ? content.progress.note ?? "The render failed."
+              : !processing ? error ?? undefined : undefined,
+          }]}
+          onClose={() => setStatusOpen(false)}
+        />
+      )}
     </div>
   );
 }

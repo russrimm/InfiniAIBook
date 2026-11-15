@@ -130,16 +130,22 @@ test("keeps the brief as Illustrated when the image cannot be drawn", async ({
 
 test("rejects unknown styles and oversized descriptions", async ({ request }) => {
   const id = await notebookWithSource(request);
+  const notebook = await (await request.get(`/api/notebooks/${id}`)).json() as { sources: { id: string }[] };
+  const sourceIds = notebook.sources.map((source) => source.id);
+  expect(sourceIds).toHaveLength(1);
   const bad = await request.post("/api/generate", {
-    data: { notebookId: id, type: "infographic", style: "constructor" },
+    data: { notebookId: id, sourceIds, type: "infographic", style: "constructor" },
   });
   expect(bad.status()).toBe(400);
+  expect((await bad.json()).error).toContain("Unknown infographic style");
   const long = await request.post("/api/generate", {
-    data: { notebookId: id, type: "infographic", style: "timeline", instructions: "x".repeat(601) },
+    data: { notebookId: id, sourceIds, type: "infographic", style: "timeline", instructions: "x".repeat(601) },
   });
   expect(long.status()).toBe(400);
+  expect((await long.json()).error).toContain("Keep the description under 600 characters.");
   const proto = await request.post("/api/generate", {
-    data: { notebookId: id, type: "__proto__" },
+    data: { notebookId: id, sourceIds, type: "__proto__" },
   });
   expect(proto.status()).toBe(400);
+  expect((await proto.json()).error).toBe("Unknown artifact type");
 });

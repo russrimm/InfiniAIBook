@@ -190,7 +190,7 @@ InfiniAIBook is a quiet workroom, dark by default. The user's sources fill the s
 
 The workspace is dense, like a working tool. Three panels sit side by side (Sources, Chat, and Studio/Notes) with hairline borders between them. Chrome type runs from 10 to 13px; answers and notes switch to a comfortable 15px reading measure at 1.7 line height. Surfaces are flat. Depth comes from tonal steps and 1px hairlines, not shadows. Emoji serve as the icon set and give each notebook, source type, and Studio tool a friendly, recognizable mark without an icon library.
 
-Generated artifacts (infographics in 20 styles, mind maps, slide decks, videos) are content, not chrome. Their styles sit inside the room, and they don't redefine the room's palette.
+Generated artifacts (infographics in 33 styles, mind maps, slide decks, videos) are content, not chrome. Their styles sit inside the room, and they don't redefine the room's palette.
 
 **Key Characteristics:**
 - Dark by default, with an optional light theme. A Light / Dark / Auto toggle (`ThemeToggle`) sits in the home nav, the notebook header and the login page; Auto follows the OS setting. Every chrome color is a token in `globals.css`; the light palette is a `:root[data-theme="light"]` override of the same names, so components never branch on theme.
@@ -254,7 +254,7 @@ Status colors use Tailwind's amber, red, emerald, and rose families. They're nev
 - **Body** (`body`): Chat answers, notes, and artifact prose, in Prose Mist. Tables inside prose drop to 14px.
 - **Body UI** (`body-ui`): Source titles, Studio tool names, job labels, button text.
 - **Meta** (`meta`): Summaries, status lines, compact buttons in the header, toasts.
-- **Label** (`label`): Section headings in panels ("Live", "Audio & video", and so on). Uppercase, Fog color.
+- **Label** (`label`): Section headings in panels ("Listen", "Watch", and so on). Uppercase, Fog color.
 - **Micro** (`micro`): Studio tile descriptions and inline field labels, which are uppercase with wide tracking.
 
 ### Named Rules
@@ -267,8 +267,10 @@ Status colors use Tailwind's amber, red, emerald, and rose families. They're nev
 - **Notebook list:** a centered column up to 72rem wide, with 24px side padding and 56px of vertical padding. Below the header is a responsive grid of notebook cards (one column, two at `sm`, three at `lg`) with 16px gaps.
 - **Workspace:** fills the full viewport height. A 1px-bordered header (16px × 12px padding) sits above a three-column grid at `lg` and up: Sources (320px) | Chat (flexible) | Studio/Notes (380px). The columns are separated by hairline borders, not gutters. Studio and Notes share the right column through a small segmented tab bar.
 - **`lg` to `xl`:** the side columns narrow to 17rem and 20rem so Chat keeps room; the full 320px / 380px widths arrive at `xl`.
-- **Below `lg`:** the three panels collapse into a single column switched by a full-width tab bar. Header button labels collapse to emoji below `md`.
-- **Modals:** fill the viewport on small screens. From `sm` up they float with 24px of inset and Sheet corners.
+- **Below `lg`:** the three panels collapse into a single column switched by a full-width tab bar of 44px buttons.
+- **Below `md`:** the workspace header is one compact row: back, notebook, title, an **Add sources** icon button and a **More actions** menu (`OverflowMenu`) holding Search, Screen helper, Models, Export, Theme and Help. Every control is a 44px target with an `aria-label` and `title`. The menu follows the menu-button pattern: arrows, Home and End move, Escape and Tab close it, and focus returns to its button. From `md` up the labeled buttons wrap as before.
+- **Icons:** header and menu controls use the line icons in `src/components/icons.tsx` (inherit `currentColor`, decorative, always paired with a text label or `aria-label`). Emoji remain the marks for notebooks, sources and Studio formats.
+- **Modals:** fill the viewport on small screens. From `sm` up they float with 24px of inset and Sheet corners. Screen helper is an immersive workspace: it fills the browser viewport at every size, without outer insets or rounded corners.
 - **Rhythm:** a 4px base. Dense UI uses 8px gaps (`gap-2` is by far the most common) and 12px between groups. Cards use 20px of internal padding. Lists stack at 8px.
 
 ## Elevation & Depth
@@ -321,13 +323,16 @@ A small pill sitting just above the baseline after a claim: Cite Wash fill, a La
 ### Studio Tile (signature)
 A Card-styled button with an emoji at 20px, a Body UI tool name, a one-line Micro description in Fog, and a "Generate →" cue. On hover the border lights to Lamplight. While generating, the tile gets a shimmer and a persistent Lamplight border. Disabled tiles drop to 40% opacity.
 
-Formats with settings use a **Studio Card** (`src/components/StudioCard.tsx`) instead: the same header with a compact default **Generate** button (never the title), then an **Options ▸** disclosure that shows a one-line summary of the current settings while closed. Errors appear as a Status Wash strip on the card that failed. Studio itself switches between **Create** and **Library (n)** with a small segmented control.
+Formats with settings use a **Studio Card** (`src/components/StudioCard.tsx`) instead: the same header with a compact default **Generate** button (never the title), then an **Options ▸** disclosure that shows a one-line summary of the current settings while closed. Errors appear as a Status Wash strip on the card that failed. Studio itself switches between **Create** and **Library (n)** with a small segmented control. In Create, cards sit in collapsible **Studio Groups** (`StudioGroup.tsx`: Listen, Watch, Read, Visualize, Study), each with a Label heading button, a one-line description and a count, under a **Filter formats** search box. When no source is ticked, a Well-colored notice states why Generate is off and how to fix it, and each dimmed Generate button references it with `aria-describedby`.
 
 ### Source Row (signature)
 A checkbox, an emoji for the source type, a 13px title clamped to two lines, and an 11px Fog summary. Selected rows sit on Raised Slate with a Hairline Strong border. Unselected rows have no border and are dimmed to 55% opacity, brightening on hover. The selection you're grounding on is visibly "in the light."
 
+### Getting-started Stepper (signature)
+The empty chat's three-step guide (`src/components/GettingStarted.tsx`): **Add sources → Choose sources → Open Studio**. A rail of three numbered nodes joined by a hairline track sits above one Raised Slate step card. Each node shows a live status line in Fog ("2 of 3 in use"). The current node has a Lamplight border and a soft ring, finished steps show an emerald check, and the track fills with Lamplight up to the step you're viewing. The card holds the step's text, **Back** and **Next**, and that step's actions. The rail and Back/Next move freely in both directions; real progress (the first source, the first tick) advances it, and moving by hand holds until the notebook's state next changes. Only one button is lit: the step's action while it's unfinished, **Next** once it's done. Steps one and two live in the Sources panel, so moving between them carries `data-keeps-sources-open` and doesn't collapse it.
+
 ### Chat Messages
-User messages are User Bubble pills with Sheet corners and a 6px tail corner, right-aligned at up to 85% width. Assistant answers are unboxed prose (the Body register) with inline citation chips. Three Lamplight typing dots pulse while the answer streams.
+User messages are User Bubble pills with Sheet corners and a 6px tail corner, right-aligned at up to 85% width. Assistant answers are unboxed prose (the Body register) with inline citation chips. Three Lamplight typing dots pulse while the answer streams. Under each answer a quiet row of 11px text actions (Copy, Regenerate on the latest, Save to notes) sits on the Fog tone; under a user pill the Copy and Edit actions use the `.reveal` pattern, so they appear on hover and on focus and always on touch. "✓ Copied" is a `role="status"` span beside them. Editing swaps the pill for a well-style textarea with compact Cancel and Send buttons, and resending over later messages goes through `useConfirm()` as a destructive confirmation. Follow-up suggestions are well-filled Tile-cornered chips under the latest answer, in the same quiet tone as the starters.
 
 ### Modals
 Every modal uses `useDialog` (`src/components/useDialog.ts`) and carries `role="dialog"`, `aria-modal`, and a label. Focus moves into the dialog on open, Tab stays inside it, Escape closes only the topmost dialog, and focus returns to the control that opened it. The scrim closes a dialog only when a click both starts and ends on it, so selecting text and releasing outside never discards work. Editors with unsaved input confirm before closing. Confirmations never use the browser's native `window.confirm`; they go through `useConfirm()` (`src/components/ConfirmDialog.tsx`), a themed `alertdialog` that names the action on its confirm button and, for destructive actions, focuses Cancel first.
@@ -341,13 +346,22 @@ Every modal uses `useDialog` (`src/components/useDialog.ts`) and carries `role="
 - **State changes:** 150ms transitions.
 - **Mind map:** nodes and links glide on `cubic-bezier(0.22, 1, 0.36, 1)` over 280ms.
 - **Busy states:** a 0.7s linear spinner (Lamplight arc on a Hairline Strong track) and a 1.4s shimmer sweep.
+- **Stepper:** borrowed from HyperFrames' Onboarding Stepper Flow, Spring Pop, Shimmer Sweep and Blur-in, re-timed for the UI and all played once per change. Nodes pop in on an 80ms stagger with one 8% overshoot (400ms); the connector draws on over 600ms with a single 120deg light pass; the check mark draws its stroke over 400ms; the card clears from a 4px blur while sliding 14px from the side you're moving toward (340ms) with one faint light pass; the current node pings three times and rests.
 - **Reduced motion:** under `prefers-reduced-motion: reduce`, spatial and decorative motion stops while state stays communicated:
-  - **Removed:** the fade-up rise (entrances become a 250ms opacity-only fade), the shimmer sweep, the mind-map glide (nodes and links jump into place), smooth scrolling from script (it jumps instead), the flashcard reveal rise (the answer fades in place), disclosure-chevron rotation easing, and progress-bar width easing.
+  - **Removed:** the fade-up rise (entrances become a 250ms opacity-only fade), the shimmer sweep, the mind-map glide (nodes and links jump into place), smooth scrolling from script (it jumps instead), the flashcard reveal rise (the answer fades in place), disclosure-chevron rotation easing, progress-bar width easing, and the stepper's pop, blur-slide, light passes, connector draw-on and check-mark draw (the card fades in place, the connectors jump to their fill, the current node keeps a still ring).
   - **Busy indicators stay visible:** the spinner stops rotating and becomes a still ring that breathes between full and 45% opacity every 1.6s. The shimmer glow fades in and out in place over 2s. The three typing dots keep their staggered pulse as an opacity-only fade, so they still read as "answer streaming". Tailwind `animate-pulse` status dots already change only opacity and are unchanged.
   - **Kept:** 150ms color and opacity transitions on hover and focus, because they change tone without moving anything. Buttons are limited to color, border, opacity, and shadow transitions so they can't animate geometry.
   - **Real-time visuals:** the discussion host orb still scales with the live voice level, and media and progress bars still track playback, but without smoothing transitions. The ping ring around a speaking host is already motion-safe only, so it rests as a static ring.
 
 **The Still Room Rule.** When the user asks for less motion, nothing slides, rises, spins, sweeps, flips, or glides, but nothing goes silent either. Every busy state keeps a visible, non-spatial signal, such as a slow opacity breath, so "working…" never disappears.
+
+### High-tech video style
+A second look for rendered videos, not for the app's own interface: the **High-tech HUD** preset of motion explainers and training videos, drawn by HyperFrames (`src/lib/hightech.ts`, `motionhightech.ts`, `traininghightech.ts`). The app chrome above is unchanged.
+- **Palette:** the video's own five-color palette supplies only neon accents (brightened until they glow on dark). Panels are always near-black glass and type is always `#EAF8FF`, so contrast never depends on the chosen palette. The built-in **High-tech** palette is dark navy with cyan, green and magenta.
+- **Type:** monospaced for headlines, labels and counters (Consolas, DejaVu Sans Mono), so decoding text never changes width; Segoe UI or the system sans for sublines and captions. System fonts only.
+- **Surfaces:** grid, glow, scanlines and vignette backdrops; neon frames with corner brackets; frame-edge brackets at the safe margin that pulse slowly.
+- **Motion:** letter-by-letter and decode reveals, typewriter lines with a block cursor, counters, circling chip borders and glitch arrivals (jitter plus a red/cyan split). Everything is a seekable GSAP timeline of transforms, opacity and stepped text, with randomness from a text-seeded PRNG, so a render is repeatable.
+- **Reduced motion:** the style lives only in rendered MP4s, which cannot adapt to a viewer, so the choice is the video's **Animation** setting (**None** draws the style without movement). The app adds no animated previews of it: the picker is a plain list and the in-browser training preview keeps the standard look.
 
 ## Do's and Don'ts
 

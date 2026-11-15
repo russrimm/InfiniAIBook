@@ -1,6 +1,31 @@
 # Sources
 
+## Viewing sources and synopses
+
+Open **Sources (count)** in the notebook header to see every added source and
+its full synopsis in the pop-out Sources panel. Upload tools start folded in
+this view so the list has room. Click a source to read its content, or use its
+checkbox to choose whether Chat and Studio use it. **Pin** keeps the panel open
+while you work elsewhere; the close button or Escape collapses an unpinned
+panel.
+
+**Add sources** in the header opens the same panel with upload tools expanded.
+You can also expand or hide those tools inside the panel without losing an
+unfinished link or pasted-text draft. On narrow screens, the **Sources** tab
+opens the list when sources exist. A source without a saved summary explicitly
+shows **No synopsis available**; viewing the list does not generate another
+summary or re-import the source.
+
 ## Adding sources
+
+Open **Add sources** in the notebook header. Use **Drop files or click to
+upload**, **Add link**, **Paste text**, **Search web**, **Browse web**,
+**Microsoft Learn** or **From other notebooks**. Drop image files into the
+upload area or use a direct image link. Other plain-text and code files can
+also be dropped. JSON (including JSONL/GeoJSON), HAR, XML-family files
+(GPX/KML, SVG, RSS/Atom, XSD and XHTML) and CSV/TSV sources offer
+**Explore structure** in their reader; see the
+[feature list](features.md).
 
 **Audio and video files** (MP3, M4A, WAV, OGG, FLAC, WebM, MP4, up to 25 MB)
 and direct links to them are transcribed with the configured speech-to-text
@@ -60,10 +85,43 @@ Two things make the results usable rather than noisy:
   import**, sorted last, and left out of the default selection. Pages already in
   the notebook are marked and cannot be added twice.
 
+### Microsoft Learn: imports and live chat
+
+Open **Sources → Microsoft Learn** to search official documentation through the
+public Microsoft Learn MCP server. No additional API key is needed. The app
+server needs outbound HTTPS access to `https://learn.microsoft.com/api/mcp`.
+
+**Import pages.** Search a topic, review the results, and choose **Add sources**.
+The app fetches each selected page's full documentation, not just its search
+excerpt, and sends it through the normal source queue. Imported pages are saved
+URL sources: select them for chat, Studio, and other notebook tools. Pages
+already imported into that notebook are marked, and duplicate imports are
+refused. Linked-source change checks apply as they do to other saved URLs.
+
+**Connect live chat.** Turn on **Use live Microsoft Learn in chat** in the same
+dialog. This setting is saved separately for each notebook and is off by
+default. Each new chat question searches Learn for fresh passages alongside
+only the saved sources you have selected. Live chat also works when no saved
+sources are selected; it never includes unselected saved documents.
+
+Live results do **not** create notebook sources. Their numbered citations open
+the exact excerpt saved with the answer, plus a link to the original page.
+Historical excerpts remain available after the page changes and survive chat
+history, notes, and notebook export/import. The live setting also travels with
+an export; older exports default to off.
+
+Live retrieval applies only to notebook chat, not Studio, live discussion, or
+library-wide Search/Ask. Import pages explicitly to use them in those tools.
+Turning live mode off restores normal saved-source-only chat. If Learn is
+unavailable, chat shows an explicit error instead of silently omitting the
+connection. If Learn has no matches, chat can still use selected saved sources
+with a notice; without those sources, it asks for a more specific question.
+
 ### Built-in browser (🌐 Browse web)
 
-An address bar, the page, and **Add to sources**. It tells you when a page is
-already a source in this notebook rather than letting you add it twice.
+An address bar with **Go**, **Back**, the page, and **Add to sources**. It tells
+you when a page is already a source in this notebook; **Add again** explicitly
+creates another saved copy rather than updating the existing one.
 
 Roughly **half of sites refuse to be framed**. Measured across 28 real sources,
 13 sent `X-Frame-Options` or a restrictive `frame-ancestors` — including PMC,
@@ -94,12 +152,16 @@ stripping either discards the article. Instead it prefers an explicit content
 container, falls back progressively, and never returns less text than reading
 the whole body would have given.
 
-For anything genuinely blocked, open the page and use **Paste**.
+For anything genuinely blocked, open the page and use **Paste text**.
 
-No API key is needed — discovery uses DuckDuckGo by default. Set any of
+No API key is needed — discovery searches Bing's public RSS search feed first.
+Public endpoints may block automated requests on some networks. To enable API
+fallbacks, set any of
 `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, or `GOOGLE_SEARCH_API_KEY` +
-`GOOGLE_SEARCH_CX` to use a higher-quality provider instead; the first one
-configured wins.
+`GOOGLE_SEARCH_CX` on the app server, then restart or redeploy. Configured API
+providers are tried in that order if Bing fails or returns no usable results.
+A provider outage shows an actionable
+error; a successful search with no matches suggests trying different wording.
 
 ## Images as sources
 
@@ -131,14 +193,14 @@ start refusing working models. Measured on the same image, a blind model billed
 **YouTube integration is optional.** If you do not want to get an API key for
 YouTube ingestion, skip it: InfiniAIBook works fine with your other sources.
 A **YouTube Data API key is not required for transcripts**, either; the supported
-Gemini route below uses a separate key, and **Paste** lets you add a transcript
+Gemini route below uses a separate key, and **Paste text** lets you add a transcript
 as text without either key.
 
 YouTube is a rich source of learning material. Bring transcripts from multiple
 videos into one notebook to build material for an audiobook or generate FAQs,
 learning guides and infographics grounded in those videos.
 
-Paste a YouTube URL into **Link**. `watch?v=`, `youtu.be`, `/shorts/` and
+Paste a YouTube URL into **Add link**. `watch?v=`, `youtu.be`, `/shorts/` and
 `/embed/` forms are all recognized.
 
 ### Transcripts, the supported way
@@ -198,7 +260,7 @@ through its original strategies and then reports honestly rather than claiming
 - When Gemini was tried and failed, the reason it gave is passed through, since
   "private, unlisted or age-restricted" is actionable and "blocked" is not.
 
-For a guaranteed full transcript with no external service, **Paste** still adds
+For a guaranteed full transcript with no external service, **Paste text** still adds
 one as a text source.
 
 ## Keeping linked sources current

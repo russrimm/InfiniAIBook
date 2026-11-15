@@ -70,6 +70,7 @@ type Pack = {
     emoji: string;
     narrationInstructions: string;
     narrationReplacements: string;
+    liveLearn?: boolean;
   };
   sources: PackSource[];
   notes: PackNote[];
@@ -86,17 +87,40 @@ function zipName(title: string): string {
   return `${base || "notebook"}.zip`;
 }
 
-function mediaFor(type: string, id: string): { disk: string; name: string }[] {
+function mediaFor(type: string, id: string, content?: string): { disk: string; name: string }[] {
   if (!ID.test(id)) return [];
   if (type === "podcast") return [{ disk: audioPath(id), name: `media/audio/${id}.mp3` }];
   if (type === "infographic") return [{ disk: imagePath(id), name: `media/image/${id}.png` }];
   if (type === "video" || type === "motion" || type === "training") {
-    return [
+    const files = [
       { disk: videoPath(id), name: `media/video/${id}.mp4` },
       { disk: captionsPath(id), name: `media/captions/${id}.vtt` },
     ];
+    // Pictures a training video shows live in the shared image folder.
+    for (const imageId of type === "training" ? trainingImageIds(content) : []) {
+      files.push({ disk: imagePath(imageId), name: `media/image/${imageId}.png` });
+    }
+    return files;
   }
   return [];
+}
+
+/** Ids of the pictures and logo a training video's script refers to. */
+function trainingImageIds(content: string | undefined): string[] {
+  if (!content) return [];
+  try {
+    const c = JSON.parse(content) as {
+      sections?: { cues?: { imageId?: unknown }[] }[];
+      composition?: { logoId?: unknown };
+    };
+    const ids = new Set<string>();
+    for (const s of c.sections ?? [])
+      for (const q of s.cues ?? []) if (typeof q.imageId === "string") ids.add(q.imageId);
+    if (typeof c.composition?.logoId === "string") ids.add(c.composition.logoId);
+    return [...ids].filter((id) => ID.test(id));
+  } catch {
+    return [];
+  }
 }
 
 /** A portable zip of one notebook: text, chats, artifacts, and finished media. */
@@ -104,8 +128,8 @@ export async function exportNotebookZip(
   notebookId: string
 ): Promise<{ filename: string; buffer: Buffer } | null> {
   const nb = db
-    .prepare("SELECT id, title, emoji FROM notebooks WHERE id = ?")
-    .get(notebookId) as { id: string; title: string; emoji: string } | undefined;
+    .prepare("SELECT id, title, emoji, live_learn FROM notebooks WHERE id = ?")
+    .get(notebookId) as { id: string; title: string; emoji: string; live_learn: number } | undefined;
   if (!nb) return null;
 
   const sources = db
@@ -146,6 +170,7 @@ export async function exportNotebookZip(
       emoji: nb.emoji,
       narrationInstructions: narration.instructions,
       narrationReplacements: JSON.stringify(narration.replacements),
+      liveLearn: Boolean(nb.live_learn),
     },
     sources: sources.map((s) => ({
       id: s.id,
@@ -189,9 +214,12 @@ export async function exportNotebookZip(
 
   const zip = new JSZip();
   zip.file("manifest.json", JSON.stringify(pack));
+  const added = new Set<string>();
   for (const artifact of artifacts) {
-    for (const file of mediaFor(artifact.type, artifact.id)) {
-      if (fs.existsSync(file.disk)) zip.file(file.name, fs.readFileSync(file.disk));
+    for (const file of mediaFor(artifact.type, artifact.id, artifact.content)) {
+      if (added.has(file.name) || !fs.existsSync(file.disk)) continue;
+      added.add(file.name);
+      zip.file(file.name, fs.readFileSync(file.disk));
     }
   }
   const buffer = await zip.generateAsync({
@@ -217,6 +245,8 @@ function remapSourceIds(value: unknown, ids: Map<string, string>): unknown {
     for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
       if ((key === "sourceId" || key === "notebookId") && typeof item === "string" && ids.has(item)) {
         out[key] = ids.get(item);
+      } else if (key === "sourceIds" && Array.isArray(item)) {
+        out[key] = item.map((id) => typeof id === "string" && ids.has(id) ? ids.get(id) : id);
       } else {
         out[key] = remapSourceIds(item, ids);
       }
@@ -228,10 +258,40 @@ function remapSourceIds(value: unknown, ids: Map<string, string>): unknown {
 
 const MEDIA = /^(audio|image|video|captions)\/([A-Za-z0-9_-]{1,32})\.(mp3|png|mp4|vtt)$/;
 
-function writeMedia(name: string, bytes: Buffer, artifactIds: Map<string, string>) {
+/**
+ * Point references to media at the new ids: URLs such as /api/video/<id>, the
+ * clip and caption routes, and the picture ids a training script holds.
+ * Exported ids are regenerated, so any left alone would name another notebook's
+ * file, or nothing.
+ */
+function remapMediaRefs(value: unknown, ids: Map<string, string>): unknown {
+  if (typeof value === "string") {
+    return value
+      .replace(/\/api\/(audio|image|video)\/([A-Za-z0-9_-]+)/g, (m, kind, id) =>
+        ids.has(id) ? `/api/${kind}/${ids.get(id)}` : m
+      )
+      .replace(/\/api\/training\/([A-Za-z0-9_-]+)\//g, (m, id) =>
+        ids.has(id) ? `/api/training/${ids.get(id)}/` : m
+      );
+  }
+  if (Array.isArray(value)) return value.map((item) => remapMediaRefs(item, ids));
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      out[key] =
+        (key === "imageId" || key === "logoId") && typeof item === "string" && ids.has(item)
+          ? ids.get(item)
+          : remapMediaRefs(item, ids);
+    }
+    return out;
+  }
+  return value;
+}
+
+function writeMedia(name: string, bytes: Buffer, mediaIds: Map<string, string>) {
   const m = MEDIA.exec(name);
   if (!m) return;
-  const next = artifactIds.get(m[2]);
+  const next = mediaIds.get(m[2]);
   if (!next) return;
   const disk =
     m[1] === "audio"
@@ -304,19 +364,24 @@ export async function importNotebookZip(buffer: Buffer): Promise<{ id: string; t
     const bytes = await file.async("nodebuffer");
     mediaBytes += bytes.length;
     if (mediaBytes > MAX_ZIP_BYTES) throw new Error("The exported media is larger than 200 MB.");
-    mediaFiles.push({ name: name.slice("media/".length), bytes });
+    const rel = name.slice("media/".length);
+    // Pictures a training video shows are not artifacts; they still need new ids.
+    const picture = /^image\/([A-Za-z0-9_-]{1,32})\.png$/.exec(rel);
+    if (picture && !artifactIds.has(picture[1])) artifactIds.set(picture[1], nanoid(12));
+    mediaFiles.push({ name: rel, bytes });
   }
 
   transaction(() => {
     db.prepare(
-      "INSERT INTO notebooks (id, title, emoji, created_at, narration_instructions, narration_replacements) VALUES (?, ?, ?, ?, ?, ?)"
+      "INSERT INTO notebooks (id, title, emoji, created_at, narration_instructions, narration_replacements, live_learn) VALUES (?, ?, ?, ?, ?, ?, ?)"
     ).run(
       notebookId,
       title,
       emoji,
       Date.now(),
       str(notebook.narrationInstructions, 4000),
-      str(notebook.narrationReplacements, 8000) || "[]"
+      str(notebook.narrationReplacements, 8000) || "[]",
+      Number(notebook.liveLearn === true)
     );
 
     const insertSource = db.prepare(
@@ -386,7 +451,9 @@ export async function importNotebookZip(buffer: Buffer): Promise<{ id: string; t
       if (!artifactId) continue;
       let content = str(row.content, 2_000_000);
       try {
-        content = JSON.stringify(remapSourceIds(JSON.parse(content), sourceIds));
+        content = JSON.stringify(
+          remapMediaRefs(remapSourceIds(JSON.parse(content), sourceIds), artifactIds)
+        );
       } catch {
         /* keep the original string if it is not JSON */
       }

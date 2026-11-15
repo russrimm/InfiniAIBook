@@ -13,19 +13,48 @@ import {
   normalizeVisualPlan,
   type TrainingCue,
 } from "./trainingvisuals";
-import type { TrainingContent } from "./types";
+import type { InfographicContent, SourceProvenance, TrainingContent } from "./types";
 import { fillCuePictures, trainingImagesEnabled } from "./trainingpictures";
+import { artifactSourceIds, SourceBoundaryError } from "./artifactsources";
+import { generationSourceError } from "./http";
+import { buildContext, sampleCorpus } from "./retrieve";
+import { GROUNDING_RULES } from "./studio";
 
 type Loose = Record<string, unknown>;
 
-export function notebookInfographics(notebookId: string): { id: string; title: string }[] {
-  return (
-    db
-      .prepare(
-        "SELECT id, title FROM artifacts WHERE notebook_id = ? AND type = 'infographic' ORDER BY created_at DESC LIMIT 20"
-      )
-      .all(notebookId) as unknown as { id: string; title: string }[]
-  ).map((r) => ({ id: r.id, title: String(r.title ?? "").slice(0, 120) }));
+export function trainingSourcePages(notebookId: string, sourceIds: string[]): string[] {
+  const selected = new Set(sourceIds);
+  const rows = db.prepare("SELECT id, url FROM sources WHERE notebook_id = ?").all(notebookId) as unknown as {
+    id: string; url: string | null;
+  }[];
+  return rows.flatMap((s) => selected.has(s.id) && s.url ? [s.url] : []);
+}
+
+export function notebookInfographics(
+  notebookId: string,
+  sourceIds: string[],
+  limit = 20
+): { id: string; title: string; content: InfographicContent & SourceProvenance }[] {
+  if (!sourceIds.length) return [];
+  const allowed = new Set(sourceIds);
+  const rows = db.prepare(
+    "SELECT id, title, content FROM artifacts WHERE notebook_id = ? AND type = 'infographic' ORDER BY created_at DESC"
+  ).all(notebookId) as unknown as { id: string; title: string; content: string }[];
+  const items: ReturnType<typeof notebookInfographics> = [];
+  for (const row of rows) {
+    let content: InfographicContent & SourceProvenance;
+    try {
+      content = JSON.parse(row.content);
+    } catch {
+      console.warn(`[training] Skipping invalid infographic ${row.id}.`);
+      continue;
+    }
+    const provenance = artifactSourceIds(content);
+    if (!provenance.length || !provenance.every((id) => allowed.has(id))) continue;
+    items.push({ id: row.id, title: String(row.title ?? "").slice(0, 120), content });
+    if (items.length >= limit) break;
+  }
+  return items;
 }
 
 /**
@@ -34,15 +63,22 @@ export function notebookInfographics(notebookId: string): { id: string; title: s
  */
 export async function planTrainingVisuals(
   notebookId: string,
-  c: Pick<TrainingContent, "title" | "objectives" | "sections" | "composition">,
+  c: Pick<TrainingContent, "title" | "objectives" | "sections" | "composition" | "sourceIds" | "citations">,
   only?: number,
   /** Find pictures for the planned visuals until this time (ms since epoch). */
   opts: { pictureDeadline?: number } = {}
 ): Promise<TrainingCue[][]> {
   const composition = normalizeComposition(c.composition);
-  const infographics = notebookInfographics(notebookId);
+  const sourceIds = artifactSourceIds(c);
+  if (generationSourceError(notebookId, sourceIds)) {
+    throw new SourceBoundaryError("This video's source selection cannot be verified. Generate a new training script from the selected sources before planning visuals.");
+  }
+  const passages = sampleCorpus(notebookId, sourceIds, Number(process.env.STUDIO_CONTEXT_CHARS || 30000));
+  if (!passages.length) throw new SourceBoundaryError("The selected sources have no usable excerpts.");
+  const infographics = notebookInfographics(notebookId, sourceIds);
   const images = trainingImagesEnabled();
-  const system = TRAINING_VISUALS_INSTRUCTION({ images, infographics, presenter: composition });
+  const system = `${GROUNDING_RULES}\n\n${TRAINING_VISUALS_INSTRUCTION({ images, infographics, presenter: composition })}
+The script guides timing and layout, not evidence. Every factual visual, number and quotation must be supported by SOURCE EXCERPTS, even if an edited script says otherwise.`;
   const sections = c.sections
     .map((s, i) =>
       only === undefined || only === i
@@ -54,6 +90,10 @@ export async function planTrainingVisuals(
   const user = `TRAINING: ${c.title}
 LEARNING OBJECTIVES:
 ${(c.objectives ?? []).map((o) => `- ${o}`).join("\n") || "- (none listed)"}
+
+SOURCE EXCERPTS
+===============
+${buildContext(passages)}
 
 SCRIPT
 ======
@@ -84,6 +124,7 @@ ${sections}`;
     const { missing } = await fillCuePictures(fresh, compositionPalette(composition), {
       ai: images,
       deadline: opts.pictureDeadline,
+      sourcePages: trainingSourcePages(notebookId, sourceIds),
     });
     if (missing) console.info(`[training] ${missing} visual(s) left without a picture until render`);
   }

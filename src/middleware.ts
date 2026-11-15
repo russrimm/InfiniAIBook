@@ -29,11 +29,20 @@ function refuse(pathname: string, status: number, error: string, code: string) {
  * signed session cookie from /login or INFINIAIBOOK_API_TOKEN. The password is
  * accepted as a bearer token only when INFINIAIBOOK_ALLOW_PASSWORD_BEARER is
  * set. Without a password, only the two checks above apply.
+ *
+ * The one exception is a read of /api/health, which container probes and the
+ * deploy smoke test send with no session and with whatever Host the platform
+ * uses (a pod IP, say). It returns only "ok" or "unavailable", so skipping the
+ * checks exposes nothing; every other method and path is still checked.
  */
 export async function middleware(req: NextRequest) {
   const password = authPassword();
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host");
+
+  if (pathname === "/api/health" && (req.method === "GET" || req.method === "HEAD")) {
+    return NextResponse.next();
+  }
 
   const allowedRaw = process.env.ALLOWED_HOSTS?.trim();
   if ((!password || allowedRaw) && !hostAllowed(host, parseAllowedHosts(allowedRaw))) {

@@ -21,6 +21,18 @@ function subscribe(onChange: () => void) {
   };
 }
 
+export function useThemePreference() {
+  const pref = useSyncExternalStore(subscribe, readPreference, () => "system" as const);
+  const next = nextPreference(pref);
+  return {
+    pref,
+    next,
+    label: LABEL[pref],
+    nextLabel: LABEL[next],
+    cycle: () => setPreference(next),
+  };
+}
+
 /**
  * One button that steps through Auto (follow the system) → Light → Dark.
  * `variant="nav"` matches the quiet text links on the notebook list; the
@@ -33,8 +45,7 @@ export default function ThemeToggle({
   variant?: "button" | "nav";
   className?: string;
 }) {
-  const pref = useSyncExternalStore(subscribe, readPreference, () => "system" as const);
-  const next = nextPreference(pref);
+  const { pref, next, cycle } = useThemePreference();
   const base =
     variant === "nav"
       ? "rounded-lg px-3 py-1.5 whitespace-nowrap text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
@@ -45,7 +56,7 @@ export default function ThemeToggle({
       type="button"
       data-testid="theme-toggle"
       className={`${base} ${className}`}
-      onClick={() => setPreference(next)}
+      onClick={cycle}
       title={`Theme: ${LABEL[pref]}. Click for ${LABEL[next]}.`}
       aria-label={`Theme: ${LABEL[pref]}. Switch to ${LABEL[next]}.`}
     >

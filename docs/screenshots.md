@@ -7,6 +7,17 @@ artifacts shown here are prepared demo content.
 For an example of every Studio format, see
 [Studio examples](../README.md#studio-examples) in the README.
 
+## Getting started
+
+A new notebook opens with a three-step guide in the chat panel: **Add sources**,
+**Choose sources**, **Open Studio**. The rail shows which steps are done and
+which one you are on; **Back**, **Next** or a click on the rail moves between
+them if you change your mind. Here the source has been unticked, so choosing
+sources is the current step, with the Sources panel open beside it. See
+[Getting started](getting-started.md).
+
+![Getting-started guide showing three connected steps, with Add sources done, Choose sources current and Open Studio next, beside the open Sources panel and the Studio panel](screenshots/getting-started.png)
+
 ## Research workspace
 
 Sources, cited answers and Studio tools in one view. Expand citations to inspect
@@ -36,13 +47,13 @@ result as a note.
 Search every notebook's sources and notes at once, or ask one question and get
 a single grounded answer that cites the notebook each passage came from.
 
-![Search your library page with a grounded answer about the watering rota citing sources from three different notebooks](screenshots/search.png)
+![Search your library page with a grounded answer about who leads and covers the weekly rota, citing sources from two different notebooks](screenshots/search.png)
 
 ## Interactive mind map
 
 Explore topics branch by branch, expand the full tree, or export it as a PNG.
 
-![Expanded community-garden mind map showing pilot goals, growing spaces, shared care and planning](screenshots/mind-map.png)
+![Expanded community-garden mind map with four color-coded branches: project aims, people and governance, planting and water, and schedule and review](screenshots/mind-map.png)
 
 ## Illustrated infographic
 
@@ -67,3 +78,9 @@ download the MP4. Watch the [3:37 sample](https://github.com/user-attachments/as
 or read [Training videos](training-videos.md).
 
 ![Finished training video playing above the editable transcript, with presenter settings and a Render again button](screenshots/training-editor.png)
+
+**Preview live (VASA-2)** in the script editor opens a live presenter: pick one
+of four VASA-2 avatars and a voice, then have it speak the transcript. See
+[Live VASA-2 presenter](training-videos.md#live-vasa-2-presenter).
+
+![Live presenter dialog with the four VASA-2 avatars Leonie, Leonie Professional, George and Marcel, a voice picker, a video area and the transcript](screenshots/live-presenter.png)

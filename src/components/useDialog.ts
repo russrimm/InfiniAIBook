@@ -10,6 +10,7 @@ const FOCUSABLE = [
   "select:not([disabled])",
   "textarea:not([disabled])",
   "iframe",
+  "summary",
   "audio[controls]",
   "video[controls]",
   "[contenteditable]:not([contenteditable='false'])",

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { chatJSON } from "@/lib/ai";
-import { fail, noSourcesSelected, ok } from "@/lib/http";
+import { fail, generationSourceError, ok } from "@/lib/http";
 import { buildContext, sampleCorpus } from "@/lib/retrieve";
 import {
   heuristicSuggestions,
@@ -18,7 +18,7 @@ const CONTEXT_CHARS = 8000;
 const MAX_TOPIC_CHARS = 2000;
 
 /**
- * POST { notebookId, sourceIds?, topic? } → { suggestions: [{ style, reason }],
+ * POST { notebookId, sourceIds, topic? } → { suggestions: [{ style, reason }],
  * source: "model" | "heuristic" }. Falls back to a model-free guess when the
  * model is unavailable or returns nothing usable, so it always answers.
  */
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    const none = noSourcesSelected(sourceIds);
+    const none = generationSourceError(body.notebookId, sourceIds);
     if (none) return none;
     const topic = typeof body.topic === "string" ? body.topic.trim().slice(0, MAX_TOPIC_CHARS) : "";
 

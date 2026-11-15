@@ -1,8 +1,8 @@
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ok, fail, noSourcesSelected } from "@/lib/http";
-import { keepAliveJSON } from "@/lib/keepalive";
+import { ok, fail, generationSourceError } from "@/lib/http";
+import { generationReply, type GenerationStatus } from "@/lib/keepalive";
 import { studioJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
@@ -28,10 +28,10 @@ type Loose = Record<string, unknown>;
  * be read and edited first.
  */
 export function POST(req: Request) {
-  return keepAliveJSON(() => planVideo(req));
+  return generationReply(req, (report) => planVideo(req, report));
 }
 
-async function planVideo(req: Request) {
+async function planVideo(req: Request, report: GenerationStatus) {
   try {
     const body = (await req.json()) as {
       notebookId: string;
@@ -49,11 +49,12 @@ async function planVideo(req: Request) {
 
     const speaker =
       ALL_SPEAKERS.find((s) => s.toLowerCase() === (voice ?? "").toLowerCase()) ?? "Ava";
-    const none = noSourcesSelected(sourceIds);
+    const none = generationSourceError(notebookId, sourceIds);
     if (none) return none;
     const narration =
       body.narration === undefined ? notebookNarration(notebookId) : readNarration(body.narration);
 
+    report("Reading selected sources");
     const focused = topic?.trim() ? await retrieve(notebookId, topic, sourceIds, 24) : [];
     const broad = sampleCorpus(notebookId, sourceIds, MAX_CONTEXT_CHARS);
     const seen = new Set(focused.map((p) => p.id));
@@ -81,7 +82,9 @@ async function planVideo(req: Request) {
       },
     ];
 
+    report("Writing the whiteboard scene plan");
     const raw = await studioJSON<Loose>(messages, 0.6);
+    report("Checking the scenes and narration");
     // More scenes than asked for multiplies cost and running time.
     const normalized = normalizeScenePlan(raw, size.scenes + 2);
     if (!normalized) {
@@ -103,9 +106,11 @@ async function planVideo(req: Request) {
       watermarkChoice: normalizeWatermark(body.watermark),
       scenes: whiteboardScenes(plan),
       progress: { stage: "script", done: 0, total: plan.scenes.length },
+      sourceIds: [...new Set(sourceIds)],
       citations: citationList(passages),
     };
 
+    report("Saving the whiteboard script for review");
     const now = Date.now();
     db.prepare(
       "INSERT INTO artifacts (id, notebook_id, type, title, content, created_at) VALUES (?,?,?,?,?,?)"

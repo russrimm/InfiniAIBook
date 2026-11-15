@@ -125,6 +125,40 @@ test.beforeEach(async ({ page }) => {
   await fakeScreenShare(page);
 });
 
+for (const viewport of [
+  { width: 1920, height: 1080 },
+  { width: 1280, height: 720 },
+  { width: 390, height: 844 },
+]) {
+  test(`fills the browser at ${viewport.width}x${viewport.height} before and during sharing`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await mockHelper(page, [FIRST_STEP]);
+    await page.goto("/");
+    const opener = page.getByRole("button", { name: /screen helper/i }).first();
+    await opener.click();
+    const dialog = page.getByRole("dialog", { name: /screen helper/i });
+    const expectFullBrowser = async () => {
+      await expect.poll(() => dialog.boundingBox()).toEqual({
+        x: 0,
+        y: 0,
+        width: viewport.width,
+        height: viewport.height,
+      });
+    };
+
+    await expectFullBrowser();
+    await dialog.getByLabel("What do you need help with?").fill("Share this document");
+    await dialog.getByRole("button", { name: "Share screen & ask" }).click();
+    await expect(dialog.getByTestId("screen-highlight")).toBeVisible();
+    await expectFullBrowser();
+    await expect(dialog.getByRole("button", { name: "Ask", exact: true })).toBeInViewport();
+
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(opener).toBeFocused();
+  });
+}
+
 test("coaches from the shared screen and highlights the next control", async ({ page }) => {
   const sent = await mockHelper(page, [
     FIRST_STEP,

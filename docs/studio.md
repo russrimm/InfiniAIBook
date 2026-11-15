@@ -5,19 +5,52 @@ videos have their own pages: [Infographic styles](infographics.md),
 [Audio overviews](audio-overviews.md), [Whiteboard videos](whiteboard-videos.md),
 [Motion explainers](motion-explainers.md) and [Training videos](training-videos.md).
 
-The Studio panel has two views. **Create** lists the formats, grouped into
-**Audio & video**, **Documents** (report, briefing, study guide, FAQ, timeline
-and PowerPoint deck), **Visuals** (infographic and mind map) and **Study** (quiz
-and flashcards). **Library** lists everything already generated in the
+The Studio panel has two views. **Create** lists the formats, grouped by what
+you want to do: **Listen** (live discussion and audio overview), **Watch**
+(whiteboard video, motion explainer and training video), **Read** (report,
+briefing, study guide, FAQ and timeline), **Visualize** (infographic, mind map
+and PowerPoint deck) and **Study** (quiz and flashcards). Select a group's
+heading to fold it away. The **Filter formats** box narrows every group as you
+type; it matches names, purposes and common words such as "powerpoint" or
+"anki", and **Esc** clears it. While no source is ticked, a message at the top
+of Create says why **Generate** is off and offers **Add sources** or **Choose
+sources**; each dimmed Generate button points to it for screen readers.
+**Library** lists everything already generated in the
 notebook; open an item to read, play or export it.
 
 Every format uses only the sources you have ticked, steered by the optional
-**Focus** box at the top of Create. Formats with settings fold them behind
+**Focus** box at the top of Create. Notes and outside web results are not added
+automatically; add their content as sources and check them to include them.
+Focus and custom instructions cannot expand the evidence boundary. Library
+items retain their generation-time selection and are not automatically rewritten
+when sources change. See [Grounding boundaries](grounding.md#studio-and-library-boundaries).
+Formats with settings fold them behind
 **Options ▸**, which shows a one-line summary of the current choices while it is
 closed; nothing starts until you press **Generate**. A job runs in the
-background, a status line at the top of Studio says what is running, and the
-result opens when it is ready. If a job fails, the error appears on that
-format's card.
+background and opens a **Generation status** modal. The modal follows the
+server's current stage, such as reading sources, writing a script, adjusting its
+running time, drawing an infographic, planning training visuals or saving the
+result. It does not estimate percentages while waiting for a model.
+Close the modal to keep working; closing it does not cancel generation.
+Reopen it with **View status** or the format's **Working…** button.
+Concurrent jobs appear together, and the result opens when it is ready.
+If a job fails, its error appears in the modal and on that format's card.
+Source transformations that show **Working…** use the same status modal while
+applying the transformation and saving the generated note.
+
+Video **Preparing…** and **Rendering…** actions open **Video processing status**.
+It shows preparation steps, the current render stage, and scene counts, presenter
+section counts or composition percentages when the renderer supplies them.
+Close it and use **View status** to reopen it. Changing focus, switching browser
+tabs or closing either the status modal or video editor does not cancel
+preparation or a submitted render. Keep the browser tab open until browser-side
+visual preparation has finished; closing the tab or browser can interrupt that
+preparation. Submitted renders continue on the server.
+
+If a render request fails without an HTTP response, check the server connection
+and the video's stored progress before submitting it again. A connection error
+does not prove that the server never accepted the job; the app does not
+automatically repeat a potentially billable submission.
 
 ## Spoken formats: script review, instructions and music
 
@@ -26,12 +59,16 @@ work the same way.
 
 ### Review the script first
 
-Generating one of these writes the **script only** and opens it in an editor.
-Nothing is narrated, drawn or rendered until you press **Narrate** (audio) or
-**Render video**. You can change any wording, reassign a line to another
-speaker, reorder or remove lines and scenes, and switch the voice. After it has
-been made, **Edit script** reopens the editor so you can change it and narrate or
+Generating one of these writes an editable **script**. Composed training
+videos also plan visuals and may fetch or generate pictures at this stage.
+Narration and finished video rendering wait until you press **Narrate**
+(audio) or **Render video**. You can change any wording, reassign a line to another
+speaker, reorder or remove lines and scenes, and switch the voice. After audio,
+whiteboard or motion output has been made, **Edit script** reopens the editor;
+training videos keep their **Script** tab available. Save changes and narrate or
 render again. Rendering a whiteboard or motion video again redraws its artwork.
+Script generation uses the configured model; narration, image generation and
+avatar rendering can incur separate charges.
 
 ### Instructions
 
@@ -180,13 +217,15 @@ theme colors and speaker notes.
 | Artifact | Formats |
 |---|---|
 | Audio overview | **MP3**, Markdown transcript |
+| Whiteboard video / Motion explainer | **MP4**, Markdown script |
+| Training video | **MP4**, Markdown transcript; **WebVTT** when separate captions are selected |
 | PowerPoint deck | **PPTX**, Markdown |
 | Infographic | **PNG**, Markdown |
 | Mind map | **PNG**, Markdown outline |
 | Flashcards | **CSV** (Anki/Quizlet), Markdown table |
-| Everything else | Markdown |
+| Other written formats and study aids | Markdown |
 
-PNG export rasterises the artifact at 2× for a sharp image. The AI image style
+PNG export rasterizes the artifact at 2× for a sharp image. The AI image style
 is downloaded from the server instead of being captured from the screen, since
 capturing it would resample the original through whatever width the window
 happens to be. CSV is written with a BOM so Excel does not mangle accented

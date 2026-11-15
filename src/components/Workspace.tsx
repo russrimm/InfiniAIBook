@@ -5,11 +5,25 @@ import Link from "next/link";
 import SourcesPanel from "./SourcesPanel";
 import SourceUpdates, { type PendingUpdate } from "./SourceUpdates";
 import ChatPanel from "./ChatPanel";
-import ThemeToggle from "./ThemeToggle";
+import ThemeToggle, { useThemePreference } from "./ThemeToggle";
+import OverflowMenu, { type OverflowItem } from "./OverflowMenu";
+import {
+  AddSourceIcon,
+  AutoThemeIcon,
+  BackIcon,
+  DownloadIcon,
+  HelpIcon,
+  ModelIcon,
+  MoonIcon,
+  ScreenIcon,
+  SearchIcon,
+  SunIcon,
+} from "./icons";
 import StudioPanel from "./StudioPanel";
 import ArtifactModal from "./ArtifactModal";
 import SourceModal from "./SourceModal";
 import DiscoverModal, { type DiscoverHit } from "./DiscoverModal";
+import LearnCitationModal from "./LearnCitationModal";
 import BrowserModal from "./BrowserModal";
 import ModelPicker from "./ModelPicker";
 import NotesPanel from "./NotesPanel";
@@ -61,6 +75,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const deferDelete = useDeferredDelete();
   const [discovering, setDiscovering] = useState(false);
+  const [learning, setLearning] = useState(false);
+  const [learnCitation, setLearnCitation] = useState<Citation | null>(null);
   const [browsing, setBrowsing] = useState(false);
   const [pickingModel, setPickingModel] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -71,6 +87,14 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [budgetNote, setBudgetNote] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [tab, setTab] = useState<Tab>("chat");
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [sourcesPinned, setSourcesPinned] = useState(false);
+  const [sourceAdding, setSourceAdding] = useState(false);
+  const sourcesPanel = useRef<HTMLDivElement>(null);
+  const sourcesButton = useRef<HTMLButtonElement>(null);
+  const mobileAddButton = useRef<HTMLButtonElement>(null);
+  const theme = useThemePreference();
+  const sourcesReturnFocus = useRef<HTMLElement | null>(null);
   /** Which panel fills the right-hand column on wide screens. */
   const [right, setRight] = useState<"studio" | "notes">("studio");
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
@@ -94,9 +118,6 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const loadSeq = useRef(0);
   /** Set by SourcesPanel so Discover can queue URLs through the same pipeline. */
   const addSources = useRef<((hits: DiscoverHit[]) => void) | null>(null);
-
-  /** The first load picks the opening tab on narrow screens. */
-  const firstLoad = useRef(true);
 
   const load = useCallback(async (): Promise<Data | null> => {
     const seq = ++loadSeq.current;
@@ -129,11 +150,6 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     seenSources.current = live;
 
     setData(d);
-    if (firstLoad.current) {
-      firstLoad.current = false;
-      // An empty notebook's next step is adding a source, not chatting.
-      if (d.sources.length === 0) setTab("sources");
-    }
     setSelected((prev) => {
       const next = new Set([...prev].filter((id) => live.has(id)));
       for (const id of fresh) next.add(id);
@@ -153,7 +169,10 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
 
   /** Every citation in chat, artifacts and notes opens here, at its passage. */
   const openCitation = useCallback(
-    (c: Citation) => openSource(c.sourceId, { part: c.part, snippet: c.snippet }),
+    (c: Citation) => {
+      if (c.url) setLearnCitation(c);
+      else openSource(c.sourceId, { part: c.part, snippet: c.snippet });
+    },
     [openSource]
   );
 
@@ -210,6 +229,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       openArtifact ||
         openSourceId ||
         discovering ||
+        learning ||
+        learnCitation ||
         browsing ||
         pickingModel ||
         aboutOpen ||
@@ -222,6 +243,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     openArtifact,
     openSourceId,
     discovering,
+    learning,
+    learnCitation,
     browsing,
     pickingModel,
     aboutOpen,
@@ -292,11 +315,68 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     if (notebookTitle) document.title = `${notebookTitle} — InfiniAIBook`;
   }, [notebookTitle]);
 
-  /** Bring the Sources panel into view and put focus on its upload control. */
-  const showSources = () => {
+  /** Bring the Sources panel into view and put focus on one of its controls. */
+  const revealSources = (focusId: string, adding = false) => {
+    if (
+      document.activeElement instanceof HTMLElement &&
+      !sourcesPanel.current?.contains(document.activeElement)
+    ) {
+      sourcesReturnFocus.current = document.activeElement;
+    }
+    setSourceAdding(adding);
+    setSourcesOpen(true);
     setTab("sources");
-    setTimeout(() => document.getElementById("add-sources")?.focus(), 0);
+    setTimeout(() => document.getElementById(focusId)?.focus(), 0);
   };
+  const viewSources = () => revealSources("source-list");
+  const showSources = () => revealSources("add-sources", true);
+  const chooseSources = () => revealSources("select-all-sources");
+
+  const closeSources = useCallback(() => {
+    setSourcesOpen(false);
+    setSourcesPinned(false);
+    setTab((current) => current === "sources" ? "chat" : current);
+    if (sourcesReturnFocus.current?.isConnected) sourcesReturnFocus.current.focus();
+    else {
+      // Only one of the two Add sources buttons is on screen at any width.
+      [sourcesButton.current, mobileAddButton.current]
+        .find((button) => button && button.getClientRects().length > 0)
+        ?.focus();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!sourcesOpen || sourcesPinned) return;
+    const dismissOutside = (event: MouseEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof Element) ||
+        sourcesPanel.current?.contains(target) ||
+        target.closest('[aria-controls="sources-panel"], [data-keeps-sources-open]') ||
+        document.querySelector('[role="dialog"], [role="alertdialog"]')
+      ) return;
+      setSourcesOpen(false);
+      setTab((current) => current === "sources" ? "chat" : current);
+    };
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (
+        event.key === "Escape" &&
+        !event.defaultPrevented &&
+        !document.querySelector('[role="dialog"], [role="alertdialog"]')
+      ) {
+        event.preventDefault();
+        closeSources();
+      }
+    };
+    document.addEventListener("click", dismissOutside);
+    document.addEventListener("keydown", dismissOnEscape);
+    return () => {
+      document.removeEventListener("click", dismissOutside);
+      document.removeEventListener("keydown", dismissOnEscape);
+    };
+  }, [sourcesOpen, sourcesPinned, closeSources]);
+
+  const sourcesVisible = sourcesOpen || sourcesPinned;
 
   const selectedIds = [...selected].filter((id) => !hidden.has(id));
   const visibleSourceCount = data ? data.sources.filter((s) => !hidden.has(s.id)).length : 0;
@@ -419,24 +499,78 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     titleTimer.current = setTimeout(() => saveTitle(value), 600);
   };
 
+  const ThemeIcon = theme.pref === "light" ? SunIcon : theme.pref === "dark" ? MoonIcon : AutoThemeIcon;
+  // Everything the compact header does not show as its own button.
+  const moreItems: OverflowItem[] = [
+    {
+      key: "search",
+      label: "Search",
+      detail: "Across all notebooks",
+      icon: <SearchIcon />,
+      href: `/search?notebookId=${notebookId}`,
+    },
+    {
+      key: "helper",
+      label: "Screen helper",
+      detail: "Get coached through an app",
+      icon: <ScreenIcon />,
+      onSelect: () => setHelperOpen(true),
+    },
+    {
+      key: "models",
+      label: "Models",
+      detail: model ? `Chat: ${model}` : undefined,
+      icon: <ModelIcon />,
+      onSelect: () => setPickingModel(true),
+    },
+    {
+      key: "export",
+      label: exporting ? "Exporting…" : "Export notebook",
+      detail: "Download as a zip",
+      icon: <DownloadIcon />,
+      disabled: exporting,
+      onSelect: () => void exportNotebook(),
+    },
+    {
+      key: "theme",
+      label: `Theme: ${theme.label}`,
+      detail: `Switch to ${theme.nextLabel}`,
+      icon: <ThemeIcon />,
+      keepOpen: true,
+      onSelect: theme.cycle,
+      testId: "theme-menu-item",
+    },
+    {
+      key: "help",
+      label: "Help & about",
+      icon: <HelpIcon />,
+      onSelect: () => setAboutOpen(true),
+    },
+  ];
+
   return (
     <CitationContext.Provider value={openCitation}>
     <div className="flex h-screen flex-col">
-      {/* On narrow screens the actions wrap to a second row so the title keeps its room. */}
-      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-[var(--border)] px-4 py-3">
+      {/*
+        Below md the header is one compact row: back, notebook, title, Add
+        sources and a More menu holding everything secondary, all 44px touch
+        targets. From md up the original labeled actions wrap as before.
+      */}
+      <header className="flex shrink-0 items-center gap-1 border-b border-[var(--border)] px-2 py-1.5 md:flex-wrap md:gap-x-3 md:gap-y-2 md:px-4 md:py-3">
         <Link
           href="/"
           aria-label="Back to notebooks"
           title="Back to notebooks"
-          className="rounded-lg px-2 py-1 text-sm text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
+          className="flex max-md:min-h-11 max-md:min-w-11 items-center justify-center rounded-lg px-2 py-1 text-sm text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
         >
-          ←
+          <span aria-hidden className="max-md:hidden">←</span>
+          <BackIcon className="md:hidden" />
         </Link>
         <span aria-hidden className="text-xl">
           {data.notebook.emoji}
         </span>
         <input
-          className="min-w-[11rem] flex-1 basis-[11rem] truncate rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-medium outline-none transition hover:border-[var(--border)] focus:border-[var(--border)] focus:bg-well"
+          className="min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-medium outline-none transition hover:border-[var(--border)] focus:border-[var(--border)] focus:bg-well max-md:min-h-11 md:min-w-[11rem] md:basis-[11rem]"
           value={titleDraft ?? data.notebook.title}
           aria-label="Notebook title"
           onChange={(e) => editTitle(e.target.value)}
@@ -453,16 +587,49 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         <span aria-live="polite" className="hidden shrink-0 text-xs text-[var(--muted)] sm:block">
           {checkingSources
             ? "Checking links…"
-            : `Using ${selectedIds.length} of ${sources.length} source${sources.length === 1 ? "" : "s"}`}
+            : `Using ${selectedIds.length} of ${sources.length} source${sources.length === 1 ? "" : "s"}${data.notebook.liveLearn ? " + live Learn" : ""}`}
         </span>
-        <div className="ml-auto flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 items-center gap-1 md:hidden">
+          <button
+            ref={mobileAddButton}
+            type="button"
+            className="btn !min-h-11 !min-w-11 shrink-0 !px-2.5"
+            aria-controls="sources-panel"
+            aria-expanded={sourcesVisible}
+            aria-label="Add sources"
+            title="Add sources"
+            onClick={showSources}
+          >
+            <AddSourceIcon />
+          </button>
+          <OverflowMenu label="More actions" items={moreItems} />
+        </div>
+        <div className="ml-auto hidden max-w-full shrink-0 flex-wrap items-center gap-3 md:flex">
+          <button
+            className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
+            aria-controls="sources-panel"
+            aria-expanded={sourcesVisible}
+            title="View added sources and their synopses"
+            onClick={viewSources}
+          >
+            Sources ({sources.length})
+          </button>
+          <button
+            ref={sourcesButton}
+            className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
+            aria-controls="sources-panel"
+            aria-expanded={sourcesVisible}
+            onClick={showSources}
+          >
+            Add sources
+          </button>
           <Link
             href={`/search?notebookId=${notebookId}`}
             className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
             title="Search and ask across all notebooks"
             aria-label="Search"
           >
-            <span aria-hidden>🔎</span> <span className="hidden md:inline">Search</span>
+            <SearchIcon width={14} height={14} /> Search
           </Link>
           <button
             className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
@@ -470,7 +637,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             title="Share an app and get coached through it step by step"
             aria-label="Screen helper"
           >
-            <span aria-hidden>🖥️</span> <span className="hidden md:inline">Screen helper</span>
+            <ScreenIcon width={14} height={14} /> Screen helper
           </button>
           <button
             className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
@@ -486,8 +653,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             title="Choose which models to use"
             aria-label={model ? `Models (chat: ${model})` : "Models"}
           >
-            <span aria-hidden>🧠</span>{" "}
-            <span className="hidden max-w-[10rem] truncate md:inline">{model}</span>
+            <ModelIcon width={14} height={14} />{" "}
+            <span className="max-w-[10rem] truncate">{model}</span>
           </button>
           <ThemeToggle />
           <button
@@ -496,10 +663,11 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
             onClick={() => setAboutOpen(true)}
           >
-            <span aria-hidden>?</span> <span className="hidden md:inline">Help</span>
+            <HelpIcon width={14} height={14} /> Help
           </button>
         </div>
       </header>
+
 
       {budgetNote && (
         <p className="shrink-0 border-b border-amber-900/50 bg-amber-950/25 px-4 py-2 text-[13px] text-amber-100">
@@ -524,37 +692,57 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
 
       <nav
         aria-label="Notebook panels"
-        className="flex shrink-0 gap-1 border-b border-[var(--border)] px-3 py-2 lg:hidden"
+        className="flex shrink-0 gap-1 border-b border-[var(--border)] px-2 py-1 lg:hidden"
       >
         {(["sources", "chat", "studio", "notes"] as Tab[]).map((t) => (
           <button
             key={t}
-            onClick={() => setTab(t)}
+            aria-controls={t === "sources" ? "sources-panel" : undefined}
+            onClick={() => {
+              if (t === "sources") {
+                if (sources.length) viewSources();
+                else showSources();
+              } else {
+                setTab(t);
+                setSourcesOpen(false);
+              }
+            }}
             aria-pressed={tab === t}
-            className={`flex-1 rounded-lg px-2 py-1.5 text-sm whitespace-nowrap capitalize transition ${
+            className={`flex min-h-11 flex-1 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-sm whitespace-nowrap capitalize transition ${
               tab === t
-                ? "bg-hover text-[var(--fg)]"
+                ? "bg-hover font-medium text-[var(--fg)] shadow-[inset_0_-2px_0_var(--accent)]"
                 : "text-[var(--muted)] hover:text-[var(--fg)]"
             }`}
           >
             {t}
             {t === "sources" && sources.length ? (
-              <span className="ml-1 text-[11px] opacity-70">
-                {selectedIds.length}/{sources.length}
+              <span className="text-[11px] opacity-70">
+                <span aria-hidden>
+                  {selectedIds.length}/{sources.length}
+                </span>
+                <span className="sr-only">
+                  , {selectedIds.length} of {sources.length} in use
+                </span>
               </span>
             ) : null}
             {t === "notes" && notes.length ? (
-              <span className="ml-1 text-[11px] opacity-70">{notes.length}</span>
+              <span className="text-[11px] opacity-70">{notes.length}</span>
             ) : null}
           </button>
         ))}
       </nav>
 
-      <main className="grid min-h-0 flex-1 lg:grid-cols-[17rem_minmax(0,1fr)_20rem] xl:grid-cols-[320px_minmax(0,1fr)_380px]">
+      <main data-right-panel={right} className={`grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] ${
+        sourcesVisible
+          ? "lg:grid-cols-[17rem_minmax(0,1fr)_20rem] xl:grid-cols-[320px_minmax(0,1fr)_380px]"
+          : "lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_380px]"
+      }`}>
         <div
-          className={`min-h-0 border-[var(--border)] lg:block lg:border-r ${
+          ref={sourcesPanel}
+          id="sources-panel"
+          className={`min-h-0 border-[var(--border)] lg:border-r ${
             tab === "sources" ? "block" : "hidden"
-          }`}
+          } ${sourcesVisible ? "lg:block" : "lg:hidden"}`}
         >
           <SourcesPanel
             notebookId={notebookId}
@@ -579,9 +767,19 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             onRemove={(s) => deferRemove(s.id, `Source “${s.title}”`, `/api/sources/${s.id}`)}
             onChanged={() => void load()}
             onDiscover={() => setDiscovering(true)}
+            onLearn={() => setLearning(true)}
+            liveLearn={data.notebook.liveLearn}
             onBrowse={() => setBrowsing(true)}
             onLibrary={() => setPickingLibrary(true)}
             addRef={addSources}
+            pinned={sourcesPinned}
+            adding={sourceAdding}
+            onToggleAdding={() => sourceAdding ? viewSources() : showSources()}
+            onTogglePin={() => {
+              setSourcesOpen(true);
+              setSourcesPinned((pinned) => !pinned);
+            }}
+            onClose={closeSources}
           />
         </div>
 
@@ -590,10 +788,12 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             notebookId={notebookId}
             sources={sources}
             selectedIds={selectedIds}
+            liveLearn={data.notebook.liveLearn}
             initialMessages={data.messages}
             sessions={data.sessions ?? []}
             onNoteSaved={() => void load()}
             onAddSources={showSources}
+            onChooseSources={chooseSources}
             onUseAll={() => setSelected(new Set(sources.map((s) => s.id)))}
             onOpenStudio={() => {
               setRight("studio");
@@ -658,7 +858,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
                 return saved;
               }}
               onDiscuss={(focus) => setDiscussing({ focus })}
-              onShowSources={showSources}
+              onShowSources={sources.length > 0 ? chooseSources : showSources}
             />
           </div>
           <div
@@ -705,7 +905,10 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
               // row's progress.
               const res = await fetch(`/api/artifacts/${openArtifact.id}`);
               if (!res.ok) return;
-              setOpenArtifact((await res.json()) as Artifact);
+              const updated = (await res.json()) as Artifact;
+              // A preparation request can finish after its editor was closed.
+              // Refresh only the same still-open artifact; never reopen it.
+              setOpenArtifact((current) => current?.id === updated.id ? updated : current);
             } catch {
               // Polled in the background; a dropped request is not an error
               // worth showing, and the next tick will pick it up.
@@ -734,6 +937,30 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           onAdd={(hits) => addSources.current?.(hits)}
         />
       )}
+      {learning && (
+        <DiscoverModal
+          notebookId={notebookId}
+          provider="microsoft-learn"
+          liveLearn={data.notebook.liveLearn}
+          onLiveLearnChange={async (enabled) => {
+            const response = await fetch(`/api/notebooks/${notebookId}`, {
+              method: "PATCH",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ liveLearn: enabled }),
+            });
+            if (!response.ok) {
+              const reply = await response.json();
+              throw new Error(reply.error || "Could not save the live Learn setting.");
+            }
+            ++loadSeq.current;
+            setData((current) => current ? { ...current, notebook: { ...current.notebook, liveLearn: enabled } } : current);
+            await load();
+          }}
+          onClose={() => setLearning(false)}
+          onAdd={(hits) => addSources.current?.(hits)}
+        />
+      )}
+      {learnCitation && <LearnCitationModal citation={learnCitation} onClose={() => setLearnCitation(null)} />}
       {browsing && (
         <BrowserModal
           notebookId={notebookId}

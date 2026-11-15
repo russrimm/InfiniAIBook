@@ -23,15 +23,21 @@ Run the checks that cover your change:
 npx tsc --noEmit        # type check
 npm run lint            # ESLint
 npm test                # unit tests (vitest; no network or credentials needed)
+npm run test:coverage   # unit tests with a v8 coverage report in coverage/ and CI-enforced floors
 npm run test:e2e        # browser tests (Playwright; run `npx playwright install chromium` once)
 npm run build           # production build
 npm run check:ssrf      # URL-fetch safety tests (no network or credentials needed)
+npm run check:motion    # synthetic motion render (needs Python: numpy, pillow, imageio-ffmpeg)
+npm run check:training  # synthetic training video compose (same Python packages)
 npm run check:ai        # live provider checks; add --studio, --styles or --image as relevant
 ```
 
 `check:ai` calls the configured model provider and costs tokens; run it when you
 change prompts, schemas or `src/lib/ai.ts`. Everything else except `check:ai`
-also runs in CI (`.github/workflows/ci.yml`) on every pull request. Unit tests
+also runs in CI (`.github/workflows/ci.yml`) on every pull request, along with
+a Docker build and boot test, `npm audit` for production dependencies and
+CodeQL. The coverage thresholds in `vitest.config.mts` sit just under the
+current numbers; raise them when you add tests, and don't lower them. Unit tests
 live in `tests/` and use a temporary `DATA_DIR`, never your real `.data/`.
 Browser tests live in `e2e/`. They start their own dev server on port 3123 with
 a temporary `DATA_DIR`, and use a local mock model, so they need no credentials.

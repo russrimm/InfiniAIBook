@@ -32,6 +32,7 @@ Two checks apply whether or not a password is set:
 | POST | `/api/auth/login` | `{ password }` | Sets a signed 30-day HTTP-only cookie. Attempts are serialized; each failure delays the next one longer (up to 30 s) |
 | POST | `/api/auth/logout` | — | Clears the cookie |
 | GET | `/api/auth/status` | — | `{ auth }`: whether a password is required |
+| GET | `/api/health` | — | Health probe, served without a session and under any `Host`. `200 {"status":"ok"}`, or `503 {"status":"unavailable"}` when the database cannot be read. Nothing else is returned |
 
 ## Notebooks
 
@@ -40,7 +41,7 @@ Two checks apply whether or not a password is set:
 | GET | `/api/notebooks` | — | All notebooks with counts |
 | POST | `/api/notebooks` | `{ title }` | The new notebook |
 | GET | `/api/notebooks/{id}` | — | Notebook, `sources`, `artifacts` (summaries), `sessions`, `notes`, and `messages` of the latest session |
-| PATCH | `/api/notebooks/{id}` | `{ title?, narration? }` | Rename, or save the notebook's default narration instructions and replacements |
+| PATCH | `/api/notebooks/{id}` | `{ title?, narration?, liveLearn? }` | Rename, save narration defaults, or persist the boolean live Microsoft Learn chat setting (off by default; also returned in notebook detail) |
 | DELETE | `/api/notebooks/{id}` | — | Deletes it and everything in it |
 | GET | `/api/notebooks/{id}/export` | — | Zip of sources, notes, chats, artifacts and finished media |
 | POST | `/api/notebooks/import` | multipart `file` | Restores an export as a new notebook. Semantic search stays off until re-embed |
@@ -56,6 +57,9 @@ Two checks apply whether or not a password is set:
   video — media is transcribed, up to 25 MB — PowerPoint decks, or ZIP
   archives, whose supported files are each added as a source);
 - `{ url, title? }` — web page, YouTube link, RSS/Atom feed, or direct media link;
+- `{ learnUrl }` — full documentation fetched through Microsoft Learn MCP;
+  accepts only HTTPS documentation URLs on `learn.microsoft.com` and refuses
+  duplicate pages in the same notebook;
 - `{ text, title?, kind?: "note" | "pptx" }` — pasted text (`kind: "note"` marks a
   note turned into a source; `kind: "pptx"` marks text the browser extracted
   from a deck too large to upload);
@@ -74,19 +78,28 @@ just after the response, so it appears on the next `GET /api/notebooks/{id}`.
 | GET | `/api/sources/{id}` | Full text and metadata. `?part=n` also returns `passage`, the text of that cited part |
 | POST | `/api/sources/{id}` | `{ action: "apply"\|"dismiss" }` — accept or discard a detected change to a linked source |
 | DELETE | `/api/sources/{id}` | |
+| GET | `/api/sources/{id}/structure` | Discovers the structure of a JSON, XML, CSV, TSV or HAR source: a path tree with types, counts and value stats, or a table. For HAR, `?request=n` returns one request's headers, cookies and bodies, and `?download=sanitized` returns the archive with secrets redacted. 422 for a source that cannot be parsed |
+| POST | `/api/sources/{id}/diagnose` | `{ problem? }` (up to 600 characters) → `{ diagnosis, model }`: asks the Studio model what is likely wrong in a HAR source. Only a redacted digest leaves the server, never the archive. 422 for a source that is not HAR |
 
 ## Chat and sessions
 
-**`sourceIds`**, here and on the Studio routes below, limits grounding to those
-sources. If you omit it, every source in the notebook is used. An empty list
+**`sourceIds`** on chat routes limits grounding to those
+sources. If you omit it on chat, every source in the notebook is used. An empty list
 `[]` is refused with `400 {"code": "no_sources"}` rather than treated as "all".
+The exception is notebook chat with its saved `liveLearn` setting enabled:
+an empty list searches only live Microsoft Learn, never all saved sources.
+
+Studio routes instead require explicit, nonempty `sourceIds`. Every ID must
+belong to the requested notebook; missing or cross-notebook selections return
+400 without generating an artifact. The selection is saved in artifact content
+as provenance. Notes and live web results are not automatically included.
 
 `POST /api/chat` with `{ notebookId, message, sourceIds?, sessionId? }` streams
 newline-delimited JSON events:
 
 | Event | Meaning |
 |---|---|
-| `{"type":"session","session":{...}}` | Always first; the session used (created if `sessionId` was omitted) |
+| `{"type":"session","session":{...},"userId":"..."}` | Always first; the session used (created if `sessionId` was omitted) and the saved id of the question |
 | `{"type":"citations","citations":[...]}` | Retrieved passages the answer may cite as `[n]` |
 | `{"type":"notice", ...}` | Non-fatal note, e.g. keyword fallback |
 | `{"type":"delta","v":"..."}` | Next piece of answer text |
@@ -101,6 +114,17 @@ Closing the connection mid-answer (the UI's **Stop** button) aborts the model
 request. The text received so far is saved as the answer, ending with
 "_(Stopped before the answer was finished.)_".
 
+When the notebook's saved `liveLearn` setting is true, each question also
+retrieves fresh Microsoft Learn passages. A client cannot enable this by
+passing a `liveLearn` field to `/api/chat`; use notebook PATCH explicitly.
+Live citations include `url` and `content` (the exact excerpt used), alongside
+the normal citation fields. These snapshots are saved with the answer without
+creating sources or chunks. MCP failures return
+`502 {"code":"learn_unavailable","error":"..."}` before model generation.
+Zero live matches produce a notice when selected local passages exist, or
+400 with a specific no-matches error otherwise. Studio and library Search/Ask
+do not use the live setting.
+
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | GET | `/api/notebooks/{id}/sessions` | — | Sessions, newest first |
@@ -108,6 +132,25 @@ request. The text received so far is saved as the answer, ending with
 | GET | `/api/sessions/{id}` | — | Session with `messages` |
 | PATCH | `/api/sessions/{id}` | `{ title }` | Rename |
 | DELETE | `/api/sessions/{id}` | — | Deletes its messages too |
+| GET | `/api/sessions/{id}/export` | — | The chat as a Markdown download (`attachment`), with each answer's sources listed beneath it |
+| POST | `/api/chat/suggest` | `{ sessionId, messageId }` | `{ suggestions }`: up to three short follow-up questions for the chat's latest answer. `[]` for an answer that cites nothing or was stopped; `409` if the message is not the latest answer |
+
+### Regenerate and edit
+
+`POST /api/chat` also takes `mode` and `messageId`, with an existing `sessionId`:
+
+- `mode: "regenerate"`, `messageId` of the session's **last answer**: re-asks that
+  answer's own question (the `message` field is ignored) and, once the model has
+  started, replaces the old answer with the new one. If the new one fails or comes
+  back empty, the old answer stays. `409 {"code":"not_latest"}` for any other message.
+- `mode: "edit"`, `messageId` of a **user message**, `message` the new text: once the
+  model has started, that message and everything after it are deleted and the new
+  question is saved and answered. Earlier turns stay as context. A refused request
+  (budget, authentication) changes nothing.
+
+An unknown message returns `404 {"code":"message_not_found"}`; an unknown mode, a
+missing `messageId`, or editing an answer returns `400 {"code":"invalid_turn"}`.
+The first event's `userId` is the saved id of the question (absent when regenerating).
 
 ## Notes
 
@@ -143,28 +186,39 @@ and cannot be edited or deleted.
 
 ## Studio
 
+**Slow requests.** `/api/generate`, `/api/podcast`, `/api/video`, `/api/motion`,
+`/api/training`, `/api/podcast/{id}/narrate`, `/api/training/{id}/render`,
+`/api/training/{id}/assets/find` and `/api/sources/{id}/diagnose` can run for
+minutes. A proxy in front of the app (Azure Container Apps answers
+`stream timeout` after 240 idle seconds) would drop a silent connection, so a
+request still running after about five seconds returns `200` at once and sends
+spaces, which JSON ignores, until the result is ready. A failure after that
+point therefore arrives as `{ "error": "...", "status": 502 }` in the body, not
+as the HTTP status. When you script these routes, parse the whole body and check
+for `error` before using the result.
+
 | Method | Path | Body |
 |---|---|---|
-| POST | `/api/generate` | `{ notebookId, type, topic?, sourceIds?, style?, theme?, difficulty?, length?, orientation?, detail?, instructions? }` (`theme` applies to `type: "slides"`; `style`, `orientation` (`landscape`/`portrait`/`square`), `detail` (`concise`/`standard`/`detailed`) and `instructions` (free text, up to 600 characters) to `type: "infographic"`). Unknown types and styles, a `topic` over 2,000 characters and malformed `sourceIds` are refused with 400 |
-| POST | `/api/infographic/suggest` | `{ notebookId, sourceIds?, topic? }` → `{ suggestions: [{ style, reason }], source: "model" \| "heuristic" }`: up to three infographic styles that suit the sources, best first. Falls back to a model-free guess when the model is unavailable |
-| POST | `/api/podcast` | `{ notebookId, topic?, sourceIds?, preset?, speakers?: [{ voice?, name?, role? }] (1–4), rate?, breath?, length?, narration?, music? }` → audio-overview **script** (`stage: "script"`), not yet narrated |
+| POST | `/api/generate` | `{ notebookId, type, sourceIds, topic?, style?, theme?, difficulty?, length?, orientation?, detail?, instructions? }` (`theme` applies to `type: "slides"`; `style`, `orientation` (`landscape`/`portrait`/`square`), `detail` (`concise`/`standard`/`detailed`) and `instructions` (free text, up to 600 characters) to `type: "infographic"`). Unknown types and styles, a `topic` over 2,000 characters and malformed `sourceIds` are refused with 400 |
+| POST | `/api/infographic/suggest` | `{ notebookId, sourceIds, topic? }` → `{ suggestions: [{ style, reason }], source: "model" \| "heuristic" }`: up to three infographic styles that suit the sources, best first. Falls back to a model-free guess when the model is unavailable |
+| POST | `/api/podcast` | `{ notebookId, sourceIds, topic?, preset?, speakers?: [{ voice?, name?, role? }] (1–4), rate?, breath?, length?, narration?, music? }` → audio-overview **script** (`stage: "script"`), not yet narrated |
 | PATCH | `/api/podcast/{id}` | Edit `title`, `description`, `script: { segments: [{ title, turns: [{ speaker, text }] }] }`, `voices`, `rate`, `music`, `narration`; 409 while narrating |
 | POST | `/api/podcast/{id}/narrate` | Synthesize the script (and mix any music); returns the artifact with `audioUrl` and timed `turns` |
-| POST | `/api/video` | `{ notebookId, topic?, sourceIds?, voice?, narration?, music?, watermark? }` → whiteboard scene plan (`progress.stage: "script"`) |
-| POST | `/api/motion` | `{ notebookId, topic?, sourceIds?, voice?, music?, watermark?, narration?, length?, tone?, audience?, visual?, palette?, customPalette?, character?, characterDescription?, closing?, resolution?, movement? }` → motion scene plan (`progress.stage: "script"`). Customization values are in [Motion explainers](motion-explainers.md#customizing-a-video); unknown values fall back to the defaults |
+| POST | `/api/video` | `{ notebookId, sourceIds, topic?, voice?, narration?, music?, watermark? }` → whiteboard scene plan (`progress.stage: "script"`) |
+| POST | `/api/motion` | `{ notebookId, sourceIds, topic?, voice?, music?, watermark?, narration?, length?, tone?, audience?, visual?, palette?, customPalette?, character?, characterDescription?, closing?, resolution?, movement? }` → motion scene plan (`progress.stage: "script"`). Customization values are in [Motion explainers](motion-explainers.md#customizing-a-video); unknown values fall back to the defaults |
 | PATCH | `/api/video/{id}` | Edit a whiteboard or motion script: `title`, `description`, `scenes`, `voice`, `music`, `watermark`, `narration`, and `movement` for motion; 409 while building |
 | POST | `/api/video/{id}/render` | Build the reviewed script; poll `GET /api/artifacts/{id}` for `progress.stage`, play `GET /api/video/{id}` |
 | GET | `/api/motion` | `{ music }`: whether any background-music track is available |
-| POST | `/api/training` | `{ notebookId, topic?, sourceIds?, presenter?, voice?, background?, length?, narration?, music?, watermark?, composition? }` → training transcript artifact. With `composition.mode: "composed"`, visuals are planned too; without `composition` the video is presenter only |
-| PATCH | `/api/training/{id}` | Edit `title`, `description`, `objectives`, `sections` (each with optional `cues`), `presenter`, `voice`, `background`, `music`, `watermark`, `narration`, `composition`; 409 while rendering |
+| POST | `/api/training` | `{ notebookId, sourceIds, topic?, presenter?, voice?, background?, length?, narration?, music?, watermark?, composition? }` → training transcript artifact. With `composition.mode: "composed"`, visuals are planned too; without `composition` the video is presenter only |
+| PATCH | `/api/training/{id}` | Edit `title`, `description`, `objectives`, `sections` (each with optional `cues`), `presenter`, `voice`, `background`, `music`, `watermark`, `narration`, `composition`; 409 while rendering, 400 for an infographic outside the video's source selection |
 | POST | `/api/training/{id}/render` | Start the render; poll `GET /api/artifacts/{id}` for `progress.stage` (and `progress.clips` for composed videos). Composed videos return 409 until every visual is drawn (`/raster`) |
 | POST | `/api/training/{id}/visuals` | `{ section? }` → plan the visuals again for the whole video or one 0-based section |
 | GET | `/api/training/{id}/timing` | Per-section speech timing and preview voice tracks (rendered clips, measured speech, or estimates) |
 | GET, PUT | `/api/training/{id}/raster` | `GET` → `{ missing: [{ key, state }] }` visuals still to draw; `PUT { key, state, dataUrl }` stores one PNG |
 | POST | `/api/training/{id}/assets` | `{ dataUrl }` (PNG) → `{ imageId, url }` for screenshots, pictures and logos |
 | POST | `/api/training/{id}/assets/generate` | `{ prompt }` → `{ imageId, url }` drawn by the image model |
-| POST | `/api/training/{id}/assets/find` | `{ query?, prompt?, exclude? }` → `{ imageId, url, credit?, source? }`: a Microsoft Learn screenshot for `query`, else an illustration drawn from `prompt`; 404 when neither fits. Screenshots already in the video or in `exclude` are skipped |
-| GET | `/api/training/{id}/infographics` | The notebook's infographics, for infographic visuals |
+| POST | `/api/training/{id}/assets/find` | `{ query?, prompt?, exclude? }` → `{ imageId, url, credit?, source? }`: a screenshot from the video's selected Microsoft Learn source pages for `query`, else an illustration drawn from `prompt`; 404 when neither fits. No outside articles are searched. Screenshots already in the video or in `exclude` are skipped |
+| GET | `/api/training/{id}/infographics` | Up to 20 notebook infographics with verifiable provenance entirely within the video's source selection |
 | GET | `/api/training/{id}/clips/{hash}` | A rendered transparent presenter clip (WebM), with byte ranges |
 | GET | `/api/training/{id}/speech/{hash}` | A section's preview voice track (MP3), with byte ranges |
 | GET | `/api/training/{id}/captions` | WebVTT captions of the last composed render |
@@ -174,6 +228,8 @@ and cannot be edited or deleted.
 | GET/DELETE | `/api/watermark/{id}` | The watermark image (PNG) / delete it → `{ ok, images }` |
 | GET/DELETE | `/api/artifacts/{id}` | A saved artifact |
 | GET | `/api/audio/{id}`, `/api/image/{id}`, `/api/voice-preview/{name}` | Binary media |
+| GET | `/api/voices` | `{ voices, live }`: the voices, and the styles each supports, that the Speech resource offers for presenters |
+| GET | `/api/voices/preview?voice=&style=&as=` | A short MP3 sample of one voice, optionally in one of its styles and introducing itself as `as` (letters only, up to 24). 400 for an unknown voice or style, 501 without Azure Speech |
 
 Spoken formats take two optional fields. `narration` is
 `{ instructions?: string, replacements?: [{ from, to }] }`: the instructions go
@@ -201,6 +257,8 @@ See [Live discussions](discussions.md#how-it-works) for the flow.
 | POST | `/api/discussion` | `{ notebookId, sourceIds?, setup: { mode, voice?, focus?, stance? }, sdp }` | `{ answer, citations }`: the SDP answer for the browser's WebRTC offer, and the numbered opening excerpts. The client secret stays on the server |
 | POST | `/api/discussion/search` | `{ notebookId, sourceIds?, query, start, known?: [{ passageId, n }] }` | `{ output, citations }`: the tool output for the AI and the new excerpts, numbered from `start` |
 | POST | `/api/discussion/save` | `{ notebookId, setup, turns: [{ role, text, cites }], citations, results?, durationSec }` | `201 { note, warning? }`: the discussion saved as a note with takeaways |
+| GET | `/api/live-presenter` | — | `{ ready, region? }`, or `{ ready: false, problem }` (no Speech resource, or a region without VASA-2) |
+| POST | `/api/live-presenter` | — | `{ token, region, ice: { urls, username, credential } }`: short-lived Speech token (the server exchanges its key or Entra credential for it; neither is returned) and TURN relay for the browser's live VASA-2 avatar session |
 
 `mode` is one of `discussion`, `debate`, `qa`, `expert`, `interview`,
 `quiz` or `tutor`. `voice` is a realtime voice: `marin` (default), `cedar`,
@@ -225,5 +283,5 @@ stored. A model that cannot read images returns `400` with `code: "vision"`.
 | Method | Path | Notes |
 |---|---|---|
 | GET/POST | `/api/models` | Read / change the active chat, embedding, image and vision models (`null` resets one to the environment value) |
-| POST | `/api/discover` | Web search for candidate sources |
+| POST | `/api/discover` | `{ topic, notebookId?, expand?, provider?: "microsoft-learn" }` → `{ queries, provider, results }`; defaults to Bing-first web search. The Learn provider searches official documentation directly (topic up to 1,000 characters, no query expansion), with no API key; import selected results using `learnUrl` |
 | GET | `/api/browse?url=` | Server-side page fetch for the in-app browser |
