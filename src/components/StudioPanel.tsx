@@ -1283,9 +1283,14 @@ export default function StudioPanel({
                       </option>
                       <option value="presenter">Presenter only</option>
                     </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Look
+                    </span>
                     <select
                       aria-label="Visual look"
-                      className="w-28 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:opacity-50"
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:opacity-50"
                       value={trainingLook}
                       disabled={trainingMode !== "composed"}
                       onChange={(e) => {
@@ -1302,7 +1307,7 @@ export default function StudioPanel({
                     </select>
                     <select
                       aria-label="Visual theme"
-                      className="w-28 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:opacity-50"
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:opacity-50"
                       value={trainingPalette}
                       disabled={trainingMode !== "composed"}
                       onChange={(e) =>
