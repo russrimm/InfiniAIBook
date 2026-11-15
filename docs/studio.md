@@ -5,10 +5,17 @@ videos have their own pages: [Infographic styles](infographics.md),
 [Audio overviews](audio-overviews.md), [Whiteboard videos](whiteboard-videos.md),
 [Motion explainers](motion-explainers.md) and [Training videos](training-videos.md).
 
-The Studio panel has two views. **Create** lists the formats, grouped into
-**Audio & video**, **Documents** (report, briefing, study guide, FAQ, timeline
-and PowerPoint deck), **Visuals** (infographic and mind map) and **Study** (quiz
-and flashcards). **Library** lists everything already generated in the
+The Studio panel has two views. **Create** lists the formats, grouped by what
+you want to do: **Listen** (live discussion and audio overview), **Watch**
+(whiteboard video, motion explainer and training video), **Read** (report,
+briefing, study guide, FAQ and timeline), **Visualize** (infographic, mind map
+and PowerPoint deck) and **Study** (quiz and flashcards). Select a group's
+heading to fold it away. The **Filter formats** box narrows every group as you
+type; it matches names, purposes and common words such as "powerpoint" or
+"anki", and **Esc** clears it. While no source is ticked, a message at the top
+of Create says why **Generate** is off and offers **Add sources** or **Choose
+sources**; each dimmed Generate button points to it for screen readers.
+**Library** lists everything already generated in the
 notebook; open an item to read, play or export it.
 
 Every format uses only the sources you have ticked, steered by the optional

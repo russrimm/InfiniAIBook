@@ -1,6 +1,13 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { createContext, useContext, useId, useState, type ReactNode } from "react";
+
+/**
+ * The id of the visible message that says why Generate is off, set by the
+ * panel while it is. Cards point their disabled button at it so a screen
+ * reader hears the reason, not just "dimmed".
+ */
+export const StudioBlockedReason = createContext<string | undefined>(undefined);
 
 /**
  * A Studio generator with settings. Generating is an explicit button, never
@@ -40,6 +47,7 @@ export default function StudioCard({
 }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
+  const blockedReason = useContext(StudioBlockedReason);
 
   return (
     <div
@@ -62,6 +70,7 @@ export default function StudioCard({
           disabled={busy ? !onShowStatus : blocked}
           onClick={busy ? onShowStatus : onGenerate}
           aria-label={busy ? `View ${label} generation status` : `Generate ${label}`}
+          aria-describedby={blocked && !busy ? blockedReason : undefined}
         >
           {busy ? "Working…" : "Generate"}
         </button>

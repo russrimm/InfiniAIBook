@@ -76,16 +76,18 @@ test("switching between source synopses and upload tools preserves unfinished dr
   await expect(page.getByRole("region", { name: "Source synopses" })).toBeFocused();
 });
 
-test("the Sources header and mobile tab open the synopsis list without horizontal overflow", async ({ page }) => {
+test("the mobile Sources tab opens the synopsis list without horizontal overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const id = await notebook(page);
   await page.goto(`/notebook/${id}`);
-  const opener = page.getByRole("banner").getByRole("button", { name: "Sources (1)", exact: true });
+  const panels = page.getByRole("navigation", { name: "Notebook panels" });
+  // The compact header leaves the Sources list to the tab bar; only Add sources is in the header.
+  await expect(page.getByRole("banner").getByRole("button", { name: "Sources (1)", exact: true })).toBeHidden();
+  const opener = panels.getByRole("button", { name: /^sources/ });
   const list = page.getByRole("region", { name: "Source synopses" });
   await opener.click();
   await expect(list.getByText(synopsis, { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  const panels = page.getByRole("navigation", { name: "Notebook panels" });
   await panels.getByRole("button", { name: "chat", exact: true }).click();
   await expect(list).toBeHidden();
   await panels.getByRole("button", { name: /^sources/ }).click();

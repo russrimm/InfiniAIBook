@@ -254,7 +254,7 @@ Status colors use Tailwind's amber, red, emerald, and rose families. They're nev
 - **Body** (`body`): Chat answers, notes, and artifact prose, in Prose Mist. Tables inside prose drop to 14px.
 - **Body UI** (`body-ui`): Source titles, Studio tool names, job labels, button text.
 - **Meta** (`meta`): Summaries, status lines, compact buttons in the header, toasts.
-- **Label** (`label`): Section headings in panels ("Live", "Audio & video", and so on). Uppercase, Fog color.
+- **Label** (`label`): Section headings in panels ("Listen", "Watch", and so on). Uppercase, Fog color.
 - **Micro** (`micro`): Studio tile descriptions and inline field labels, which are uppercase with wide tracking.
 
 ### Named Rules
@@ -267,7 +267,9 @@ Status colors use Tailwind's amber, red, emerald, and rose families. They're nev
 - **Notebook list:** a centered column up to 72rem wide, with 24px side padding and 56px of vertical padding. Below the header is a responsive grid of notebook cards (one column, two at `sm`, three at `lg`) with 16px gaps.
 - **Workspace:** fills the full viewport height. A 1px-bordered header (16px × 12px padding) sits above a three-column grid at `lg` and up: Sources (320px) | Chat (flexible) | Studio/Notes (380px). The columns are separated by hairline borders, not gutters. Studio and Notes share the right column through a small segmented tab bar.
 - **`lg` to `xl`:** the side columns narrow to 17rem and 20rem so Chat keeps room; the full 320px / 380px widths arrive at `xl`.
-- **Below `lg`:** the three panels collapse into a single column switched by a full-width tab bar. Header button labels collapse to emoji below `md`.
+- **Below `lg`:** the three panels collapse into a single column switched by a full-width tab bar of 44px buttons.
+- **Below `md`:** the workspace header is one compact row: back, notebook, title, an **Add sources** icon button and a **More actions** menu (`OverflowMenu`) holding Search, Screen helper, Models, Export, Theme and Help. Every control is a 44px target with an `aria-label` and `title`. The menu follows the menu-button pattern: arrows, Home and End move, Escape and Tab close it, and focus returns to its button. From `md` up the labeled buttons wrap as before.
+- **Icons:** header and menu controls use the line icons in `src/components/icons.tsx` (inherit `currentColor`, decorative, always paired with a text label or `aria-label`). Emoji remain the marks for notebooks, sources and Studio formats.
 - **Modals:** fill the viewport on small screens. From `sm` up they float with 24px of inset and Sheet corners. Screen helper is an immersive workspace: it fills the browser viewport at every size, without outer insets or rounded corners.
 - **Rhythm:** a 4px base. Dense UI uses 8px gaps (`gap-2` is by far the most common) and 12px between groups. Cards use 20px of internal padding. Lists stack at 8px.
 
@@ -321,7 +323,7 @@ A small pill sitting just above the baseline after a claim: Cite Wash fill, a La
 ### Studio Tile (signature)
 A Card-styled button with an emoji at 20px, a Body UI tool name, a one-line Micro description in Fog, and a "Generate →" cue. On hover the border lights to Lamplight. While generating, the tile gets a shimmer and a persistent Lamplight border. Disabled tiles drop to 40% opacity.
 
-Formats with settings use a **Studio Card** (`src/components/StudioCard.tsx`) instead: the same header with a compact default **Generate** button (never the title), then an **Options ▸** disclosure that shows a one-line summary of the current settings while closed. Errors appear as a Status Wash strip on the card that failed. Studio itself switches between **Create** and **Library (n)** with a small segmented control.
+Formats with settings use a **Studio Card** (`src/components/StudioCard.tsx`) instead: the same header with a compact default **Generate** button (never the title), then an **Options ▸** disclosure that shows a one-line summary of the current settings while closed. Errors appear as a Status Wash strip on the card that failed. Studio itself switches between **Create** and **Library (n)** with a small segmented control. In Create, cards sit in collapsible **Studio Groups** (`StudioGroup.tsx`: Listen, Watch, Read, Visualize, Study), each with a Label heading button, a one-line description and a count, under a **Filter formats** search box. When no source is ticked, a Well-colored notice states why Generate is off and how to fix it, and each dimmed Generate button references it with `aria-describedby`.
 
 ### Source Row (signature)
 A checkbox, an emoji for the source type, a 13px title clamped to two lines, and an 11px Fog summary. Selected rows sit on Raised Slate with a Hairline Strong border. Unselected rows have no border and are dimmed to 55% opacity, brightening on hover. The selection you're grounding on is visibly "in the light."

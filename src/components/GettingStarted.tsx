@@ -13,7 +13,17 @@ import { useState, type CSSProperties } from "react";
  * holds until the notebook's state next changes.
  */
 
-type Action = { label: string; onClick?: () => void; opensSources?: boolean };
+type Action = {
+  label: string;
+  onClick?: () => void;
+  opensSources?: boolean;
+  /**
+   * On wide screens Studio is already beside Chat, so a button that only
+   * opens it is redundant. It stays when the right column shows Notes
+   * (the workspace marks that with data-right-panel).
+   */
+  hideWhenStudioVisible?: boolean;
+};
 
 type Step = {
   id: string;
@@ -84,7 +94,9 @@ export default function GettingStarted({
       status: hasSelection ? "Ready" : "After choosing",
       done: false,
       note: hasSelection ? undefined : "Choose at least one source to unlock Chat and Studio.",
-      actions: hasSelection ? [{ label: "Open Studio", onClick: onOpenStudio }] : [],
+      actions: hasSelection
+        ? [{ label: "Open Studio", onClick: onOpenStudio, hideWhenStudioVisible: true }]
+        : [],
     },
   ];
 
@@ -208,7 +220,9 @@ export default function GettingStarted({
                 key={a.label}
                 type="button"
                 aria-controls={a.opensSources ? "sources-panel" : undefined}
-                className={`btn !px-2.5 !py-1 !text-[11px] ${!step.done && ai === 0 ? "btn-primary" : ""}`}
+                className={`btn !px-2.5 !py-1 !text-[11px] ${!step.done && ai === 0 ? "btn-primary" : ""} ${
+                  a.hideWhenStudioVisible ? "lg:in-data-[right-panel=studio]:hidden!" : ""
+                }`}
                 onClick={a.onClick}
               >
                 {a.label}

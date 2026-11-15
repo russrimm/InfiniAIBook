@@ -149,7 +149,7 @@ const HELP: {
       {
         title: "Create, Library and artifact exports",
         body: [
-          "Studio > Create groups formats under Audio & video, Documents, Visuals and Study. Tick sources first, enter an optional Focus to steer the result, open a card's Options and press Generate. Jobs run in the background and report errors on their card; finished results appear in Library and open when you are not already viewing something else.",
+          "Studio > Create groups formats under Listen, Watch, Read, Visualize and Study, and a filter box narrows them by name or purpose. Tick sources first (Generate stays off, with the reason shown, until one is ticked), enter an optional Focus to steer the result, open a card's Options and press Generate. Jobs run in the background and report errors on their card; finished results appear in Library and open when you are not already viewing something else.",
           "Open a Library item to read, play, copy or export it, or use its delete control with Undo. Copy and Export produce Markdown (flashcards label that download MD). Other outputs offer PNG, PPTX, CSV, MP3 or MP4 as described below. Media downloads are available after narration or rendering finishes.",
         ],
         doc: "studio.md",
