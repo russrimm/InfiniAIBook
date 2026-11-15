@@ -186,6 +186,8 @@ export type TrainingComposition = {
   /** "presenter" is the original single avatar video; "composed" adds visuals. */
   mode: "presenter" | "composed";
   palette: keyof typeof MOTION_PALETTES;
+  /** "hightech" adds animated HUD styling, which the HyperFrames renderer draws. */
+  look: TrainingLook;
   /** Layout used by cues that do not choose one. */
   defaultLayout: Exclude<TrainingLayout, "presenter">;
   transition: CueTransition;
@@ -204,9 +206,17 @@ export type TrainingComposition = {
   logoId?: string;
 };
 
+export const TRAINING_LOOKS = ["standard", "hightech"] as const;
+export type TrainingLook = (typeof TRAINING_LOOKS)[number];
+export const TRAINING_LOOK_LABELS: Record<TrainingLook, string> = {
+  standard: "Standard",
+  hightech: "High-tech HUD",
+};
+
 export const DEFAULT_COMPOSITION: TrainingComposition = {
   mode: "composed",
   palette: "slate",
+  look: "standard",
   defaultLayout: "side-left",
   transition: "slide",
   animation: normalizeAnimation(undefined),
@@ -249,6 +259,7 @@ export function normalizeComposition(raw: unknown): TrainingComposition {
   return {
     mode: o.mode === "presenter" ? "presenter" : "composed",
     palette: pick(o.palette, Object.keys(MOTION_PALETTES) as (keyof typeof MOTION_PALETTES)[], d.palette),
+    look: pick(o.look, TRAINING_LOOKS, d.look),
     defaultLayout: layout === "presenter" ? d.defaultLayout : layout,
     transition: pick(o.transition, CUE_TRANSITIONS, d.transition),
     animation: normalizeAnimation(o.animation),

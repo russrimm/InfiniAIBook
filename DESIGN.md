@@ -353,6 +353,14 @@ Every modal uses `useDialog` (`src/components/useDialog.ts`) and carries `role="
 
 **The Still Room Rule.** When the user asks for less motion, nothing slides, rises, spins, sweeps, flips, or glides, but nothing goes silent either. Every busy state keeps a visible, non-spatial signal, such as a slow opacity breath, so "working…" never disappears.
 
+### High-tech video style
+A second look for rendered videos, not for the app's own interface: the **High-tech HUD** preset of motion explainers and training videos, drawn by HyperFrames (`src/lib/hightech.ts`, `motionhightech.ts`, `traininghightech.ts`). The app chrome above is unchanged.
+- **Palette:** the video's own five-color palette supplies only neon accents (brightened until they glow on dark). Panels are always near-black glass and type is always `#EAF8FF`, so contrast never depends on the chosen palette. The built-in **High-tech** palette is dark navy with cyan, green and magenta.
+- **Type:** monospaced for headlines, labels and counters (Consolas, DejaVu Sans Mono), so decoding text never changes width; Segoe UI or the system sans for sublines and captions. System fonts only.
+- **Surfaces:** grid, glow, scanlines and vignette backdrops; neon frames with corner brackets; frame-edge brackets at the safe margin that pulse slowly.
+- **Motion:** letter-by-letter and decode reveals, typewriter lines with a block cursor, counters, circling chip borders and glitch arrivals (jitter plus a red/cyan split). Everything is a seekable GSAP timeline of transforms, opacity and stepped text, with randomness from a text-seeded PRNG, so a render is repeatable.
+- **Reduced motion:** the style lives only in rendered MP4s, which cannot adapt to a viewer, so the choice is the video's **Animation** setting (**None** draws the style without movement). The app adds no animated previews of it: the picker is a plain list and the in-browser training preview keeps the standard look.
+
 ## Do's and Don'ts
 
 ### Do:

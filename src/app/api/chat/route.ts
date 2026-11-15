@@ -71,7 +71,7 @@ export async function POST(req: Request) {
       db
         .prepare(
           `SELECT role, content FROM messages WHERE session_id = ?
-           ORDER BY created_at DESC LIMIT 8`
+           ORDER BY created_at DESC, rowid DESC LIMIT 8`
         )
         .all(session.id) as unknown as { role: "user" | "assistant"; content: string }[]
     ).reverse();

@@ -82,6 +82,9 @@ src/
     hyperframes.ts  runs the optional HyperFrames renderer for training videos and motion explainers
     traininghyperframes.ts  turns a training timeline into a HyperFrames composition
     motionhyperframes.ts  turns a motion render config into a HyperFrames composition
+      hightech.ts  shared pieces of the high-tech HUD style: theme, seeded PRNG, decode, typewriter, glitch
+      traininghightech.ts / motionhightech.ts  the high-tech pieces each composition swaps in
+      statcount.ts  the stat card's count-up text
     paths.ts     data/audio, images, voices and video paths, traversal-safe resolution
     rangefile.ts byte-range file streaming for media routes
     http.ts  types.ts   JSON response helpers and shared types
