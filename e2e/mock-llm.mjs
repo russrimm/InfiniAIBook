@@ -4,6 +4,8 @@ import http from "node:http";
 
 const PORT = Number(process.env.MOCK_LLM_PORT || 3124);
 let last = null;
+/** How many times each chat question was answered, so repeats differ. */
+const chatRuns = new Map();
 
 const send = (res, status, body) => {
   res.writeHead(status, { "content-type": "application/json" });
@@ -163,6 +165,30 @@ http
             },
           ],
         });
+      }
+
+      // Follow-up question suggestions for a chat answer.
+      if (system.includes("You suggest follow-up questions")) {
+        last = { kind: "chat-suggest", system: system.slice(0, 60) };
+        return reply({
+          suggestions: ["What does a drip kit cost?", "When do the workshops start?", "Who builds the beds?"],
+        });
+      }
+
+      // A grounded chat answer, streamed like the real API. Each repeat of a
+      // question gets a new number, so a regenerated answer is visibly different.
+      if (system.includes("You are InfiniAIBook, a research assistant") && body.stream) {
+        const question = String(user.content);
+        const n = (chatRuns.get(question) ?? 0) + 1;
+        chatRuns.set(question, n);
+        last = { kind: "chat", system: system.slice(0, 60), temperature: body.temperature ?? null };
+        const answer = `Answer ${n} to "${question}": the pilot builds 24 raised beds [1].`;
+        res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
+        const chunk = (content) =>
+          res.write(`data: ${JSON.stringify({ id: "mock", object: "chat.completion.chunk", choices: [{ index: 0, delta: { content } }] })}\n\n`);
+        for (const word of answer.split(/(?<= )/)) chunk(word);
+        res.write("data: [DONE]\n\n");
+        return res.end();
       }
 
       last = {

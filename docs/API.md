@@ -99,7 +99,7 @@ newline-delimited JSON events:
 
 | Event | Meaning |
 |---|---|
-| `{"type":"session","session":{...}}` | Always first; the session used (created if `sessionId` was omitted) |
+| `{"type":"session","session":{...},"userId":"..."}` | Always first; the session used (created if `sessionId` was omitted) and the saved id of the question |
 | `{"type":"citations","citations":[...]}` | Retrieved passages the answer may cite as `[n]` |
 | `{"type":"notice", ...}` | Non-fatal note, e.g. keyword fallback |
 | `{"type":"delta","v":"..."}` | Next piece of answer text |
@@ -132,6 +132,25 @@ do not use the live setting.
 | GET | `/api/sessions/{id}` | — | Session with `messages` |
 | PATCH | `/api/sessions/{id}` | `{ title }` | Rename |
 | DELETE | `/api/sessions/{id}` | — | Deletes its messages too |
+| GET | `/api/sessions/{id}/export` | — | The chat as a Markdown download (`attachment`), with each answer's sources listed beneath it |
+| POST | `/api/chat/suggest` | `{ sessionId, messageId }` | `{ suggestions }`: up to three short follow-up questions for the chat's latest answer. `[]` for an answer that cites nothing or was stopped; `409` if the message is not the latest answer |
+
+### Regenerate and edit
+
+`POST /api/chat` also takes `mode` and `messageId`, with an existing `sessionId`:
+
+- `mode: "regenerate"`, `messageId` of the session's **last answer**: re-asks that
+  answer's own question (the `message` field is ignored) and, once the model has
+  started, replaces the old answer with the new one. If the new one fails or comes
+  back empty, the old answer stays. `409 {"code":"not_latest"}` for any other message.
+- `mode: "edit"`, `messageId` of a **user message**, `message` the new text: once the
+  model has started, that message and everything after it are deleted and the new
+  question is saved and answered. Earlier turns stay as context. A refused request
+  (budget, authentication) changes nothing.
+
+An unknown message returns `404 {"code":"message_not_found"}`; an unknown mode, a
+missing `messageId`, or editing an answer returns `400 {"code":"invalid_turn"}`.
+The first event's `userId` is the saved id of the question (absent when regenerating).
 
 ## Notes
 

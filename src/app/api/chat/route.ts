@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { db } from "@/lib/db";
+import { db, transaction } from "@/lib/db";
 import { fail, noSourcesSelected } from "@/lib/http";
 import { chatStream, describeAuthError, type ChatMsg } from "@/lib/ai";
 import { citationsUsed, historyForPrompt } from "@/lib/citations";
@@ -7,7 +7,9 @@ import { buildContext, citationList } from "@/lib/retrieve";
 import { notebookLiveLearn, retrieveChatContext } from "@/lib/learnchat";
 import { LearnError } from "@/lib/learn";
 import { GROUNDING_RULES } from "@/lib/studio";
-import { createSession, getSession, touchSession } from "@/lib/sessions";
+import { createSession, getSession, sessionTurns, touchSession, truncateFrom } from "@/lib/sessions";
+import { planTurn, TurnError } from "@/lib/chatturn";
+import { STOPPED_MARK } from "@/lib/chatmarkdown";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -17,17 +19,17 @@ export const maxDuration = 300;
 /** Longest question accepted. Sources carry the bulk text; a question need not. */
 const MAX_MESSAGE_CHARS = 20_000;
 
-/** Appended to an answer the user stopped, so the saved turn says so. */
-const STOPPED_MARK = "\n\n_(Stopped before the answer was finished.)_";
-
 export async function POST(req: Request) {
   try {
-    const { notebookId, message, sourceIds, sessionId } = (await req.json()) as {
+    const { notebookId, message, sourceIds, sessionId, mode, messageId } = (await req.json()) as {
       notebookId: string;
       message: string;
       sourceIds?: string[];
       /** Conversation thread to continue; a new one is started when omitted. */
       sessionId?: string;
+      /** `regenerate` re-answers the last question; `edit` replaces a user message. Both need `messageId`. */
+      mode?: string;
+      messageId?: string;
     };
     if (!notebookId || !message?.trim()) {
       return NextResponse.json({ error: "Missing notebookId or message" }, { status: 400 });
@@ -45,9 +47,18 @@ export async function POST(req: Request) {
       );
     }
 
+    const existing = sessionId ? getSession(sessionId) : null;
+    if (sessionId && (!existing || existing.notebookId !== notebookId)) {
+      return NextResponse.json({ error: "That chat no longer exists." }, { status: 404 });
+    }
+    if (mode && !existing) {
+      return NextResponse.json({ error: "Open a saved chat first.", code: "invalid_turn" }, { status: 400 });
+    }
+    const plan = planTurn(existing ? sessionTurns(existing.id) : [], message, mode, messageId);
+
     const { passages, mismatch, notice } = await retrieveChatContext(
       notebookId,
-      message,
+      plan.question,
       sourceIds
     );
     if (!passages.length) {
@@ -60,21 +71,8 @@ export async function POST(req: Request) {
     }
 
     const citations = citationList(passages);
-
-    const existing = sessionId ? getSession(sessionId) : null;
-    if (sessionId && (!existing || existing.notebookId !== notebookId)) {
-      return NextResponse.json({ error: "That chat no longer exists." }, { status: 404 });
-    }
     const session = existing ?? createSession(notebookId);
-
-    const history = (
-      db
-        .prepare(
-          `SELECT role, content FROM messages WHERE session_id = ?
-           ORDER BY created_at DESC, rowid DESC LIMIT 8`
-        )
-        .all(session.id) as unknown as { role: "user" | "assistant"; content: string }[]
-    ).reverse();
+    const history = plan.history.map(({ role, content }) => ({ role, content }));
 
     const userMsgId = nanoid(12);
 
@@ -86,7 +84,7 @@ export async function POST(req: Request) {
         )}`,
       },
       ...historyForPrompt(history),
-      { role: "user", content: message },
+      { role: "user", content: plan.question },
     ];
 
     // Aborted when the reader goes away — the Stop button, a closed tab — so
@@ -95,13 +93,22 @@ export async function POST(req: Request) {
     const abort = () => upstream.abort();
     req.signal?.addEventListener("abort", abort);
 
-    const stream = await chatStream(messages, 0.25, { signal: upstream.signal });
+    // A regenerated answer should be able to differ from the one it replaces.
+    const stream = await chatStream(messages, plan.mode === "regenerate" ? 0.5 : 0.25, {
+      signal: upstream.signal,
+    });
 
-    // Only record the turn once the upstream call has actually started.
-    db.prepare(
-      "INSERT INTO messages (id, notebook_id, session_id, role, content, citations, created_at) VALUES (?,?,?,?,?,?,?)"
-    ).run(userMsgId, notebookId, session.id, "user", message, null, Date.now());
-    touchSession(session.id, message);
+    // Only change the chat once the upstream call has actually started, so a
+    // refused request (budget, auth) leaves an edited or regenerated turn intact.
+    transaction(() => {
+      if (plan.truncateId) truncateFrom(session.id, plan.truncateId);
+      if (plan.mode !== "regenerate") {
+        db.prepare(
+          "INSERT INTO messages (id, notebook_id, session_id, role, content, citations, created_at) VALUES (?,?,?,?,?,?,?)"
+        ).run(userMsgId, notebookId, session.id, "user", plan.question, null, Date.now());
+      }
+    });
+    touchSession(session.id, plan.mode === "regenerate" ? undefined : plan.question);
 
     const encoder = new TextEncoder();
     let full = "";
@@ -112,17 +119,21 @@ export async function POST(req: Request) {
       // top retrieved passages, or it looks grounded when it is not.
       const cites = citationsUsed(full, citations);
       const id = nanoid(12);
-      db.prepare(
-        "INSERT INTO messages (id, notebook_id, session_id, role, content, citations, created_at) VALUES (?,?,?,?,?,?,?)"
-      ).run(
-        id,
-        notebookId,
-        session.id,
-        "assistant",
-        stopped ? full + STOPPED_MARK : full,
-        JSON.stringify(cites),
-        Date.now()
-      );
+      transaction(() => {
+        // The new answer takes the place of the one it regenerates.
+        if (plan.replaceId) db.prepare("DELETE FROM messages WHERE id = ?").run(plan.replaceId);
+        db.prepare(
+          "INSERT INTO messages (id, notebook_id, session_id, role, content, citations, created_at) VALUES (?,?,?,?,?,?,?)"
+        ).run(
+          id,
+          notebookId,
+          session.id,
+          "assistant",
+          stopped ? full + STOPPED_MARK : full,
+          JSON.stringify(cites),
+          Date.now()
+        );
+      });
       touchSession(session.id);
       return { id, cites };
     };
@@ -140,7 +151,11 @@ export async function POST(req: Request) {
         };
         let saved = false;
         try {
-          send({ type: "session", session: getSession(session.id) });
+          send({
+            type: "session",
+            session: getSession(session.id),
+            userId: plan.mode === "regenerate" ? undefined : userMsgId,
+          });
           send({ type: "citations", citations });
           const notices: string[] = notice ? [notice] : [];
           if (mismatch) {
@@ -201,6 +216,9 @@ export async function POST(req: Request) {
       },
     });
   } catch (e) {
+    if (e instanceof TurnError) {
+      return NextResponse.json({ error: e.message, code: e.code }, { status: e.status });
+    }
     if (e instanceof LearnError) {
       return NextResponse.json({ error: e.message, code: "learn_unavailable" }, { status: e.status });
     }
