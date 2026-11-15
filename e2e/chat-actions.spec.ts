@@ -20,9 +20,11 @@ const ask = async (page: Page, question: string) => {
   await page.getByRole("button", { name: "Send", exact: true }).click();
 };
 
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /** The mock LLM numbers each repeat of a question, so a redone answer reads differently. */
 const answerTo = (page: Page, question: string) =>
-  page.getByText(new RegExp(`Answer \\d+ to "${question.replace(/[?]/g, "\\?")}"`));
+  page.getByText(new RegExp(`Answer \\d+ to "${escapeRegExp(question)}"`));
 
 const savedMessages = async (page: Page, notebookId: string) => {
   const nb = await (await page.request.get(`/api/notebooks/${notebookId}`)).json();

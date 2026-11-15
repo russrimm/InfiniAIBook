@@ -30,9 +30,16 @@ test("a text watermark is saved with the script and can be swapped for an upload
 
   const card = page.getByTestId("training-card");
   await card.getByRole("button", { name: /^Options/ }).click();
+  // A crowded options row once squeezed the Style select to a sliver; keep each select usable.
+  for (const name of ["Training video style", "Visual look", "Visual theme"]) {
+    const box = await card.getByLabel(name, { exact: true }).boundingBox();
+    expect(box?.width ?? 0, `${name} select width`).toBeGreaterThan(90);
+  }
+
   await card.getByLabel("Watermark", { exact: true }).selectOption("text");
   await card.getByLabel("Watermark text").fill("© Riverside Garden");
-  await card.getByRole("radio", { name: "Top left" }).check({ force: true });
+  // The radio is visually hidden, so click its visible cell; Playwright scrolls that fully into view.
+  await card.getByTitle("Top left", { exact: true }).click();
   await card.getByLabel("Watermark opacity").selectOption("solid");
   await card.getByRole("button", { name: "Generate Training video" }).click();
 
@@ -61,7 +68,8 @@ test("a text watermark is saved with the script and can be swapped for an upload
     .setInputFiles({ name: "Riverside logo.png", mimeType: "image/png", buffer: LOGO });
   await expect(dialog.getByLabel("Watermark image", { exact: true })).toHaveValue(/^w-/);
   await expect(dialog.getByRole("button", { name: "Delete Riverside logo" })).toBeVisible();
-  await dialog.getByRole("radio", { name: "Bottom right" }).check({ force: true });
+  await dialog.getByTitle("Bottom right", { exact: true }).click();
+  await expect(dialog.getByRole("radio", { name: "Bottom right" })).toBeChecked();
 
   await dialog.getByRole("button", { name: "Save changes" }).click();
   await expect(dialog.getByRole("button", { name: "Saved" })).toBeVisible();

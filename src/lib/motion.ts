@@ -200,6 +200,14 @@ export const MOTION_VISUALS = {
       "shapes with a few flat accent fills, plenty of empty space, no shading, no " +
       "photorealism.",
   },
+  hightech: {
+    label: "High-tech HUD",
+    look:
+      "Futuristic high-tech HUD illustration: dark navy scenes with glowing neon cyan " +
+      "and magenta line work, holographic interface panels, circuit-board and data-grid " +
+      "details, soft light bloom, clean geometric shapes, no readable text or numbers, " +
+      "no photorealism.",
+  },
 } as const;
 export type MotionVisual = keyof typeof MOTION_VISUALS;
 
@@ -224,6 +232,10 @@ export const MOTION_PALETTES = {
   mono: {
     label: "Monochrome",
     colors: { dark: "#1A1A1A", primary: "#4A4A4A", accent: "#8A8A8A", pop: "#E63946", light: "#F5F5F5" },
+  },
+  cyber: {
+    label: "High-tech",
+    colors: { dark: "#08142B", primary: "#00B8D9", accent: "#39FF88", pop: "#FF2E97", light: "#E8F7FF" },
   },
 } as const satisfies Record<string, { label: string; colors: MotionPalette }>;
 /** "auto" lets the planner choose colors to suit the subject. */
@@ -419,8 +431,12 @@ function lookRules(opts: MotionOptions): string {
   const palette = fixedPalette(opts);
   const paletteRule = palette
     ? `The palette is fixed. Return exactly: ${JSON.stringify(palette)}.`
-    : "Pick a palette that suits the subject: one dark color for text, a primary and\n" +
-      "two accents, and a very light background color. Hex values only.";
+    : opts.visual === "hightech"
+      ? "Pick a futuristic palette: one very dark navy for the opening and closing frames,\n" +
+        "a bright primary, two bright neon accents, and a very light background color.\n" +
+        "Hex values only."
+      : "Pick a palette that suits the subject: one dark color for text, a primary and\n" +
+        "two accents, and a very light background color. Hex values only.";
   const heroRule =
     opts.character === "none"
       ? 'There is no recurring character in this video. Set "hero" to an empty string\n' +

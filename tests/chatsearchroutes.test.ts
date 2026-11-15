@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { embedModel } from "@/lib/ai";
 import { LearnError } from "@/lib/learn";
 import { createNote } from "@/lib/notes";
-import { createSession } from "@/lib/sessions";
+import { createSession, sessionMessages } from "@/lib/sessions";
 import { count, request, resetNotebooks, seedNotebook, seedSource } from "./routehelpers";
 
 const mocks = vi.hoisted(() => ({
@@ -154,6 +154,30 @@ describe("POST /api/chat", () => {
     expect(prompt[2].content).not.toContain("[1]");
     expect(count("messages", "session_id = ?", session.id)).toBe(4);
     expect(count("chat_sessions")).toBe(1);
+  });
+
+  it("keeps turns in order when they share a millisecond", async () => {
+    const { notebookId } = ready();
+    const session = createSession(notebookId);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(1_700_000_000_000);
+      mocks.chatStream.mockResolvedValue(parts("First"));
+      await (await ask_({ notebookId, message: "first question", sessionId: session.id })).text();
+      mocks.chatStream.mockResolvedValue(parts("Second"));
+      await (await ask_({ notebookId, message: "follow up", sessionId: session.id })).text();
+    } finally {
+      vi.useRealTimers();
+    }
+
+    const prompt = mocks.chatStream.mock.calls[1][0] as { role: string }[];
+    expect(prompt.map((m) => m.role)).toEqual(["system", "user", "assistant", "user"]);
+    expect(sessionMessages(session.id).map((m) => m.content)).toEqual([
+      "first question",
+      "First",
+      "follow up",
+      "Second",
+    ]);
   });
 
   it("limits retrieval to the selected sources", async () => {

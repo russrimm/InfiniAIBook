@@ -17,6 +17,9 @@ import type { RenderConfig } from "./motiontimeline";
 /** The release the composition is written for; npx fetches it on first use. */
 export const HYPERFRAMES_VERSION = "0.8.181";
 
+/** The note shown when a HyperFrames render fails and the standard renderer takes over. */
+export const hyperframesFailedNote = (hightech: boolean, what: "compositor" | "renderer") =>
+  `HyperFrames could not render this video, so the standard ${what} was used${hightech ? " without the high-tech effects" : ""}.`;
 export type TrainingRenderer = "python" | "hyperframes";
 
 const rendererFrom = (name: string): TrainingRenderer =>
@@ -26,6 +29,58 @@ const rendererFrom = (name: string): TrainingRenderer =>
 export const trainingRenderer = () => rendererFrom("TRAINING_RENDERER");
 /** Which renderer motion explainers use (MOTION_RENDERER). */
 export const motionRenderer = () => rendererFrom("MOTION_RENDERER");
+
+let probed: boolean | undefined;
+
+/** Whether HyperFrames can be started here: a configured binary, or npx on the path. */
+export function hyperframesAvailable(): boolean {
+  if (process.env.HYPERFRAMES_BIN?.trim()) return true;
+  if (probed === undefined) {
+    const win = process.platform === "win32";
+    const run = spawnSync(
+      win ? process.env.ComSpec || "cmd.exe" : "npx",
+      win ? ["/d", "/s", "/c", "npx --version"] : ["--version"],
+      { stdio: "ignore", timeout: 15_000 },
+    );
+    probed = run.status === 0;
+  }
+  return probed;
+}
+
+/** Forgets the npx check, for tests. */
+export const resetHyperframesProbe = () => {
+  probed = undefined;
+};
+
+export type RendererChoice = { renderer: TrainingRenderer; note?: string };
+
+/**
+ * Picks the renderer for a video. The standard styles follow `envName`
+ * (python unless it says hyperframes). The high-tech style needs HyperFrames
+ * for its effects, so it uses it by default when HyperFrames can start; an
+ * explicit "python" is honored, and either way the note says what was missing.
+ */
+export function chooseRenderer(
+  envName: "TRAINING_RENDERER" | "MOTION_RENDERER",
+  hightech: boolean,
+): RendererChoice {
+  const asked = rendererFrom(envName);
+  if (!hightech) return { renderer: asked };
+  if (asked === "hyperframes") return { renderer: "hyperframes" };
+  if (process.env[envName]?.trim().toLowerCase() === "python") {
+    return {
+      renderer: "python",
+      note: `The high-tech effects need HyperFrames, which ${envName}=python turns off, so the standard renderer was used.`,
+    };
+  }
+  if (!hyperframesAvailable()) {
+    return {
+      renderer: "python",
+      note: "The high-tech effects need HyperFrames, and npx could not be started, so the standard renderer was used.",
+    };
+  }
+  return { renderer: "hyperframes" };
+}
 
 const TIMEOUT_MS = () => {
   const n = Number(process.env.HYPERFRAMES_TIMEOUT_MIN);

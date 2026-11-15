@@ -16,6 +16,19 @@ import {
   num,
   type HyperframesProject,
 } from "./hyperframesproject";
+import {
+  HT_FIT,
+  htArrive,
+  htCard,
+  htCss,
+  htCueChrome,
+  htHud,
+  htLower,
+  htStage,
+  htTheme,
+  type HtStage,
+  type TrainingHightech,
+} from "./traininghightech";
 
 export { GSAP_FILE, HYPERFRAMES_FPS, type HyperframesProject };
 
@@ -28,6 +41,8 @@ export type HyperframesOptions = {
   burnCaptions: boolean;
   logo?: string | null;
   fps?: number;
+  /** Draws the high-tech HUD style, with this text on its live cards and lower third. */
+  hightech?: TrainingHightech;
 };
 
 const DEFAULT_BACKGROUND = "#1F2A37";
@@ -70,8 +85,12 @@ export function buildHyperframesProject(tl: TrainingTimeline, opts: HyperframesO
   const html: string[] = [];
   const js: string[] = [];
   const t = tl.timing;
+  const hp = opts.hightech;
+  const hs: HtStage | null = hp
+    ? { t: htTheme(hp.palette), W, H, S: scale, total, animate: t.cueIn > 0 }
+    : null;
 
-  html.push(`<div id="stage" style="${stageCss(opts.background)}"></div>`);
+  html.push(hs ? htStage(hs, js) : `<div id="stage" style="${stageCss(opts.background)}"></div>`);
 
   // Visuals sit beneath the presenter, in the panel the layout leaves for them.
   tl.cues.forEach((q, n) => {
@@ -82,7 +101,7 @@ export function buildHyperframesProject(tl: TrainingTimeline, opts: HyperframesO
     const hold = Math.max(0.1, q.end - q.start);
     const style = [
       px(q.panel),
-      full ? "" : `border-radius:${num(18 * scale)}px;box-shadow:0 ${num(18 * scale)}px ${num(40 * scale)}px rgba(0,0,0,.35)`,
+      full || hs ? "" : `border-radius:${num(18 * scale)}px;box-shadow:0 ${num(18 * scale)}px ${num(40 * scale)}px rgba(0,0,0,.35)`,
     ]
       .filter(Boolean)
       .join(";");
@@ -92,15 +111,21 @@ export function buildHyperframesProject(tl: TrainingTimeline, opts: HyperframesO
       const hidden = k > 0 && at > start + 0.001;
       return `<img id="${id}s${k}" src="${src}" alt=""${hidden ? ' style="opacity:0"' : ""}>`;
     });
+    const arrives = t.cueIn > 0 && q.transition !== "cut";
+    const chrome = hs
+      ? htCueChrome(id, { w: Math.round(q.panel.w * W), h: Math.round(q.panel.h * H) }, full, start, arrives, hs, js)
+      : "";
     const inner = q.kenBurns
-      ? `<div id="${id}p" class="pic" style="overflow:hidden">${imgs.join("")}</div>`
-      : `<div id="${id}p" class="pic">${imgs.join("")}</div>`;
+      ? `<div id="${id}p" class="pic" style="overflow:hidden">${imgs.join("")}</div>${chrome}`
+      : `<div id="${id}p" class="pic">${imgs.join("")}</div>${chrome}`;
     html.push(
-      `<div id="${id}" class="cue" ${timed(start, q.end - q.start + t.cueOut)} style="${style}">${inner}</div>`
+      `<div id="${id}" class="cue${hs && !full ? " ht-cue" : ""}" ${timed(start, q.end - q.start + t.cueOut)} style="${style}">${inner}</div>`
     );
 
     // render.py's arrival: out-cubic over cueIn, per transition.
-    if (t.cueIn > 0 && q.transition !== "cut") {
+    if (hs && arrives) {
+      htArrive(id, start, Math.min(0.5, t.cueIn), hs, js);
+    } else if (t.cueIn > 0 && q.transition !== "cut") {
       const enter =
         q.transition === "slide"
           ? { from: `{opacity:0,x:${num(0.08 * W)}}`, to: `{opacity:1,x:0}` }
@@ -154,13 +179,19 @@ export function buildHyperframesProject(tl: TrainingTimeline, opts: HyperframesO
   if (tl.lowerThird?.rasterKey) {
     const lt = tl.lowerThird;
     const rect = px(lt.rect);
-    html.push(
-      `<img id="lower" class="lower" src="${picture(lt.rasterKey, 0)}" alt="" ${timed(lt.start, lt.end - lt.start)} style="${rect}">`
-    );
-    if (t.lowerIn > 0) {
-      js.push(
-        `tl.fromTo("#lower",{opacity:0,x:${num(-0.4 * lt.rect.w * W)}},{opacity:1,x:0,duration:${t.lowerIn},ease:"power3.out"},${num(lt.start)});`
+    if (hs && hp?.presenterName) {
+      html.push(
+        htLower(lt, hp.presenterName, hp.presenterRole, rect, Math.round(lt.rect.h * H), timed(lt.start, lt.end - lt.start), t.lowerIn, hs, js)
       );
+    } else {
+      html.push(
+        `<img id="lower" class="lower" src="${picture(lt.rasterKey, 0)}" alt="" ${timed(lt.start, lt.end - lt.start)} style="${rect}">`
+      );
+      if (t.lowerIn > 0) {
+        js.push(
+          `tl.fromTo("#lower",{opacity:0,x:${num(-0.4 * lt.rect.w * W)}},{opacity:1,x:0,duration:${t.lowerIn},ease:"power3.out"},${num(lt.start)});`
+        );
+      }
     }
     if (t.lowerOut > 0) {
       js.push(`tl.to("#lower",{opacity:0,duration:${t.lowerOut},ease:"none"},${num(lt.end - t.lowerOut)});`);
@@ -172,12 +203,17 @@ export function buildHyperframesProject(tl: TrainingTimeline, opts: HyperframesO
       html.push(
         `<div id="cap${i}" class="cap" ${timed(c.start, c.end - c.start)}><span>${esc(c.text)}</span></div>`
       );
+      if (hs?.animate) js.push(`tl.fromTo("#cap${i}",{opacity:0},{opacity:1,duration:0.12,ease:"none"},${num(c.start)});`);
     });
   }
 
   // Cards cover everything beneath them and fade at their edges, except at the very ends of the video.
   tl.cards.forEach((k, n) => {
     const id = `card${n}`;
+    if (hs && hp) {
+      html.push(htCard(n, k, hp, timed(k.start, k.duration), t.cardFade, hs, js));
+      return;
+    }
     html.push(
       `<img id="${id}" class="card" src="${picture(k.rasterKey, 0)}" alt="" ${timed(k.start, k.duration)}>`
     );
@@ -188,6 +224,7 @@ export function buildHyperframesProject(tl: TrainingTimeline, opts: HyperframesO
       }
     }
   });
+  if (hs) html.push(htHud(hs, js));
 
   if (opts.logo) {
     html.push(
@@ -223,7 +260,7 @@ html, body { width: ${W}px; height: ${H}px; overflow: hidden; background: ${DEFA
 .cap span { max-width: ${num(W * 0.78)}px; padding: ${num(cap * 0.35)}px ${num(cap * 0.7)}px; border-radius: ${num(cap * 0.4)}px; background: rgba(12,14,18,.745); color: #fff; text-align: center; font: 600 ${cap}px/1.3 "Segoe UI", Inter, "DejaVu Sans", Arial, sans-serif; }
 .card { position: absolute; left: 0; top: 0; width: ${W}px; height: ${H}px; z-index: 50; }
 #logo { position: absolute; z-index: 60; object-fit: contain; object-position: right top; opacity: .85; }
-#fade { position: absolute; inset: 0; z-index: 70; background: #000; opacity: 0; }`;
+#fade { position: absolute; inset: 0; z-index: 70; background: #000; opacity: 0; }${hs ? htCss(hs) : ""}`;
 
   const doc = `<!doctype html>
 <html lang="en">
@@ -238,7 +275,7 @@ html, body { width: ${W}px; height: ${H}px; overflow: hidden; background: ${DEFA
 <div id="root" data-composition-id="root" data-width="${W}" data-height="${H}" ${timed(0, total)}>
 ${html.join("\n")}
 </div>
-<script>
+<script>${hs ? HT_FIT : ""}
 const tl = gsap.timeline({ paused: true });
 ${js.join("\n")}
 window.__timelines = window.__timelines || {};

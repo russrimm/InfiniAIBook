@@ -6,11 +6,14 @@ import {
   normalizeCues,
 } from "@/lib/trainingvisuals";
 import {
+  LOWER_THIRD_RECT,
   compileTrainingTimeline,
   estimateSectionTiming,
   type ComposeInput,
 } from "@/lib/trainingtimeline";
 import { GSAP_FILE, HYPERFRAMES_FPS, buildHyperframesProject } from "@/lib/traininghyperframes";
+import { trainingHightech } from "@/lib/traininghightech";
+import { MOTION_PALETTES } from "@/lib/motion";
 import { trainingRenderer } from "@/lib/hyperframes";
 
 const S1 = "Welcome to the check. Here is what you will learn today. First the stage, then the panels.";
@@ -177,6 +180,92 @@ describe("HyperFrames project", () => {
     expect(buildHyperframesProject(timeline(), options).html).toContain("linear-gradient(180deg,rgb(");
     const odd = buildHyperframesProject(timeline(), { ...options, background: "red;} body{display:none" }).html;
     expect(odd).not.toContain("display:none");
+  });
+});
+
+describe("high-tech training style", () => {
+  const people = (over: Partial<ComposeInput["composition"]> = {}) => ({
+    ...input(),
+    composition: { ...input().composition, look: "hightech" as const, palette: "cyber" as const, ...over },
+  });
+  // The fixture's first visual arrives too early for a lower third, so pin one.
+  const withLower = (animation: keyof typeof ANIMATION_PRESETS = "full") => {
+    const tl = timeline(animation);
+    return { ...tl, lowerThird: tl.lowerThird ?? { start: 1.2, end: 5, rasterKey: "lowerkey", rect: LOWER_THIRD_RECT } };
+  };
+  const tech = (i: ComposeInput = people(), animation: keyof typeof ANIMATION_PRESETS = "full") =>
+    buildHyperframesProject(withLower(animation), { ...options, hightech: trainingHightech(i, MOTION_PALETTES.cyber.colors) });
+
+  it("leaves the standard style untouched", () => {
+    const html = buildHyperframesProject(timeline(), options).html;
+    expect(html).not.toContain("ht-card");
+    expect(html).not.toContain('id="hud"');
+    expect(html).toContain('<img id="card0" class="card"');
+  });
+
+  it("keeps the timeline: same root, presenter clips, and cue windows", () => {
+    const tl = timeline();
+    const p = tech();
+    expect(p.html).toContain(`data-composition-id="root" data-width="${tl.width}" data-height="${tl.height}"`);
+    expect(p.html).toContain('window.__timelines["root"] = tl;');
+    for (const s of tl.sections) {
+      expect(p.html).toContain(`src="assets/clip-${s.index}.webm" data-start="${s.start}" data-duration="${s.duration}"`);
+    }
+    tl.cues.forEach((q, n) => {
+      expect(p.html).toContain(`id="c${n}" class="cue`);
+      expect(p.html).toContain(`data-start="${q.start}" data-duration="${Math.round((q.end - q.start + tl.timing.cueOut) * 1000) / 1000}"`);
+    });
+    expect(p.duration).toBe(tl.duration);
+  });
+
+  it("draws cards and the lower third as live text, without their pictures", () => {
+    const tl = withLower();
+    const p = tech();
+    tl.cards.forEach((k, n) => {
+      expect(p.html).toContain(`id="card${n}" class="card ht-card" data-start="${k.start}" data-duration="${k.duration}"`);
+    });
+    expect(p.html).not.toContain('<img id="card0"');
+    expect(p.html).toContain('id="card0tw0" class="w"');
+    const standard = buildHyperframesProject(tl, options);
+    expect(p.files.length).toBe(standard.files.length - tl.cards.length - 1);
+  });
+
+  it("names the presenter in live text and frames each visual", () => {
+    const html = tech().html;
+    expect(html).toContain('id="lower" class="lower ht-lower"');
+    expect(html).toContain("Check Presenter");
+    expect(html).toMatch(/class="ht-edge"/);
+    expect(html).toMatch(/id="c0bk0" class="ht-br ht-tl"/);
+    expect(html).toContain('filter:"drop-shadow(');
+  });
+
+  it("draws the style but nothing moves when animation is off", () => {
+    const html = tech(people({ animation: normalizeAnimation(ANIMATION_PRESETS.none) }), "none").html;
+    expect(html).toContain("ht-card");
+    expect(html).toContain('id="hud"');
+    expect(html).not.toContain('filter:"drop-shadow(');
+    expect(html).not.toContain("textContent:");
+    expect(html).not.toContain('id="fade"');
+  });
+
+  it("escapes the title, description and presenter name in markup and script", () => {
+    const evil = '</script><script>alert(1)</script><img src=x onerror=alert(1)> & "q"';
+    const i = people({ lowerThird: { enabled: true, name: evil, role: evil } });
+    i.title = evil;
+    i.description = evil;
+    i.sections = i.sections.map((s) => ({ ...s, title: evil }));
+    const html = tech(i).html;
+    expect(html).not.toContain("<img src=x");
+    expect(html).not.toContain("<script>alert");
+    expect(html.match(/<script/g)).toHaveLength(2);
+    expect(html.match(/<\/script>/g)).toHaveLength(2);
+    expect(html).toContain("&amp; &quot;q&quot;");
+  });
+
+  it("is deterministic and has no unseeded randomness", () => {
+    expect(tech().html).toBe(tech().html);
+    expect(tech().html).not.toContain("Math.random");
+    expect(tech().html).not.toContain("Date.now");
   });
 });
 

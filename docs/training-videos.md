@@ -118,11 +118,16 @@ source content changes. See [Grounding boundaries](grounding.md#studio-and-libra
   picture-motion choices are preserved and take effect again when their
   animation toggle is enabled. Changing only animation requires recomposition,
   not new avatar clips.
-- **Design.** The **Design** tab sets the theme colors, the default layout and
+- **Design.** The **Design** tab sets the look (Standard or High-tech HUD), the
+  theme colors, the default layout and
   transition, the corner for the small presenter, opening and closing cards, a
   title card between sections, an on-screen name for the presenter, a logo, the
   resolution (720p or 1080p) and captions: burned in, a separate WebVTT file,
   or none.
+- **High-tech look.** Choose **High-tech HUD** under **Look** (in the Studio
+  card's style row or **Design**) for a futuristic style. It also selects the
+  **High-tech** theme colors, which you can change afterward. The default,
+  **Standard**, is unchanged. See [The high-tech look](#the-high-tech-look).
 
 ### Editing and previewing
 
@@ -205,6 +210,47 @@ without transparency (only `render.py` keys out a flat background).
 Run `npm run check:training -- --hyperframes` to compose the synthetic video
 this way. The bundled `scripts/hyperframes/gsap.min.js` is GSAP, used under its
 [standard license](https://gsap.com/standard-license/).
+
+### The high-tech look
+
+![Frames from a training video in the high-tech look: a decoding title card, a lower third, a visual in a HUD frame and a section card](screenshots/high-tech-training.jpg)
+
+*Frames from a short sample rendered with HyperFrames. The pictures and
+presenter are placeholders.*
+
+Set **Look** to **High-tech HUD** (`composition.look: "hightech"`) to draw the
+video in a futuristic HUD style. The timeline, slides, presenter clips, captions
+file and audio are the same; the frame around them changes:
+
+- A dark stage with a drifting grid, glow, scanlines and a vignette, and corner
+  brackets that draw in and pulse.
+- Every visual sits in a neon frame with corner brackets and a scan line that
+  sweeps down it, and arrives with a glitch burst (jitter and a red/cyan
+  channel split) instead of the usual slide, zoom or wipe. Cuts stay cuts.
+- Title, section and closing cards are live text: a spread-out eyebrow that
+  closes up, a title that reveals letter by letter through random symbols, a
+  neon rule, a typewriter line with a cursor, and a large section number.
+- The lower third decodes the presenter's name and types their role.
+- Captions get a neon-edged dark panel.
+
+Text stays legible on any theme: panels are always dark glass and type is
+always near-white; the theme only supplies the neon accents. The style uses only
+system fonts (Consolas, DejaVu Sans Mono, Segoe UI) and CSS, so a render needs
+no network beyond `npx`. Randomness comes from a PRNG seeded by the text, so
+the same video always renders the same frames.
+
+The animation setting still applies: with **None**, the style is drawn but
+nothing moves. Frames and slides already drawn in the browser are not
+restyled, so the **High-tech** theme (dark navy with cyan, green and magenta)
+is what makes them match.
+
+**Renderer.** The high-tech look needs HyperFrames, so it is used
+automatically whenever `npx` (or `HYPERFRAMES_BIN`) can start, without setting
+`TRAINING_RENDERER`. Setting `TRAINING_RENDERER=python` turns that off. If
+HyperFrames is not available or its render fails, the video is made with the
+Python compositor in the standard style, and the video's note says the
+high-tech effects were skipped. The in-browser preview shows the standard
+style either way, with no added animation.
 
 ## Sample
 
