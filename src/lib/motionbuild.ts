@@ -20,7 +20,7 @@ import {
   type VideoProgress,
 } from "./videobuild";
 import { stampWatermark } from "./watermark";
-import { motionRenderer, renderMotionWithHyperframes } from "./hyperframes";
+import { chooseRenderer, hyperframesFailedNote, renderMotionWithHyperframes } from "./hyperframes";
 import { throttleProgress } from "./renderprogress";
 
 type AssetJob = {
@@ -208,16 +208,17 @@ async function runBuild(
     );
   };
 
-  let fallback: string | undefined;
+  const hightech = config.look === "hightech";
+  const choice = chooseRenderer("MOTION_RENDERER", hightech);
+  let fallback: string | undefined = choice.note;
   let rendered = false;
-  if (motionRenderer() === "hyperframes") {
+  if (choice.renderer === "hyperframes") {
     try {
       await renderMotionWithHyperframes(config, configPath, out, work, reporter());
       rendered = fs.existsSync(out);
     } catch (e) {
       console.warn("[motion] HyperFrames render failed, using the standard renderer", e);
-      fallback =
-        "HyperFrames could not render this video, so the standard renderer was used.";
+      fallback = hyperframesFailedNote(hightech, "renderer");
     }
   }
   if (!rendered) await runPythonRenderer(["motion", "render.py"], configPath, reporter());

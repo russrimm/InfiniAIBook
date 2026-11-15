@@ -49,7 +49,12 @@ import {
   type WhiteboardPreset,
 } from "@/lib/whiteboard";
 import SceneLengthRow from "@/components/SceneLengthRow";
-import { DEFAULT_COMPOSITION } from "@/lib/trainingvisuals";
+import {
+  DEFAULT_COMPOSITION,
+  TRAINING_LOOKS,
+  TRAINING_LOOK_LABELS,
+  type TrainingLook,
+} from "@/lib/trainingvisuals";
 import { readJSONReply } from "@/lib/jsonreply";
 import {
   DEFAULT_STYLE,
@@ -358,6 +363,9 @@ export default function StudioPanel({
   const [trainingPalette, setTrainingPalette] = useState<
     keyof typeof MOTION_PALETTES
   >(DEFAULT_COMPOSITION.palette);
+  const [trainingLook, setTrainingLook] = useState<TrainingLook>(
+    DEFAULT_COMPOSITION.look,
+  );
   const [running, setRunning] = useState<Set<ArtifactType>>(new Set());
   const [generationJobs, setGenerationJobs] = useState<Partial<Record<ArtifactType, GenerationJob>>>({});
   const [statusOpen, setStatusOpen] = useState(false);
@@ -552,6 +560,7 @@ export default function StudioPanel({
         ...DEFAULT_COMPOSITION,
         mode: trainingMode,
         palette: trainingPalette,
+        look: trainingLook,
       },
     });
 
@@ -1384,9 +1393,31 @@ export default function StudioPanel({
                       </option>
                       <option value="presenter">Presenter only</option>
                     </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
+                      Look
+                    </span>
+                    <select
+                      aria-label="Visual look"
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:opacity-50"
+                      value={trainingLook}
+                      disabled={trainingMode !== "composed"}
+                      onChange={(e) => {
+                        const look = e.target.value as TrainingLook;
+                        setTrainingLook(look);
+                        if (look === "hightech") setTrainingPalette("cyber");
+                      }}
+                    >
+                      {TRAINING_LOOKS.map((k) => (
+                        <option key={k} value={k}>
+                          {TRAINING_LOOK_LABELS[k]}
+                        </option>
+                      ))}
+                    </select>
                     <select
                       aria-label="Visual theme"
-                      className="w-28 shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:opacity-50"
+                      className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:opacity-50"
                       value={trainingPalette}
                       disabled={trainingMode !== "composed"}
                       onChange={(e) =>

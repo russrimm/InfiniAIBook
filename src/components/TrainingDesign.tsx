@@ -13,6 +13,8 @@ import {
   PIP_CORNER_SETTINGS,
   PIP_SCALES,
   PIP_SIZE_SETTINGS,
+  TRAINING_LOOKS,
+  TRAINING_LOOK_LABELS,
   TRAINING_RESOLUTIONS,
   TRANSITION_LABELS,
   type TrainingComposition,
@@ -196,6 +198,32 @@ export default function TrainingDesign({
             bullets together. Knowledge-check answers still appear when spoken. Presenter gestures are unchanged.
           </p>
         </fieldset>
+
+        <div>
+          <span className={labelCls}>Look</span>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Look">
+            {TRAINING_LOOKS.map((k) => (
+              <button
+                key={k}
+                role="radio"
+                aria-checked={value.look === k}
+                disabled={off}
+                onClick={() => set(k === "hightech" ? { look: k, palette: "cyber" } : { look: k })}
+                className={`rounded-md border px-2 py-1 text-[11px] ${
+                  value.look === k ? "border-[var(--accent)]" : "border-[var(--border)]"
+                }`}
+              >
+                {TRAINING_LOOK_LABELS[k]}
+              </button>
+            ))}
+          </div>
+          {value.look === "hightech" && (
+            <p className="mt-1 text-[10px] leading-snug text-[var(--muted)]">
+              Animated HUD frames, glitch transitions and live title cards. Rendered with HyperFrames when it is available;
+              otherwise the standard compositor is used.
+            </p>
+          )}
+        </div>
 
         <div>
           <span className={labelCls}>Theme</span>

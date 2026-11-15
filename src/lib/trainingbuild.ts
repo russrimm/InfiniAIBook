@@ -38,13 +38,15 @@ import { normalizeMusicChoice } from "./musicchoice";
 import { stampWatermark } from "./watermark";
 import { runPythonRenderer } from "./python";
 import {
+  chooseRenderer,
   clipsHaveAlpha,
   finishHyperframesRender,
+  hyperframesFailedNote,
   runHyperframesRender,
   stageHyperframesProject,
-  trainingRenderer,
 } from "./hyperframes";
 import { buildHyperframesProject } from "./traininghyperframes";
+import { trainingHightech } from "./traininghightech";
 import { throttleProgress } from "./renderprogress";
 import { compositionPalette, normalizeComposition } from "./trainingvisuals";
 import {
@@ -629,7 +631,10 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
         writeTraining(id, { progress: { stage: "composing", renderPct } }),
       );
     };
-    if (trainingRenderer() === "hyperframes") {
+    const hightech = comp.look === "hightech";
+    const choice = chooseRenderer("TRAINING_RENDERER", hightech);
+    note = choice.note;
+    if (choice.renderer === "hyperframes") {
       try {
         const clipFiles = hashes.map((h) => trainingClipPath(id, h));
         const alpha = await clipsHaveAlpha(clipFiles, work);
@@ -644,6 +649,9 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
           raster: (key, state) => trainingRasterPath(id, key, state),
           burnCaptions: comp.captions === "burned",
           logo: logo && fs.existsSync(logo) ? logo : null,
+          ...(hightech
+            ? { hightech: trainingHightech(input, compositionPalette(comp)) }
+            : {}),
         });
         const dir = path.join(work, "hyperframes");
         stageHyperframesProject(project, dir);
@@ -655,8 +663,7 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
           "[training] HyperFrames render failed, using the standard compositor",
           e,
         );
-        note =
-          "HyperFrames could not render this video, so the standard compositor was used.";
+        note = hyperframesFailedNote(hightech, "compositor");
       }
     }
     if (!rendered) {
