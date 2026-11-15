@@ -31,7 +31,7 @@ test("an empty notebook walks through adding and choosing sources", async ({ pag
 
   // Studio says why it is locked and where to go next.
   const studio = page.getByRole("complementary", { name: "Studio" });
-  await expect(studio).toContainText("Add a source to start creating");
+  await expect(studio).toContainText("no sources yet");
   await expect(studio.getByRole("button", { name: "Generate Report" })).toBeDisabled();
 
   await card.getByRole("button", { name: "Add sources" }).click();
@@ -95,7 +95,8 @@ test("the three steps can be walked forward and back, and keep Sources open", as
   await steps.getByRole("button", { name: /Open Studio/ }).click();
   await expect(current).toContainText("Open Studio");
   await expect(sources).toBeHidden();
-  await card.getByRole("button", { name: "Open Studio" }).click();
+  // Studio already sits beside Chat on a wide screen, so there is nothing to open.
+  await expect(card.getByRole("button", { name: "Open Studio" })).toBeHidden();
   await expect(page.getByRole("complementary", { name: "Studio" })).toBeVisible();
 });
 
