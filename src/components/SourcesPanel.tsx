@@ -47,6 +47,18 @@ function bytes(n: number) {
   return `${(n / 1_000_000).toFixed(1)}M chars`;
 }
 
+/** The remove control of the closest row in one direction that has one. */
+function siblingControl(
+  row: Element | null,
+  direction: "nextElementSibling" | "previousElementSibling"
+): HTMLElement | null {
+  for (let el = row?.[direction] ?? null; el; el = el[direction]) {
+    const control = el.querySelector<HTMLElement>("[data-row-remove]");
+    if (control) return control;
+  }
+  return null;
+}
+
 function iconFor(name: string, fallback = "📄") {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   return ICONS[ext] ?? fallback;
@@ -311,7 +323,31 @@ export default function SourcesPanel({
     };
   });
 
-  const dismissJob = (id: string) => setJobs((prev) => prev.filter((j) => j.id !== id));
+  /**
+   * A removed row takes the focused button with it, which would drop focus to
+   * the page. Hand it to the nearest row below (then above) that has a remove
+   * control, or to the list itself, so several rows can be removed in a row.
+   */
+  const keepFocusNear = (button: HTMLElement) => {
+    const row = button.closest("li");
+    const next: HTMLElement | null =
+      siblingControl(row, "nextElementSibling") ?? siblingControl(row, "previousElementSibling");
+    setTimeout(() => {
+      const list = document.getElementById("source-list");
+      const target = next?.isConnected ? next : list;
+      target?.focus({ preventScroll: false });
+    }, 0);
+  };
+
+  const dismissJob = (id: string, button: HTMLElement) => {
+    keepFocusNear(button);
+    setJobs((prev) => prev.filter((j) => j.id !== id));
+  };
+
+  const removeSource = (s: Source, button: HTMLElement) => {
+    keepFocusNear(button);
+    onRemove(s);
+  };
 
   const active = jobs.filter((j) => !j.error);
 
@@ -581,8 +617,9 @@ export default function SourcesPanel({
                 {job.error && (
                   <button
                     aria-label="Dismiss"
+                    data-row-remove
                     className="h-fit shrink-0 rounded px-1 text-xs text-[var(--muted)] transition hover:text-[var(--fg)]"
-                    onClick={() => dismissJob(job.id)}
+                    onClick={(e) => dismissJob(job.id, e.currentTarget)}
                   >
                     ✕
                   </button>
@@ -622,8 +659,9 @@ export default function SourcesPanel({
                 </button>
                 <button
                   aria-label={`Remove source ${s.title}`}
+                  data-row-remove
                   className="reveal h-fit shrink-0 rounded px-1 text-xs text-[var(--muted)] transition hover:text-red-400"
-                  onClick={() => onRemove(s)}
+                  onClick={(e) => removeSource(s, e.currentTarget)}
                 >
                   ✕
                 </button>
