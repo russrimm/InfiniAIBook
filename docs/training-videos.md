@@ -184,6 +184,17 @@ setup works. It needs no Azure or model access.
 Use `npm run check:training -- --no-animation` to check the animation-free
 rendering path.
 
+Presenter clips keep their own shape. Full-body avatars arrive as 16:9 frames
+that fill the presenter's box, while the talking-head (photo) avatars are
+512 × 512 squares, which are fitted inside the box at their natural aspect
+ratio: the face is never stretched, and a head sits at about 40% of the frame's
+height beside a visual (full height only when the presenter is alone). Videos
+composed before this fix show a stretched head and need to be recomposed
+(**Recompose video** reuses the rendered clips, so it costs no avatar time).
+`npm run check:training -- --head` (add `--hyperframes` for the other
+renderer) composes square talking-head clips and fails if the presenter's face
+in the result is not round.
+
 ### The HyperFrames compositor
 
 Set `TRAINING_RENDERER=hyperframes` to compose with

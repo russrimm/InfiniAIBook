@@ -1,13 +1,14 @@
 """Write synthetic assets for scripts/check-training.ts.
 
 Usage:
-    python scripts/training/fixtures.py OUT_DIR JOBS_JSON [--alpha]
+    python scripts/training/fixtures.py OUT_DIR JOBS_JSON [--alpha] [--head]
 
 Creates two presenter clips — one transparent VP9 WebM, as Azure returns them,
 and one opaque on green to exercise the compositor's key-out (both transparent
 with --alpha) — each with a tone
 standing in for speech, plus a placeholder drawing for every raster job the
-timeline needs. No model calls, no network.
+timeline needs. --head makes the clips 512x512 squares with a magenta disk for
+a face, like the talking-head avatars. No model calls, no network.
 """
 import json, os, subprocess, sys
 import numpy as np
@@ -19,9 +20,25 @@ jobs = json.load(open(sys.argv[2], encoding="utf-8"))
 os.makedirs(d, exist_ok=True)
 ff = imageio_ffmpeg.get_ffmpeg_exe()
 W, H, FPS = 960, 540, 25
+HEAD = "--head" in sys.argv
+# Talking heads (VASA) are 512x512 squares; the face is a magenta disk so a check can measure its shape.
+if HEAD:
+    W = H = 512
+FACE = (255, 0, 255, 255)
+
+
+def head(i, opaque):
+    im = Image.new("RGBA", (W, H), (0, 200, 0, 255) if opaque else (0, 0, 0, 0))
+    draw = ImageDraw.Draw(im)
+    cx = W // 2 + int(6 * np.sin(i / 6))
+    draw.rounded_rectangle((cx - 170, 400, cx + 170, H + 60), 60, fill=(27, 80, 170, 255))
+    draw.ellipse((cx - 130, 70, cx + 130, 330), fill=FACE)
+    return im
 
 
 def presenter(i, n, opaque):
+    if HEAD:
+        return head(i, opaque)
     im = Image.new("RGBA", (W, H), (0, 200, 0, 255) if opaque else (0, 0, 0, 0))
     draw = ImageDraw.Draw(im)
     sway = int(6 * np.sin(i / 6))

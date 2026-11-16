@@ -172,6 +172,26 @@ export type AvatarPose = { cx: number; cy: number; scale: number; opacity: numbe
 export const PRESENTER_POSE: AvatarPose = { cx: 0.5, cy: 0.5, scale: 1, opacity: 1 };
 
 /**
+ * Where a presenter clip of any shape is drawn for a pose, in frame pixels.
+ * A pose gives a box of `scale` times the frame; the clip is fitted inside it
+ * at its own aspect ratio, never stretched. Talking heads from the VASA models
+ * are 512x512 squares while full-body clips are 16:9, which fills the box.
+ */
+export function presenterRect(
+  pose: Pick<AvatarPose, "cx" | "cy" | "scale">,
+  frame: { width: number; height: number },
+  clipWidth?: number,
+  clipHeight?: number
+): { x: number; y: number; w: number; h: number } {
+  const boxW = frame.width * pose.scale;
+  const boxH = frame.height * pose.scale;
+  const aspect = clipWidth && clipHeight && clipWidth > 0 && clipHeight > 0 ? clipWidth / clipHeight : boxW / boxH;
+  const w = Math.min(boxW, boxH * aspect);
+  const h = w / aspect;
+  return { x: pose.cx * frame.width - w / 2, y: pose.cy * frame.height - h / 2, w, h };
+}
+
+/**
  * Talking heads (photo avatars) fill their whole frame with a face, so they
  * are drawn smaller than full-body presenters.
  */

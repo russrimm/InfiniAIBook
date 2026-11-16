@@ -126,6 +126,17 @@ describe("HyperFrames project", () => {
     expect(p.html.match(/ease:"sine\.inOut",immediateRender:false/g)).toHaveLength(glides);
   });
 
+  it("never stretches the presenter: clips are contained, not filled, in their box", () => {
+    const html = buildHyperframesProject(timeline(), options).html;
+    expect(html).toMatch(/#avatar video \{[^}]*object-fit: contain;/);
+    const head = buildHyperframesProject(compileTrainingTimeline({ ...input(), head: true }, [
+      { ...estimateSectionTiming(S1), duration: 6, source: "avatar" },
+      { ...estimateSectionTiming(S2), duration: 5, source: "avatar" },
+    ]), options).html;
+    expect(head).toMatch(/#avatar video \{[^}]*object-fit: contain;/);
+    expect(head).not.toMatch(/#avatar video \{[^}]*object-fit: (fill|cover)/);
+  });
+
   it("maps each transition to its arrival", () => {
     const html = buildHyperframesProject(timeline(), options).html;
     expect(html).toContain("opacity:0,x:"); // slide

@@ -21,7 +21,7 @@ A clip that arrives without transparency has its flat background keyed out.
 
 Requires: numpy, Pillow, imageio-ffmpeg  (python -m pip install numpy pillow imageio-ffmpeg)
 """
-import json, os, subprocess, sys, textwrap
+import json, os, re, subprocess, sys, textwrap
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import imageio_ffmpeg
@@ -150,11 +150,34 @@ def shadow(w, h):
 
 # ------------------------------------------------------------- presenter ----
 
+def fit_contain(cw, ch, bw, bh):
+    """Largest (w, h) of aspect cw:ch that fits inside bw x bh: never stretched."""
+    if cw <= 0 or ch <= 0:
+        return max(1, int(round(bw))), max(1, int(round(bh)))
+    s = min(bw / cw, bh / ch)
+    return max(1, int(round(cw * s))), max(1, int(round(ch * s)))
+
+
+def probe_size(src):
+    """Width and height of a clip's video stream, or None when ffmpeg cannot tell."""
+    r = subprocess.run([ff, "-hide_banner", "-i", src], capture_output=True, text=True, errors="replace")
+    for line in r.stderr.splitlines():
+        if "Video:" in line:
+            m = re.search(r"[,\s](\d{2,5})x(\d{2,5})[,\s\[]", line.split("Video:", 1)[1] + " ")
+            if m:
+                return int(m.group(1)), int(m.group(2))
+    return None
+
+
 class Clip:
-    """Sequential RGBA frames of one presenter clip, scaled to the frame."""
+    """Sequential RGBA frames of one presenter clip, fitted inside the frame at its own aspect ratio."""
 
     def __init__(self, spec):
         self.src = spec["src"]
+        # Talking heads are square and full-body presenters 16:9: keep whichever shape the clip has.
+        size = probe_size(self.src)
+        self.w, self.h = fit_contain(size[0], size[1], W, H) if size else (W, H)
+        self.aspect = self.w / self.h
         self.start = float(spec["start"])
         self.duration = float(spec["duration"])
         self.proc = None
@@ -170,7 +193,7 @@ class Clip:
         # The native VP9 decoder drops the alpha plane; libvpx keeps it.
         self.proc = subprocess.Popen(
             [ff, "-v", "error", "-c:v", "libvpx-vp9", "-i", self.src, "-an",
-             "-vf", f"fps={FPS},scale={W}:{H}:flags=bicubic", "-f", "rawvideo", "-pix_fmt", "rgba", "-"],
+             "-vf", f"fps={FPS},scale={self.w}:{self.h}:flags=bicubic", "-f", "rawvideo", "-pix_fmt", "rgba", "-"],
             stdout=subprocess.PIPE,
         )
 
@@ -178,7 +201,7 @@ class Clip:
         want = int(t * FPS + 1e-6)
         if self.proc is None and not self.done:
             self._open()
-        size = W * H * 4
+        size = self.w * self.h * 4
         while self.index < want and not self.done:
             buf = self.proc.stdout.read(size)
             if len(buf) < size:
@@ -190,7 +213,7 @@ class Clip:
         if self.raw is None:
             return None
         if self.image_index != self.index:
-            arr = np.frombuffer(self.raw, np.uint8).reshape(H, W, 4)
+            arr = np.frombuffer(self.raw, np.uint8).reshape(self.h, self.w, 4)
             if self.keyed is None:
                 # No alpha at all means the service ignored the transparent background.
                 self.keyed = bool(arr[..., 3].min() == 255)
@@ -211,7 +234,7 @@ class Clip:
                     arr[..., k] = np.where(edge, np.minimum(rgbv[..., k], cap), rgbv[..., k]).astype(np.uint8)
                 self.image = Image.fromarray(arr, "RGBA")
             else:
-                self.image = Image.frombuffer("RGBA", (W, H), self.raw, "raw", "RGBA", 0, 1)
+                self.image = Image.frombuffer("RGBA", (self.w, self.h), self.raw, "raw", "RGBA", 0, 1)
             self.image_index = self.index
         return self.image
 
@@ -250,8 +273,10 @@ def draw_presenter(frame, clip, t):
     cx, cy, scale, opacity = pose_at(cfg["avatar"], t)
     if opacity <= 0.01:
         return
-    if abs(scale - 1) > 0.002:
-        im = im.resize((max(1, int(W * scale)), max(1, int(H * scale))), Image.BILINEAR)
+    # The pose is a box of `scale` times the frame; the clip fits inside it at its own aspect ratio.
+    w, h = fit_contain(clip.w, clip.h, W * scale, H * scale)
+    if (w, h) != im.size:
+        im = im.resize((w, h), Image.BILINEAR)
     paste(frame, im, cx * W - im.width / 2, cy * H - im.height / 2, opacity)
 
 
