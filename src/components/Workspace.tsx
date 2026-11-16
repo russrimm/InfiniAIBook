@@ -552,7 +552,14 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
 
   return (
     <CitationContext.Provider value={openCitation}>
-    <div className="flex h-screen flex-col">
+    <div className="relative flex h-dvh flex-col overflow-clip">
+      {/*
+        The workspace is exactly one dynamic viewport tall and never scrolls
+        itself; panes scroll internally. relative + overflow-clip makes this the
+        containing block and clip for absolutely positioned descendants (such as
+        sr-only text) that would otherwise escape a pane's scroller and stretch
+        the document, and clip (unlike hidden) cannot be scrolled by focus.
+      */}
       {/*
         Below md the header is one compact row: back, notebook, title, Add
         sources and a More menu holding everything secondary, all 44px touch

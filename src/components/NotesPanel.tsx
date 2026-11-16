@@ -50,7 +50,7 @@ export default function NotesPanel({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+      <div className="relative min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         {notes.length === 0 ? (
           <div className="card px-4 py-6 text-center text-[12px] leading-relaxed text-[var(--muted)]">
             Write your own notes, save chat answers with <b>Save to notes</b>, or open a
@@ -224,7 +224,7 @@ function NoteEditor({
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        <div className="relative min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {editing ? (
             <textarea
               className="input h-full min-h-[50vh] resize-none font-mono text-[13px] leading-relaxed"

@@ -699,7 +699,7 @@ export default function StudioPanel({
       )}
 
       {view === "library" ? (
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+        <div className="relative min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           {artifacts.length === 0 ? (
             <div className="card px-4 py-6 text-center text-[11px] leading-relaxed text-[var(--muted)]">
               Nothing generated yet.
@@ -751,7 +751,7 @@ export default function StudioPanel({
           )}
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+        <div className="relative min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           {blocked && (
             <div
               id={blockedReasonId}
