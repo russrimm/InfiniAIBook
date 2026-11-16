@@ -10,6 +10,9 @@
  * Add --hyperframes to compose with the HyperFrames renderer (the one
  * TRAINING_RENDERER=hyperframes selects) instead of render.py. It needs
  * Node, Chrome and ffmpeg for HyperFrames, and fetches it with npx on first use.
+ * Add --head to use square 512x512 talking-head clips (VASA-style) and a
+ * talking-head layout, then check that the presenter in the result keeps its
+ * natural aspect ratio and size instead of being stretched to 16:9.
  *
  * Writes into .data/training-check/ and prints the MP4 path, so the result can
  * be watched as well as checked.
@@ -27,8 +30,10 @@ import {
 import {
   compileTrainingTimeline,
   estimateSectionTiming,
+  presenterRect,
   rasterJobs,
   renderConfig,
+  sampleAvatar,
   type ComposeInput,
 } from "../src/lib/trainingtimeline";
 import { buildHyperframesProject } from "../src/lib/traininghyperframes";
@@ -40,6 +45,7 @@ import {
 } from "../src/lib/hyperframes";
 
 const useHyperframes = process.argv.includes("--hyperframes");
+const head = process.argv.includes("--head");
 
 const py = process.env.PYTHON_BIN || "python";
 const dir = path.join(process.env.DATA_DIR || path.join(process.cwd(), ".data"), "training-check");
@@ -68,6 +74,7 @@ const composition = {
 };
 const input: ComposeInput = {
   title: "Compositor check",
+  head,
   description: "Synthetic sections exercising every layout and transition.",
   objectives: ["See the stage", "See the panels"],
   composition,
@@ -96,7 +103,7 @@ const input: ComposeInput = {
 fs.mkdirSync(dir, { recursive: true });
 const jobsPath = path.join(dir, "jobs.json");
 fs.writeFileSync(jobsPath, JSON.stringify(rasterJobs(input)));
-run([path.join("scripts", "training", "fixtures.py"), dir, jobsPath, ...(useHyperframes ? ["--alpha"] : [])]);
+run([path.join("scripts", "training", "fixtures.py"), dir, jobsPath, ...(useHyperframes ? ["--alpha"] : []), ...(head ? ["--head"] : [])]);
 
 // The fixture clips run 6 s and 5 s; time the speech to them as Azure's would be.
 const timings = [
@@ -151,12 +158,40 @@ function report() {
   );
 }
 
-if (useHyperframes) {
-  composeWithHyperframes().then(report, (e) => {
-    console.error(`FAIL  ${e instanceof Error ? e.message : e}`);
+/** Grab a frame where the presenter stands in a side layout and measure its face. */
+function checkPresenterShape() {
+  let pick: { t: number; scale: number; cx: number; cy: number } | null = null;
+  for (let t = 0.5; t < tl.duration && !pick; t += 0.25) {
+    const pose = sampleAvatar(tl.avatar, t);
+    const covered = tl.cards.some((c) => t >= c.start && t < c.start + c.duration);
+    if (!covered && pose.opacity > 0.99 && pose.scale < 0.9 && pose.scale > 0.2 && t < tl.sections[0].start + 6) {
+      pick = { t, scale: pose.scale, cx: pose.cx, cy: pose.cy };
+    }
+  }
+  if (!pick) {
+    console.error("FAIL  no moment with the presenter beside a visual to measure");
     process.exit(1);
-  });
+  }
+  // The face disk is 261 px of a 512 px square clip.
+  const rect = presenterRect(pick, { width: tl.width, height: tl.height }, 512, 512);
+  const expected = (261 / 512) * rect.h;
+  const frame = at(`presenter-${useHyperframes ? "hyperframes" : "python"}.png`);
+  run([path.join("scripts", "training", "check_presenter.py"), out, String(pick.t), String(expected), frame]);
+}
+
+if (useHyperframes) {
+  composeWithHyperframes().then(
+    () => {
+      report();
+      if (head) checkPresenterShape();
+    },
+    (e) => {
+      console.error(`FAIL  ${e instanceof Error ? e.message : e}`);
+      process.exit(1);
+    }
+  );
 } else {
   composeWithPython();
   report();
+  if (head) checkPresenterShape();
 }

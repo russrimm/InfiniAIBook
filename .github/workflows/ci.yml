@@ -99,6 +99,10 @@ jobs:
         run: npm run check:training
         env:
           PYTHON_BIN: python
+      - name: Training talking-head shape check
+        run: npm run check:training -- --head
+        env:
+          PYTHON_BIN: python
 
   docker:
     runs-on: ubuntu-latest

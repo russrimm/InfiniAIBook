@@ -334,7 +334,7 @@ export default function TrainingPreview({
                         // Mounted mid-section (a seek, or paused): show the frame for this moment.
                         e.currentTarget.currentTime = Math.max(0, clock.current.t - section.start);
                       }}
-                      style={{ width: "100%", height: "100%" }}
+                      style={{ width: "100%", height: "100%", objectFit: "contain" }}
                     />
                   ) : (
                     <StandIn

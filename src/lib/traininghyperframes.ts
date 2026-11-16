@@ -254,7 +254,7 @@ html, body { width: ${W}px; height: ${H}px; overflow: hidden; background: ${DEFA
 .cue .pic { position: absolute; inset: 0; }
 .cue img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
 #avatar { position: absolute; left: 0; top: 0; width: ${W}px; height: ${H}px; z-index: 20; transform-origin: 50% 50%; }
-#avatar video { position: absolute; left: 0; top: 0; width: ${W}px; height: ${H}px; }
+#avatar video { position: absolute; left: 0; top: 0; width: ${W}px; height: ${H}px; object-fit: contain; }
 .lower { position: absolute; z-index: 30; }
 .cap { position: absolute; left: 0; right: 0; bottom: ${num(H * 0.035)}px; display: flex; justify-content: center; z-index: 40; }
 .cap span { max-width: ${num(W * 0.78)}px; padding: ${num(cap * 0.35)}px ${num(cap * 0.7)}px; border-radius: ${num(cap * 0.4)}px; background: rgba(12,14,18,.745); color: #fff; text-align: center; font: 600 ${cap}px/1.3 "Segoe UI", Inter, "DejaVu Sans", Arial, sans-serif; }

@@ -25,6 +25,7 @@ import {
   compileTrainingTimeline,
   estimateSectionTiming,
   layoutGeometry,
+  presenterRect,
   rasterJobs,
   renderConfig,
   sampleAvatar,
@@ -356,6 +357,50 @@ describe("timeline", () => {
         expect(head.cy + head.scale / 2).toBeLessThanOrEqual(1.001);
       }
     }
+  });
+
+  it("fits a presenter clip inside its pose at the clip's own aspect ratio", () => {
+    const frame = { width: 1280, height: 720 };
+    const shapes = { square: [512, 512], portrait: [1080, 1350], landscape: [1920, 1080], wide: [2560, 1080] } as const;
+    for (const layout of ["side-left", "side-right", "pip", "presenter"] as const) {
+      for (const head of [true, false]) {
+        const pose = layoutGeometry(layout, comp(), "", head).avatar;
+        for (const [w, h] of Object.values(shapes)) {
+          const r = presenterRect(pose, frame, w, h);
+          expect(r.w / r.h).toBeCloseTo(w / h, 6);
+          // Never larger than the pose's box, and always as large as it can be inside it.
+          expect(r.w).toBeLessThanOrEqual(frame.width * pose.scale + 1e-6);
+          expect(r.h).toBeLessThanOrEqual(frame.height * pose.scale + 1e-6);
+          expect(Math.max(r.w / (frame.width * pose.scale), r.h / (frame.height * pose.scale))).toBeCloseTo(1, 6);
+          expect(r.x + r.w / 2).toBeCloseTo(pose.cx * frame.width, 6);
+          expect(r.y + r.h / 2).toBeCloseTo(pose.cy * frame.height, 6);
+        }
+      }
+    }
+  });
+
+  it("leaves 16:9 presenter clips filling their pose, and an unknown clip shape alone", () => {
+    const frame = { width: 1280, height: 720 };
+    const pose = { cx: 0.2, cy: 0.56, scale: 0.88 };
+    const wide = presenterRect(pose, frame, 1920, 1080);
+    expect(wide.w).toBeCloseTo(1280 * 0.88, 6);
+    expect(wide.h).toBeCloseTo(720 * 0.88, 6);
+    const unknown = presenterRect(pose, frame);
+    expect(unknown.w).toBeCloseTo(wide.w, 6);
+    expect(unknown.h).toBeCloseTo(wide.h, 6);
+  });
+
+  it("keeps a square talking head modest beside visuals and full height when presenting alone", () => {
+    const frame = { width: 1280, height: 720 };
+    for (const layout of ["side-left", "side-right", "pip"] as const) {
+      const r = presenterRect(layoutGeometry(layout, comp(), "", true).avatar, frame, 512, 512);
+      expect(r.w).toBe(r.h);
+      expect(r.h).toBeLessThanOrEqual(frame.height * 0.45);
+      // Poses are rounded to four decimals, so allow a pixel.
+      expect(r.y + r.h).toBeLessThanOrEqual(frame.height + 1);
+    }
+    const alone = presenterRect(layoutGeometry("presenter", comp(), "", true).avatar, frame, 512, 512);
+    expect(alone).toMatchObject({ w: frame.height, h: frame.height });
   });
 
   it("keeps cues apart and warns about missing anchors", () => {
