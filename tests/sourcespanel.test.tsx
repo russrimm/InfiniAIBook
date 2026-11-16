@@ -57,6 +57,13 @@ describe("SourcesPanel synopses", () => {
     expect($("#source-list button").first().text()).toContain(source.title);
   });
 
+  it("marks every source's remove control so focus can move to the next row", () => {
+    const $ = render([source, { ...source, id: "second", title: "Second notes" }]);
+    const remove = $("#source-list [data-row-remove]");
+    expect(remove).toHaveLength(2);
+    expect(remove.first().attr("aria-label")).toBe("Remove source Field notes");
+  });
+
   it("folds upload tools in the list view and expands them in the add view", () => {
     expect(render()("#source-add-tools").attr("hidden")).toBeDefined();
     expect(render([source], true)("#source-add-tools").attr("hidden")).toBeUndefined();

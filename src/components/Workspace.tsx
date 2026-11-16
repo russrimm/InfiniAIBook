@@ -351,7 +351,9 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       const target = event.target;
       if (
         !(target instanceof Element) ||
-        sourcesPanel.current?.contains(target) ||
+        // Removing a row (delete, dismiss) detaches the clicked button before
+        // this handler runs, so containment is checked on the dispatch path.
+        (sourcesPanel.current && event.composedPath().includes(sourcesPanel.current)) ||
         target.closest('[aria-controls="sources-panel"], [data-keeps-sources-open]') ||
         document.querySelector('[role="dialog"], [role="alertdialog"]')
       ) return;
