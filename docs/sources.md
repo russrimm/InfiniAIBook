@@ -88,8 +88,23 @@ Two things make the results usable rather than noisy:
 ### Microsoft Learn: imports and live chat
 
 Open **Sources → Microsoft Learn** to search official documentation through the
-public Microsoft Learn MCP server. No additional API key is needed. The app
-server needs outbound HTTPS access to `https://learn.microsoft.com/api/mcp`.
+public Microsoft Learn MCP server and Learn's site search. No additional API key
+is needed. The app server needs outbound HTTPS access to
+`https://learn.microsoft.com/api/mcp` and `https://learn.microsoft.com/api/search`.
+
+**Find pages.** A search lists distinct *pages*, not passages: pages are matched
+across locales, fragments and trailing slashes, so each appears once. The first
+search blends Learn's paged site search with MCP passage searches for your
+topic and, for short topics (three words or fewer), a few complementary angles
+(overview, get started, tutorial, how to, concepts). Pages several searches
+agree on rank first. A broad query such as "Copilot Studio" lists about 50
+pages at once, grouped by type (Documentation, Training, Videos,
+Certifications). The count shows how many pages were found; **Load more
+results** pages further through the site search until the cap
+(`LEARN_MAX_RESULTS`, default 100 site-search pages). Use **Filter these
+results** and the type buttons to narrow the list, and **Select all** /
+**Clear selection** to act on the pages currently shown. If some searches fail
+or are slow, the rest still appear with a notice.
 
 **Import pages.** Search a topic, review the results, and choose **Add sources**.
 The app fetches each selected page's full documentation, not just its search

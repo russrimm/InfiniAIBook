@@ -9,6 +9,11 @@ vi.mock("@/lib/learn", async (original) => ({
   ...await original<typeof import("@/lib/learn")>(),
   ...mocks,
 }));
+// Learn site search is unreachable here, so discovery falls back to the mocked MCP passages.
+vi.mock("@/lib/safefetch", async (original) => ({
+  ...await original<typeof import("@/lib/safefetch")>(),
+  safeFetch: vi.fn(async () => { throw new Error("offline"); }),
+}));
 vi.mock("@/lib/websearch", async (original) => ({
   ...await original<typeof import("@/lib/websearch")>(),
   searchWeb: vi.fn(async () => []),
@@ -61,11 +66,11 @@ describe("Microsoft Learn source APIs", () => {
       expect((await response.json()).results).toEqual([
         {
           title: "Azure overview", url, snippet: "First ranked excerpt",
-          host: "learn.microsoft.com", provider: "microsoft-learn", added: false,
+          host: "learn.microsoft.com", provider: "microsoft-learn", kind: "Documentation", added: false,
         },
         {
           title: "Azure architecture", url: otherUrl, snippet: "Architecture excerpt",
-          host: "learn.microsoft.com", provider: "microsoft-learn", added: false,
+          host: "learn.microsoft.com", provider: "microsoft-learn", kind: "Documentation", added: false,
         },
       ]);
     },
@@ -99,6 +104,13 @@ describe("Microsoft Learn source APIs", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: expect.stringMatching(/already/i) });
     expect(db.prepare("SELECT COUNT(*) AS n FROM sources WHERE notebook_id=?").get(id)).toMatchObject({ n: 1 });
+  });
+
+  it("does not import a locale variant of a saved Learn page", async () => {
+    await addSource(request({ learnUrl: url }), ctx);
+    const response = await addSource(request({ learnUrl: url.replace("/en-us/", "/") }), ctx);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: expect.stringMatching(/already/i) });
   });
 
   it("rejects foreign page imports before calling Learn", async () => {
