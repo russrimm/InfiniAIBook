@@ -283,5 +283,5 @@ stored. A model that cannot read images returns `400` with `code: "vision"`.
 | Method | Path | Notes |
 |---|---|---|
 | GET/POST | `/api/models` | Read / change the active chat, embedding, image and vision models (`null` resets one to the environment value) |
-| POST | `/api/discover` | `{ topic, notebookId?, expand?, provider?: "microsoft-learn" }` → `{ queries, provider, results }`; defaults to Bing-first web search. The Learn provider searches official documentation directly (topic up to 1,000 characters, no query expansion), with no API key; import selected results using `learnUrl` |
+| POST | `/api/discover` | `{ topic, notebookId?, expand?, provider?: "microsoft-learn", offset? }` → `{ queries, provider, results }`; defaults to Bing-first web search. The Learn provider searches official documentation directly (topic up to 1,000 characters), with no API key, and returns distinct pages with a `kind` (Documentation, Training, Videos, Certifications) plus `nextOffset` (send it back as `offset` to load more; null when done), `limit` (the `LEARN_MAX_RESULTS` cap) and `warnings` for partial failures; import selected results using `learnUrl` |
 | GET | `/api/browse?url=` | Server-side page fetch for the in-app browser |

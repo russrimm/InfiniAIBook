@@ -165,6 +165,7 @@ commentary. Only a model provider is required.
 | `MOTION_MUSIC_DIR` | Optional folder of music tracks, listed read-only in the music picker alongside tracks uploaded in the app ([Background music](studio.md#background-music)) |
 | `ALLOW_PRIVATE_NETWORK_FETCH` | Allow fetching private/loopback addresses (default off; see [SECURITY.md](../SECURITY.md)) |
 | `MAX_FETCH_BYTES`, `FETCH_MAX_REDIRECTS`, `FETCH_TIMEOUT_MS` | Limits on fetched pages and files |
+| `LEARN_MAX_RESULTS` | Most Microsoft Learn site-search pages one **Sources → Microsoft Learn** search can list across **Load more results** (default 100, allowed 10 to 300, 30 per page). Pages found by the extra passage searches on a broad topic come in addition |
 | `MAX_UPLOAD_BYTES` | Largest uploaded file or request body when adding sources (default 50 MB; larger requests get a 413) |
 | `MAX_ARCHIVE_FILES`, `MAX_ARCHIVE_EXPANDED_BYTES` | Most files imported from one uploaded ZIP (default 100) and the total size it may expand to (default 500 MB) |
 | `DATA_DIR` | Where the database and generated media live (default `./.data`) |
@@ -176,8 +177,9 @@ commentary. Only a model provider is required.
 | `TRUST_PROXY` | `true` behind a reverse proxy: honor `X-Forwarded-Host` / `X-Forwarded-Proto` |
 
 Microsoft Learn source search and page import use the public MCP endpoint
-`https://learn.microsoft.com/api/mcp`, with no additional API key or environment
-variable. Enable **Use live Microsoft Learn in chat** separately for each
+`https://learn.microsoft.com/api/mcp` and Learn's site search at
+`https://learn.microsoft.com/api/search`, with no additional API key. The only
+optional setting is `LEARN_MAX_RESULTS`, the cap on listed pages. Enable **Use live Microsoft Learn in chat** separately for each
 notebook under **Sources → Microsoft Learn**. It is off by default and affects
 only notebook chat; see [Microsoft Learn sources](sources.md#microsoft-learn-imports-and-live-chat).
 

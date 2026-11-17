@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 import { chatJSON } from "@/lib/ai";
 import { activeProvider, checkReachable, searchWeb, SearchUnavailableError, type SearchHit } from "@/lib/websearch";
-import { LearnError, searchLearn } from "@/lib/learn";
+import { LearnError } from "@/lib/learn";
+import { canonicalLearnUrl, discoverLearn, learnResultCap } from "@/lib/learndiscover";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,13 +43,37 @@ Each query is 3-10 words, plain keywords, no quotes or operators.`,
   }
 }
 
+/** URLs already saved in the notebook, so the picker can flag them rather than add duplicates. */
+function existingUrls(notebookId: string | undefined, canonical: (url: string) => string): Set<string> {
+  if (!notebookId) return new Set();
+  const rows = db
+    .prepare("SELECT url FROM sources WHERE notebook_id = ? AND url IS NOT NULL")
+    .all(notebookId) as unknown as { url: string }[];
+  return new Set(rows.map((r) => canonical(r.url)));
+}
+
+async function discoverFromLearn(query: string, notebookId: string | undefined, offset: unknown) {
+  const start = typeof offset === "number" && Number.isFinite(offset) && offset > 0 ? Math.floor(offset) : 0;
+  const found = await discoverLearn(query, start);
+  const existing = existingUrls(notebookId, canonicalLearnUrl);
+  return ok({
+    queries: found.queries,
+    provider: "microsoft-learn",
+    results: found.results.map((hit) => ({ ...hit, added: existing.has(canonicalLearnUrl(hit.url)) })),
+    nextOffset: found.nextOffset,
+    limit: learnResultCap(),
+    warnings: found.warnings,
+  });
+}
+
 export async function POST(req: Request) {
   try {
-    const { notebookId, topic, expand, provider } = (await req.json()) as {
+    const { notebookId, topic, expand, provider, offset } = (await req.json()) as {
       notebookId?: string;
       topic: string;
       expand?: boolean;
       provider?: string;
+      offset?: number;
     };
 
     const query = typeof topic === "string" ? topic.trim() : "";
@@ -60,16 +85,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unknown discovery provider." }, { status: 400 });
     }
     const learn = provider === "microsoft-learn";
-    const queries = learn || expand === false ? [query] : await expandQueries(query);
-    const hits: SearchHit[] = learn
-      ? (await searchLearn(query)).map((p) => ({
-          title: p.title, url: p.url, snippet: p.content.slice(0, 300),
-          host: "learn.microsoft.com", provider: "microsoft-learn",
-        }))
-      : await searchWeb(queries, 10);
+    if (learn) return await discoverFromLearn(query, notebookId, offset);
+    const queries = expand === false ? [query] : await expandQueries(query);
+    const hits: SearchHit[] = await searchWeb(queries, 10);
 
     const canonical = (u: string) => u.replace(/[#?].*$/, "").replace(/\/$/, "");
-    // Learn returns passages, but discovery selects pages, not individual excerpts.
     const seen = new Set<string>();
     const uniqueHits = hits.filter((hit) => {
       const key = canonical(hit.url);
@@ -94,7 +114,7 @@ export async function POST(req: Request) {
       .map((h) => ({ ...h, added: existing.has(canonical(h.url)) }))
       .sort((a, b) => Number(b.reachable ?? true) - Number(a.reachable ?? true));
 
-    return ok({ queries, provider: learn ? "microsoft-learn" : hits[0]?.provider ?? activeProvider(), results });
+    return ok({ queries, provider: hits[0]?.provider ?? activeProvider(), results });
   } catch (e) {
     if (e instanceof LearnError) {
       return NextResponse.json({ error: e.message }, { status: e.status });
