@@ -17,11 +17,13 @@ import {
   avatarConfigured,
   avatarFailureReason,
   avatarNotConfigured,
+  avatarPollDelayMs,
   deleteAvatarJob,
   downloadAvatarResult,
   getAvatarJob,
   submitAvatarJob,
 } from "./avatarbatch";
+import { RETRYABLE_STATUSES } from "./speechretry";
 import {
   presenter,
   presenterVoice,
@@ -89,13 +91,58 @@ const IN_FLIGHT: TrainingStage[] = [
 
 // Survives Next's dev-mode module reloads, which would otherwise start a
 // second watcher for a job the first one is still polling.
-const g = globalThis as unknown as { __trainingWatchers?: Set<string> };
+const g = globalThis as unknown as {
+  __trainingWatchers?: Set<string>;
+  __trainingAborts?: Map<string, AbortController>;
+  __trainingSubmitting?: Set<string>;
+};
 const watching = (g.__trainingWatchers ??= new Set<string>());
+/** Renders still being accepted by Azure, which may be waiting out a rate limit. */
+const submitting = (g.__trainingSubmitting ??= new Set<string>());
+/** Cancels a render's waiting when its artifact is deleted. */
+const aborts = (g.__trainingAborts ??= new Map<string, AbortController>());
+
+function abortControllerFor(id: string): AbortController {
+  let c = aborts.get(id);
+  if (!c || c.signal.aborted) {
+    c = new AbortController();
+    aborts.set(id, c);
+  }
+  return c;
+}
+
+function releaseAbort(id: string) {
+  if (!watching.has(id) && !submitting.has(id)) aborts.delete(id);
+}
+
+/** Stop a render's waiting soon after its artifact is deleted. Returns the cleanup. */
+function abortWhenDeleted(id: string, controller: AbortController): () => void {
+  const t = setInterval(() => {
+    if (!read(id)) controller.abort();
+  }, 5_000);
+  return () => clearInterval(t);
+}
+
+/** Records why a render is waiting, where the progress card shows it. */
+function noteWaiting(id: string) {
+  return (message: string) => {
+    const c = read(id);
+    if (c && isRendering(c))
+      writeTraining(id, { progress: { stage: c.progress.stage, note: message } });
+  };
+}
 
 const userError = (message: string, status = 400) =>
   Object.assign(new Error(message), { status });
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** A failure that only waiting can fix, once the retries are spent. */
+const transient = (e: unknown) => {
+  if (e instanceof Error && e.name === "AbortError") return false;
+  const status = (e as { status?: number }).status;
+  return !status || status === 429 || RETRYABLE_STATUSES.has(status);
+};
 
 type Row = { id: string; type: string; content: string; created_at: number };
 
@@ -193,24 +240,42 @@ export async function startTrainingRender(id: string): Promise<void> {
     },
   });
 
+  // Azure may rate limit the submission, which can take minutes to wait out;
+  // keep the row alive meanwhile so it is not taken for a dead render.
+  submitting.add(id);
+  const controller = abortControllerFor(id);
+  const stopGuard = abortWhenDeleted(id, controller);
+  const beat = setInterval(() => writeTraining(id, {}), 20_000);
   try {
-    await submitAvatarJob(synthesisId, ssml, {
-      character: preset.character,
-      style: preset.style,
-      photo: preset.photo,
-      photoModel: preset.photoModel,
-      background: backgroundColor(c.background),
-      description: c.title,
-    });
-  } catch (e) {
-    writeTraining(id, {
-      progress: {
-        stage: c.videoUrl ? "done" : "transcript",
-        synthesisId: previous,
-        note: e instanceof Error ? e.message : "Could not start the render.",
+    await submitAvatarJob(
+      synthesisId,
+      ssml,
+      {
+        character: preset.character,
+        style: preset.style,
+        photo: preset.photo,
+        photoModel: preset.photoModel,
+        background: backgroundColor(c.background),
+        description: c.title,
       },
-    });
+      { signal: controller.signal, onWait: noteWaiting(id) },
+    );
+  } catch (e) {
+    // Deleted while waiting: there is nothing left to record the failure on.
+    if (read(id))
+      writeTraining(id, {
+        progress: {
+          stage: c.videoUrl ? "done" : "transcript",
+          synthesisId: previous,
+          note: e instanceof Error ? e.message : "Could not start the render.",
+        },
+      });
     throw e;
+  } finally {
+    clearInterval(beat);
+    stopGuard();
+    submitting.delete(id);
+    releaseAbort(id);
   }
 
   writeTraining(id, {
@@ -228,8 +293,12 @@ export async function startTrainingRender(id: string): Promise<void> {
 function watch(id: string) {
   if (watching.has(id)) return;
   watching.add(id);
-  void poll(id)
+  const controller = abortControllerFor(id);
+  const { signal } = controller;
+  const stopGuard = abortWhenDeleted(id, controller);
+  void poll(id, signal)
     .catch((e) => {
+      if (signal.aborted) return;
       console.error("[training] render failed", e);
       writeTraining(id, {
         progress: {
@@ -238,11 +307,16 @@ function watch(id: string) {
         },
       });
     })
-    .finally(() => watching.delete(id));
+    .finally(() => {
+      stopGuard();
+      watching.delete(id);
+      releaseAbort(id);
+    });
 }
 
-async function poll(id: string): Promise<void> {
+async function poll(id: string, signal: AbortSignal): Promise<void> {
   for (;;) {
+    if (signal.aborted) return;
     const c = read(id);
     // Deleted, or superseded by something that is no longer a render.
     if (!c || !isRendering(c)) return;
@@ -261,13 +335,14 @@ async function poll(id: string): Promise<void> {
 
     let job;
     try {
-      job = await getAvatarJob(synthesisId);
+      job = await getAvatarJob(synthesisId, { signal, onWait: noteWaiting(id) });
     } catch (e) {
+      if (signal.aborted) return;
       // Transient failures are retried; a permission or missing-job error is not.
       const status = (e as { status?: number }).status;
-      if (status && status < 500 && status !== 429) throw e;
+      if (status && status < 500 && status !== 429 && status !== 408) throw e;
       writeTraining(id, {});
-      await sleep(POLL_MS);
+      await sleep(avatarPollDelayMs(POLL_MS));
       continue;
     }
 
@@ -279,7 +354,9 @@ async function poll(id: string): Promise<void> {
       const result = job.outputs?.result;
       if (!result)
         throw new Error("Azure finished the render but returned no video.");
-      writeTraining(id, { progress: { stage: "downloading", synthesisId } });
+      writeTraining(id, {
+        progress: { stage: "downloading", synthesisId, note: undefined },
+      });
       fs.mkdirSync(videoDir(), { recursive: true });
       const bytes = await downloadAvatarResult(result, videoPath(id));
       let withMusic = false;
@@ -330,8 +407,8 @@ async function poll(id: string): Promise<void> {
 
     const stage: TrainingStage =
       job.status === "Running" ? "rendering" : "submitted";
-    writeTraining(id, { progress: { stage, synthesisId } });
-    await sleep(POLL_MS);
+    writeTraining(id, { progress: { stage, synthesisId, note: undefined } });
+    await sleep(avatarPollDelayMs(POLL_MS));
   }
 }
 
@@ -341,7 +418,7 @@ async function poll(id: string): Promise<void> {
  */
 export function resumeStalledTraining(id: string): void {
   const c = read(id);
-  if (!c || !isRendering(c) || watching.has(id)) return;
+  if (!c || !isRendering(c) || watching.has(id) || submitting.has(id)) return;
   const last = Number(c.heartbeatAt ?? 0);
   if (Date.now() - last < STALL_MS) return;
 
@@ -400,6 +477,9 @@ export function forgetTraining(content: string): void {
 // content, then laid over the visuals by scripts/training/render.py.
 // ---------------------------------------------------------------------------
 
+const REFUSED_NOTE =
+  "Azure Speech is rate limiting new avatar jobs. The sections already rendering carry on, and the rest will be tried again as they finish.";
+
 const avatarConcurrency = () => {
   const n = Number(process.env.AZURE_AVATAR_CONCURRENCY);
   return Number.isInteger(n) && n >= 1 ? Math.min(8, n) : 2;
@@ -454,8 +534,12 @@ function startComposedRender(id: string, c: TrainingContent): void {
 function watchComposed(id: string) {
   if (watching.has(id)) return;
   watching.add(id);
-  void pollComposed(id)
+  const controller = abortControllerFor(id);
+  const { signal } = controller;
+  const stopGuard = abortWhenDeleted(id, controller);
+  void pollComposed(id, signal)
     .catch((e) => {
+      if (signal.aborted) return;
       console.error("[training] composed render failed", e);
       const c = read(id);
       // Clips already downloaded stay cached; only in-flight jobs are dropped.
@@ -474,11 +558,25 @@ function watchComposed(id: string) {
         },
       });
     })
-    .finally(() => watching.delete(id));
+    .finally(() => {
+      stopGuard();
+      watching.delete(id);
+      releaseAbort(id);
+    });
 }
 
-async function pollComposed(id: string): Promise<void> {
+async function pollComposed(id: string, signal: AbortSignal): Promise<void> {
+  // The id each section's create call goes out under. Kept until Azure accepts
+  // it, so a retry after a lost reply adopts the job already created for it
+  // instead of paying for a second one.
+  const submitIds = new Map<number, string>();
+  // Set when Azure kept refusing a new job: the jobs already running carry on,
+  // and the render fails only if none are left to wait for.
+  let refused: Error | undefined;
+  const onWait = noteWaiting(id);
+
   for (;;) {
+    if (signal.aborted) return;
     const c = read(id);
     if (!c || !isRendering(c) || !c.progress.clips) return;
     if (c.progress.stage === "composing") {
@@ -502,6 +600,7 @@ async function pollComposed(id: string): Promise<void> {
     let active = clips.filter(
       (k) => k.status === "submitted" || k.status === "rendering",
     ).length;
+    refused = undefined;
     for (let i = 0; i < clips.length && active < avatarConcurrency(); i++) {
       const k = clips[i];
       if (k.status !== "pending" && k.status !== "failed") continue;
@@ -516,26 +615,49 @@ async function pollComposed(id: string): Promise<void> {
       ) {
         continue;
       }
-      const synthesisId = `${synthesisIdFor(id)}-s${i + 1}`;
-      await submitAvatarJob(synthesisId, sectionSsml(c, i), {
-        character: preset.character,
-        style: preset.style,
-        photo: preset.photo,
-        photoModel: preset.photoModel,
-        background: backgroundColor(c.background),
-        description: `${c.title} — section ${i + 1}`,
-        transparent: true,
-      });
+      const synthesisId =
+        submitIds.get(i) ?? `${synthesisIdFor(id)}-s${i + 1}`;
+      submitIds.set(i, synthesisId);
+      try {
+        await submitAvatarJob(
+          synthesisId,
+          sectionSsml(c, i),
+          {
+            character: preset.character,
+            style: preset.style,
+            photo: preset.photo,
+            photoModel: preset.photoModel,
+            background: backgroundColor(c.background),
+            description: `${c.title} — section ${i + 1}`,
+            transparent: true,
+          },
+          { signal, onWait },
+        );
+      } catch (e) {
+        if (signal.aborted || !transient(e)) throw e;
+        refused = e instanceof Error ? e : new Error(String(e));
+        break;
+      }
+      submitIds.delete(i);
       Object.assign(k, {
         status: "submitted",
         synthesisId,
         submittedAt: Date.now(),
       });
       // Record each accepted job at once, so a later failure or a restart can still find and cancel it.
-      writeTraining(id, { progress: { stage: "submitted", clips } });
+      writeTraining(id, {
+        progress: { stage: "submitted", clips, note: undefined },
+      });
       active++;
     }
-    writeTraining(id, { progress: { stage: "submitted", clips } });
+    if (refused && active === 0) throw refused;
+    writeTraining(id, {
+      progress: {
+        stage: "submitted",
+        clips,
+        note: refused ? REFUSED_NOTE : undefined,
+      },
+    });
 
     for (let i = 0; i < clips.length; i++) {
       const k = clips[i];
@@ -551,10 +673,11 @@ async function pollComposed(id: string): Promise<void> {
       }
       let job;
       try {
-        job = await getAvatarJob(k.synthesisId);
+        job = await getAvatarJob(k.synthesisId, { signal, onWait });
       } catch (e) {
+        if (signal.aborted) return;
         const status = (e as { status?: number }).status;
-        if (status && status < 500 && status !== 429) throw e;
+        if (status && status < 500 && status !== 429 && status !== 408) throw e;
         continue;
       }
       if (job.status === "Failed") {
@@ -596,10 +719,12 @@ async function pollComposed(id: string): Promise<void> {
       progress: {
         stage: allDone ? "composing" : anyRendering ? "rendering" : "submitted",
         clips,
+        // A rate limit notice stays up until a later pass gets a job through.
+        note: refused ? REFUSED_NOTE : undefined,
       },
     });
     if (allDone) continue;
-    await sleep(POLL_MS);
+    await sleep(avatarPollDelayMs(POLL_MS));
   }
 }
 

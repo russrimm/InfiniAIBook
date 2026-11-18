@@ -386,9 +386,8 @@ including your edits, so nothing needs typing.
   stored on the artifact, so you can close it and carry on, and watching
   resumes after a server restart.
 - **Rate limit.** On the S0 tier the service accepts about two new render jobs
-  a minute. Starting more at once returns a "retry after N seconds" message.
-  Composed videos submit one job per section, so keep `AZURE_AVATAR_CONCURRENCY`
-  low on S0.
+  a minute, and answers anything faster with a 429 and a "retry after N
+  seconds" message. See [Rate limits](#rate-limits) for how renders cope.
 - **Rendering time for composed videos.** Transparent VP9 clips render more
   slowly in Azure than the H.264 presenter-only video, and compositing adds
   local time on top.
@@ -398,3 +397,43 @@ including your edits, so nothing needs typing.
   After each composed render, clips and drawings the script no longer uses are
   removed.
 - **Billing.** The finished artifact records the avatar seconds Azure billed.
+
+## Rate limits
+
+Azure limits how fast a Speech resource may create avatar jobs. On the S0 tier
+the "Create avatar batch synthesis" call is refused with a 429 ("have exceeded
+call rate limit … Please retry after 7 seconds") when jobs are started too
+quickly, which a composed video, with one job per section, can do.
+
+- **Retries.** A create, status or delete call that gets a 429, 408, 500, 502,
+  503 or 504, or loses its connection, waits and tries again. It waits for the
+  `Retry-After` header (seconds or a date), or the "retry after N seconds" in
+  Azure's message, plus up to a second of jitter. Without either it backs off
+  2, 4, 8 … seconds, up to 30, with jitter. Calls fail at once on 400, 401, 403
+  and 404, whose messages are unchanged.
+- **Budget.** A call makes at most `AZURE_SPEECH_MAX_RETRIES` retries (default
+  6) and waits at most `AZURE_SPEECH_RETRY_BUDGET_SECONDS` in total (default
+  180). A `Retry-After` longer than what is left of the budget ends the call
+  straight away rather than sleeping uselessly. Status checks use a smaller
+  budget, since the poller asks again anyway.
+- **No double billing.** Each create is a PUT to a job id the app chose, so a
+  retry after a lost reply finds the job already exists (409) and adopts it
+  instead of starting a second one.
+- **Spacing.** New jobs start at least `AZURE_AVATAR_SUBMIT_SPACING_MS` apart
+  (default 2000; the first goes at once, so a single render is not slowed). A
+  429 pushes every later create and status check back by the wait it asked for,
+  and polling slows down the same way. At most `AZURE_AVATAR_CONCURRENCY`
+  section jobs run at once.
+- **Progress.** While a call waits, the progress card says so: "Azure Speech is
+  rate limiting requests; retrying in 7 s (attempt 2 of 7)." If only a new
+  section is refused, the sections already rendering carry on, and the render
+  fails only when nothing is left running.
+- **When the budget runs out,** the render stops with a message saying Azure
+  kept refusing, that nothing was billed for the refused request, and what to
+  do: wait a minute and press **Render** again, ask Azure support to raise the
+  Batch Avatar call rate limit for the Speech resource (or use a higher tier),
+  or shorten the video to fewer sections.
+- **Nothing finished is lost.** Presenter clips are cached by presenter, voice
+  and words, so sections that already finished are reused and are not billed
+  again when you render again.
+- **Cancelling.** Deleting the video stops its waiting within a few seconds.

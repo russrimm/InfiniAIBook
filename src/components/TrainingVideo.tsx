@@ -908,6 +908,14 @@ export default function TrainingVideo({
               </span>
             </div>
           )}
+          {content.progress?.note && (
+            <p
+              role="status"
+              className="mt-3 rounded-lg border border-amber-900/50 bg-amber-950/20 px-3 py-2 text-[11px] text-amber-100"
+            >
+              {content.progress.note}
+            </p>
+          )}
           <p className="mt-3 text-[11px] leading-snug text-[var(--muted)]">
             Azure renders the presenter in the cloud, usually a little longer
             than the video runs. You can close this; it carries on, and survives
