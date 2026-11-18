@@ -5,6 +5,13 @@ import { getBearerTokenProvider } from "@azure/identity";
 import { buildCredential } from "./azureCredential";
 import { BATCH_PHOTO_MODELS, DEFAULT_PHOTO_MODEL } from "./avatars";
 import { reserve } from "./budget";
+import {
+  fetchWithRetry,
+  RateGate,
+  retryLimits,
+  retryMessage,
+  submitSpacingMs,
+} from "./speechretry";
 
 /**
  * Azure Speech "Text to Speech Avatar" batch synthesis — the Foundry model
@@ -96,8 +103,86 @@ function url(synthesisId: string): string {
   )}?api-version=${API_VERSION}`;
 }
 
+/** One request's ceiling; a call that hangs is retried like a dropped connection. */
+const REQUEST_TIMEOUT_MS = 60_000;
+/** Polling and cleanup are repeated anyway, so they wait less than a create does. */
+const GET_MAX_RETRIES = 3;
+const GET_MAX_WAIT_MS = 30_000;
+const DELETE_MAX_RETRIES = 2;
+const DELETE_MAX_WAIT_MS = 20_000;
+
+// Shared by every render in the process, which is the scope of the service's
+// limit. Survives Next's dev-mode module reloads.
+const gates = globalThis as unknown as {
+  __avatarCreateGate?: RateGate;
+  __avatarPollGate?: RateGate;
+};
+const createGate = (gates.__avatarCreateGate ??= new RateGate(submitSpacingMs));
+const pollGate = (gates.__avatarPollGate ??= new RateGate(() => 0));
+
+/**
+ * How long a poller should wait before asking again: its usual interval, or
+ * longer while the service is asking us to slow down.
+ */
+export const avatarPollDelayMs = (baseMs: number): number =>
+  Math.max(baseMs, pollGate.remainingMs());
+
+export type AvatarCallOptions = {
+  /** Cancels the call, including any wait between attempts. */
+  signal?: AbortSignal;
+  /** Told why the call is waiting, in words fit for the progress display. */
+  onWait?: (message: string) => void;
+};
+
+/** One call through the retry policy. */
+async function callAvatar(
+  synthesisId: string,
+  init: { method: string; body?: string },
+  action: string,
+  call: AvatarCallOptions,
+  limits: { maxRetries?: number; maxWaitMs?: number; gate: RateGate },
+): Promise<Response> {
+  const configured = retryLimits();
+  // Setup problems (no endpoint, no credential) are not worth retrying.
+  const target = url(synthesisId);
+  const { res, attempts, waitedMs, exhausted } = await fetchWithRetry(
+    async () => {
+      await limits.gate.acquire(call.signal);
+      let auth: Record<string, string>;
+      try {
+        auth = await headers();
+      } catch (e) {
+        throw Object.assign(e instanceof Error ? e : new Error(String(e)), {
+          retryable: false,
+        });
+      }
+      const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+      return fetch(target, {
+        ...init,
+        headers: auth,
+        signal: call.signal ? AbortSignal.any([call.signal, timeout]) : timeout,
+      });
+    },
+    {
+      signal: call.signal,
+      maxRetries: Math.min(configured.maxRetries, limits.maxRetries ?? Infinity),
+      maxWaitMs: Math.min(configured.maxWaitMs, limits.maxWaitMs ?? Infinity),
+      onRateLimited: (ms) => limits.gate.penalize(ms),
+      onRetry: (e) => call.onWait?.(retryMessage(e)),
+    },
+  );
+  if (!res.ok) {
+    throw await failure(res, action, exhausted ? { attempts, waitedMs } : undefined);
+  }
+  return res;
+}
+
 /** Turn the service's failures into something a person can act on. */
-async function failure(res: Response, action: string): Promise<Error> {
+async function failure(
+  res: Response,
+  action: string,
+  gaveUp?: { attempts: number; waitedMs: number },
+): Promise<Error> {
   const body = await res.text().catch(() => "");
   let message = body.slice(0, 400);
   try {
@@ -116,6 +201,13 @@ async function failure(res: Response, action: string): Promise<Error> {
   } else if (res.status === 404) {
     error = new Error(
       `Azure Speech could not ${action} (404). Check AZURE_SPEECH_ENDPOINT points at the resource's custom domain, and that the resource's region offers text to speech avatar. ${message}`,
+    );
+  } else if (res.status === 429) {
+    const tries = gaveUp
+      ? ` and kept refusing after ${gaveUp.attempts} attempt${gaveUp.attempts === 1 ? "" : "s"} over ${Math.round(gaveUp.waitedMs / 1000)} seconds`
+      : "";
+    error = new Error(
+      `Azure Speech is rate limiting avatar requests, so it could not ${action}${tries}. Nothing was billed for the request it refused, and sections that already finished are kept. Wait a minute, then press Render again. If this keeps happening, ask Azure support to raise the Batch Avatar call rate limit for this Speech resource or move it to a higher tier, or split the video into fewer sections. Azure said: ${message}`,
     );
   } else {
     error = new Error(
@@ -169,6 +261,7 @@ export async function submitAvatarJob(
   synthesisId: string,
   ssml: string,
   opts: AvatarJobOptions,
+  call: AvatarCallOptions = {},
 ): Promise<AvatarJob> {
   const photoModel = opts.photoModel ?? DEFAULT_PHOTO_MODEL;
   if (opts.photo && !(BATCH_PHOTO_MODELS as readonly string[]).includes(photoModel)) {
@@ -210,28 +303,52 @@ export async function submitAvatarJob(
     },
   };
 
-  const res = await fetch(url(synthesisId), {
-    method: "PUT",
-    headers: await headers(),
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw await failure(res, "start the avatar render");
-  return (await res.json()) as AvatarJob;
+  // PUT to a caller-chosen id is idempotent: if an attempt's response was lost
+  // (a timeout or reset after Azure accepted it), the retry gets a 409 for the
+  // same id rather than starting, and billing, a second job.
+  try {
+    const res = await callAvatar(
+      synthesisId,
+      { method: "PUT", body: JSON.stringify(body) },
+      "start the avatar render",
+      call,
+      { gate: createGate },
+    );
+    return (await res.json()) as AvatarJob;
+  } catch (e) {
+    if ((e as { status?: number }).status !== 409) throw e;
+    return getAvatarJob(synthesisId, call);
+  }
 }
 
-export async function getAvatarJob(synthesisId: string): Promise<AvatarJob> {
-  const res = await fetch(url(synthesisId), { headers: await headers() });
-  if (!res.ok) throw await failure(res, "report on the avatar render");
+export async function getAvatarJob(
+  synthesisId: string,
+  call: AvatarCallOptions = {},
+): Promise<AvatarJob> {
+  const res = await callAvatar(
+    synthesisId,
+    { method: "GET" },
+    "report on the avatar render",
+    call,
+    { gate: pollGate, maxRetries: GET_MAX_RETRIES, maxWaitMs: GET_MAX_WAIT_MS },
+  );
   return (await res.json()) as AvatarJob;
 }
 
 /** Best effort: the service keeps results for 31 days otherwise. */
-export async function deleteAvatarJob(synthesisId: string): Promise<void> {
+export async function deleteAvatarJob(
+  synthesisId: string,
+  call: AvatarCallOptions = {},
+): Promise<void> {
   try {
-    await fetch(url(synthesisId), {
-      method: "DELETE",
-      headers: await headers(),
-    });
+    await callAvatar(
+      synthesisId,
+      { method: "DELETE" },
+      "delete the avatar render",
+      // Its waits are not the render's, so they are not reported.
+      { signal: call.signal },
+      { gate: pollGate, maxRetries: DELETE_MAX_RETRIES, maxWaitMs: DELETE_MAX_WAIT_MS },
+    );
   } catch {
     /* already gone, or never existed */
   }
