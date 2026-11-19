@@ -4,6 +4,8 @@ import { buildCredential } from "./azureCredential";
 import { reserve } from "./budget";
 import { getSetting, SETTING_CHAT_MODEL, SETTING_EMBED_MODEL, SETTING_IMAGE_MODEL, SETTING_VISION_MODEL } from "./settings";
 import { resolveEndpoint, type ResolvedEndpoint } from "./providers";
+import { classifyNetworkError, failedAfterResponse, markAfterResponse, networkErrorCode, type NetworkFailure } from "./connectionerror";
+import { retryTransient } from "./netretry";
 
 /**
  * Two client families are supported.
@@ -238,6 +240,8 @@ async function requestImage(prompt: string, opts: ImageOptions): Promise<Generat
       : `${baseURL?.replace(/\/$/, "")}/images/generations`;
 
   return withRetry(async () => {
+    // Only the response *headers* decide whether another try is safe: once Azure has
+    // answered, the image is generated (and billed), so a failure reading it is not repeated.
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(await authHeaders()) },
@@ -264,16 +268,33 @@ async function requestImage(prompt: string, opts: ImageOptions): Promise<Generat
       throw err;
     }
 
-    const json = (await res.json()) as {
-      data?: { b64_json?: string; url?: string }[];
-    };
+    const json = await res.json().then(
+      (j) => j as { data?: { b64_json?: string; url?: string }[] },
+      (e: unknown) => {
+        throw markAfterResponse(
+          new Error(
+            `The connection dropped while the generated picture was being sent back (${e instanceof Error ? e.message : String(e)}).`,
+            { cause: e }
+          )
+        );
+      }
+    );
     const first = json.data?.[0];
 
     // Some OpenAI-compatible servers ignore response_format and hand back a URL.
     if (!first?.b64_json && first?.url) {
-      const img = await fetch(first.url);
-      if (!img.ok) throw new Error(`Could not download generated image (${img.status}).`);
-      return { png: Buffer.from(await img.arrayBuffer()), model, size };
+      const img = await fetch(first.url).catch((e: unknown) => {
+        throw markAfterResponse(
+          new Error(`Could not download generated image (${e instanceof Error ? e.message : String(e)}).`, { cause: e })
+        );
+      });
+      if (!img.ok) throw markAfterResponse(new Error(`Could not download generated image (${img.status}).`));
+      const bytes = await img.arrayBuffer().catch((e: unknown) => {
+        throw markAfterResponse(
+          new Error(`Could not download generated image (${e instanceof Error ? e.message : String(e)}).`, { cause: e })
+        );
+      });
+      return { png: Buffer.from(bytes), model, size };
     }
 
     if (!first?.b64_json) {
@@ -334,15 +355,30 @@ export function getClient(): OpenAI | AzureOpenAI {
   return client;
 }
 
-/** The SDK reports an unreachable host as a bare "Connection error." with no status. */
+/**
+ * True when the endpoint could not be reached at all: refused, unresolvable,
+ * no route, a certificate or proxy problem. A bare "Connection error." with no
+ * cause counts too. A connection that dropped or timed out mid-request does
+ * not; see isDroppedConnection.
+ */
 export function isConnectionError(e: unknown): boolean {
-  const msg = e instanceof Error ? e.message : String(e);
-  const code = (e as { code?: string })?.code;
-  return (
-    code === "ECONNREFUSED" ||
-    code === "ENOTFOUND" ||
-    /connection error|fetch failed|ECONNREFUSED|ENOTFOUND/i.test(msg)
-  );
+  return classifyNetworkError(e) === "unreachable";
+}
+
+/** The connection was cut or timed out after it started; usually transient and safe to retry. */
+export function isDroppedConnection(e: unknown): boolean {
+  return classifyNetworkError(e) === "dropped";
+}
+
+/** What to tell a person whose request lost its connection, for the named service. */
+export function droppedConnectionMessage(service: string, where: string | undefined, e: unknown): string {
+  const code = networkErrorCode(e);
+  const detail = code ? ` (${code})` : "";
+  const place = where ? `${service} at ${where}` : service;
+  const downloading = failedAfterResponse(e);
+  return downloading
+    ? `The connection to ${place} dropped while the reply was being sent back${detail}, so the result was lost and may have been billed. This is usually a transient network problem; try again.`
+    : `The connection to ${place} was closed or timed out before a reply arrived${detail}. This is usually a transient network problem or a slow image generation and is safe to retry; if the request never completed, nothing was billed. The endpoint itself is reachable. If it keeps happening, check for a VPN, proxy or firewall that cuts long-running connections.`;
 }
 
 /** Turn provider failures into actionable setup guidance rather than a raw code. */
@@ -352,17 +388,16 @@ export function describeAuthError(e: unknown): string | null {
   }
   const msg = e instanceof Error ? e.message : String(e);
   const status = (e as { status?: number })?.status;
-  const code = (e as { code?: string })?.code;
+  const network: NetworkFailure | null = classifyNetworkError(e);
 
   if (PROVIDER === "openai") {
     // Nothing listening is by far the most common failure with a local runtime,
     // and the SDK surfaces it as a bare connection error.
-    if (
-      code === "ECONNREFUSED" ||
-      code === "ENOTFOUND" ||
-      /connection error|fetch failed|ECONNREFUSED/i.test(msg)
-    ) {
+    if (network === "unreachable") {
       return `Could not reach the model server at ${baseURL}. Check it is running — for llama.cpp that is 'llama-server --port 8080 -m <model.gguf>', for Ollama 'ollama serve' — and that AI_BASE_URL points at its OpenAI-compatible path (usually ending in /v1).`;
+    }
+    if (network === "dropped") {
+      return droppedConnectionMessage("the model server", baseURL, e);
     }
     if (status === 404) {
       return `The model server at ${baseURL} returned 404. Check that AI_MODEL ("${chatModel()}") and AI_EMBEDDING_MODEL ("${embedModel()}") are loaded — with Ollama, 'ollama list' shows what is available.`;
@@ -378,10 +413,13 @@ export function describeAuthError(e: unknown): string | null {
     return null;
   }
 
-  if (isConnectionError(e)) {
+  if (network === "unreachable") {
     return /YOUR-RESOURCE/i.test(endpoint ?? "")
       ? `AZURE_OPENAI_ENDPOINT is still the placeholder "${endpoint}". Set it to your Azure OpenAI resource's endpoint in .env.local and restart the server.`
       : `Could not reach Azure OpenAI at ${endpoint}. Check AZURE_OPENAI_ENDPOINT is correct, the resource is reachable from this machine (network, VPN, firewall), and restart the server after changing .env.local.`;
+  }
+  if (network === "dropped") {
+    return droppedConnectionMessage("Azure OpenAI", endpoint, e);
   }
 
   // A 404 here almost always means a misconfigured api-version or a deployment
@@ -419,41 +457,30 @@ export type ChatMsg = { role: "system" | "user" | "assistant"; content: string }
 
 type ChatParams = Parameters<AzureOpenAI["chat"]["completions"]["create"]>[0];
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 /**
  * Small deployments (e.g. a 10K-TPM gpt-5-mini) routinely 429 on the large
  * contexts studio generation sends. Azure returns a Retry-After telling us
  * exactly how long to wait, so honor it instead of failing the request.
+ *
+ * Dropped connections and 5xx are retried too, within the limits in
+ * netretry.ts. This is the only retry layer for these calls: the SDK's own
+ * retries are switched off per request so the two do not multiply.
  */
-async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
-  const MAX_ATTEMPTS = 5;
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    try {
-      return await fn();
-    } catch (e) {
-      lastError = e;
-      const status = (e as { status?: number })?.status;
-      const retryable = status === 429 || (status !== undefined && status >= 500);
-      if (!retryable || attempt === MAX_ATTEMPTS - 1) throw e;
-
-      const headers = (e as { headers?: Record<string, string> })?.headers;
-      const after = Number(headers?.["retry-after"]);
-      const waitMs = Number.isFinite(after) && after > 0
-        ? after * 1000
-        : Math.min(30_000, 2 ** attempt * 1000) + Math.random() * 500;
-
+async function withRetry<T>(fn: () => Promise<T>, label: string, signal?: AbortSignal): Promise<T> {
+  return retryTransient(() => fn(), {
+    signal,
+    onRetry: ({ attempt, maxAttempts, delayMs, status, error }) => {
+      const why = status ?? (networkErrorCode(error) || "connection lost");
       console.warn(
-        `[ai] ${label} got ${status}, retrying in ${Math.round(waitMs / 1000)}s ` +
-          `(attempt ${attempt + 1}/${MAX_ATTEMPTS})`
+        `[ai] ${label} got ${why}, retrying in ${Math.max(1, Math.round(delayMs / 1000))}s ` +
+          `(attempt ${attempt}/${maxAttempts})`
       );
-      await sleep(waitMs);
-    }
-  }
-  throw lastError;
+    },
+  });
 }
+
+/** Per-request SDK option: withRetry owns retries for these calls. */
+const OWN_RETRIES = { maxRetries: 0 } as const;
 
 /**
  * Reasoning deployments (gpt-5, o-series) reject a custom `temperature` and
@@ -486,20 +513,21 @@ async function createChat(
     return rest;
   };
 
+  const sdk = { ...OWN_RETRIES, ...options };
   return withRetry(async () => {
     if (supportsTemperature.get(model) === false) {
-      return client.chat.completions.create(withoutTemp(), options);
+      return client.chat.completions.create(withoutTemp(), sdk);
     }
     try {
-      const res = await client.chat.completions.create(params as ChatParams, options);
+      const res = await client.chat.completions.create(params as ChatParams, sdk);
       if (!supportsTemperature.has(model)) supportsTemperature.set(model, true);
       return res;
     } catch (e) {
       if (!isTemperatureRejection(e)) throw e;
       supportsTemperature.set(model, false);
-      return client.chat.completions.create(withoutTemp(), options);
+      return client.chat.completions.create(withoutTemp(), sdk);
     }
-  }, "chat");
+  }, "chat", options.signal);
 }
 
 export async function chatText(messages: ChatMsg[], temperature = 0.3): Promise<string> {
@@ -732,7 +760,10 @@ async function anthropicJSON<T>(
         ...(withTemp ? { temperature: Math.min(1, Math.max(0, temperature)) } : {}),
       }),
     });
-    const text = await res.text();
+    // The model has answered once the headers are here; a read failure must not run the call again.
+    const text = await res.text().catch((e: unknown) => {
+      throw markAfterResponse(e instanceof Error ? e : new Error(String(e)));
+    });
     if (!res.ok) {
       let detail = text.slice(0, 500);
       try {
@@ -825,7 +856,7 @@ export async function embed(texts: string[], model: string = embedModel()): Prom
     reserve("embed", 1);
     const slice = texts.slice(i, i + BATCH).map((t) => t.slice(0, 8000) || " ");
     const res = await withRetry(
-      () => c.embeddings.create({ model, input: slice }),
+      () => c.embeddings.create({ model, input: slice }, OWN_RETRIES),
       "embeddings"
     );
     for (const d of res.data) out.push(d.embedding as number[]);
@@ -863,7 +894,7 @@ export async function transcribe(
   const c = sideClient(transcribeEndpoint) ?? getClient();
   const file = await toFile(audio, filename, { type: mime });
   const res = await withRetry(
-    () => c.audio.transcriptions.create({ file, model }),
+    () => c.audio.transcriptions.create({ file, model }, OWN_RETRIES),
     "transcription"
   );
   return (res as { text?: string }).text?.trim() ?? "";

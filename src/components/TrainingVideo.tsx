@@ -67,7 +67,7 @@ import TrainingPreview from "./TrainingPreview";
 import VoicePicker from "./VoicePicker";
 import type { VisualContext } from "./TrainingVisual";
 import { prepareRasters } from "./trainingRaster";
-import { trainingRequest, TrainingRequestError } from "@/lib/trainingrequest";
+import { trainingRequest, TrainingRequestError, pictureFailure } from "@/lib/trainingrequest";
 import GenerationModal from "./GenerationModal";
 
 const PRESENTER_STAGES: { key: string; label: string }[] = [
@@ -189,6 +189,13 @@ export default function TrainingVideo({
   const [prep, setPrep] = useState<string | null>(null);
   const [statusOpen, setStatusOpen] = useState(rendering);
   const [error, setError] = useState<string | null>(null);
+  const [gap, setGap] = useState<{
+    errored: number;
+    total: number;
+    created: number;
+    detail: string;
+    then: "render" | "pictures";
+  } | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [tab, setTab] = useState<Tab>("script");
   const [timings, setTimings] = useState<(SectionTiming | null)[]>([]);
@@ -417,11 +424,25 @@ export default function TrainingVideo({
   /**
    * Find a screenshot on Microsoft Learn, or draw an illustration, for every
    * visual that is still without its picture. Returns updated copies.
+   *
+   * One picture that fails for a passing reason (a dropped connection, a rate
+   * limit, a server hiccup) is counted in `errored` and the rest carry on.
+   * `failed` counts visuals nothing matched. A problem that would repeat for
+   * every picture (credentials, configuration, budget) ends the run early and
+   * comes back as `stopped`, with the pictures made so far still in `sections`
+   * so the caller can save them before reporting it.
    */
   const findPictures = async (
     sections: TrainingSection[],
-    onStep: (n: number, total: number) => void,
-  ): Promise<{ sections: TrainingSection[]; failed: number }> => {
+    onStep: (n: number, total: number, errored: number) => void,
+  ): Promise<{
+    sections: TrainingSection[];
+    failed: number;
+    errored: number;
+    created: number;
+    lastError?: string;
+    stopped?: unknown;
+  }> => {
     const next = sections.map((s) => ({
       ...s,
       cues: s.cues?.map((q) => ({ ...q })),
@@ -432,9 +453,12 @@ export default function TrainingVideo({
       .map((q) => q.imageSource)
       .filter((u): u is string => Boolean(u));
     let failed = 0;
+    let errored = 0;
+    let created = 0;
+    let lastError: string | undefined;
     let n = 0;
     for (const q of pending) {
-      onStep(++n, pending.length);
+      onStep(++n, pending.length, errored);
       let j: { imageId?: string; credit?: string; source?: string; error?: string };
       try {
         j = await trainingRequest<{
@@ -456,16 +480,21 @@ export default function TrainingVideo({
           },
         );
       } catch (e) {
-        if (e instanceof TrainingRequestError && e.status === 404) {
+        const kind = pictureFailure(e);
+        if (kind === "none") {
           failed++;
           continue;
         }
-        throw e;
+        if (kind === "stop") return { sections: next, failed, errored, created, lastError, stopped: e };
+        errored++;
+        lastError = e instanceof TrainingRequestError && e.cause instanceof Error ? e.cause.message : (e as Error).message;
+        continue;
       }
       if (!j.imageId) {
         failed++;
         continue;
       }
+      created++;
       q.imageId = j.imageId;
       if (j.credit) q.imageCredit = j.credit;
       if (j.source) {
@@ -473,8 +502,26 @@ export default function TrainingVideo({
         used.push(j.source);
       }
     }
-    return { sections: next, failed };
+    return { sections: next, failed, errored, created, lastError };
   };
+
+  const pictureProgress = (n: number, total: number, errored: number) =>
+    setPrep(
+      `Finding picture ${n} of ${total}${errored ? ` · ${errored} could not be created` : ""}`,
+    );
+
+  /** Remember that some pictures could not be made, so the person can retry just those. */
+  const noteGap = (
+    r: { errored: number; created: number; failed: number; lastError?: string },
+    then: "render" | "pictures",
+  ) =>
+    setGap({
+      errored: r.errored,
+      created: r.created,
+      total: r.errored + r.created + r.failed,
+      detail: r.lastError ?? "",
+      then,
+    });
 
   /**
    * Everything a composed render needs from the browser: pictures that were
@@ -483,7 +530,8 @@ export default function TrainingVideo({
    */
   const prepareComposed = async (
     saved: TrainingContent,
-  ): Promise<TrainingContent> => {
+    skipPictures = false,
+  ): Promise<TrainingContent | null> => {
     // A visual with nothing to show would be drawn as a placeholder and cached as such.
     saved.sections.forEach((s, i) =>
       (s.cues ?? []).forEach((q) => {
@@ -523,16 +571,21 @@ export default function TrainingVideo({
     const pending = saved.sections.flatMap((s, i) =>
       (s.cues ?? []).filter(cueNeedsPicture).map((q) => ({ i, q })),
     );
-    if (pending.length) {
-      const { sections, failed } = await findPictures(
-        saved.sections,
-        (n, total) => setPrep(`Finding picture ${n} of ${total}`),
-      );
-      current = await patch({ sections });
-      if (failed) {
+    if (pending.length && !skipPictures) {
+      const found = await findPictures(saved.sections, pictureProgress);
+      // Keep what was made even when the run has to stop.
+      current = await patch({ sections: found.sections });
+      // The editor must see the pictures already made, or a retry would draw them again.
+      await refresh.current();
+      if (found.stopped) throw found.stopped;
+      if (found.errored) {
+        noteGap(found, "render");
+        return null;
+      }
+      if (found.failed) {
         setError(
-          `${failed} visual${failed === 1 ? "" : "s"} got no picture and ${
-            failed === 1 ? "shows" : "show"
+          `${found.failed} visual${found.failed === 1 ? "" : "s"} got no picture and ${
+            found.failed === 1 ? "shows" : "show"
           } words only. Add a picture on the Visuals tab if you want one.`,
         );
       }
@@ -548,9 +601,10 @@ export default function TrainingVideo({
     return current;
   };
 
-  const run = async (what: "save" | "render") => {
+  const run = async (what: "save" | "render", opts: { skipPictures?: boolean } = {}) => {
     setBusy(what);
     setError(null);
+    setGap(null);
     if (what === "render") {
       setStatusOpen(true);
       setPrep("Saving the transcript");
@@ -562,7 +616,8 @@ export default function TrainingVideo({
       if (what === "render") {
         if (normalizeComposition(saved.composition).mode === "composed") {
           step = "Preparing the visuals";
-          await prepareComposed(saved);
+          // Null: some pictures could not be created, and the person chooses what to do.
+          if (!(await prepareComposed(saved, opts.skipPictures))) return;
         }
         step = "Starting the render";
         setPrep(step);
@@ -618,16 +673,17 @@ export default function TrainingVideo({
     setStatusOpen(true);
     setPrep("Finding pictures for the visuals");
     setError(null);
+    setGap(null);
     try {
       const saved = dirty ? await save() : content;
-      const { sections, failed } = await findPictures(
-        saved.sections,
-        (n, total) => setPrep(`Finding picture ${n} of ${total}`),
-      );
-      await patch({ sections });
+      const found = await findPictures(saved.sections, pictureProgress);
+      await patch({ sections: found.sections });
       setDirty(false);
       await refresh.current();
-      if (failed) {
+      if (found.stopped) throw found.stopped;
+      if (found.errored) noteGap(found, "pictures");
+      if (found.failed) {
+        const failed = found.failed;
         setError(
           `${failed} visual${failed === 1 ? "" : "s"} got no picture. Open ${
             failed === 1 ? "it" : "them"
@@ -650,6 +706,11 @@ export default function TrainingVideo({
     (n, s) => n + (s.cues ?? []).filter(cueNeedsPicture).length,
     0,
   );
+  const gapSummary = gap
+    ? `${gap.errored} of ${gap.total} picture${gap.total === 1 ? "" : "s"} could not be created${
+        gap.then === "render" ? ", so the video has not been rendered yet" : ""
+      }.${gap.created ? ` The ${gap.created} that worked ${gap.created === 1 ? "was" : "were"} kept.` : ""}`
+    : "";
   const picturesButton =
     missingPictures > 0 ? (
       <button
@@ -938,6 +999,35 @@ export default function TrainingVideo({
         <p className="rounded-xl border border-red-900/50 bg-red-950/20 px-4 py-3 text-[13px] text-red-200">
           {error}
         </p>
+      )}
+      {gap && missingPictures > 0 && (
+        <div
+          role="alert"
+          className="rounded-xl border border-amber-900/50 bg-amber-950/20 px-4 py-3 text-[13px] text-amber-100"
+        >
+          <p>{gapSummary}</p>
+          {gap.detail && (
+            <p className="mt-1 text-[11px] text-amber-100/80">{gap.detail}</p>
+          )}
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              className="btn !text-xs"
+              disabled={locked}
+              onClick={() => (gap.then === "render" ? void run("render") : void pictures())}
+            >
+              Retry missing pictures
+            </button>
+            {gap.then === "render" && (
+              <button
+                className="btn !text-xs"
+                disabled={locked}
+                onClick={() => void run("render", { skipPictures: true })}
+              >
+                Render without them
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       <div
@@ -1468,7 +1558,10 @@ export default function TrainingVideo({
       </div>
 
       <div className="sticky -bottom-6 -mx-1 flex flex-wrap items-center gap-2 border-t border-[var(--border)] bg-[var(--panel)] px-1 pt-3 pb-9">
-        <p className="mr-auto text-[11px] leading-snug text-[var(--muted)]">
+        <p
+          aria-live="polite"
+          className="mr-auto text-[11px] leading-snug text-[var(--muted)]"
+        >
           {prep
             ? prep
             : composed
@@ -1503,7 +1596,7 @@ export default function TrainingVideo({
                   : "Render video"}
         </button>
       </div>
-      {statusOpen && (processing || error || stage === "failed") && (
+      {statusOpen && (processing || error || stage === "failed" || (gap && missingPictures > 0)) && (
         <GenerationModal
           title="Video processing status"
           jobs={[{
@@ -1514,7 +1607,7 @@ export default function TrainingVideo({
             detail: content.progress.note,
             error: stage === "failed"
               ? content.progress.note ?? "The render failed."
-              : !processing ? error ?? undefined : undefined,
+              : !processing ? error ?? (gap ? `${gapSummary} Retry them from the editor.` : undefined) ?? undefined : undefined,
           }]}
           onClose={() => setStatusOpen(false)}
         />

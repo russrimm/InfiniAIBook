@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { trainingRequest, TrainingRequestError } from "@/lib/trainingrequest";
+import { pictureFailure, trainingRequest, TrainingRequestError } from "@/lib/trainingrequest";
 import { keepAliveJSON } from "@/lib/keepalive";
 
 const url = "/api/training/video-123/render";
@@ -83,5 +83,40 @@ describe("trainingRequest", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
     await expect(trainingRequest("/api/training/video-123/assets/find", "Finding picture 1 of 2"))
       .rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe("pictureFailure", () => {
+  const failure = (status: number | undefined, code?: string) =>
+    new TrainingRequestError("x", status, undefined, code);
+
+  it("lets a run carry on past one picture that failed for a passing reason", () => {
+    expect(pictureFailure(failure(503, "connection_dropped"))).toBe("transient");
+    expect(pictureFailure(failure(429, "rate_limit"))).toBe("transient");
+    expect(pictureFailure(failure(500))).toBe("transient");
+    expect(pictureFailure(failure(504))).toBe("transient");
+    expect(pictureFailure(failure(undefined))).toBe("transient");
+  });
+
+  it("keeps a missing match separate from a failure", () => {
+    expect(pictureFailure(failure(404))).toBe("none");
+  });
+
+  it("stops the run for problems that would repeat for every picture", () => {
+    expect(pictureFailure(failure(502, "config"))).toBe("stop");
+    expect(pictureFailure(failure(401, "auth"))).toBe("stop");
+    expect(pictureFailure(failure(403))).toBe("stop");
+    expect(pictureFailure(failure(400, "no_config"))).toBe("stop");
+    expect(pictureFailure(failure(400, "invalid_sources"))).toBe("stop");
+    expect(pictureFailure(failure(429, "budget"))).toBe("stop");
+    expect(pictureFailure(new Error("a bug"))).toBe("stop");
+  });
+
+  it("carries the server's code from a reply that arrived", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reply({ error: "dropped", code: "connection_dropped" }, 503)));
+    const e = await trainingRequest("/api/training/v/assets/find", "Finding picture 1 of 2").catch((x) => x);
+    expect(e).toMatchObject({ status: 503, code: "connection_dropped" });
+    expect(pictureFailure(e)).toBe("transient");
   });
 });
