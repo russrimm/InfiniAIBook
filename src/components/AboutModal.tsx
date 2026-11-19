@@ -151,7 +151,7 @@ const HELP: {
         title: "Create, Library and artifact exports",
         body: [
           "Studio > Create groups formats under Listen, Watch, Read, Visualize and Study, and a filter box narrows them by name or purpose. Tick sources first (Generate stays off, with the reason shown, until one is ticked), enter an optional Focus to steer the result, open a card's Options and press Generate. Jobs run in the background and report errors on their card; finished results appear in Library and open when you are not already viewing something else.",
-          "Open a Library item to read, play, copy or export it, or use its delete control with Undo. Copy and Export produce Markdown (flashcards label that download MD). Other outputs offer PNG, PPTX, CSV, MP3 or MP4 as described below. Media downloads are available after narration or rendering finishes.",
+          "Open a Library item to read, play, copy or export it, or use its delete control with Undo. Copy and Export produce Markdown (flashcards label that download MD). Whiteboard, motion and training videos instead offer Export MP4, which downloads the rendered video, and Script (Markdown) for the script. Other outputs offer PNG, PPTX, CSV or MP3 as described below. Media downloads are available after narration or rendering finishes; Export MP4 on a video that is not rendered yet explains that and offers Render video.",
         ],
         doc: "studio.md",
       },
@@ -234,7 +234,7 @@ const HELP: {
         body: [
           "Training video uses only checked sources; Focus guides the topic without adding evidence. Options include Trainer, Compare, Presenter voice and supported delivery style, Training video length, Background, Style (Presenter with slides and visuals or Presenter only) and Visual theme, plus music, watermark and instructions.",
           "Generate the transcript; composed mode also plans visuals and can fetch or generate pictures before rendering. Use Script to edit sections, their order, presenter, voice and Body language or supported section gestures. Compare presenters opens the gallery. Preview live (VASA-2) speaks the transcript interactively with a supported Azure Speech resource; it is a separate live session, is not recorded into the MP4 and can incur speech charges.",
-          "Render video submits the avatar work and shows stage progress or failure details. MP4 downloads the finished file. Script changes need Render again; when only visuals, design or music change, Recompose video reuses unchanged cached presenter clips instead of billing for new avatar speech.",
+          "Render video submits the avatar work and shows stage progress or failure details. Export MP4 (or Download MP4 under the player) downloads the finished file; before the first render it explains that and offers Render video. Script (Markdown) saves the transcript. Script changes need Render again; when only visuals, design or music change, Recompose video reuses unchanged cached presenter clips instead of billing for new avatar speech.",
         ],
         doc: "training-videos.md",
       },

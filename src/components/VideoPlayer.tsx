@@ -9,6 +9,7 @@ import {
   type MotionPlan,
 } from "@/lib/motion";
 import type { VideoContent } from "@/lib/types";
+import { videoDownloadHref, videoFilename } from "@/lib/videoexport";
 import type { ScenePlan } from "@/lib/whiteboard";
 import { EMPTY_NARRATION, readNarration, type NarrationSettings } from "@/lib/narration";
 import { normalizeMusicChoice, type MusicChoice } from "@/lib/musicchoice";
@@ -294,8 +295,8 @@ export default function VideoPlayer({
         )}
         <a
           className="btn shrink-0 !px-2.5 !py-1 !text-xs"
-          href={content.videoUrl}
-          download={`${content.title.replace(/[^\w\s-]/g, "").slice(0, 60) || "video"}.mp4`}
+          href={videoDownloadHref(content.videoUrl ?? "")}
+          download={videoFilename(content.title)}
         >
           Download
         </a>
@@ -754,6 +755,7 @@ function ScriptEditor({
         </button>
         <button
           className="btn btn-primary !text-xs"
+          data-render-video
           disabled={busy !== "render" && (locked || words === 0 || draft.scenes.length < minScenes)}
           onClick={() => busy === "render" ? onStatusOpen(true) : void run("render")}
           aria-label={busy === "render" ? "View video processing status" : undefined}

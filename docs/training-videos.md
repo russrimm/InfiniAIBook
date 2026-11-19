@@ -13,7 +13,8 @@ two steps, so nothing is billed for video until you are happy with the script.
 2. **Render video.** Edit the title, sections and presenter, then press
    **Render video**. The script is sent to Azure's text-to-speech avatar batch
    service. The finished file is saved locally and plays in the artifact;
-   **MP4** in the header downloads it.
+   **Export MP4** in the header downloads it (before the first render it says so
+   and offers **Render video**); **Script (Markdown)** saves the transcript.
 
 The card's **Style** (under **Options ▸**) picks one of two kinds of video:
 

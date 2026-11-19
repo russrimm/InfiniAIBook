@@ -20,6 +20,7 @@ import { buildPptx, slidesToMarkdown } from "@/lib/slides";
 import { scriptOf } from "@/lib/podcastscript";
 import { tableCell } from "@/lib/mdtable";
 import { CUE_KIND_LABELS } from "@/lib/trainingvisuals";
+import { isVideoArtifact, videoExportState } from "@/lib/videoexport";
 import type {
   Artifact,
   ArtifactType,
@@ -275,6 +276,24 @@ export default function ArtifactModal({
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
 
+  const isVideo = isVideoArtifact(artifact.type);
+  const videoState = isVideo ? videoExportState(artifact) : null;
+  const [videoNotice, setVideoNotice] = useState(false);
+
+  /** Rendering is billed and needs the editor's state, so the modal presses its own button. */
+  const startRender = () => {
+    const button = bodyRef.current?.querySelector<HTMLButtonElement>("[data-render-video]");
+    if (button && !button.disabled) {
+      setVideoNotice(false);
+      button.scrollIntoView({ block: "center" });
+      button.focus();
+      button.click();
+    } else {
+      button?.scrollIntoView({ block: "center" });
+      button?.focus();
+    }
+  };
+
   const download = () => saveBlob(
     new Blob([toMarkdown(artifact)], { type: "text/markdown" }),
     safeName("md")
@@ -383,7 +402,7 @@ export default function ArtifactModal({
             </p>
           </div>
           <button className="btn !px-2.5 !py-1.5 !text-xs" onClick={() => void copy()}>
-            {copied ? "Copied" : "Copy"}
+            {copied ? "Copied" : isVideo ? "Copy script" : "Copy"}
           </button>
           {onRegenerated && REGENERABLE.has(artifact.type) && (
             <button className="btn !px-2.5 !py-1.5 !text-xs" onClick={() => setRegenerating(true)}>
@@ -400,16 +419,24 @@ export default function ArtifactModal({
                 MP3
               </a>
             )}
-          {artifact.type === "training" &&
-            (artifact.content as { videoUrl?: string }).videoUrl && (
-              <a
-                className="btn !px-2.5 !py-1.5 !text-xs"
-                href={(artifact.content as { videoUrl?: string }).videoUrl}
-                download={safeName("mp4")}
-              >
-                MP4
-              </a>
-            )}
+          {videoState?.kind === "ready" && (
+            <a
+              className="btn btn-primary !px-2.5 !py-1.5 !text-xs"
+              href={videoState.href}
+              download={videoState.filename}
+            >
+              Export MP4
+            </a>
+          )}
+          {videoState && videoState.kind !== "ready" && (
+            <button
+              className="btn btn-primary !px-2.5 !py-1.5 !text-xs"
+              aria-expanded={videoNotice}
+              onClick={() => setVideoNotice(true)}
+            >
+              Export MP4
+            </button>
+          )}
           {artifact.type === "flashcards" && (
             <button className="btn !px-2.5 !py-1.5 !text-xs" onClick={downloadCsv}>
               CSV
@@ -434,7 +461,7 @@ export default function ArtifactModal({
             </button>
           )}
           <button className="btn !px-2.5 !py-1.5 !text-xs" onClick={download}>
-            {artifact.type === "flashcards" ? "MD" : "Export"}
+            {artifact.type === "flashcards" ? "MD" : isVideo ? "Script (Markdown)" : "Export"}
           </button>
           <button
             aria-label="Close"
@@ -448,6 +475,31 @@ export default function ArtifactModal({
         <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8">
           <Body artifact={artifact} citations={citations} onRefresh={onRefresh} />
         </div>
+
+        {videoState && videoState.kind !== "ready" && videoNotice && (
+          <div
+            role="status"
+            data-testid="video-export-notice"
+            className="flex shrink-0 flex-wrap items-center gap-2 border-t border-[var(--border)] bg-well px-5 py-2 text-[11px] text-[var(--muted)]"
+          >
+            <p className="mr-auto leading-snug">
+              {videoState.kind === "rendering"
+                ? "The video is still rendering. Export MP4 will download it as soon as it finishes."
+                : videoState.kind === "failed"
+                  ? `The last render failed, so there is no MP4 to export. Render the video again${videoState.note ? ` (${videoState.note})` : ""}.`
+                  : "This video has not been rendered yet, so there is no MP4 to export. Render the video first."}{" "}
+              The script is available as Markdown.
+            </p>
+            {videoState.kind !== "rendering" && (
+              <button className="btn !px-2.5 !py-1 !text-xs" onClick={startRender}>
+                Render video
+              </button>
+            )}
+            <button className="btn !px-2.5 !py-1 !text-xs" onClick={download}>
+              Script (Markdown)
+            </button>
+          </div>
+        )}
 
         {exportError && (
           <p
