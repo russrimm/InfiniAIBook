@@ -69,6 +69,7 @@ import {
   isImageStyle,
   type InfographicStyle,
 } from "@/lib/infographic";
+import { libraryMeta } from "@/lib/librarymeta";
 import InfographicGallery, {
   ScaledExample,
 } from "@/components/InfographicGallery";
@@ -730,16 +731,13 @@ export default function StudioPanel({
                     className="min-w-0 flex-1 text-left disabled:opacity-60"
                     onClick={() => onOpen(a)}
                     disabled={openingId === a.id}
+                    title={`${a.title} — ${libraryMeta(a)}`}
                   >
                     <div className="truncate text-[13px] font-medium">
                       {a.title}
                     </div>
-                    <div className="text-[10px] text-dim">
-                      {openingId === a.id
-                        ? "Opening…"
-                        : `${studioLabel(a.type)} · ${new Date(
-                            a.createdAt,
-                          ).toLocaleString()}`}
+                    <div className="truncate text-[10px] text-dim">
+                      {openingId === a.id ? "Opening…" : libraryMeta(a)}
                     </div>
                   </button>
                   <button

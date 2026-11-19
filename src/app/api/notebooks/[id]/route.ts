@@ -36,6 +36,8 @@ type ArtRow = {
   type: string;
   title: string;
   created_at: number;
+  /** Infographic style key; null for other formats and for artifacts saved before styles existed. */
+  style: string | null;
 };
 
 export async function GET(_req: Request, { params }: Ctx) {
@@ -62,7 +64,10 @@ export async function GET(_req: Request, { params }: Ctx) {
 
     const artifactRows = db
       .prepare(
-        `SELECT id, type, title, created_at FROM artifacts
+        `SELECT id, type, title, created_at,
+                CASE WHEN type = 'infographic' AND json_valid(content)
+                     THEN json_extract(content, '$.style') END AS style
+         FROM artifacts
          WHERE notebook_id = ? ORDER BY created_at DESC`
       )
       .all(id) as unknown as ArtRow[];
@@ -95,6 +100,7 @@ export async function GET(_req: Request, { params }: Ctx) {
         type: a.type,
         title: a.title,
         createdAt: a.created_at,
+        ...(typeof a.style === "string" && a.style ? { style: a.style } : {}),
       })),
       messages,
       sessions,

@@ -410,6 +410,8 @@ export type ArtifactSummary = {
   type: ArtifactType;
   title: string;
   createdAt: number;
+  /** Infographics only: the saved style key, absent for artifacts saved before styles existed. */
+  style?: string;
 };
 
 export type Source = {
