@@ -221,6 +221,14 @@ const HELP: {
         doc: "motion-explainers.md#customizing-a-video",
       },
       {
+        title: "Video clip",
+        body: [
+          "Video clip makes short AI-generated clips from your checked sources, for B-roll or on its own. It is off until a video model is configured; the card then says \"No video model is configured\" and links to the setup guide. Press Generate to open the composer: it drafts up to three clip prompts from your sources, which you can edit, add to or redraft before anything is billed.",
+          "Choose Shape, Length (only values the model accepts), Quality and Variants of each prompt, and optionally upload a reference image the clip starts from. Estimated cost shows the seconds, clips and per-second rate, and a run that does not fit under today's budget is refused. Generate opens the clips with live status for each; Cancel stops the run and keeps finished clips. Play each clip, Download MP4, Rename or delete it from the library. A prompt the provider declines shows its message so you can reword it.",
+        ],
+        doc: "video-clips.md",
+      },
+      {
         title: "Training video: presenter, script and live preview",
         body: [
           "Training video uses only checked sources; Focus guides the topic without adding evidence. Options include Trainer, Compare, Presenter voice and supported delivery style, Training video length, Background, Style (Presenter with slides and visuals or Presenter only) and Visual theme, plus music, watermark and instructions.",

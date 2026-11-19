@@ -38,6 +38,7 @@ export type ArtifactType =
   | "video"
   | "motion"
   | "training"
+  | "clip"
   | "podcast";
 
 /** Study aids can be tuned for depth and rigour at generation time. */
@@ -330,9 +331,47 @@ export type TrainingContent = SpokenExtras & VideoExtras & SourceProvenance & {
   editedSinceRender?: boolean;
 };
 
+/** How far a clip run has got. "partial" means some clips failed and some were kept. */
+export type ClipStage = "generating" | "done" | "partial" | "failed" | "cancelled";
+export type ClipItemStatus = "queued" | "in_progress" | "downloading" | "completed" | "failed" | "cancelled";
+
+export type ClipItem = {
+  index: number;
+  prompt: string;
+  /** Which variant of its prompt this is, from 1. */
+  variant: number;
+  status: ClipItemStatus;
+  /** 0 to 100 when the provider reports it. */
+  progress?: number;
+  /** A note while running, such as that a retry is waiting. */
+  note?: string;
+  error?: string;
+  /** The provider refused the prompt; reword it. */
+  moderation?: boolean;
+  videoUrl?: string;
+  posterUrl?: string;
+  bytes?: number;
+  /** The provider's id for the job, kept so deleting the clip can delete it there too. */
+  remoteId?: string;
+};
+
+/** A short AI-generated video clip set (Studio "Video clip"). */
+export type ClipContent = {
+  title: string;
+  provider: { kind: string; label: string; model: string };
+  options: { aspect: string; duration: number; resolution: string; variants: number; reference?: boolean };
+  clips: ClipItem[];
+  progress: { stage: ClipStage; done: number; failed: number; total: number };
+  /** An estimate in US dollars, from the provider's published per-second rate. */
+  estimate: { usd: number; seconds: number; priceNote: string };
+  createdAt?: number;
+  note?: string;
+};
+
 export type ArtifactContent =
   | DocContent
   | TrainingContent
+  | ClipContent
   | FaqContent
   | QuizContent
   | FlashcardsContent

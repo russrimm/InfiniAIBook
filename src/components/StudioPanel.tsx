@@ -11,6 +11,7 @@ import WatermarkPicker from "@/components/WatermarkPicker";
 import NarrationOptions from "@/components/NarrationOptions";
 import StudioCard, { StudioBlockedReason } from "@/components/StudioCard";
 import StudioGroup from "@/components/StudioGroup";
+import VideoClipCard from "@/components/VideoClipCard";
 import { SearchIcon } from "@/components/icons";
 import GenerationModal, { type GenerationJob } from "@/components/GenerationModal";
 import VoicePicker from "@/components/VoicePicker";
@@ -1457,6 +1458,19 @@ export default function StudioPanel({
                 </>
               }
             />
+            )}
+
+            {watchShown.includes("clip") && (
+              <VideoClipCard
+                notebookId={notebookId}
+                selectedIds={selectedIds}
+                topic={topic}
+                blocked={blocked}
+                onStarted={async (a) => {
+                  await onChanged();
+                  onOpen(a);
+                }}
+              />
             )}
               </div>
             </StudioGroup>

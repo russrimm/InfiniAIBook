@@ -96,7 +96,8 @@ describe("Studio with nothing to generate from", () => {
     const $ = renderStudio(true, ["a"]);
     expect($("#studio-blocked-reason")).toHaveLength(0);
     expect($("button[aria-describedby]")).toHaveLength(0);
-    expect($("button[aria-label^='Generate ']:disabled")).toHaveLength(0);
+    // Video clips stay off until a video model is configured, whatever is ticked.
+    expect($("button[aria-label^='Generate ']:disabled").not("[aria-label='Generate Video clip']")).toHaveLength(0);
   });
 });
 

@@ -4,6 +4,7 @@ import { removeAudio, removeImage, removeVideo } from "@/lib/paths";
 import { reconcileStalledVideo } from "@/lib/videobuild";
 import { forgetTraining, resumeStalledTraining } from "@/lib/trainingbuild";
 import { reconcileStalledPodcast } from "@/lib/podcaststore";
+import { forgetClips, reconcileStalledClip } from "@/lib/videoclipstore";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -30,6 +31,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     // process is picked up again here rather than failed.
     resumeStalledTraining(id);
     reconcileStalledPodcast(id);
+    reconcileStalledClip(id);
 
     const row = db
       .prepare(
@@ -73,12 +75,38 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     if (row?.type === "podcast") removeAudio(id);
     if (row?.type === "infographic") removeImage(id);
     if (row?.type === "video" || row?.type === "motion") removeVideo(id);
+    if (row?.type === "clip") forgetClips(id, row.content);
     if (row?.type === "training") {
       removeVideo(id);
       if (row.content) forgetTraining(row.content);
     }
 
     return ok({ ok: true });
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Rename an artifact. Only the title changes. */
+export async function PATCH(req: Request, { params }: Ctx) {
+  try {
+    const { id } = await params;
+    const body = (await req.json().catch(() => null)) as { title?: unknown } | null;
+    const title = typeof body?.title === "string" ? body.title.replace(/\s+/g, " ").trim().slice(0, 120) : "";
+    if (!title) return NextResponse.json({ error: "Give the artifact a name." }, { status: 400 });
+
+    const row = db.prepare("SELECT type, content FROM artifacts WHERE id = ?").get(id) as unknown as
+      | { type: string; content: string }
+      | undefined;
+    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    // Clip bodies carry their own title so the library and the viewer agree.
+    let content = row.content;
+    if (row.type === "clip") {
+      content = JSON.stringify({ ...(JSON.parse(row.content) as object), title });
+    }
+    db.prepare("UPDATE artifacts SET title = ?, content = ? WHERE id = ?").run(title, content, id);
+    return ok({ id, title });
   } catch (e) {
     return fail(e);
   }

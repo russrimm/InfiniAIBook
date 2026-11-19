@@ -3,11 +3,12 @@
 Infographics, audio overviews, whiteboard videos, motion explainers and training
 videos have their own pages: [Infographic styles](infographics.md),
 [Audio overviews](audio-overviews.md), [Whiteboard videos](whiteboard-videos.md),
-[Motion explainers](motion-explainers.md) and [Training videos](training-videos.md).
+[Motion explainers](motion-explainers.md), [Training videos](training-videos.md) and
+[Video clips](video-clips.md).
 
 The Studio panel has two views. **Create** lists the formats, grouped by what
 you want to do: **Listen** (live discussion and audio overview), **Watch**
-(whiteboard video, motion explainer and training video), **Read** (report,
+(whiteboard video, motion explainer, training video and video clip), **Read** (report,
 briefing, study guide, FAQ and timeline), **Visualize** (infographic, mind map
 and PowerPoint deck) and **Study** (quiz and flashcards). Select a group's
 heading to fold it away. The **Filter formats** box narrows every group as you
@@ -219,6 +220,7 @@ theme colors and speaker notes.
 | Audio overview | **MP3**, Markdown transcript |
 | Whiteboard video / Motion explainer | **MP4**, Markdown script |
 | Training video | **MP4**, Markdown transcript; **WebVTT** when separate captions are selected |
+| Video clip | **MP4** for each clip, Markdown list of the prompts |
 | PowerPoint deck | **PPTX**, Markdown |
 | Infographic | **PNG**, Markdown |
 | Mind map | **PNG**, Markdown outline |

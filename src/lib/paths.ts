@@ -92,6 +92,37 @@ export function removeVideo(id: string) {
 const HASH = /^[a-f0-9]{40}$/;
 const KEY = /^[a-f0-9]{16}$/;
 
+/** AI-generated video clips (Studio "Video clip"), one MP4 and an optional poster per clip. */
+export function clipDir(): string {
+  return path.join(dataDir(), "clips");
+}
+
+export function clipPath(id: string, index: number, ext: "mp4" | "jpg" = "mp4"): string {
+  if (!/^[A-Za-z0-9_-]{1,32}$/.test(id)) throw new Error("Invalid clip id");
+  if (!Number.isInteger(index) || index < 0 || index > 99) throw new Error("Invalid clip number");
+  return path.join(clipDir(), `${id}-${index}.${ext}`);
+}
+
+/** Delete every clip file an artifact owns. */
+export function removeClips(id: string) {
+  if (!/^[A-Za-z0-9_-]{1,32}$/.test(id)) return;
+  let names: string[] = [];
+  try {
+    names = fs.readdirSync(clipDir());
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    if (name.startsWith(`${id}-`) && /^\d{1,2}\.(mp4|jpg)(\.part)?$/.test(name.slice(id.length + 1))) {
+      try {
+        fs.unlinkSync(path.join(clipDir(), name));
+      } catch {
+        /* already gone */
+      }
+    }
+  }
+}
+
 /** Transparent presenter clips of a composed training video, one per section. */
 export function trainingClipsDir(id: string): string {
   if (!/^[A-Za-z0-9_-]{1,32}$/.test(id)) throw new Error("Invalid video id");
