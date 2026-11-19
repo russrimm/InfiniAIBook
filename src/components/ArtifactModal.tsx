@@ -14,6 +14,7 @@ import ClipViewer from "./ClipViewer";
 import SlideDeck from "./SlideDeck";
 import { STUDIO } from "@/lib/studio";
 import { escapeMarkdownText, fileStem } from "@/lib/infographic";
+import { exportErrorMessage, rasterize } from "@/lib/imageexport";
 import { buildPptx, slidesToMarkdown } from "@/lib/slides";
 import { scriptOf } from "@/lib/podcastscript";
 import { CUE_KIND_LABELS } from "@/lib/trainingvisuals";
@@ -245,6 +246,7 @@ export default function ArtifactModal({
   const [exporting, setExporting] = useState(false);
   const [buildingPptx, setBuildingPptx] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [exportNote, setExportNote] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const citations = (artifact.content as { citations?: Citation[] }).citations ?? [];
   const spec = STUDIO[artifact.type as ArtifactType];
@@ -262,7 +264,9 @@ export default function ArtifactModal({
     link.href = url;
     link.download = filename;
     link.click();
-    URL.revokeObjectURL(url);
+    // The browser starts reading the blob after the click returns, so a
+    // revoke right away can cancel the download.
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
 
   const download = () => saveBlob(
@@ -303,6 +307,7 @@ export default function ArtifactModal({
   const downloadPng = async () => {
     setExporting(true);
     setExportError(null);
+    setExportNote(null);
     try {
       const direct = (artifact.content as { imageUrl?: string }).imageUrl;
       if (direct) {
@@ -315,20 +320,16 @@ export default function ArtifactModal({
       const node = bodyRef.current?.firstElementChild as HTMLElement | null;
       if (!node) throw new Error("Nothing to export.");
 
-      const { toPng } = await import("html-to-image");
-      const dataUrl = await toPng(node, {
-        pixelRatio: 2,
+      const { blob, ext, note } = await rasterize(
+        node,
         // Transparent areas pick up whatever sits behind them in a viewer, so
         // the panel color is painted in explicitly.
-        backgroundColor: getComputedStyle(node).backgroundColor || "#0e1116",
-        // Web fonts are already loaded in the document; re-inlining them costs
-        // seconds and occasionally fails on cross-origin CSS.
-        skipFonts: true,
-      });
-      const blob = await (await fetch(dataUrl)).blob();
-      saveBlob(blob, safeName("png"));
+        getComputedStyle(node).backgroundColor || "#0e1116"
+      );
+      saveBlob(blob, safeName(ext));
+      if (note) setExportNote(note);
     } catch (e) {
-      setExportError(e instanceof Error ? e.message : "Could not export an image.");
+      setExportError(exportErrorMessage(e));
     } finally {
       setExporting(false);
     }
@@ -443,6 +444,15 @@ export default function ArtifactModal({
             className="shrink-0 border-t border-red-900/50 bg-red-950/20 px-5 py-2 text-[11px] text-red-200"
           >
             {exportError}
+          </p>
+        )}
+
+        {exportNote && (
+          <p
+            role="status"
+            className="shrink-0 border-t border-[var(--border)] bg-well px-5 py-2 text-[11px] text-[var(--muted)]"
+          >
+            {exportNote}
           </p>
         )}
 

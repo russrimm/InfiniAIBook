@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import fs from "node:fs";
 
 /**
  * The infographic style gallery and generation options, in a real browser,
@@ -226,6 +227,76 @@ test("the Title field fits a phone-width Studio", async ({ page, request }) => {
   await title.fill("w".repeat(80));
   const box = (await title.boundingBox())!;
   expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+const SPECIAL_TITLE = "Q3 🌱 plan: \"wins\" / <b>risks</b> * مشروع";
+
+for (const style of ["bento", "guide"]) {
+  // "guide" is drawn by the image model, so its PNG is fetched from /api/image;
+  // the others are rasterized in the browser.
+  test(`exports the ${style} infographic as PNG and Markdown`, async ({ page, request }) => {
+    const id = await notebookWithSource(request);
+    const nb = (await (await request.get(`/api/notebooks/${id}`)).json()) as { sources: { id: string }[] };
+    await request.post(`${MOCK_LLM}/faults`, { data: { images: style === "guide", reset: true } });
+    try {
+      const made = await request.post("/api/generate", {
+        data: { notebookId: id, sourceIds: nb.sources.map((s) => s.id), type: "infographic", style, title: SPECIAL_TITLE },
+      });
+      expect(made.ok()).toBeTruthy();
+      const artifact = (await made.json()) as { title: string; content: { imageUrl?: string } };
+      expect(Boolean(artifact.content.imageUrl)).toBe(style === "guide");
+
+      const errors: string[] = [];
+      page.on("console", (m) => {
+        if (m.type() === "error") errors.push(m.text());
+      });
+      await page.goto(`/notebook/${id}`);
+      await page.getByRole("complementary", { name: "Studio" }).getByRole("button", { name: /^Library/ }).click();
+      const row = page.getByRole("button", { name: new RegExp(`^${SPECIAL_TITLE.slice(0, 8)}`) }).first();
+      await expect(row).toContainText(style === "bento" ? "Infographic · Bento grid · " : "Infographic · Visual guide · ");
+      await row.click();
+      const dialog = page.getByRole("dialog").filter({ has: page.locator("[data-infographic-style]") });
+      await expect(dialog).toBeVisible();
+
+      const png = page.waitForEvent("download");
+      await dialog.getByRole("button", { name: "PNG" }).click();
+      const file = await png;
+      expect(file.suggestedFilename()).toBe("Q3 🌱 plan wins brisksb مشروع.png");
+      expect(file.failure()).resolves.toBeNull();
+      const bytes = fs.readFileSync((await file.path())!);
+      expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+      if (style === "bento") expect(bytes.length).toBeGreaterThan(5000);
+      await expect(dialog.getByRole("alert")).toHaveCount(0);
+
+      const md = page.waitForEvent("download");
+      await dialog.getByRole("button", { name: "Export" }).click();
+      expect((await md).suggestedFilename()).toBe("Q3 🌱 plan wins brisksb مشروع.md");
+      await expect(dialog.getByRole("alert")).toHaveCount(0);
+      expect(errors.filter((e) => /Content Security Policy|Failed to fetch/i.test(e))).toEqual([]);
+    } finally {
+      await request.post(`${MOCK_LLM}/faults`, { data: { images: false, reset: true } });
+    }
+  });
+}
+
+test("a long Library subtitle stays inside the row at phone width", async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const id = await notebookWithSource(request);
+  const nb = (await (await request.get(`/api/notebooks/${id}`)).json()) as { sources: { id: string }[] };
+  const made = await request.post("/api/generate", {
+    data: { notebookId: id, sourceIds: nb.sources.map((s) => s.id), type: "infographic", style: "papercraft", title: "w".repeat(80) },
+  });
+  expect(made.ok()).toBeTruthy();
+  await page.goto(`/notebook/${id}`);
+  await page.getByRole("navigation", { name: "Notebook panels" }).getByRole("button", { name: /^studio/i }).click();
+  await page.getByRole("button", { name: /^Library/ }).click();
+  // The image model is not configured here, so the brief is kept as Illustrated.
+  const row = page.getByRole("button", { name: /^w{20}/ });
+  await expect(row).toContainText("Infographic · Illustrated · ");
+  await expect(row).toHaveAttribute("title", /^w{80} — Infographic · Illustrated · /);
+  const box = (await row.boundingBox())!;
   expect(box.x + box.width).toBeLessThanOrEqual(390);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });

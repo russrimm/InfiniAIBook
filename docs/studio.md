@@ -17,7 +17,9 @@ type; it matches names, purposes and common words such as "powerpoint" or
 of Create says why **Generate** is off and offers **Add sources** or **Choose
 sources**; each dimmed Generate button points to it for screen readers.
 **Library** lists everything already generated in the
-notebook; open an item to read, play or export it.
+notebook, newest first, each with its format and date (an infographic also shows
+its style, for example "Infographic · Bento grid · 11/19/2026, 8:49 AM"; ones saved
+before styles existed show as Classic); open an item to read, play or export it.
 
 Every format uses only the sources you have ticked, steered by the optional
 **Focus** box at the top of Create. Notes and outside web results are not added
@@ -227,7 +229,12 @@ theme colors and speaker notes.
 | Flashcards | **CSV** (Anki/Quizlet), Markdown table |
 | Other written formats and study aids | Markdown |
 
-PNG export rasterizes the artifact at 2× for a sharp image. The AI image style
+PNG export rasterizes the artifact at 2× for a sharp image. If the browser
+cannot make a canvas that large it retries at 1×, and if it cannot make a PNG at
+all it saves a scalable SVG and says so; any other failure is reported with its
+reason and a pointer to the Markdown export rather than a bare "Failed to
+fetch". (The page's Content Security Policy forbids `fetch()` of `data:` URLs,
+so the export never uses one.) The AI image style
 is downloaded from the server instead of being captured from the screen, since
 capturing it would resample the original through whatever width the window
 happens to be. CSV is written with a BOM so Excel does not mangle accented
