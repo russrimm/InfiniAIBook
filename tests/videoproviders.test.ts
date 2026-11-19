@@ -84,6 +84,33 @@ describe("Gemini provider", () => {
     await expect(p.start(req, "p", {})).rejects.toMatchObject({ status: 429, headers: { "retry-after": "7" } });
   });
 
+  it("reads the reply the live API returned: a thought step with a signature, then the base64 MP4", async () => {
+    const live = {
+      id: "v1_ChdKdnYtYXE3T0tvVExf",
+      status: "completed",
+      usage: { total_output_tokens: 5793, output_tokens_by_modality: [{ modality: "video", tokens: 5793 }], total_thought_tokens: 342 },
+      steps: [
+        { signature: "x".repeat(200), type: "thought" },
+        { content: [{ data: MP4.toString("base64"), mime_type: "video/mp4", type: "video" }], type: "model_output" },
+      ],
+      object: "interaction",
+      model: "gemini-omni-1.2-flash",
+    };
+    const p = createGeminiProvider(cfg, { fetch: vi.fn(async () => json(live)) as unknown as typeof fetch });
+    const job = await p.start({ ...req, aspect: "16:9", duration: 3, resolution: "360p" }, "p", {});
+    expect(job).toMatchObject({ id: live.id, status: "completed", progress: 100 });
+    expect(job.inline && Buffer.from(job.inline).equals(MP4)).toBe(true);
+  });
+
+  it("maps the live error replies: a bad value is a plain 400, an unknown model a 404 naming it", async () => {
+    const reply = (status: number, error: unknown) => createGeminiProvider(cfg, { fetch: vi.fn(async () => json({ error }, { status })) as unknown as typeof fetch });
+    await expect(reply(400, { code: "invalid_request", message: "Requested video duration 2s 0ns is less than the minimum allowed 3s 0ns" }).start(req, "p", {})).rejects.toMatchObject({
+      status: 400,
+      failure: { code: "invalid_request", moderation: false },
+    });
+    await expect(reply(404, { code: "not_found", message: "Model 'x' not found. Did you mean 'gemini-omni-1.1-flash'?" }).start(req, "p", {})).rejects.toMatchObject({ status: 404 });
+  });
+
   it("will not save something that is not an MP4", async () => {
     const p = createGeminiProvider(cfg, { fetch: vi.fn() as unknown as typeof fetch });
     await expect(p.download({ id: "x", status: "completed", inline: Buffer.from("<html>") }, path.join(dir, "bad.mp4"), 1000)).rejects.toThrow(/not an MP4/);

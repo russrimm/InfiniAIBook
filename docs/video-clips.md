@@ -115,6 +115,13 @@ second 360p clip, is about **$0.07**. These are **estimates**: provider prices
 change and are shown with the "estimate" label wherever they appear.
 `AI_VIDEO_PRICE_PER_SECOND_USD` overrides every rate.
 
+Checked live (November 2026): a 3 second 360p Gemini clip billed 5,793 video output
+tokens, exactly the 1,931 tokens per second above, plus 342 "thinking" tokens, so the
+real cost is about **$0.073** against the $0.069 estimate. Expect the estimate to run
+a few thousandths of a dollar per clip low. The reply came back in about 16 seconds as
+a 640x360 H.264 MP4 with AAC audio, 1.8 MB, 3.03 seconds long. Google keeps the
+interaction for 55 days on the paid tier; deleting a clip set here deletes it there too.
+
 The estimate also counts against `DAILY_BUDGET_USD` (see [Configuration](configuration.md)):
 a run that cannot fit under what is left of today's budget is refused before it
 starts (HTTP 429, `code: "budget"`), and each clip is reserved as it is submitted,
