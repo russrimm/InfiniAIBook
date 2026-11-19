@@ -14,6 +14,11 @@ config.json is one of:
         Normalizes the render's loudness to -16 LUFS, as render.py does, and
         copies the picture untouched.
 
+    {"op": "fitclip", "fps": 30, "items": [{"src": "in.mp4", "dest": "out.mp4", "seconds": 7.5, "fit": "hold"}]}
+        Makes each generated clip exactly as long as the visual it plays in,
+        without sound: a short one holds its last frame (or loops with
+        "fit": "loop"), a long one is cut. HyperFrames plays the result as is.
+
 Requires: numpy, imageio-ffmpeg  (python -m pip install numpy imageio-ffmpeg)
 """
 import json, subprocess, sys
@@ -49,5 +54,20 @@ elif cfg["op"] == "finish":
          "-t", f"{total:.3f}", "-movflags", "+faststart", cfg["output"]],
         check=True,
     )
+elif cfg["op"] == "fitclip":
+    fps = int(cfg.get("fps", 30))
+    for item in cfg["items"]:
+        seconds = float(item["seconds"])
+        loop = item.get("fit") == "loop"
+        # Shorter than its visual: loop it, or hold the last frame. Longer: cut it. Never any sound.
+        vf = f"fps={fps},scale=trunc(iw/2)*2:trunc(ih/2)*2"
+        if not loop:
+            vf += f",tpad=stop_mode=clone:stop_duration={seconds:.3f}"
+        subprocess.run(
+            [ff, "-y", "-loglevel", "error", *(["-stream_loop", "-1"] if loop else []), "-i", item["src"],
+             "-an", "-vf", vf, "-t", f"{seconds:.3f}", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+             "-preset", "veryfast", "-crf", "18", "-movflags", "+faststart", item["dest"]],
+            check=True,
+        )
 else:
     sys.exit(f"unknown op {cfg['op']!r}")

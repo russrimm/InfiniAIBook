@@ -150,6 +150,13 @@ Nothing is billed until `POST /api/videoclip`.
 | Stop | `POST /api/videoclip/{id}/cancel` |
 | Play | `GET /api/videoclip/{id}/{n}` (byte ranges supported) |
 
+For training-video visuals (a cue of kind `clip`): `POST /api/training/{id}/assets/clip`
+`{ cueId, prompt, aspect?, seconds?, resolution? }` starts one clip and returns at once,
+`GET /api/training/{id}/assets/clip?cueId=` reports its state (`clipId` when done), the same
+route with `{ cueId, cancel: true }` stops it, and `GET /api/training/{id}/cueclips/{clipId}`
+plays it. `POST /api/training/{id}/visuals` proposes clips only with `{ clips: true }`.
+Rendering never makes a clip, and a clip visual without one is left out.
+
 An unsupported duration or shape is refused with 400, a run over today's budget with 429
 `code: "budget"`, and no configured model with 400 `code: "not_configured"`.
 

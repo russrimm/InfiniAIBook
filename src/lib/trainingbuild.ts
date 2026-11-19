@@ -7,6 +7,8 @@ import {
   removeImage,
   trainingClipPath,
   trainingClipsDir,
+  trainingCueClipPath,
+  trainingCueClipsDir,
   trainingRasterPath,
   trainingVisualsDir,
   videoDir,
@@ -43,6 +45,7 @@ import {
   chooseRenderer,
   clipsHaveAlpha,
   finishHyperframesRender,
+  fitCueClips,
   hyperframesFailedNote,
   runHyperframesRender,
   stageHyperframesProject,
@@ -742,6 +745,13 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
         `The presenter clip for section ${missing + 1} is missing. Render again.`,
       );
     const tl = compileTrainingTimeline(input, timings);
+    // A visual whose clip file has gone missing is left out rather than failing the whole video.
+    const lost = tl.cues.filter((q) => q.clip && !fs.existsSync(trainingCueClipPath(id, q.clip.id)));
+    let clipNote: string | undefined;
+    if (lost.length) {
+      tl.cues = tl.cues.filter((q) => !lost.includes(q));
+      clipNote = `${lost.length} video clip${lost.length === 1 ? " was" : "s were"} missing and left out. Generate ${lost.length === 1 ? "it" : "them"} again from the visuals editor.`;
+    }
     const slash = (p: string) => p.replace(/\\/g, "/");
     const hashes = c.sections.map((_, i) => sectionClipHash(c, i));
     const logo = comp.logoId ? imagePath(comp.logoId) : null;
@@ -758,7 +768,7 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
     };
     const hightech = comp.look === "hightech";
     const choice = chooseRenderer("TRAINING_RENDERER", hightech);
-    note = choice.note;
+    note = [choice.note, clipNote].filter(Boolean).join(" ") || undefined;
     if (choice.renderer === "hyperframes") {
       try {
         const clipFiles = hashes.map((h) => trainingClipPath(id, h));
@@ -768,10 +778,25 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
           throw new Error(
             `the presenter clip for section ${opaque + 1} has no transparency`,
           );
+        // Each generated clip is cut, held or looped to its visual's length first.
+        const fitted = new Map<string, string>();
+        const fits = tl.cues.flatMap((q) => {
+          if (!q.clip) return [];
+          const dest = path.join(work, `cue-clip-${q.id}.mp4`);
+          fitted.set(q.id, dest);
+          return [{
+            src: trainingCueClipPath(id, q.clip.id),
+            dest,
+            seconds: Math.max(0.1, Math.round((q.end - q.start + tl.timing.cueOut) * 1000) / 1000),
+            fit: q.clip.fit,
+          }];
+        });
+        await fitCueClips(fits, work);
         const project = buildHyperframesProject(tl, {
           background: backgroundColor(c.background),
           clip: (i) => clipFiles[i],
           raster: (key, state) => trainingRasterPath(id, key, state),
+          cueClip: (cueId) => fitted.get(cueId)!,
           burnCaptions: comp.captions === "burned",
           logo: logo && fs.existsSync(logo) ? logo : null,
           ...(hightech
@@ -789,6 +814,7 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
           e,
         );
         note = hyperframesFailedNote(hightech, "compositor");
+        note = [note, clipNote].filter(Boolean).join(" ");
       }
     }
     if (!rendered) {
@@ -798,6 +824,7 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
         palette: compositionPalette(comp),
         clip: (i) => slash(trainingClipPath(id, hashes[i])),
         raster: (key, state) => slash(trainingRasterPath(id, key, state)),
+        cueClip: (clipId) => slash(trainingCueClipPath(id, clipId)),
         burnCaptions: comp.captions === "burned",
         logo: logo && fs.existsSync(logo) ? slash(logo) : null,
       });
@@ -896,6 +923,17 @@ function pruneComposedFiles(id: string, c: TrainingContent, hashes: string[]) {
     /* nothing to prune */
   }
   const keepKeys = new Set(rasterJobs(composeInput(c)).map((j) => j.key));
+  const keepCueClips = new Set(
+    c.sections.flatMap((s) => (s.cues ?? []).flatMap((q) => (q.clipId ? [q.clipId] : []))),
+  );
+  try {
+    for (const f of fs.readdirSync(trainingCueClipsDir(id))) {
+      if (!keepCueClips.has(f.replace(/\.(mp4|jpg|part)$/, "")))
+        fs.rmSync(path.join(trainingCueClipsDir(id), f), { force: true });
+    }
+  } catch {
+    /* nothing to prune */
+  }
   try {
     for (const f of fs.readdirSync(trainingVisualsDir(id))) {
       if (!keepKeys.has(f.split("-")[0]))

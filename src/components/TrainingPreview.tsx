@@ -39,7 +39,69 @@ const KIND_COLOR: Record<string, string> = {
   image: "#2dd4bf",
   screenshot: "#2dd4bf",
   infographic: "#c084fc",
+  clip: "#fb923c",
 };
+
+/**
+ * A generated clip inside its visual's panel, muted and kept in step with the
+ * preview clock: scrubbing shows the frame for that moment, playing plays it.
+ * It is shown whole (never stretched) and holds or loops like the render does.
+ */
+function PanelClip({
+  src,
+  offset,
+  playing,
+  seconds,
+  loop,
+}: {
+  src: string;
+  offset: number;
+  playing: boolean;
+  seconds: number;
+  loop: boolean;
+}) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const target = (v: HTMLVideoElement) => {
+    const length = seconds > 0 ? seconds : Number.isFinite(v.duration) ? v.duration : 0;
+    if (!length) return Math.max(0, offset);
+    return loop ? Math.max(0, offset) % length : Math.min(Math.max(0, offset), Math.max(0, length - 0.05));
+  };
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    const want = target(v);
+    if (playing) {
+      const ended = !loop && v.duration && want >= v.duration - 0.06;
+      if (ended) {
+        v.pause();
+        if (Math.abs(v.currentTime - want) > 0.1) v.currentTime = want;
+      } else if (v.paused) {
+        if (Math.abs(v.currentTime - want) > 0.1) v.currentTime = want;
+        void v.play().catch(() => {});
+      } else if (Math.abs(v.currentTime - want) > 0.4) {
+        v.currentTime = want;
+      }
+    } else {
+      v.pause();
+      if (Math.abs(v.currentTime - want) > 0.03) v.currentTime = want;
+    }
+    // `target` reads only the props listed here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offset, playing, seconds, loop, src]);
+  return (
+    <video
+      ref={ref}
+      src={src}
+      muted
+      playsInline
+      preload="auto"
+      loop={loop}
+      aria-hidden="true"
+      data-testid="preview-clip"
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", background: "#000" }}
+    />
+  );
+}
 
 function cueLook(q: TimelineCue, t: number, reduced: boolean, timing: TrainingTimeline["timing"]) {
   let opacity = 1;
@@ -140,6 +202,7 @@ export default function TrainingPreview({
   infographics,
   selectedCueId,
   onSelectCue,
+  cueClipUrl,
 }: {
   input: ComposeInput;
   timings: (SectionTiming | null)[];
@@ -149,6 +212,8 @@ export default function TrainingPreview({
   infographics: Map<string, InfographicContent>;
   selectedCueId?: string | null;
   onSelectCue?: (section: number, id: string) => void;
+  /** Where a generated cue clip is served from. Without it clip visuals preview as their caption only. */
+  cueClipUrl?: (clipId: string) => string;
 }) {
   const tl = useMemo(() => compileTrainingTimeline(input, timings), [input, timings]);
   const jobs = useMemo(() => rasterJobs(input), [input]);
@@ -249,9 +314,16 @@ export default function TrainingPreview({
     const cue = cueById.get(q.id);
     const job = jobs.find((j) => j.key === q.rasterKey);
     if (!cue || !job || !q.panel) return null;
+    const clipSrc = q.clip && cueClipUrl ? cueClipUrl(q.clip.id) : null;
     return (
-      <div key={`${q.id}-${state}`} style={{ position: "absolute", overflow: "hidden", ...px(q.panel), ...style }}>
-        <div style={{ transform: q.kenBurns && !reduced ? `scale(${1 + 0.06 * clamp01((t - q.start) / Math.max(0.1, q.end - q.start))})` : undefined }}>
+      <div
+        key={`${q.id}-${state}`}
+        style={{ position: "absolute", overflow: "hidden", ...(clipSrc ? { background: "#000" } : {}), ...px(q.panel), ...style }}
+      >
+        {clipSrc && q.clip && (
+          <PanelClip src={clipSrc} offset={t - q.start} playing={playing} seconds={q.clip.seconds} loop={q.clip.fit === "loop"} />
+        )}
+        <div style={{ position: "relative", transform: q.kenBurns && !reduced ? `scale(${1 + 0.06 * clamp01((t - q.start) / Math.max(0.1, q.end - q.start))})` : undefined }}>
           <TrainingVisual
             role="cue"
             width={job.width}

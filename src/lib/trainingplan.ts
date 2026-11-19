@@ -19,6 +19,7 @@ import { artifactSourceIds, SourceBoundaryError } from "./artifactsources";
 import { generationSourceError } from "./http";
 import { buildContext, sampleCorpus } from "./retrieve";
 import { GROUNDING_RULES } from "./studio";
+import { videoStatus } from "./videoproviders";
 
 type Loose = Record<string, unknown>;
 
@@ -66,7 +67,7 @@ export async function planTrainingVisuals(
   c: Pick<TrainingContent, "title" | "objectives" | "sections" | "composition" | "sourceIds" | "citations">,
   only?: number,
   /** Find pictures for the planned visuals until this time (ms since epoch). */
-  opts: { pictureDeadline?: number } = {}
+  opts: { pictureDeadline?: number; clips?: boolean } = {}
 ): Promise<TrainingCue[][]> {
   const composition = normalizeComposition(c.composition);
   const sourceIds = artifactSourceIds(c);
@@ -77,7 +78,9 @@ export async function planTrainingVisuals(
   if (!passages.length) throw new SourceBoundaryError("The selected sources have no usable excerpts.");
   const infographics = notebookInfographics(notebookId, sourceIds);
   const images = trainingImagesEnabled();
-  const system = `${GROUNDING_RULES}\n\n${TRAINING_VISUALS_INSTRUCTION({ images, infographics, presenter: composition })}
+  // Clips are opt-in per planning request and need a configured video model.
+  const clips = Boolean(opts.clips) && videoStatus().configured;
+  const system = `${GROUNDING_RULES}\n\n${TRAINING_VISUALS_INSTRUCTION({ images, clips, infographics, presenter: composition })}
 The script guides timing and layout, not evidence. Every factual visual, number and quotation must be supported by SOURCE EXCERPTS, even if an edited script says otherwise.`;
   const sections = c.sections
     .map((s, i) =>
@@ -111,6 +114,7 @@ ${sections}`;
     const out = normalizeVisualPlan(raw, c.sections, {
       composition,
       images,
+      clips,
       infographicIds: infographics.map((g) => g.id),
     });
     const relevant = only === undefined ? out : [out[only] ?? []];

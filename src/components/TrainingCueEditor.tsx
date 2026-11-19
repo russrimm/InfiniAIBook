@@ -20,6 +20,7 @@ import {
 } from "@/lib/trainingvisuals";
 import { captureUnsupportedReason } from "./useScreenCapture";
 import { captureScreenPng, fileToPng } from "./trainingRaster";
+import TrainingClipControls from "./TrainingClipControls";
 
 const inputCls =
   "w-full rounded-md border border-[var(--border)] bg-well px-2.5 py-1.5 text-[13px] text-[var(--fg)] outline-none placeholder:text-faint focus:border-focus disabled:opacity-60";
@@ -352,6 +353,16 @@ export default function TrainingCueEditor({
                 </button>
               )}
             </div>
+          </label>
+        </div>
+      )}
+
+      {cue.kind === "clip" && (
+        <div className="space-y-2">
+          <TrainingClipControls artifactId={artifactId} cue={cue} disabled={disabled} onChange={set} />
+          <label className="block">
+            <span className={labelCls}>Caption (optional)</span>
+            <input className={inputCls} value={cue.caption ?? ""} disabled={locked} onChange={(e) => set({ caption: e.target.value })} />
           </label>
         </div>
       )}

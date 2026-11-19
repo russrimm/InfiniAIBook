@@ -15,6 +15,7 @@ import { AVATAR_PRESETS } from "./avatars";
 import type { TrainingSection } from "./types";
 import {
   compositionPalette,
+  cueHasClip,
   findAnchor,
   hashText,
   normalizeComposition,
@@ -23,6 +24,7 @@ import {
   resolvePip,
   tokenize,
   TRAINING_RESOLUTIONS,
+  type ClipFit,
   type CueKind,
   type CueTransition,
   type TrainingBullet,
@@ -390,6 +392,8 @@ export function rasterJobs(input: ComposeInput): RasterJob[] {
     for (const cue of s.cues ?? []) {
       const { panel } = layoutGeometry(cue.layout, c);
       if (!panel || cue.kind === "presenter") continue;
+      // Left out of the timeline, so nothing is drawn for it.
+      if (cue.kind === "clip" && !cue.clipId) continue;
       const px = rectPixels(panel, c);
       jobs.push({
         key: cueKey(cue, input, px, vocab),
@@ -443,7 +447,8 @@ export type TimelineCue = {
   /** Absolute time each build state appears; state 0 at `start`. */
   states: number[];
   kenBurns: boolean;
-  /** The anchor only matched approximately, or not at all. */
+  /** A generated video that plays muted in the panel from the cue's start, for the cue's length. */
+  clip?: { id: string; seconds: number; fit: ClipFit };
   match: "exact" | "approx" | "missing";
 };
 
@@ -581,7 +586,12 @@ export function compileTrainingTimeline(
     });
 
     // Place each cue at its anchor; unmatched ones keep their listed order.
-    const list = section.cues ?? [];
+    // A clip visual without its clip is left out: rendering never starts a billable video job.
+    const list = (section.cues ?? []).filter((cue) => {
+      if (cue.kind !== "clip" || cue.clipId) return true;
+      warnings.push(`Section ${i + 1}: the video clip visual at "${cue.anchor || "(none)"}" has no clip yet, so it is left out.`);
+      return false;
+    });
     const placed = list.map((cue, n) => {
       const m = at(cue.anchor);
       if (!m) {
@@ -656,6 +666,9 @@ export function compileTrainingTimeline(
         rasterKey: cueKeyOf(p.cue),
         states: states.map(round),
         kenBurns: animation.pictures && Boolean(p.cue.kenBurns),
+        ...(cueHasClip(p.cue)
+          ? { clip: { id: p.cue.clipId!, seconds: p.cue.clipSeconds ?? 0, fit: p.cue.clipFit ?? "hold" } }
+          : {}),
         match: p.match,
       });
     });
@@ -780,6 +793,8 @@ export function renderConfig(
     palette: unknown;
     clip: (section: number) => string;
     raster: (key: string, state: number) => string;
+    /** Where a generated cue clip is stored; omit to render clip visuals as their (empty) panel only. */
+    cueClip?: (clipId: string) => string;
     burnCaptions: boolean;
     logo?: string | null;
     fps?: number;
@@ -804,6 +819,9 @@ export function renderConfig(
         transition: q.transition,
         panel: q.panel,
         kenBurns: q.kenBurns,
+        ...(q.clip && opts.cueClip
+          ? { video: { src: opts.cueClip(q.clip.id), seconds: q.clip.seconds, fit: q.clip.fit } }
+          : {}),
         states: q.states.map((at, k) => ({ at, src: opts.raster(q.rasterKey!, k) })),
       })),
     cards: tl.cards.map((k) => ({ start: k.start, duration: k.duration, src: opts.raster(k.rasterKey, 0) })),

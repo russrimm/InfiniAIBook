@@ -182,6 +182,18 @@ http
         const imageCue = ([anchor, imagePrompt, caption]) => ({
           kind: "image", anchor, layout: "side-right", imagePrompt, caption,
         });
+        // A video clip only when the planner was asked to propose them.
+        const clipCues = system.includes('"clip" — a short cinematic')
+          ? [
+              {
+                kind: "clip",
+                anchor: "Second, how to plan the build budget",
+                layout: "side-right",
+                clipPrompt: "A slow dolly shot along a row of raised garden beds at dawn, single continuous shot, no text.",
+                caption: "Beds at dawn",
+              },
+            ]
+          : [];
         return reply({
           sections: [
             {
@@ -198,6 +210,7 @@ http
                   ],
                 },
                 ...pictures.map(imageCue),
+                ...clipCues,
               ],
             },
             {

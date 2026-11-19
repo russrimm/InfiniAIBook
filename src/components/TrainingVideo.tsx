@@ -208,6 +208,15 @@ export default function TrainingVideo({
     { id: string; title: string; content: InfographicContent }[]
   >([]);
   const [selected, setSelected] = useState<string | null>(null);
+  // Video clips cost money per clip, so planning proposes them only when asked to.
+  const [clipsAvailable, setClipsAvailable] = useState(false);
+  const [proposeClips, setProposeClips] = useState(false);
+  useEffect(() => {
+    void fetch("/api/videoclip", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { configured?: boolean }) => setClipsAvailable(Boolean(j.configured)))
+      .catch(() => {});
+  }, []);
   const [selection, setSelection] = useState<{
     section: number;
     text: string;
@@ -655,7 +664,10 @@ export default function TrainingVideo({
       const res = await fetch(`/api/training/${artifactId}/visuals`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(section === undefined ? {} : { section }),
+        body: JSON.stringify({
+          ...(section === undefined ? {} : { section }),
+          ...(clipsAvailable && proposeClips ? { clips: true } : {}),
+        }),
       });
       const j = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(j.error || "Could not plan the visuals.");
@@ -1363,6 +1375,20 @@ export default function TrainingVideo({
                 words in a section to place a new visual there.
               </p>
               {picturesButton}
+              {clipsAvailable && (
+                <label
+                  className="flex items-center gap-1.5 text-[11px] text-[var(--muted)]"
+                  title="Planning again replaces every visual, including clips you already made. Proposed clips cost nothing until you generate them."
+                >
+                  <input
+                    type="checkbox"
+                    checked={proposeClips}
+                    disabled={locked}
+                    onChange={(e) => setProposeClips(e.target.checked)}
+                  />
+                  Propose video clips
+                </label>
+              )}
               <button
                 className="btn !text-xs"
                 disabled={locked}
@@ -1547,6 +1573,7 @@ export default function TrainingVideo({
               palette={compositionPalette(draft.composition)}
               ctxFor={ctxFor}
               infographics={infographicMap}
+              cueClipUrl={(clipId) => `/api/training/${artifactId}/cueclips/${clipId}`}
               selectedCueId={selected}
               onSelectCue={(_, id) => {
                 setSelected(id);

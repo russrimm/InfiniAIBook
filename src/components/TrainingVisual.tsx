@@ -502,6 +502,30 @@ export default function TrainingVisual({ role, width, height, state, palette: p,
       );
     }
 
+    case "clip":
+      // The clip plays beneath this drawing, which is transparent but for the caption.
+      return (
+        <Frame width={width} height={height} radius={!flat} style={{ background: "transparent" }}>
+          {cue.caption && (
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                padding: `${u * 3}px ${u * 4.5}px`,
+                background: `linear-gradient(transparent, ${p.dark}EE)`,
+                color: p.light,
+                fontSize: t * 4.2,
+                fontWeight: 620,
+              }}
+            >
+              {cue.caption}
+            </div>
+          )}
+        </Frame>
+      );
+
     case "infographic":
       return (
         <Frame width={width} height={height} radius={!flat} style={{ background: "#0e1116" }}>
