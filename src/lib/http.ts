@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { BudgetExceededError } from "./budget";
-import { MissingConfigError, describeAuthError, isConnectionError } from "./ai";
+import { MissingConfigError, describeAuthError, isConnectionError, isDroppedConnection } from "./ai";
 import { db } from "./db";
 import { SourceBoundaryError } from "./artifactsources";
 
@@ -27,6 +27,9 @@ export function fail(e: unknown) {
         { error: described, code: "rate_limit" },
         { status: 429 }
       );
+    }
+    if (isDroppedConnection(e)) {
+      return NextResponse.json({ error: described, code: "connection_dropped" }, { status: 503 });
     }
     if (status === 404 || isConnectionError(e)) {
       return NextResponse.json({ error: described, code: "config" }, { status: 502 });

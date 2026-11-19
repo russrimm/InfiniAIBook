@@ -195,7 +195,11 @@ request still running after about five seconds returns `200` at once and sends
 spaces, which JSON ignores, until the result is ready. A failure after that
 point therefore arrives as `{ "error": "...", "status": 502 }` in the body, not
 as the HTTP status. When you script these routes, parse the whole body and check
-for `error` before using the result.
+for `error` before using the result. The body of a failed model call carries a
+`code`: `connection_dropped` (`503`: the connection to the provider was closed or
+timed out mid-request, retried automatically and safe to retry), `config` (`502`:
+the provider endpoint cannot be reached or does not exist), `rate_limit`,
+`budget`, `auth` and `no_config`.
 
 | Method | Path | Body |
 |---|---|---|

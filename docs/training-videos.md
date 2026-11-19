@@ -53,6 +53,39 @@ If the connection drops during submission, check the video's progress before
 clicking **Render video** again: Azure may already have accepted the job.
 Completed visual uploads are cached and reused on the next attempt.
 
+#### "Could not reach Azure OpenAI" versus "the connection was closed or timed out"
+
+These are different problems and the message says which one it is.
+
+- **Could not reach Azure OpenAI at …** means the endpoint could not be
+  resolved or connected to: DNS, a refused connection, no route, or a
+  certificate or proxy problem. Check `AZURE_OPENAI_ENDPOINT`, the network, VPN
+  and firewall, and restart the server after changing `.env.local`. The
+  placeholder endpoint from `.env.example` gets its own message.
+- **The connection to Azure OpenAI … was closed or timed out before a reply
+  arrived** means the endpoint is fine but one request lost its connection
+  (`ECONNRESET`, `UND_ERR_SOCKET`, a header or body timeout). It is usually a
+  passing network problem, or a slow image generation that a VPN, proxy or
+  firewall cut off. It is safe to retry, and if the request never completed
+  nothing was billed. The response code is `503` with `"code":
+  "connection_dropped"`.
+
+Picture and chat calls to the model already retry on their own: a dropped
+connection up to twice (1 and 2 seconds apart), an unreachable host once, and a
+429, 408 or 5xx up to four times, honoring `Retry-After`, within three minutes in
+total. A call whose reply had already started arriving is never repeated, so a
+picture is not billed twice. The SDK's own retries are switched off for these
+calls so the two layers do not multiply.
+
+When **Render video** or **Add pictures** still cannot create some pictures
+after those retries, the pictures that worked are saved and the rest are
+reported: "1 of 12 pictures could not be created, so the video has not been
+rendered yet. The 11 that worked were kept." **Retry missing pictures** asks for
+only the missing ones and carries on to the render; **Render without them**
+renders those visuals with words only. A problem that would repeat for every
+picture, such as a rejected credential, a missing configuration or the daily
+budget, stops the run at once instead.
+
 ## Presenter with visuals
 
 A composed training video starts with the avatar and lays visuals over and

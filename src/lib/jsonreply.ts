@@ -1,5 +1,5 @@
 export class JSONReplyError extends Error {
-  constructor(message: string, public readonly status: number) {
+  constructor(message: string, public readonly status: number, public readonly code?: string) {
     super(message);
     this.name = "JSONReplyError";
   }
@@ -10,7 +10,7 @@ export class JSONReplyError extends Error {
  * and `res.json()` would surface it as "Unexpected token…" instead of a
  * message a person can act on.
  */
-export async function readJSONReply<T extends { error?: string; status?: number }>(
+export async function readJSONReply<T extends { error?: string; status?: number; code?: string }>(
   res: Response,
   fallback = "The request failed.",
   onStatus?: (status: string) => void,
@@ -37,12 +37,13 @@ export async function readJSONReply<T extends { error?: string; status?: number 
       typeof json?.status === "number" && json.status >= 400 && json.status <= 599
         ? json.status
         : res.status,
+      typeof json?.code === "string" ? json.code : undefined,
     );
   }
   return json;
 }
 
-async function readGenerationReply<T extends { error?: string; status?: number }>(
+async function readGenerationReply<T extends { error?: string; status?: number; code?: string }>(
   res: Response,
   fallback: string,
   onStatus?: (status: string) => void,
@@ -80,6 +81,7 @@ async function readGenerationReply<T extends { error?: string; status?: number }
         throw new JSONReplyError(
           "error" in body && typeof body.error === "string" ? body.error : fallback,
           event.status,
+          "code" in body && typeof body.code === "string" ? body.code : undefined,
         );
       }
       result = body as T;
