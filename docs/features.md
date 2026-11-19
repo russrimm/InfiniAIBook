@@ -26,6 +26,7 @@
 | 🎬 Whiteboard video | A hand draws your sources as marker doodles, narrated — choose a length preset or custom scene count, edit the script, then render MP4 |
 | 🎞️ Motion explainer | A narrated 2D animated story from your sources: characters, kinetic headlines, stat cards, optional music — choose a length preset or custom scene count, then render MP4. **Customizable**: tone, audience, six illustration styles, color palettes (or your own colors), your own character or none, a closing call to action, 720p or 1080p, and gentle, lively or still character motion |
 | 🧑‍🏫 Training video | A trainer's script from only your checked sources, edited then rendered by a lip-synced Azure avatar, MP4 |
+| 🎥 Video clip | Short AI-generated clips (Gemini or any OpenAI-compatible Videos API) from your sources: you edit the drafted prompts and see the estimated cost first, then watch progress, cancel, play and download MP4. Off until a video model is configured ([details](video-clips.md)) |
 | 📽️ PowerPoint deck | Title, agenda, content slides with speaker notes and a sources slide; download as PPTX |
 | 📄 Report | Executive summary, analytical sections, key takeaways, open questions |
 | 🧾 Briefing doc | Under 700 words: bottom line, evidence, risks, next steps |

@@ -10,6 +10,7 @@ import Infographic from "./Infographic";
 import PodcastPlayer from "./PodcastPlayer";
 import VideoPlayer from "./VideoPlayer";
 import TrainingVideo from "./TrainingVideo";
+import ClipViewer from "./ClipViewer";
 import SlideDeck from "./SlideDeck";
 import { STUDIO } from "@/lib/studio";
 import { buildPptx, slidesToMarkdown } from "@/lib/slides";
@@ -19,6 +20,7 @@ import type {
   Artifact,
   ArtifactType,
   Citation,
+  ClipContent,
   DocContent,
   FaqContent,
   FlashcardsContent,
@@ -215,6 +217,13 @@ function toMarkdown(a: Artifact): string {
         .map((s) => `## ${s.title}\n\n${s.caption ? `*${s.caption}*\n\n` : ""}${s.narration}`)
         .join("\n\n");
       return `${head}${v.description ? `${v.description}\n\n` : ""}${body}\n`;
+    }
+    case "clip": {
+      const k = c as unknown as ClipContent;
+      const body = k.clips
+        .map((clip, i) => `## Clip ${i + 1}\n\n${clip.prompt}\n\n${clip.status === "completed" ? `Video: ${clip.videoUrl}` : `Status: ${clip.status}${clip.error ? ` — ${clip.error}` : ""}`}`)
+        .join("\n\n");
+      return `${head}${body}\n`;
     }
     default:
       return head + ((c as unknown as DocContent).markdown ?? "");
@@ -508,6 +517,14 @@ function Body({
         <TrainingVideo
           artifactId={artifact.id}
           content={c as TrainingContent}
+          onRefresh={onRefresh ?? (() => {})}
+        />
+      );
+    case "clip":
+      return (
+        <ClipViewer
+          artifactId={artifact.id}
+          content={c as ClipContent}
           onRefresh={onRefresh ?? (() => {})}
         />
       );

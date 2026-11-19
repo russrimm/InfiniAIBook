@@ -415,6 +415,16 @@ different counts for "stats" or "sections", the style guidance wins.`,
     instruction: () => "",
   },
 
+  clip: {
+    label: "Video clip",
+    blurb: "Short AI-generated video clips",
+    icon: "🎥",
+    json: true,
+    // Drafted by /api/videoclip/prompts and made by /api/videoclip with the
+    // configured video model, not here. Present so listings have a label and icon.
+    instruction: () => "",
+  },
+
   podcast: {
     label: "Audio overview",
     blurb: "Custom speaker audio",
@@ -611,7 +621,7 @@ export const STUDIO_SPOKEN_GROUPS: {
     key: "watch",
     label: "Watch",
     blurb: "Narrated videos. Each stops at an editable script before anything renders.",
-    items: ["video", "motion", "training"],
+    items: ["video", "motion", "training", "clip"],
   },
 ];
 
@@ -621,6 +631,7 @@ const SEARCH_WORDS: Record<StudioItemId, string> = {
   video: "whiteboard video hand drawn draw narrated",
   motion: "motion explainer video animated animation 2d story",
   training: "training video presenter avatar course lesson",
+  clip: "video clip ai generated b-roll short footage cinematic sora veo gemini",
   report: "report document write-up long form",
   briefing: "briefing doc executive summary one-pager",
   study_guide: "study guide revision learn terms concepts",

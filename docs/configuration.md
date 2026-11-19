@@ -103,6 +103,7 @@ other provider it is a model id.
 | **Realtime voice** | [Live discussions](discussions.md): the spoken conversation itself, plus a transcription model for what you say | The Live discussion card explains what to set |
 | **Speech** (Azure AI Speech, not a deployment) | Audio overviews, voice previews, whiteboard and motion narration, and training-video avatars | Those features are unavailable |
 | **Gemini** | YouTube transcripts, fetched by Gemini on Google's side | The app tries YouTube's own captions, then falls back to the video description, clearly labeled |
+| **Video** | The Studio **Video clip** generator: short AI-generated clips ([details](video-clips.md)) | The card says "No video model is configured" and nothing is billed |
 
 ### How to configure it
 
@@ -118,6 +119,7 @@ other provider it is a model id.
 | **Realtime transcription** | `AI_REALTIME_TRANSCRIPTION_MODEL` | same | `gpt-4o-mini-transcribe` |
 | **Speech** | `AZURE_SPEECH_REGION` + `AZURE_SPEECH_RESOURCE_ID`, or `AZURE_SPEECH_KEY`<br>`AZURE_SPEECH_ENDPOINT` for the avatar service | same | Multitalker HD and standalone neural voices |
 | **Gemini** | `GEMINI_API_KEY`, `GEMINI_MODEL` | same | `gemini-2.5-flash` |
+| **Video** | `AZURE_OPENAI_VIDEO_DEPLOYMENT` (a deployed video model), or `AI_VIDEO_PROVIDER=gemini` with `GEMINI_API_KEY` | `AI_VIDEO_PROVIDER`, `AI_VIDEO_MODEL`, `AI_VIDEO_BASE_URL`, `AI_VIDEO_API_KEY` | none; Gemini uses `gemini-omni-1.2-flash`. Sora 2 is retired |
 
 The default Speech voice is `en-Multitalker:DragonHDLatestNeural`, alongside the
 standalone neural voices.
@@ -160,6 +162,9 @@ commentary. Only a model provider is required.
 | `AI_STUDIO_MODEL`, `AI_STUDIO_ENDPOINT`, `AI_STUDIO_API`, `AI_STUDIO_BASE_URL`, `AI_STUDIO_API_KEY`, `AI_STUDIO_MAX_TOKENS` | Separate model for audio-overview, video and training scripts and scene plans; see [Studio script model](#studio-script-model) |
 | `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX` | Optional discovery API fallbacks; Bing RSS is always searched first |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | YouTube transcripts via Gemini |
+| `AI_VIDEO_PROVIDER`, `AI_VIDEO_MODEL`, `AI_VIDEO_BASE_URL`, `AI_VIDEO_API_KEY`, `AZURE_OPENAI_VIDEO_DEPLOYMENT`, `AZURE_OPENAI_VIDEO_API_VERSION`, `AZURE_OPENAI_VIDEO_SCOPE` | Optional video model for the Studio **Video clip** generator: Gemini, an OpenAI-compatible Videos API, or an Azure OpenAI deployment. Off until set; a `GEMINI_API_KEY` alone does not enable it ([Video clips](video-clips.md#providers)) |
+| `AI_VIDEO_DURATIONS`, `AI_VIDEO_ASPECTS`, `AI_VIDEO_RESOLUTIONS`, `AI_VIDEO_PRICE_PER_SECOND_USD` | What an OpenAI-compatible or Azure video model accepts, and your per-second rate for the cost estimate (overrides every built-in rate) |
+| `VIDEO_CLIP_CONCURRENCY`, `VIDEO_CLIP_POLL_SECONDS`, `VIDEO_CLIP_TIMEOUT_MIN`, `VIDEO_CLIP_MAX_MB` | Clips made at once (default 2, at most 4), seconds between polls (default 5), minutes before a clip is abandoned (default 20) and the largest clip saved (default 200 MB) |
 | `YOUTUBE_API_KEY`, `YOUTUBE_COOKIE`, `YOUTUBE_CAPTION_LANG` | YouTube metadata and transcript fallbacks |
 | `PYTHON_BIN` | Python interpreter for the whiteboard, motion and training renderers (default `python`; `python3` in the Docker image) |
 | `TRAINING_RENDERER`, `MOTION_RENDERER`, `HYPERFRAMES_BIN`, `HYPERFRAMES_WORKERS`, `HYPERFRAMES_TIMEOUT_MIN` | Opt in to the HyperFrames renderer for training videos (`TRAINING_RENDERER=hyperframes`) and motion explainers (`MOTION_RENDERER=hyperframes`); the default is the Python renderer. The **High-tech HUD** style uses HyperFrames automatically whenever `npx` (or `HYPERFRAMES_BIN`) can start, unless the matching variable is set to `python`; if HyperFrames is unavailable or fails, the standard renderer runs and the video's note says so. Tune it with a `hyperframes` executable to use instead of `npx`, parallel browser workers (default 1–4 by CPU count) and a time limit (default 120 minutes) ([Training videos](training-videos.md#the-hyperframes-compositor), [Motion explainers](motion-explainers.md#the-hyperframes-renderer), [High-tech look](training-videos.md#the-high-tech-look)) |

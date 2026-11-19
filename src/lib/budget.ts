@@ -31,6 +31,14 @@ export function cloudSpendLikely(): boolean {
     return true;
   }
   const provider = process.env.AI_PROVIDER?.trim().toLowerCase() ?? "";
+  // A video model is billed per second however local the chat model is.
+  if (
+    process.env.AZURE_OPENAI_VIDEO_DEPLOYMENT?.trim() ||
+    process.env.AI_VIDEO_PROVIDER?.trim() ||
+    process.env.AI_VIDEO_MODEL?.trim()
+  ) {
+    return true;
+  }
   if (LOCAL_PROVIDERS.has(provider)) return false;
   const base = process.env.AI_BASE_URL?.trim() ?? "";
   if (/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?/i.test(base)) return false;
@@ -110,6 +118,24 @@ export function reserve(kind: string, cents: number, now = Date.now()): void {
       now
     );
   });
+}
+
+/**
+ * Refuse a job up front when it could not fit under today's ceiling, without
+ * recording any spend. Long, costly jobs (video clips) check this before they
+ * start, then `reserve` each piece as it is submitted so a cancelled job is
+ * never charged for pieces it never made.
+ */
+export function assertCanAfford(cents: number, now = Date.now()): void {
+  const cap = dailyBudgetCents();
+  if (cap === null || cents <= 0) return;
+  const spent = spentTodayCents(now);
+  if (spent + cents > cap) {
+    const left = Math.max(0, cap - spent);
+    throw new BudgetExceededError(
+      `This would cost about $${(cents / 100).toFixed(2)}, but only $${(left / 100).toFixed(2)} is left of today's $${(cap / 100).toFixed(2)} budget. Raise DAILY_BUDGET_USD, or set it to 0 to turn the ceiling off.`
+    );
+  }
 }
 
 export function budgetStatus(now = Date.now()) {

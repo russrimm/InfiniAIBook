@@ -217,6 +217,20 @@ http
         });
       }
 
+      // Clip prompt drafting for the Studio "Video clip" generator.
+      if (system.includes("cinematographer writing prompts")) {
+        last = { kind: "clip-prompts", system: system.slice(0, 60) };
+        return reply({
+          prompts: [
+            {
+              title: "Raised beds at dawn",
+              prompt:
+                "A slow dolly shot along twenty-four raised garden beds at dawn, warm light on fresh soil, a single continuous shot with no text on screen.",
+            },
+          ],
+        });
+      }
+
       // Follow-up question suggestions for a chat answer.
       if (system.includes("You suggest follow-up questions")) {
         last = { kind: "chat-suggest", system: system.slice(0, 60) };

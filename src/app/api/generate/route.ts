@@ -168,7 +168,7 @@ function isEmpty(type: ArtifactType, c: Loose): boolean {
 const MAX_TOPIC_CHARS = 2000;
 
 /** Formats built by their own routes; their studio entries carry no prompt. */
-const OWN_ROUTE = new Set<string>(["podcast", "video", "motion", "training"]);
+const OWN_ROUTE = new Set<string>(["podcast", "video", "motion", "training", "clip"]);
 
 const bad = (error: string) => NextResponse.json({ error, code: "invalid" }, { status: 400 });
 

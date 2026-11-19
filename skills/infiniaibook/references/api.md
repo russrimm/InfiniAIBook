@@ -136,6 +136,23 @@ Composed training videos return 409 until every visual is drawn
 (`GET /api/training/{id}/raster` lists what is missing). Voices:
 `GET /api/voices`; a sample: `GET /api/voices/preview?voice=...&style=...`.
 
+## Video clips (need a video model; off by default)
+
+`GET /api/videoclip` says whether a video model is configured and what it supports
+(`configured`, `capabilities.durations`, `capabilities.aspects`, prices, today's budget).
+Nothing is billed until `POST /api/videoclip`.
+
+| Step | Call |
+|---|---|
+| Draft prompts | `POST /api/videoclip/prompts` `{ notebookId, sourceIds, topic?, aspect?, duration?, count? }` returns `{ prompts: [{ title, prompt }] }` |
+| Make clips | `POST /api/videoclip` `{ notebookId, sourceIds, prompts, aspect?, duration?, resolution?, variants?, reference? }`; returns the artifact at once with `progress.stage: "generating"` |
+| Wait | Poll `GET /api/artifacts/{id}`; each `clips[]` entry has a `status` and, when done, a `videoUrl` |
+| Stop | `POST /api/videoclip/{id}/cancel` |
+| Play | `GET /api/videoclip/{id}/{n}` (byte ranges supported) |
+
+An unsupported duration or shape is refused with 400, a run over today's budget with 429
+`code: "budget"`, and no configured model with 400 `code: "not_configured"`.
+
 ## Notes and transformations
 
 ```bash
