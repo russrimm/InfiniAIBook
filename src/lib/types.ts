@@ -176,6 +176,8 @@ export type InfographicContent = {
   orientation?: InfographicOrientation;
   /** Requested amount of detail. */
   detail?: InfographicDetail;
+  /** The title was typed by the user and is shown exactly as written. */
+  customTitle?: boolean;
   /**
    * Set when an image style could not be rendered and the brief was kept in
    * the HTML illustrated layout instead, so no generated content is lost.

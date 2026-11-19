@@ -62,7 +62,8 @@ import {
   DETAIL_LEVELS,
   INFOGRAPHIC_STYLES,
   MAX_INFOGRAPHIC_INSTRUCTIONS,
-  ORIENTATIONS,
+  MAX_INFOGRAPHIC_TITLE,
+  cleanTitle,  ORIENTATIONS,
   STYLE_META,
   STYLE_ORDER,
   isImageStyle,
@@ -248,6 +249,7 @@ export default function StudioPanel({
     useState<InfographicOrientation>("landscape");
   const [detail, setDetail] = useState<InfographicDetail>("standard");
   const [instructions, setInstructions] = useState("");
+  const [infographicTitle, setInfographicTitle] = useState("");
   const [describeOpen, setDescribeOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<StyleSuggestion[] | null>(
@@ -491,6 +493,7 @@ export default function StudioPanel({
             orientation,
             detail,
             instructions: instructions.trim() || undefined,
+            title: cleanTitle(infographicTitle) || undefined,
           }
         : {}),
       ...(type === "slides" ? { theme: slideTheme, length: slideLength } : {}),
@@ -1668,8 +1671,8 @@ export default function StudioPanel({
                               : s.blurb
                           }
                           summary={`${capitalize(orientation)} · ${capitalize(detail)} detail${
-                            instructions.trim() ? " · description added" : ""
-                          }`}
+                            cleanTitle(infographicTitle) ? " · titled" : ""
+                          }${instructions.trim() ? " · description added" : ""}`}
                           options={
                             <>
                               <div className="flex flex-wrap items-center gap-1.5">
@@ -1759,6 +1762,39 @@ export default function StudioPanel({
                                     ))}
                                   </select>
                                 </label>
+                              </div>
+
+                              <div>
+                                <label
+                                  htmlFor="infographic-title"
+                                  className="block text-[10px] tracking-wide text-[var(--muted)] uppercase"
+                                >
+                                  Title
+                                </label>
+                                <input
+                                  id="infographic-title"
+                                  type="text"
+                                  maxLength={MAX_INFOGRAPHIC_TITLE}
+                                  value={infographicTitle}
+                                  onChange={(e) =>
+                                    setInfographicTitle(e.target.value)
+                                  }
+                                  onBlur={() =>
+                                    setInfographicTitle(cleanTitle)
+                                  }
+                                  aria-describedby="infographic-title-help"
+                                  placeholder="e.g. Riverside garden pilot"
+                                  className="mt-1 w-full min-w-0 rounded-md border border-[var(--border)] bg-well px-2 py-1.5 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                                />
+                                <p
+                                  id="infographic-title-help"
+                                  className="mt-0.5 text-[10px] leading-snug text-[var(--muted)]"
+                                >
+                                  Leave blank to generate a title from your
+                                  content ·{" "}
+                                  {[...infographicTitle].length}/
+                                  {MAX_INFOGRAPHIC_TITLE}
+                                </p>
                               </div>
 
                               <div>

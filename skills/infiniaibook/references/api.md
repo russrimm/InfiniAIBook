@@ -94,7 +94,8 @@ curl -s -X POST $B/api/generate -H "$H" \
 `type` is `report`, `briefing`, `study_guide`, `faq`, `quiz`, `flashcards`,
 `mindmap`, `timeline`, `slides` or `infographic`. Optional: `topic` (up to 2,000
 characters), `difficulty` and `length` (study aids), `theme`
-(slides), and for infographics `style`, `orientation`, `detail` and
+(slides), and for infographics `style`, `orientation`, `detail`, `title`
+(optional, up to 80 characters; blank means the model writes one) and
 `instructions` (up to 600 characters). `POST /api/infographic/suggest` returns up
 to three styles that suit the sources. Every Studio generation and style
 suggestion requires explicit, nonempty `sourceIds` belonging to the notebook.

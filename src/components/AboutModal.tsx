@@ -174,7 +174,7 @@ const HELP: {
         title: "Infographic styles and suggestions",
         body: [
           "Open the style gallery from the Infographic card to browse or search styles and filter Drawn by AI, Structure-led or Look-led. Compare examples; AI-drawn examples are labeled layout sketches, not generated previews. Use this style selects a style; Generate in the gallery also starts generation.",
-          "Suggest styles for my sources recommends styles for your selected sources and Focus. Choose Orientation (landscape, portrait or square), Level of detail, and Describe the infographic you want. Drawn styles require an image model; Illustrated is the HTML alternative. Open a finished infographic for PNG or Markdown export.",
+          "Suggest styles for my sources recommends styles for your selected sources and Focus. Choose Orientation (landscape, portrait or square), Level of detail, an optional Title (leave it blank to have one written from your content), and Describe the infographic you want. Drawn styles require an image model; Illustrated is the HTML alternative. Open a finished infographic for PNG or Markdown export.",
         ],
         doc: "infographics.md",
       },
