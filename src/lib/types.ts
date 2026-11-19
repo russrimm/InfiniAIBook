@@ -2,6 +2,7 @@ import type { MotionOptions, MotionPlan } from "./motion";
 import type { TrainingComposition, TrainingCue } from "./trainingvisuals";
 import type { MusicChoice } from "./musicchoice";
 import type { WatermarkChoice } from "./watermarkchoice";
+import type { Bookends, BookendSlot } from "./bookends";
 import type { NarrationSettings } from "./narration";
 import type { PodcastScript } from "./podcastscript";
 import type { ScenePlan } from "./whiteboard";
@@ -22,6 +23,10 @@ export type VideoExtras = {
   watermarkChoice?: WatermarkChoice | null;
   /** Whether the last render actually had a watermark stamped on it. */
   watermarked?: boolean;
+  /** The intro and outro to put around the next render; absent or all off for none. */
+  bookends?: Bookends;
+  /** Which of them the last render actually has. */
+  bookendsApplied?: BookendSlot[];
 };
 
 export type ArtifactType =

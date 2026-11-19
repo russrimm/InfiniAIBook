@@ -242,6 +242,22 @@ fades in and out and is ducked under the narration. No music ships with the
 app. Royalty-free doesn't always mean free to redistribute, so check each
 track's license before you publish a video.
 
+## Intro and outro clips
+
+In the script editor, **Intro and outro clips (optional)** adds a short clip
+before the first scene and after the last. Both are off by default. Make each
+with AI (a prompt drafted from the title and script, editable, priced and
+budgeted before anything is billed), pick a clip from the notebook's
+**Video clip** library, or upload an MP4. The editor shows the final order and
+the total length, and a short cross-fade (or a cut) joins the pieces. The clips
+are joined around the finished video after rendering, whichever renderer made it,
+fitted to its size without stretching, and the watermark covers them. The music
+plays only under the video itself. A generated clip is kept and reused, so
+re-rendering never bills it again. A render is refused rather than leaving out a
+requested clip. See
+[Intro and outro clips](training-videos.md#intro-and-outro-clips) for the full
+behavior and [Video clips](video-clips.md) for providers and costs.
+
 ## Watermark
 
 The **Mark** picker on the card or in the script editor adds an optional text

@@ -75,7 +75,7 @@ export function removeVideo(id: string) {
   } catch {
     /* already gone */
   }
-  for (const dir of [videoWorkDir(id), trainingClipsDir(id), trainingVisualsDir(id), trainingCueClipsDir(id)]) {
+  for (const dir of [videoWorkDir(id), trainingClipsDir(id), trainingVisualsDir(id), trainingCueClipsDir(id), bookendDir(id)]) {
     try {
       fs.rmSync(dir, { recursive: true, force: true });
     } catch {
@@ -143,6 +143,17 @@ export function trainingCueClipsDir(id: string): string {
 export function trainingCueClipPath(id: string, clipId: string, ext: "mp4" | "jpg" = "mp4"): string {
   if (!/^[A-Za-z0-9_-]{1,32}$/.test(clipId)) throw new Error("Invalid clip id");
   return path.join(trainingCueClipsDir(id), `${clipId}.${ext}`);
+}
+
+/** Intro and outro clips of a training video or motion explainer, one MP4 per clip id. */
+export function bookendDir(id: string): string {
+  if (!/^[A-Za-z0-9_-]{1,32}$/.test(id)) throw new Error("Invalid video id");
+  return path.join(videoDir(), `${id}-bookends`);
+}
+
+export function bookendClipPath(id: string, clipId: string, ext: "mp4" | "jpg" = "mp4"): string {
+  if (!/^[A-Za-z0-9_-]{1,32}$/.test(clipId)) throw new Error("Invalid clip id");
+  return path.join(bookendDir(id), `${clipId}.${ext}`);
 }
 
 /** Visuals the browser drew for the compositor, keyed by their content. */

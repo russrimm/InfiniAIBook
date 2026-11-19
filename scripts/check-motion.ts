@@ -112,6 +112,8 @@ function report() {
   console.log(
     `ok    ${config.duration.toFixed(1)} s of ${config.width}x${config.height} video rendered${useHyperframes ? " with HyperFrames" : ""} in ${((Date.now() - started) / 1000).toFixed(1)} s → ${out}`
   );
+  // An intro and an outro put around the result, in step with it and not stretched.
+  run([path.join("scripts", "bookends", "check_bookends.py"), out, path.join(dir, "bookends")]);
 }
 
 if (useHyperframes) {

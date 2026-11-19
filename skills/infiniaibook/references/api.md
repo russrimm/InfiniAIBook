@@ -158,6 +158,17 @@ route with `{ cueId, cancel: true }` stops it, and `GET /api/training/{id}/cuecl
 plays it. `POST /api/training/{id}/visuals` proposes clips only with `{ clips: true }`.
 Rendering never makes a clip, and a clip visual without one is left out.
 
+Intro and outro clips on a training video or motion explainer (`{id}` is the artifact id,
+both off by default): `GET /api/bookends/{id}` returns the settings, each slot's status,
+the combined estimate and the budget; `PUT /api/bookends/{id}` `{ intro, outro, fade, clear? }`
+saves them (`mode` is `off`, `ai`, `library` or `upload`; `fade` is `cut`, `short` or `long`).
+`POST /api/bookends/{id}/prompt` `{ slot }` drafts a prompt, `POST /api/bookends/{id}/clip`
+`{ slot, prompt, seconds?, resolution? }` starts a clip (or `{ slot, cancel: true }`) and
+`GET /api/bookends/{id}/clip?slot=` reports it. `POST /api/bookends/{id}/file` takes an MP4
+upload (`slot`, `file`) or `{ slot, artifactId, index }` for a library clip, and
+`GET /api/bookends/{id}/library` lists the clips to choose from. `GET /api/bookends/{id}/media/{clipId}`
+plays a clip. A render is refused with 409 while a requested slot has no clip.
+
 An unsupported duration or shape is refused with 400, a run over today's budget with 429
 `code: "budget"`, and no configured model with 400 `code: "not_configured"`.
 

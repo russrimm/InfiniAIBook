@@ -17,6 +17,7 @@ import { MULTITALKER_SPEAKERS, WORDS_PER_MINUTE } from "@/lib/voices";
 import MusicPicker from "./MusicPicker";
 import NarrationOptions from "./NarrationOptions";
 import WatermarkPicker from "./WatermarkPicker";
+import BookendsEditor from "./BookendsEditor";
 import GenerationModal from "./GenerationModal";
 import { readJSONReply } from "@/lib/jsonreply";
 
@@ -578,6 +579,14 @@ function ScriptEditor({
           Instructions shape newly written scripts; the replacement list is
           applied to this script when you save and when it renders.
         </p>
+        {variant === "motion" && (
+          <details className="rounded-md border border-[var(--border)] px-2.5 py-2">
+            <summary className="cursor-pointer text-[11px] font-medium">Intro and outro clips (optional)</summary>
+            <div className="mt-2">
+              <BookendsEditor artifactId={artifactId} disabled={locked} />
+            </div>
+          </details>
+        )}
       </section>
 
       <section className="space-y-3">
