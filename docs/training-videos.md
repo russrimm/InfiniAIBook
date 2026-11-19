@@ -110,6 +110,7 @@ around it on one timeline:
   returns to the presenter alone.
 - **Kinds of visual.** Title card, learning objectives, bullet points, key
   number, quote, knowledge check, AI image (drawn on demand by the image model),
+  video clip (a short generated clip, see [below](#video-clips-as-visuals)),
   screenshot or picture (upload, paste or capture a screen), and notebook
   infographics grounded entirely in the video's selected sources.
 - **A picture on every slide.** Title cards, objectives, bullet points, key
@@ -182,6 +183,44 @@ where they will stand shows one of the section's pictures, labeled "Presenter
 appears here once rendered". Once the presenter has been rendered, the preview
 plays the real transparent presenter clips instead. Without Azure Speech
 configured, timing is estimated from the word count and the preview is silent.
+
+### Video clips as visuals
+
+When a [video model is configured](video-clips.md#providers), a visual can be a
+short **Video clip** of generated B-roll that plays muted in the visual's panel
+while the presenter's voice continues. Clips cost money per second, so they are
+always opt-in:
+
+- **Planning proposes none by default.** Tick **Propose video clips** beside
+  **Plan all visuals again** (it appears only when a video model is configured)
+  and the planner may add a few, each with a prompt describing one continuous
+  shot. Proposing costs nothing. Planning again replaces every visual,
+  including clips you already made.
+- **A clip is made only when you press Generate** in the visual's editor, after
+  editing its prompt. The editor shows the shape, length and quality choices the
+  model supports, an **estimated cost** (also checked against `DAILY_BUDGET_USD`),
+  a status line, **Cancel**, a player for the result, **Generate another** and
+  **Remove clip**. You can add one by hand by choosing **Video clip** as a
+  visual's kind. With no video model configured the editor says so and links to
+  the setup guide.
+- **A visual without a clip is left out of the render**, with a warning in the
+  preview. Rendering never makes a clip and never bills for one.
+- **Preview.** The browser preview plays the clip in its panel, muted, at the
+  right moment, and scrubbing shows the right frame.
+- **Fitting.** The clip plays from the moment its visual appears, in the panel
+  at its own aspect ratio (a portrait clip is pillarboxed, never stretched),
+  under the visual's caption and with the rounded panel corners. A clip longer
+  than its visual is cut where the visual ends; a shorter one **holds its last
+  frame**, or **loops** if you choose that. The presenter's voice stays the only
+  audio: the clip's own sound is never used. Watermarks, captions and the
+  logo are drawn over it as for any visual.
+- **Both renderers.** The standard Python compositor and HyperFrames play clips
+  the same way (`npm run check:training` and `npm run check:training -- --hyperframes`
+  compose a synthetic clip and check that it is not stretched and holds).
+  HyperFrames first cuts, holds or loops each clip to its visual's length
+  without sound, using the same ffmpeg the compositor uses.
+- **Storage.** Clips live under the training video and are deleted with it;
+  clips no visual uses any more are removed at the next render.
 
 ### How it renders
 
@@ -321,20 +360,22 @@ presenter on a flat background.
 
 ## Why the text-to-speech avatar, not a generative video model
 
-Foundry offers two ways to produce a person on video:
+Foundry offers a lip-synced presenter through the Azure Speech avatar service.
+Generative video models (see [Video clips](video-clips.md); Sora 2, which this
+page used to compare against, was retired in 2026) are a different tool:
 
-| | Sora 2 (Azure OpenAI) | Text-to-speech avatar (Azure Speech) |
+| | Generative video model | Text-to-speech avatar (Azure Speech) |
 |---|---|---|
-| Clip length | 4–12 seconds per generation | Up to 20 minutes per job |
-| Same presenter throughout | No — each clip is a new person | Yes |
+| Clip length | A few seconds to about 15 per generation | Up to 20 minutes per job |
+| Same presenter throughout | No: each clip is a new person | Yes |
 | Lip-sync to a script | No | Yes, driven by the neural voice |
-| Approximate price | ~$0.10 per second (~$6 per minute) | Roughly $0.50–$2 per minute |
-| Entra ID auth | Yes | Yes |
+| Approximate price | About $0.07 to $0.10 per second | Roughly $0.50–$2 per minute |
 
 A training video is minutes of one person talking, so it needs a stable,
-lip-synced presenter for its whole length. Sora is the better creative model,
-but it cannot hold a presenter across clips and costs several times as much.
-The avatar service is the best fit for this job at a fraction of the price.
+lip-synced presenter for its whole length: that is the avatar. A generative
+video model is the better creative tool for a few seconds of B-roll, which is
+why a visual can now be a [short generated clip](#video-clips-as-visuals) that
+plays beside or instead of the presenter while the presenter's voice continues.
 
 ## Setup
 

@@ -38,6 +38,12 @@ export type HyperframesOptions = {
   clip: (section: number) => string;
   /** Where the browser saved a visual's drawing. */
   raster: (key: string, state: number) => string;
+  /**
+   * The generated clip for a video visual, already cut, held or looped to the
+   * visual's length and without sound (the "fitclip" step of
+   * scripts/training/hf_assist.py), keyed by the timeline cue's id.
+   */
+  cueClip?: (cueId: string) => string;
   burnCaptions: boolean;
   logo?: string | null;
   fps?: number;
@@ -115,9 +121,13 @@ export function buildHyperframesProject(tl: TrainingTimeline, opts: HyperframesO
     const chrome = hs
       ? htCueChrome(id, { w: Math.round(q.panel.w * W), h: Math.round(q.panel.h * H) }, full, start, arrives, hs, js)
       : "";
-    const inner = q.kenBurns
-      ? `<div id="${id}p" class="pic" style="overflow:hidden">${imgs.join("")}</div>${chrome}`
-      : `<div id="${id}p" class="pic">${imgs.join("")}</div>${chrome}`;
+    // A generated clip plays muted under the drawing (its caption), letterboxed on black and never stretched.
+    const fitted = q.clip && opts.cueClip ? opts.cueClip(q.id) : null;
+    const video = fitted
+      ? `<video id="${id}v" class="cv" src="${asset(fitted, `cue-${n}.mp4`)}" muted playsinline ${timed(start, hold + t.cueOut)} data-track-index="${4 + n}"></video>`
+      : "";
+    const picStyle = fitted ? "overflow:hidden;border-radius:inherit;background:#000" : q.kenBurns ? "overflow:hidden" : "";
+    const inner = `<div id="${id}p" class="pic"${picStyle ? ` style="${picStyle}"` : ""}>${video}${imgs.join("")}</div>${chrome}`;
     html.push(
       `<div id="${id}" class="cue${hs && !full ? " ht-cue" : ""}" ${timed(start, q.end - q.start + t.cueOut)} style="${style}">${inner}</div>`
     );
@@ -253,6 +263,7 @@ html, body { width: ${W}px; height: ${H}px; overflow: hidden; background: ${DEFA
 .cue { position: absolute; z-index: 10; }
 .cue .pic { position: absolute; inset: 0; }
 .cue img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.cue video.cv { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
 #avatar { position: absolute; left: 0; top: 0; width: ${W}px; height: ${H}px; z-index: 20; transform-origin: 50% 50%; }
 #avatar video { position: absolute; left: 0; top: 0; width: ${W}px; height: ${H}px; object-fit: contain; }
 .lower { position: absolute; z-index: 30; }

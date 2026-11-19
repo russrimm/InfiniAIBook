@@ -71,6 +71,7 @@ src/
     videogemini.ts  videoopenai.ts   one file per provider's wire format
     videoclipjob.ts    runs one clip: submit, poll, download, retry with Retry-After, cancel, error wording
     videoclipstore.ts  clip artifacts: background runs, per-clip budget reservation, cancel, cleanup
+    trainingclips.ts   one clip for one training-video visual: started on request, polled, cancelled, saved under the video
     videohttp.ts       error replies, capped streaming downloads, long-timeout fetch
     ingest.ts    text extraction + chunking
     retrieve.ts  hybrid retrieval, corpus sampling, citation building

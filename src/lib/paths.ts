@@ -75,7 +75,7 @@ export function removeVideo(id: string) {
   } catch {
     /* already gone */
   }
-  for (const dir of [videoWorkDir(id), trainingClipsDir(id), trainingVisualsDir(id)]) {
+  for (const dir of [videoWorkDir(id), trainingClipsDir(id), trainingVisualsDir(id), trainingCueClipsDir(id)]) {
     try {
       fs.rmSync(dir, { recursive: true, force: true });
     } catch {
@@ -132,6 +132,17 @@ export function trainingClipsDir(id: string): string {
 export function trainingClipPath(id: string, hash: string, ext: "webm" | "json" = "webm"): string {
   if (!HASH.test(hash)) throw new Error("Invalid clip hash");
   return path.join(trainingClipsDir(id), `${hash}.${ext}`);
+}
+
+/** AI video clips made for the visuals of a training video, one MP4 (and optional still) per clip id. */
+export function trainingCueClipsDir(id: string): string {
+  if (!/^[A-Za-z0-9_-]{1,32}$/.test(id)) throw new Error("Invalid video id");
+  return path.join(videoDir(), `${id}-cueclips`);
+}
+
+export function trainingCueClipPath(id: string, clipId: string, ext: "mp4" | "jpg" = "mp4"): string {
+  if (!/^[A-Za-z0-9_-]{1,32}$/.test(clipId)) throw new Error("Invalid clip id");
+  return path.join(trainingCueClipsDir(id), `${clipId}.${ext}`);
 }
 
 /** Visuals the browser drew for the compositor, keyed by their content. */

@@ -71,11 +71,40 @@ clip("clip-0.webm", 6, 330, False)
 # HyperFrames lays clips over the stage as they are, so its check needs both transparent.
 clip("clip-1.webm", 5, 392, "--alpha" not in sys.argv)
 
+
+def cue_clip(name, seconds, w, h):
+    """A generated clip as a video model returns it: opaque H.264, here portrait on orange with a moving bar."""
+    out = os.path.join(d, name)
+    proc = subprocess.Popen(
+        [ff, "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h}", "-r", str(FPS),
+         "-i", "-", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast", "-crf", "18", out],
+        stdin=subprocess.PIPE,
+    )
+    n = int(seconds * FPS)
+    for i in range(n):
+        im = Image.new("RGB", (w, h), (255, 128, 0))
+        y = int((h - 24) * i / max(1, n - 1))
+        ImageDraw.Draw(im).rectangle((0, y, w, y + 24), fill=(255, 255, 255))
+        proc.stdin.write(im.tobytes())
+    proc.stdin.close()
+    if proc.wait() != 0:
+        sys.exit(f"could not write {name}")
+
+
+# 9:16 and one second long: shorter than its visual, so the check sees it held and never stretched.
+cue_clip("cue-clip.mp4", 1, 270, 480)
+
 palette = [(37, 99, 235), (14, 165, 233), (245, 158, 11), (30, 41, 59)]
 for n, job in enumerate(jobs):
     for s in range(job["states"]):
         im = Image.new("RGBA", (job["width"], job["height"]), (0, 0, 0, 0))
         draw = ImageDraw.Draw(im)
+        if job.get("clip"):
+            # A video visual's drawing is transparent but for its caption: the clip plays beneath it.
+            draw.rectangle((0, im.height - 30, im.width, im.height), fill=(0, 0, 0, 160))
+            draw.text((12, im.height - 22), "caption", fill=(255, 255, 255, 255))
+            im.save(os.path.join(d, f"{job['key']}-{s}.png"))
+            continue
         full = job["role"] in ("intro", "section", "outro")
         draw.rounded_rectangle((0, 0, im.width - 1, im.height - 1), 0 if full else 18,
                                fill=palette[n % len(palette)] + (255,))

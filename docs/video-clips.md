@@ -122,6 +122,16 @@ so clips that were cancelled before they started are never counted. A clip that
 fails after submission is still counted, because the provider may have billed it.
 Configuring a video model turns the default $25 budget on even with a local chat model.
 
+## Using clips in training videos
+
+A [training video](training-videos.md#video-clips-as-visuals) can use a clip as
+one of its visuals, played muted beside or instead of the presenter. Planning
+proposes clips only when you tick **Propose video clips**, a clip is made only
+when you press **Generate** in the visual's editor (with the same cost estimate,
+budget check and **Cancel** as above), and rendering never makes one. Both
+renderers fit the clip to its panel without stretching it, and hold its last
+frame or loop it when it is shorter than the visual.
+
 ## Limits and reliability
 
 - 1 to 3 prompts and at most 6 clips per run; at most `VIDEO_CLIP_CONCURRENCY` (default 2, up to 4) generate at once.

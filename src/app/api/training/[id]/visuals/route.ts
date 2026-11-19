@@ -26,7 +26,7 @@ export async function POST(req: Request, { params }: Ctx) {
         { status: 409 }
       );
     }
-    const body = (await req.json().catch(() => ({}))) as { section?: unknown };
+    const body = (await req.json().catch(() => ({}))) as { section?: unknown; clips?: unknown };
     const n = Number(body.section);
     const only = body.section === undefined || body.section === null ? undefined : n;
     if (only !== undefined && (!Number.isInteger(only) || only < 0 || only >= t.content.sections.length)) {
@@ -34,7 +34,11 @@ export async function POST(req: Request, { params }: Ctx) {
     }
 
     // Pictures are found while there is time left in the request; the rest at render.
-    const cues = await planTrainingVisuals(t.notebookId, t.content, only, { pictureDeadline: started + 200_000 });
+    const cues = await planTrainingVisuals(t.notebookId, t.content, only, {
+      pictureDeadline: started + 200_000,
+      // Off unless asked for: every clip it proposes is billed once someone generates it.
+      clips: body.clips === true,
+    });
     const next = {
       ...t.content,
       sections: t.content.sections.map((s, i) => {

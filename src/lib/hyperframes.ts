@@ -188,6 +188,20 @@ export function runHyperframesRender(
   });
 }
 
+export type FitClipItem = { src: string; dest: string; seconds: number; fit: "hold" | "loop" };
+
+/**
+ * Cuts, holds or loops each generated clip to the length of the visual it plays
+ * in, without sound, so HyperFrames can play the file as it is.
+ */
+export async function fitCueClips(items: FitClipItem[], workDir: string, fps = 30): Promise<void> {
+  if (!items.length) return;
+  fs.mkdirSync(workDir, { recursive: true });
+  const config = path.join(workDir, "hf-fitclip-config.json");
+  fs.writeFileSync(config, JSON.stringify({ op: "fitclip", fps, items }));
+  await runPythonRenderer(["training", "hf_assist.py"], config);
+}
+
 /** Normalizes the render's loudness the way render.py does, copying the picture untouched. */
 export async function finishHyperframesRender(
   input: string,
