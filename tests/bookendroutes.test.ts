@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET as stateGET, PUT as settingsPUT } from "@/app/api/bookends/[id]/route";
 import { GET as jobGET, POST as clipPOST } from "@/app/api/bookends/[id]/clip/route";
@@ -6,7 +7,7 @@ import { POST as filePOST } from "@/app/api/bookends/[id]/file/route";
 import { GET as mediaGET } from "@/app/api/bookends/[id]/media/[clipId]/route";
 import { POST as renderPOST } from "@/app/api/video/[id]/render/route";
 import { applyBookends } from "@/lib/bookendbuild";
-import { bookendClipPath, bookendDir, removeVideo } from "@/lib/paths";
+import { bookendClipPath, bookendDir, clipDir, clipPath, removeVideo } from "@/lib/paths";
 import { budgetStatus } from "@/lib/budget";
 import { db } from "@/lib/db";
 import { startTrainingRender } from "@/lib/trainingbuild";
@@ -15,6 +16,8 @@ import { MP4 } from "./videofixtures";
 import { idCtx, request, resetNotebooks, seedArtifact, seedNotebook } from "./routehelpers";
 
 const mocks = vi.hoisted(() => ({ provider: null as unknown }));
+/** A real two-second MP4, so its length can be read from its header. */
+const REAL_CLIP = path.join(process.cwd(), "e2e", "fixtures", "clip.mp4");
 
 vi.mock("@/lib/videoproviders", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/videoproviders")>()),
@@ -224,6 +227,29 @@ describe("using an existing video", () => {
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/not an MP4/);
     expect(fs.existsSync(bookendDir(id))).toBe(false);
+  });
+
+  it("keeps an uploaded MP4 with its measured length, and records it on the slot", async () => {
+    const res = await upload(fs.readFileSync(REAL_CLIP));
+    expect(res.status).toBe(200);
+    const slot = (await res.json()).bookends.intro;
+    expect(slot).toMatchObject({ mode: "upload", label: "intro.mp4" });
+    expect(slot.clipSeconds).toBeCloseTo(2, 0);
+    expect(fs.existsSync(bookendClipPath(id, slot.clipId))).toBe(true);
+    expect((await get()).problems).toEqual([]);
+  });
+
+  it("copies a library clip from the same notebook, so deleting the original is safe", async () => {
+    const notebook = (db.prepare("SELECT notebook_id FROM artifacts WHERE id = ?").get(id) as unknown as { notebook_id: string }).notebook_id;
+    const clip = seedArtifact(notebook, "clip", { title: "Harbor", clips: [] }, "Harbor");
+    fs.mkdirSync(clipDir(), { recursive: true });
+    fs.copyFileSync(REAL_CLIP, clipPath(clip, 0));
+    const res = await filePOST(request(url("/file"), "POST", { slot: "outro", artifactId: clip, index: 0 }), idCtx(id));
+    expect(res.status).toBe(200);
+    const slot = (await res.json()).bookends.outro;
+    expect(slot).toMatchObject({ mode: "library", label: "Harbor" });
+    fs.rmSync(clipPath(clip, 0));
+    expect(fs.existsSync(bookendClipPath(id, slot.clipId))).toBe(true);
   });
 
   it("refuses a library clip from another notebook or one that is not a clip", async () => {

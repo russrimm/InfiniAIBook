@@ -5,28 +5,12 @@ import { bookendClipPath, bookendDir } from "./paths";
 import { runPythonRenderer } from "./python";
 import { BOOKEND_SLOTS, FADE_SECONDS, bookendProblems, planBookends, type BookendPlan, type Bookends, type BookendSlot } from "./bookends";
 import { looksLikeMp4 } from "./videohttp";
+import { mp4Seconds } from "./mp4duration";
 
 /**
  * Server side of intro and outro clips: finding their files, measuring them,
  * and putting them around a finished video.
  */
-
-export type ProbeInfo = { duration: number; width: number; height: number; fps: number; audio: boolean };
-
-/** Measure video files with the bundled ffmpeg. An unreadable file maps to null. */
-export async function probeVideos(files: string[], workDir: string): Promise<Record<string, ProbeInfo | null>> {
-  fs.mkdirSync(workDir, { recursive: true });
-  const stamp = nanoid(8);
-  const config = path.join(workDir, `probe-${stamp}.json`);
-  const result = path.join(workDir, `probe-${stamp}-result.json`);
-  fs.writeFileSync(config, JSON.stringify({ op: "probe", files, result }));
-  try {
-    await runPythonRenderer(["bookends", "bookends.py"], config);
-    return JSON.parse(fs.readFileSync(result, "utf8")) as Record<string, ProbeInfo | null>;
-  } finally {
-    for (const f of [config, result]) fs.rmSync(f, { force: true });
-  }
-}
 
 /** Reasons a render must not start: a requested bookend with no usable clip. Empty when fine. */
 export function bookendBlockers(id: string, b: Bookends): string[] {
@@ -47,11 +31,10 @@ export function assertBookendsReady(id: string, b: Bookends): void {
 }
 
 /** Store an MP4 (an upload or a copy of a library clip) as a bookend clip and measure it. */
-export async function storeBookendFile(
+export function storeBookendFile(
   id: string,
   source: { bytes?: Uint8Array; file?: string },
-  workDir: string,
-): Promise<{ clipId: string; seconds: number }> {
+): { clipId: string; seconds: number } {
   const head = source.bytes ? source.bytes.subarray(0, 12) : fs.readFileSync(source.file!).subarray(0, 12);
   if (!looksLikeMp4(head)) throw Object.assign(new Error("That is not an MP4 video."), { status: 400 });
   const clipId = nanoid(12);
@@ -59,12 +42,12 @@ export async function storeBookendFile(
   fs.mkdirSync(bookendDir(id), { recursive: true });
   if (source.bytes) fs.writeFileSync(dest, source.bytes);
   else fs.copyFileSync(source.file!, dest);
-  const info = (await probeVideos([dest], workDir))[dest];
-  if (!info || info.duration <= 0.2) {
+  const seconds = mp4Seconds(dest);
+  if (seconds === null || seconds <= 0.2) {
     fs.rmSync(dest, { force: true });
     throw Object.assign(new Error("That video could not be read. Try another MP4."), { status: 400 });
   }
-  return { clipId, seconds: Math.round(info.duration * 100) / 100 };
+  return { clipId, seconds: Math.round(seconds * 100) / 100 };
 }
 
 /** Delete bookend clip files no slot refers to any more. Recent files are spared: one may still be downloading. */

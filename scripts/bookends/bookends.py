@@ -2,16 +2,13 @@
 
     python scripts/bookends/bookends.py config.json
 
-config.json is one of:
-
-    {"op": "probe", "files": ["a.mp4", ...], "result": "probe.json"}
-        Writes {"a.mp4": {"duration": 4.0, "width": 640, "height": 360, "fps": 24.0, "audio": true}, ...}
-        (an unreadable file maps to null).
+config.json is:
 
     {"op": "concat", "main": "main.mp4", "output": "out.mp4",
      "intro": "intro.mp4", "outro": "outro.mp4",      # either may be absent
      "mute": {"intro": false, "outro": false},        # play a clip without its own sound
-     "fade": 0.5}                                     # cross-fade at each joint; 0 for a cut
+     "fade": 0.5,                                     # cross-fade at each joint; 0 for a cut
+     "result": "result.json"}                         # optional: the lengths measured and the total
 
 Every piece is brought to the main video's size and frame rate without
 stretching: scaled to fit and padded with black. Sound is brought to 48 kHz
@@ -120,11 +117,7 @@ def concat(cfg):
 
 
 cfg = json.load(open(sys.argv[1], encoding="utf-8"))
-if cfg["op"] == "probe":
-    result = {f: probe(f) if os.path.exists(f) else None for f in cfg["files"]}
-    with open(cfg["result"], "w", encoding="utf-8") as fh:
-        json.dump(result, fh)
-elif cfg["op"] == "concat":
+if cfg["op"] == "concat":
     concat(cfg)
 else:
     sys.exit(f"unknown op {cfg['op']!r}")

@@ -5,7 +5,7 @@ import { fail, ok } from "@/lib/http";
 import { MAX_BOOKEND_UPLOAD_BYTES } from "@/lib/bookends";
 import { storeBookendFile } from "@/lib/bookendbuild";
 import { hostIsRendering, loadHost, slotOf, updateSlot } from "@/lib/bookendroute";
-import { clipPath, videoWorkDir } from "@/lib/paths";
+import { clipPath } from "@/lib/paths";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,7 +26,6 @@ export async function POST(req: Request, { params }: Ctx) {
     if (hostIsRendering(host)) {
       return NextResponse.json({ error: "The video is rendering. Wait for it to finish before changing the intro or outro." }, { status: 409 });
     }
-    const work = videoWorkDir(id);
     const type = req.headers.get("content-type") ?? "";
 
     let slot: ReturnType<typeof slotOf>;
@@ -43,7 +42,7 @@ export async function POST(req: Request, { params }: Ctx) {
       const file = form.get("file");
       if (!slot || !(file instanceof File)) return NextResponse.json({ error: "Send a slot and an MP4 file.", code: "invalid" }, { status: 400 });
       if (file.size > MAX_BOOKEND_UPLOAD_BYTES) return NextResponse.json({ error: "That video is larger than 100 MB.", code: "too_large" }, { status: 413 });
-      stored = await storeBookendFile(id, { bytes: new Uint8Array(await file.arrayBuffer()) }, work);
+      stored = storeBookendFile(id, { bytes: new Uint8Array(await file.arrayBuffer()) });
       mode = "upload";
       label = file.name.replace(/[^\w .-]/g, "").slice(0, 60) || "Uploaded video";
     } else {
@@ -63,7 +62,7 @@ export async function POST(req: Request, { params }: Ctx) {
         return NextResponse.json({ error: "That clip was not found." }, { status: 404 });
       }
       if (!fs.existsSync(file)) return NextResponse.json({ error: "That clip's file is no longer there." }, { status: 404 });
-      stored = await storeBookendFile(id, { file }, work);
+      stored = storeBookendFile(id, { file });
       mode = "library";
       label = row.title.slice(0, 60);
     }
