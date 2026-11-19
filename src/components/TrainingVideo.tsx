@@ -61,6 +61,7 @@ import WatermarkPicker from "./WatermarkPicker";
 import NarrationOptions from "./NarrationOptions";
 import TrainingCueEditor from "./TrainingCueEditor";
 import TrainingDesign from "./TrainingDesign";
+import BookendsEditor from "./BookendsEditor";
 import PresenterGallery from "./PresenterGallery";
 import LivePresenterModal from "./LivePresenterModal";
 import TrainingPreview from "./TrainingPreview";
@@ -1530,14 +1531,22 @@ export default function TrainingVideo({
         )}
 
         {activeTab === "design" && (
-          <TrainingDesign
-            artifactId={artifactId}
-            value={draft.composition}
-            disabled={locked}
-            onChange={(p) =>
-              edit((d) => ({ composition: { ...d.composition, ...p } }))
-            }
-          />
+          <>
+            <TrainingDesign
+              artifactId={artifactId}
+              value={draft.composition}
+              disabled={locked}
+              onChange={(p) =>
+                edit((d) => ({ composition: { ...d.composition, ...p } }))
+              }
+            />
+            <section className="mt-5 space-y-2 border-t border-[var(--border)] pt-4" aria-labelledby={`${artifactId}-bookends`}>
+              <h3 id={`${artifactId}-bookends`} className="text-[13px] font-medium">
+                Intro and outro
+              </h3>
+              <BookendsEditor artifactId={artifactId} disabled={locked} mainSecondsHint={content.durationSec} />
+            </section>
+          </>
         )}
 
         {activeTab === "preview" && (

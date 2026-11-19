@@ -230,6 +230,44 @@ http
         });
       }
 
+      // Intro and outro prompt drafting for training videos and motion explainers.
+      if (system.includes("cinematographer writing a prompt")) {
+        last = { kind: "bookend-prompt", system: system.slice(0, 60) };
+        return reply({
+          prompt: system.includes("(opening)")
+            ? "A slow push-in over a sunlit community garden at dawn, mist over fresh soil, a single continuous shot with no text on screen."
+            : "A gentle pull-back from a finished raised bed at golden hour, a single continuous shot with no text on screen.",
+        });
+      }
+
+      // A motion explainer script.
+      if (system.includes("scriptwriter and art director for 2D motion-graphics")) {
+        last = { kind: "motion-plan", system: system.slice(0, 60) };
+        const scene = (beat, headline, narration, transition) => ({
+          beat,
+          headline,
+          subline: "The pilot builds 24 raised beds.",
+          callouts: [],
+          background: beat === "cta" ? "" : "A bright community garden with raised wooden beds in the morning",
+          actors: [{ kind: "prop", description: "a raised garden bed with seedlings", placement: "center", entrance: "pop", idle: "float" }],
+          narration,
+          transition,
+        });
+        return reply({
+          title: "Riverside garden pilot",
+          description: "How a garden pilot gets built.",
+          style: {
+            palette: { dark: "#1B2A41", primary: "#2E7D32", accent: "#F9A825", pop: "#E64A19", light: "#F5F7F2" },
+            hero: "a gardener in a green apron and a yellow hat",
+          },
+          scenes: [
+            scene("problem", "NO FRESH FOOD", "Many neighbors live far from fresh vegetables. A garden can change that.", "wipe"),
+            scene("how", "24 RAISED BEDS", "The pilot builds twenty four raised beds in April, with a drip kit for each.", "slide"),
+            scene("cta", "JOIN THE PILOT", "Sign up to volunteer for the next build day.", "fade"),
+          ],
+        });
+      }
+
       // Clip prompt drafting for the Studio "Video clip" generator.
       if (system.includes("cinematographer writing prompts")) {
         last = { kind: "clip-prompts", system: system.slice(0, 60) };

@@ -222,6 +222,53 @@ always opt-in:
 - **Storage.** Clips live under the training video and are deleted with it;
   clips no visual uses any more are removed at the next render.
 
+### Intro and outro clips
+
+**Design → Intro and outro** adds an optional clip before the first section and
+after the last. Each is **off by default**, so nothing is billed unless you ask,
+and a video without them renders exactly as before. Pick a source per clip:
+
+- **Generate with AI.** *Draft a prompt from the video* asks the chat model for
+  an opening (intro) or closing, thank-you (outro) shot from the title and
+  script, with no on-screen text. Edit it, choose a length (default about 5
+  seconds, the nearest the model offers) and quality, and press **Generate**.
+  The button and the **Estimated cost** line show the price first, and the daily
+  budget applies. **Cancel**, retries and moderation messages work as in
+  [Video clips](video-clips.md).
+- **Use a clip from this notebook.** Any finished clip from the Studio
+  **Video clip** generator. It is copied, so deleting the original later does
+  not break this video.
+- **Upload a video.** An MP4 up to 100 MB.
+
+The **Final order** strip shows the intro, the video and the outro with their
+lengths and the total. **Join** chooses a short cross-fade (the default), a
+long one or a plain cut; a fade is never more than half the shortest piece.
+
+How it renders. The video is rendered first, by either renderer (Python or
+HyperFrames, including the high-tech look), and the clips are then joined
+around it, so every renderer behaves the same:
+
+- Total length is the pieces added up, less one fade per join. Burned captions,
+  speech, visuals and music are inside the video and stay in step; the **WebVTT
+  captions file** is shifted by the intro. Intro and outro have no spoken text,
+  so the transcript and captions never include them.
+- Every piece is scaled to the video's size and frame rate, never stretched: a
+  clip of another shape is fitted and padded with black.
+- A clip's own sound is used if it has any (matched in loudness, 48 kHz stereo),
+  otherwise it is silent; tick **Play without its own sound** to silence it.
+  The background music and the presenter play only under the video itself, so
+  the music does not run over the intro or outro.
+- The **watermark** covers the intro and outro as well, because it is stamped on
+  the finished file.
+- The MP4 download includes them. The live VASA preview is unaffected.
+
+Generated clips are kept and reused: re-rendering never regenerates or re-bills
+them, and only **Regenerate** makes a new one. A render is refused (with the
+reason, and nothing lost) while a requested intro or outro has no clip, so one
+is never silently dropped; use **Try again**, **Render without it** (turns the
+slot off) or choose another source. If joining fails after a successful render,
+the video is kept without them and the render note says so.
+
 ### How it renders
 
 1. **Visuals are drawn in the browser.** Visuals still without their picture

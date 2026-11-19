@@ -139,6 +139,21 @@ budget check and **Cancel** as above), and rendering never makes one. Both
 renderers fit the clip to its panel without stretching it, and hold its last
 frame or loop it when it is shorter than the visual.
 
+## Intro and outro clips
+
+A [training video](training-videos.md#intro-and-outro-clips) or a
+[motion explainer](motion-explainers.md#intro-and-outro-clips) can start and end
+with a short clip. Both are **off by default**. Each can be made with the model
+here (a prompt drafted from the video's title and script, editable before
+anything is billed; the same estimate, daily budget, **Cancel**, retries and
+status as above), picked from this notebook's clips, or uploaded as an MP4. A
+generated clip is 16:9 like the videos and defaults to about 5 seconds, the
+nearest length the model offers. It is saved under the video, keyed by its
+prompt and options, so **re-rendering never regenerates or re-bills it**; only
+**Regenerate** does. If the model cannot be reached or refuses a prompt, the
+editor shows why and offers **Try again**, **Render without it** or another
+source, and a render that would quietly leave a requested clip out is refused.
+
 ## Limits and reliability
 
 - 1 to 3 prompts and at most 6 clips per run; at most `VIDEO_CLIP_CONCURRENCY` (default 2, up to 4) generate at once.

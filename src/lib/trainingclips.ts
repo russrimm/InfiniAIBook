@@ -59,6 +59,10 @@ export type StartCueClip = {
   provider: VideoProvider;
   /** The raw request body: prompt, aspect, seconds, resolution. */
   body: Record<string, unknown>;
+  /** Where the finished files go; training-video visuals by default. */
+  pathFor?: (clipId: string, ext: "mp4" | "jpg") => string;
+  /** Called once the clip is saved, even if nobody is watching any more. */
+  onCompleted?: (clipId: string, seconds: number) => void;
 };
 
 export class CueClipBusyError extends Error {}
@@ -91,12 +95,13 @@ export function startCueClip(args: StartCueClip): CueClipState {
   for (const [k, j] of jobs) if (FINISHED.has(j.state.status) && Date.now() - j.state.startedAt > KEEP_MS) jobs.delete(k);
 
   const clipId = nanoid(12);
+  const where = args.pathFor ?? ((cid: string, ext: "mp4" | "jpg") => trainingCueClipPath(trainingId, cid, ext));
   void runClip({
     provider,
     request,
     prompt: request.prompts[0],
-    dest: trainingCueClipPath(trainingId, clipId, "mp4"),
-    posterDest: trainingCueClipPath(trainingId, clipId, "jpg"),
+    dest: where(clipId, "mp4"),
+    posterDest: where(clipId, "jpg"),
     signal: abort.signal,
     reserve: () => reserve("video", clipCents(caps, request.duration, request.resolution)),
     onUpdate: (p) => {
@@ -111,6 +116,11 @@ export function startCueClip(args: StartCueClip): CueClipState {
       state.note = undefined;
       state.clipId = clipId;
       state.seconds = request.duration;
+      try {
+        args.onCompleted?.(clipId, request.duration);
+      } catch (e) {
+        console.warn("[clips] could not record the finished clip", e);
+      }
       // The copy kept at the provider is no use once the file is saved here.
       void provider.remove?.(result.remoteId).catch(() => {});
     },

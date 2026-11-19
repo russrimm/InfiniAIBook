@@ -209,11 +209,17 @@ function checkClipVisual() {
   run([path.join("scripts", "training", "check_clip.py"), out, String(270 / 480), String(mid), String(held)]);
 }
 
+/** An intro and an outro put around the rendered video, in step with it and not stretched. */
+function checkBookends() {
+  run([path.join("scripts", "bookends", "check_bookends.py"), out, path.join(dir, "bookends")]);
+}
+
 if (useHyperframes) {
   composeWithHyperframes().then(
     () => {
       report();
       checkClipVisual();
+      checkBookends();
       if (head) checkPresenterShape();
     },
     (e) => {
@@ -225,5 +231,6 @@ if (useHyperframes) {
   composeWithPython();
   report();
   checkClipVisual();
+  checkBookends();
   if (head) checkPresenterShape();
 }

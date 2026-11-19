@@ -138,6 +138,9 @@ How it works, customization and setup: [Motion explainers](docs/motion-explainer
   and a **word-replacement list** (for terms to avoid, translation or a
   different register), and can add **background music** you upload. Videos
   can also carry a text or image **watermark** in any of nine positions.
+  Motion explainers and training videos can also start and end with an optional
+  [intro and outro clip](docs/video-clips.md#intro-and-outro-clips), AI-generated,
+  taken from your clips or uploaded.
   [More](docs/studio.md#spoken-formats-script-review-instructions-and-music)
 
 - **Structure explorer** — open any JSON, XML, CSV/TSV or HAR source in a modal that discovers its structure: a path tree and graph with types, counts and value stats, or a sortable table. HAR files get a request table, waterfall, findings (failures, slow TTFB, uncompressed or uncached responses, redirects, duplicates, third parties, secrets in URLs), Server-Timing and redirect-chain views, CSV export, a sanitized download, and **Diagnose with AI**, which sends a redacted digest (never the raw archive) to the Studio model to name likely root causes.

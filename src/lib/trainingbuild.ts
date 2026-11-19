@@ -40,6 +40,8 @@ import { applyReplacements, readNarration } from "./narration";
 import { mixMusicInto, resolveMusic } from "./music";
 import { normalizeMusicChoice } from "./musicchoice";
 import { stampWatermark } from "./watermark";
+import { applyBookends, assertBookendsReady } from "./bookendbuild";
+import { normalizeBookends, shiftCaptions } from "./bookends";
 import { runPythonRenderer } from "./python";
 import {
   chooseRenderer,
@@ -199,6 +201,11 @@ export async function startTrainingRender(id: string): Promise<void> {
   const c = read(id);
   if (!c) throw userError("Training video not found.", 404);
   if (isRendering(c)) throw userError("This video is already rendering.", 409);
+  try {
+    assertBookendsReady(id, normalizeBookends(c.bookends));
+  } catch (e) {
+    throw userError(e instanceof Error ? e.message : "The intro or outro is not ready.", 409);
+  }
   if (!c.sections?.some((s) => s.text.trim())) {
     throw userError(
       "The transcript is empty — write something for the presenter to say.",
@@ -378,6 +385,9 @@ async function poll(id: string, signal: AbortSignal): Promise<void> {
             "The music could not be mixed in, so the video was saved without it.";
         }
       }
+      const books = normalizeBookends(c.bookends);
+      const added = await applyBookends(id, videoPath(id), books, videoWorkDir(id));
+      if (added.note) note = [note, added.note].filter(Boolean).join(" ");
       const mark = await stampWatermark(
         videoPath(id),
         c.watermarkChoice,
@@ -392,12 +402,13 @@ async function poll(id: string, signal: AbortSignal): Promise<void> {
         videoUrl: `/api/video/${id}?v=${renderedAt}`,
         captionsUrl: undefined,
         bytes:
-          withMusic || mark.watermarked
+          withMusic || mark.watermarked || added.applied.length
             ? fs.statSync(videoPath(id)).size
             : bytes,
         music: withMusic,
         watermarked: mark.watermarked,
-        durationSec: ms ? Math.round(ms / 100) / 10 : undefined,
+        bookendsApplied: added.applied,
+        durationSec: added.plan ? Math.round(added.plan.total * 10) / 10 : ms ? Math.round(ms / 100) / 10 : undefined,
         billedSeconds:
           job.properties?.billingDetails?.talkingAvatarDurationSeconds,
         renderedAt,
@@ -854,6 +865,10 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
           .join(" ");
       }
     }
+    const books = normalizeBookends(c.bookends);
+    const added = await applyBookends(id, out, books, work);
+    if (added.note) note = [note, added.note].filter(Boolean).join(" ");
+    const shift = added.applied.includes("intro") ? (added.plan?.offset ?? 0) : 0;
     const mark = await stampWatermark(out, c.watermarkChoice, "training");
     note = [note, mark.note].filter(Boolean).join(" ") || undefined;
 
@@ -869,7 +884,7 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
     const renderedAt = Date.now();
     let captionsUrl: string | undefined;
     if (comp.captions !== "off" && tl.captions.length) {
-      fs.writeFileSync(captionsPath(id), toWebVtt(tl.captions));
+      fs.writeFileSync(captionsPath(id), toWebVtt(shiftCaptions(tl.captions, shift)));
       captionsUrl = `/api/training/${id}/captions?v=${renderedAt}`;
     } else {
       fs.rmSync(captionsPath(id), { force: true });
@@ -896,7 +911,8 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
       bytes: fs.statSync(videoPath(id)).size,
       music: withMusic,
       watermarked: mark.watermarked,
-      durationSec: Math.round(tl.duration * 10) / 10,
+      durationSec: Math.round((added.plan?.total ?? tl.duration) * 10) / 10,
+      bookendsApplied: added.applied,
       billedSeconds: billed || undefined,
       renderedAt,
       editedSinceRender: false,
