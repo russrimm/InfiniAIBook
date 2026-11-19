@@ -12,12 +12,14 @@ import {
   DEFAULT_STYLE,
   MAX_INFOGRAPHIC_INSTRUCTIONS,
   buildImagePrompt,
+  generatedTitle,
   imageSizeFor,
   isImageStyle,
   knownDetail,
   knownOrientation,
   knownStyle,
   optionsHint,
+  parseTitle,
   styleDef,
   type InfographicStyle,
 } from "@/lib/infographic";
@@ -252,10 +254,11 @@ async function generateArtifact(req: Request, report: GenerationStatus) {
       if (!known) return bad(`Unknown infographic style "${String(style).slice(0, 40)}".`);
       activeStyle = known;
     }
-    const { orientation, detail, instructions } = body as {
+    const { orientation, detail, instructions, title: rawTitle } = body as {
       orientation?: unknown;
       detail?: unknown;
       instructions?: unknown;
+      title?: unknown;
     };
     if (instructions !== undefined && instructions !== null && typeof instructions !== "string") {
       return bad("instructions must be a string.");
@@ -263,11 +266,16 @@ async function generateArtifact(req: Request, report: GenerationStatus) {
     if (typeof instructions === "string" && instructions.length > MAX_INFOGRAPHIC_INSTRUCTIONS) {
       return bad(`Keep the description under ${MAX_INFOGRAPHIC_INSTRUCTIONS} characters.`);
     }
+    // Only infographics take a title; other formats ignore the field.
+    const parsedTitle = activeStyle ? parseTitle(rawTitle) : { title: "" };
+    if ("error" in parsedTitle) return bad(parsedTitle.error);
+    const customTitle = parsedTitle.title;
     const infographicOpts = activeStyle
       ? {
           orientation: knownOrientation(orientation),
           detail: knownDetail(detail),
           instructions: typeof instructions === "string" ? instructions.trim() : "",
+          title: customTitle,
         }
       : undefined;
     const styleHint = activeStyle
@@ -354,6 +362,19 @@ async function generateArtifact(req: Request, report: GenerationStatus) {
     }
 
     const id = nanoid(12);
+    if (activeStyle) {
+      // A typed title is never the model's to change; a blank one is the
+      // model's, unless it came back empty or as a placeholder.
+      if (customTitle) {
+        content.title = customTitle;
+        (content as Loose).customTitle = true;
+      } else {
+        const notebook = db
+          .prepare("SELECT title FROM notebooks WHERE id = ?")
+          .get(notebookId) as { title?: string } | undefined;
+        content.title = generatedTitle(content.title, notebook?.title ?? "");
+      }
+    }
     const title = str(content.title, spec.label);
 
     // Image styles render the brief as a PNG. The brief itself is still

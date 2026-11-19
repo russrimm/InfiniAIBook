@@ -13,6 +13,7 @@ import TrainingVideo from "./TrainingVideo";
 import ClipViewer from "./ClipViewer";
 import SlideDeck from "./SlideDeck";
 import { STUDIO } from "@/lib/studio";
+import { escapeMarkdownText, fileStem } from "@/lib/infographic";
 import { buildPptx, slidesToMarkdown } from "@/lib/slides";
 import { scriptOf } from "@/lib/podcastscript";
 import { CUE_KIND_LABELS } from "@/lib/trainingvisuals";
@@ -55,7 +56,7 @@ function podcastSpeakerLabel(p: PodcastContent, id: PodcastSpeakerId): string {
 
 function toMarkdown(a: Artifact): string {
   const c = a.content as Record<string, unknown>;
-  const head = `# ${a.title}\n\n`;
+  const head = `# ${a.type === "infographic" ? escapeMarkdownText(a.title) : a.title}\n\n`;
   switch (a.type) {
     case "quiz": {
       const q = c as unknown as QuizContent;
@@ -251,7 +252,9 @@ export default function ArtifactModal({
   const { dialogRef, backdropProps } = useDialog(onClose);
 
   const safeName = (ext: string) =>
-    `${artifact.title.replace(/[^\w\s-]/g, "").trim().slice(0, 60) || "artifact"}.${ext}`;
+    artifact.type === "infographic"
+      ? `${fileStem(artifact.title)}.${ext}`
+      : `${artifact.title.replace(/[^\w\s-]/g, "").trim().slice(0, 60) || "artifact"}.${ext}`;
 
   const saveBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
