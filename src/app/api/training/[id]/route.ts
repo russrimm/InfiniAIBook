@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ok, fail, generationSourceError } from "@/lib/http";
+import { ok, fail, generationSourceError, readBody } from "@/lib/http";
 import { backgroundColor, presenter, presenterVoice } from "@/lib/avatars";
 import { gestureMode } from "@/lib/gestures";
 import { cleanSpoken, normalizeSections } from "@/lib/training";
@@ -43,7 +43,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       );
     }
 
-    const body = (await req.json()) as Partial<{
+    const body = (await readBody(req)) as Partial<{
       title: string;
       description: string;
       objectives: string[];

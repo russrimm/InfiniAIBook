@@ -1,4 +1,4 @@
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import { createTransformation, listTransformations, TransformationInputError } from "@/lib/transformations";
 import { NextResponse } from "next/server";
 
@@ -15,7 +15,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as { name?: string; description?: string; prompt?: string };
+    const body = (await readBody(req)) as { name?: string; description?: string; prompt?: string };
     return ok({ transformation: createTransformation(body) }, 201);
   } catch (e) {
     if (e instanceof TransformationInputError) {

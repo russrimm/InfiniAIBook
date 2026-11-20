@@ -3,6 +3,7 @@ import { fail, noSourcesSelected, nowMs, ok } from "@/lib/http";
 import { BudgetExceededError } from "@/lib/budget";
 import { MissingConfigError } from "@/lib/ai";
 import { SourceBoundaryError } from "@/lib/artifactsources";
+import { BadRequestError, readBody } from "@/lib/badrequest";
 import { mb } from "@/lib/limits";
 
 afterEach(() => vi.restoreAllMocks());
@@ -22,6 +23,7 @@ describe("fail", () => {
       [new SourceBoundaryError("bad sources"), 400, "invalid_sources"],
       [new BudgetExceededError("over budget"), 429, "budget"],
       [new MissingConfigError("no key"), 400, "no_config"],
+      [new BadRequestError("bad body"), 400, "invalid"],
     ];
     for (const [err, status, code] of cases) {
       const res = fail(err);
@@ -70,4 +72,23 @@ describe("limits", () => {
     expect(mb(1024 * 1024)).toBe("1 MB");
     expect(mb(1.5 * 1024 * 1024)).toBe("1.5 MB");
   });
+});
+
+describe("readBody", () => {
+  const post = (body?: string) => new Request("http://localhost/x", { method: "POST", body });
+
+  it("returns a JSON object body", async () => {
+    expect(await readBody(post(JSON.stringify({ a: 1 })))).toEqual({ a: 1 });
+  });
+
+  it.each([["no body", undefined], ["malformed JSON", "{nope"], ["null", "null"], ["an array", "[1]"], ["a string", "\"x\""]])(
+    "turns %s into a 400 instead of a 500",
+    async (_name, body) => {
+      const err = await readBody(post(body)).catch((e) => e);
+      expect(err).toBeInstanceOf(BadRequestError);
+      const res = fail(err);
+      expect(res.status).toBe(400);
+      expect((await res.json()).code).toBe("invalid");
+    },
+  );
 });

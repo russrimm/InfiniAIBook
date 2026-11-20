@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import { chatJSON } from "@/lib/ai";
 import { activeProvider, checkReachable, searchWeb, SearchUnavailableError, type SearchHit } from "@/lib/websearch";
 import { LearnError } from "@/lib/learn";
@@ -68,7 +68,7 @@ async function discoverFromLearn(query: string, notebookId: string | undefined, 
 
 export async function POST(req: Request) {
   try {
-    const { notebookId, topic, expand, provider, offset } = (await req.json()) as {
+    const { notebookId, topic, expand, provider, offset } = (await readBody(req)) as {
       notebookId?: string;
       topic: string;
       expand?: boolean;

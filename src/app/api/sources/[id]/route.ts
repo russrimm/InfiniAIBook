@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -54,7 +54,7 @@ export async function DELETE(_req: Request, { params }: Ctx) {
 export async function POST(req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
-    const { action } = (await req.json()) as { action?: "apply" | "dismiss" };
+    const { action } = (await readBody(req)) as { action?: "apply" | "dismiss" };
 
     const row = db
       .prepare(
