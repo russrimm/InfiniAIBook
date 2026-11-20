@@ -174,7 +174,7 @@ export default function DiscoverModal({
         aria-labelledby="discover-title"
         className="fade-up flex h-full w-full max-w-3xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:h-[min(80vh,46rem)] sm:rounded-2xl"
       >
-        <header className="shrink-0 border-b border-[var(--border)] px-5 py-4">
+        <div className="shrink-0 border-b border-[var(--border)] px-5 py-4">
           <div className="mb-3 flex items-center gap-3">
             <span className="text-lg">🔎</span>
             <div className="min-w-0 flex-1">
@@ -248,7 +248,7 @@ export default function DiscoverModal({
               Searched: {queries.map((q) => `“${q}”`).join(" · ")}
             </p>
           )}
-        </header>
+        </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {!results && !loading && !error && (

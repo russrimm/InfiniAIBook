@@ -50,7 +50,7 @@ test("lists actions, formats, sources and shortcuts, filters as you type, and wo
   await search(page).fill("quiz");
   await expect(palette(page).getByRole("status")).toContainText(/\d+ results?/);
   await expect(list.getByRole("option").first()).toHaveAttribute("aria-selected", "true");
-  await expect(list.getByRole("option").first()).toHaveAccessibleName(/Studio: Quiz/);
+  await expect(list.getByRole("option").first()).toHaveAccessibleName(/^Quiz .*Studio$/);
   await page.keyboard.press("Enter");
   await expect(palette(page)).toBeHidden();
   await expect(page.getByRole("button", { name: "Generate Quiz", exact: true })).toBeFocused();

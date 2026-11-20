@@ -40,7 +40,7 @@ export default function GenerationModal({
         aria-labelledby={titleId}
         className="fade-up flex w-full max-w-lg flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:max-h-full sm:rounded-2xl"
       >
-        <header className="flex items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <h2 id={titleId} className="flex-1 text-[15px] font-semibold">
             {title}
           </h2>
@@ -52,7 +52,7 @@ export default function GenerationModal({
           >
             Close
           </button>
-        </header>
+        </div>
         <ul className="min-h-0 space-y-3 overflow-y-auto px-5 py-5">
           {jobs.map((job) => (
             <li key={job.id} className="rounded-xl border border-[var(--border)] bg-well px-4 py-3">

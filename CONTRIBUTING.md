@@ -41,6 +41,11 @@ current numbers; raise them when you add tests, and don't lower them. Unit tests
 live in `tests/` and use a temporary `DATA_DIR`, never your real `.data/`.
 Browser tests live in `e2e/`. They start their own dev server on port 3123 with
 a temporary `DATA_DIR`, and use a local mock model, so they need no credentials.
+`e2e/axe.spec.ts` scans the main screens and dialogs with axe-core (WCAG 2.2 A and
+AA plus best practices, including color contrast, landmarks and heading order) in
+the dark and light themes at 1280 px and 390 px wide. It must report zero
+violations: fix the markup instead of disabling a rule, and add a step for any new
+screen or dialog.
 
 New pull requests start from a [template](.github/pull_request_template.md)
 with these checks and the guidelines below as a checklist.

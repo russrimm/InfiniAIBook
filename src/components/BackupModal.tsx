@@ -93,14 +93,14 @@ export default function BackupModal({ onClose }: { onClose: () => void }) {
         data-testid="backup-modal"
         className="fade-up card flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden !p-0 outline-none"
       >
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <h2 id="backup-title" className="flex-1 text-[15px] font-semibold">
             Backup and restore
           </h2>
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={close}>
             ✕
           </button>
-        </header>
+        </div>
 
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-4 text-[13px] leading-relaxed">
           <section aria-labelledby="backup-export">

@@ -19,15 +19,20 @@ export default function ShortcutsModal({ onClose }: { onClose: () => void }) {
         aria-labelledby="shortcuts-title"
         className="fade-up card flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden !p-0 outline-none"
       >
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <h2 id="shortcuts-title" className="flex-1 text-[15px] font-semibold">
             Keyboard shortcuts
           </h2>
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={onClose}>
             ✕
           </button>
-        </header>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        </div>
+        <div
+          className="min-h-0 flex-1 overflow-y-auto px-5 py-4 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          role="region"
+          aria-label="Shortcut list"
+          tabIndex={0}
+        >
           <table className="w-full text-left text-[13px]">
             <caption className="sr-only">Keys and what they do</caption>
             <thead className="text-[11px] text-[var(--muted)]">

@@ -207,7 +207,7 @@ function NoteEditor({
           }
         }}
       >
-        <header className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-5 py-3">
           <span>{note?.kind === "ai" ? "✨" : "🗒️"}</span>
           <input
             className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-semibold outline-none focus:border-[var(--border)]"
@@ -222,7 +222,7 @@ function NoteEditor({
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={requestClose}>
             ✕
           </button>
-        </header>
+        </div>
 
         <div className="relative min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {editing ? (

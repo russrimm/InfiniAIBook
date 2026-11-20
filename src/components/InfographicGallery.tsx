@@ -464,7 +464,7 @@ export default function InfographicGallery({
         aria-labelledby="gallery-title"
         className="fade-up flex h-full w-full max-w-7xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:rounded-2xl"
       >
-        <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <span className="text-lg" aria-hidden>
             📊
           </span>
@@ -480,7 +480,7 @@ export default function InfographicGallery({
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={onClose}>
             ✕
           </button>
-        </header>
+        </div>
 
         <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1.1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:grid-rows-1">
           {/* Chooser */}

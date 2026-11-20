@@ -100,7 +100,7 @@ export default function LibraryModal({
         aria-labelledby="library-title"
         className="fade-up flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--panel)] outline-none"
       >
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <div className="flex-1">
             <h2 id="library-title" className="text-[15px] font-semibold">
               Add from your library
@@ -112,7 +112,7 @@ export default function LibraryModal({
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={onClose}>
             ✕
           </button>
-        </header>
+        </div>
         <div className="shrink-0 px-5 pt-3">
           <input
             className="input"

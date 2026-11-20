@@ -105,12 +105,12 @@ export default function CommandPalette({ commands, onClose }: { commands: Comman
                   id={optionId(i)}
                   role="option"
                   aria-selected={i === index}
-                  aria-label={`${c.group}: ${c.label}${c.detail ? `. ${c.detail}` : ""}${c.keys ? `. Shortcut ${c.keys}` : ""}`}
                   className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 ${i === index ? "bg-hover text-[var(--fg)]" : "text-[var(--muted)]"}`}
                   onMouseMove={() => i !== index && setActive(i)}
                   onClick={() => run(c)}
                 >
                   <span className="min-w-0 flex-1">
+                    {!query.trim() && <span className="sr-only">{c.group}: </span>}
                     <span className="block truncate text-[13px] text-[var(--fg)]">{c.label}</span>
                     {c.detail && <span className="block truncate text-[11px]">{c.detail}</span>}
                   </span>

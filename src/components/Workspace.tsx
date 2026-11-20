@@ -741,6 +741,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         <span aria-hidden className="text-xl">
           {data.notebook.emoji}
         </span>
+        <h1 className="sr-only">{data.notebook.title}</h1>
         <input
           className="min-w-0 flex-1 truncate rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-medium outline-none transition hover:border-[var(--border)] focus:border-[var(--border)] focus:bg-well max-md:min-h-11 md:min-w-[11rem] md:basis-[11rem]"
           value={titleDraft ?? data.notebook.title}
@@ -823,10 +824,11 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             className="btn shrink-0 !px-2.5 !py-1 !text-[11px]"
             onClick={() => setPickingModel(true)}
             title="Choose which models to use"
-            aria-label={model ? `Models (chat: ${model})` : "Models"}
           >
             <ModelIcon width={14} height={14} />{" "}
+            <span className="sr-only">{model ? "Models (chat: " : "Models"}</span>
             <span className="max-w-[10rem] truncate">{model}</span>
+            {model ? <span className="sr-only">)</span> : null}
           </button>
           <ThemeToggle />
           <button
@@ -904,7 +906,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           >
             {t}
             {t === "sources" && sources.length ? (
-              <span className="text-[11px] opacity-70">
+              <span className="text-[11px]">
                 <span aria-hidden>
                   {selectedIds.length}/{sources.length}
                 </span>
@@ -914,7 +916,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
               </span>
             ) : null}
             {t === "notes" && notes.length ? (
-              <span className="text-[11px] opacity-70">{notes.length}</span>
+              <span className="text-[11px]">{notes.length}</span>
             ) : null}
           </button>
         ))}

@@ -77,7 +77,7 @@ export default function TransformationsModal({ onClose }: { onClose: () => void 
         aria-labelledby="transformations-title"
         className="fade-up flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--panel)] outline-none"
       >
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <div className="flex-1">
             <h2 id="transformations-title" className="text-[15px] font-semibold">
               Transformations
@@ -89,7 +89,7 @@ export default function TransformationsModal({ onClose }: { onClose: () => void 
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={onClose}>
             ✕
           </button>
-        </header>
+        </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {draft ? (

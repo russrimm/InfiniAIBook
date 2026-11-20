@@ -345,7 +345,7 @@ export default function ScreenHelperModal({
         aria-labelledby="screen-helper-title"
         className="fade-up flex h-full w-full flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none"
       >
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <span className="text-xl" aria-hidden>
             🖥️
           </span>
@@ -370,7 +370,7 @@ export default function ScreenHelperModal({
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={close}>
             ✕
           </button>
-        </header>
+        </div>
 
         <div className="grid min-h-0 flex-1 md:grid-cols-[minmax(0,1.4fr)_minmax(320px,1fr)]">
           <section

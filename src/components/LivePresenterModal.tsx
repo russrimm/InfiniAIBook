@@ -77,7 +77,7 @@ export default function LivePresenterModal({
         aria-labelledby="live-title"
         className="fade-up card flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden !p-0 outline-none"
       >
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <div className="min-w-0 flex-1">
             <h2 id="live-title" className="text-[15px] font-semibold">
               Live presenter
@@ -90,7 +90,7 @@ export default function LivePresenterModal({
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={onClose}>
             ✕
           </button>
-        </header>
+        </div>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
           {status && !status.ready && (

@@ -86,7 +86,7 @@ export default function SourceUpdates({
         aria-labelledby="updates-title"
         className="fade-up flex h-full w-full max-w-3xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:rounded-2xl"
       >
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <span className="text-lg">🔄</span>
           <div className="min-w-0 flex-1">
             <h2 id="updates-title" className="truncate text-[15px] font-semibold">
@@ -106,7 +106,7 @@ export default function SourceUpdates({
           >
             ✕
           </button>
-        </header>
+        </div>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-5">
           {error && (

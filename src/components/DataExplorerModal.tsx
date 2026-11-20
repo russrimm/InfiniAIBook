@@ -68,7 +68,7 @@ export default function DataExplorerModal({
         aria-labelledby="explorer-title"
         className="fade-up flex h-full w-full max-w-6xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:rounded-2xl"
       >
-        <header className="flex shrink-0 items-start gap-3 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 items-start gap-3 border-b border-[var(--border)] px-5 py-3">
           <div className="min-w-0 flex-1">
             <h2 id="explorer-title" className="truncate text-[15px] font-semibold">
               Structure explorer · {title}
@@ -99,7 +99,7 @@ export default function DataExplorerModal({
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={onClose}>
             ✕
           </button>
-        </header>
+        </div>
 
         {tabs.length > 0 && (
           <div role="tablist" aria-label="Explorer sections" className="flex shrink-0 gap-1 border-b border-[var(--border)] px-4 py-1.5 text-[13px]">

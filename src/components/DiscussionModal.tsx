@@ -402,7 +402,7 @@ export default function DiscussionModal({
         aria-label="Live discussion"
         className="fade-up flex h-full w-full max-w-5xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:rounded-2xl"
       >
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <span className="text-xl">🎙️</span>
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-[15px] font-semibold">
@@ -421,7 +421,7 @@ export default function DiscussionModal({
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={close}>
             ✕
           </button>
-        </header>
+        </div>
 
         {status === "idle" || status === "error" ? (
           <SetupView
