@@ -1,11 +1,14 @@
-<p align="center"><img src="public/brand/infiniaibook-icon.png" alt="InfiniAIBook logo" width="160"></p>
+<p align="center"><img src="public/brand/infiniaibook-mark.png" alt="InfiniAIBook logo" width="200"></p>
 
 # InfiniAIBook
+
+**Sources in. Cited answers, audio and video out.**
 
 [![CI](https://github.com/russrimm/InfiniAIBook/actions/workflows/ci.yml/badge.svg)](https://github.com/russrimm/InfiniAIBook/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A self-hosted Agentic Powered Notebook research studio. Upload your own sources, chat with
+A self-hosted Agentic Powered Notebook research studio. Add your own sources
+(documents, web pages, YouTube, Microsoft Learn, audio, video or images), chat with
 them, talk them through out loud, and turn them into **reports, briefings,
 PowerPoint decks, infographics, mind maps, quizzes, flashcards, study guides,
 FAQs, timelines, audio overviews, whiteboard videos, motion explainers and

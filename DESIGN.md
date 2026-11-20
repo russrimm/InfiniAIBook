@@ -1,6 +1,6 @@
 ---
 name: InfiniAIBook
-description: Grounded research studio. A dark, dense, three-panel workspace where cited sources come first.
+description: Self-hosted research notebook. A dark, dense, three-panel workspace where cited sources come first.
 colors:
   night-ink: "#0b0d10"
   slate-panel: "#12151a"
@@ -248,7 +248,7 @@ Status colors use Tailwind's amber, red, emerald, and rose families. They're nev
 **Character:** A single neutral, modern grotesque does every job. Hierarchy comes from size, weight (400/500/600, and 650 for prose headings), and color, not from a second typeface.
 
 ### Hierarchy
-- **Display** (`display`): The "InfiniAIBook" wordmark on the notebook list. It's the only large type in the app.
+- **Display** (`display`): The home headline ("Sources in. Cited answers, audio and video out."), set beside the 160px logo mark (128px at `sm`, 64px on phones). It's the only large type in the app.
 - **Headline** (`headline`): Rendered-prose H1. Prose H2 is 1.2rem with a hairline underline; H3 is 1.03rem.
 - **Title** (`title`): The notebook title in the workspace header, and modal titles.
 - **Body** (`body`): Chat answers, notes, and artifact prose, in Prose Mist. Tables inside prose drop to 14px.
