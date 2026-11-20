@@ -26,3 +26,23 @@ export function libraryMeta(
     .filter(Boolean)
     .join(" · ");
 }
+
+/** Library entries matching every word typed, in their title, format or style (not the date). */
+export function filterLibrary<T extends { title: string; type: string; style?: string | null }>(
+  artifacts: T[],
+  query: string
+): T[] {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return artifacts;
+  return artifacts.filter((a) => {
+    const haystack = [
+      a.title,
+      studioLabel(a.type),
+      a.type === "infographic" ? infographicStyleLabel(a.style) : undefined,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return words.every((w) => haystack.includes(w));
+  });
+}
