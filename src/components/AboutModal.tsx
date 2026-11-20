@@ -52,7 +52,7 @@ const HELP: {
       {
         title: "Upload files, add links or paste text",
         body: [
-          "In Sources, use Drop files or click to upload, Add link or Paste text. Supported files include PDF, DOCX, PPTX, TXT, MD, CSV/TSV, JSON, HAR, XML (including GPX/KML), HTML and ZIP. PowerPoint imports slide text, tables and speaker notes, not text inside pictures. Protected or legacy decks need an unprotected .pptx copy.",
+          "In Sources, use Drop files or click to upload, Add link or Paste text. Supported files include PDF, DOCX, PPTX, EPUB, TXT, MD, CSV/TSV, JSON, HAR, XML (including GPX/KML), HTML and ZIP. PowerPoint imports slide text, tables and speaker notes, not text inside pictures. Protected or legacy decks need an unprotected .pptx copy.",
           "Drop images (PNG, JPEG, WebP, GIF or BMP), or add a direct image link, to describe and index them with a vision model. Audio/video files (MP3, MPGA, MPEG, M4A, WAV, OGG/OGA, FLAC, WebM and MP4) and direct media links need a transcription model. Add link also accepts web pages, RSS/Atom feeds and YouTube URLs.",
           "Other plain-text and code files can also be dropped, including JSONL/GeoJSON and XML-family SVG, RSS, Atom, XSD and XHTML files. ZIP imports create a source per supported file and report skipped or failed items. Uploads run in the background, three at a time; the rest show Queued. Read warnings before dismissing them. Upload limits are configured on the server; oversized PPTX files can import only their text through the browser.",
         ],

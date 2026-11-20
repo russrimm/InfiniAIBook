@@ -535,7 +535,7 @@ export default function SourcesPanel({
           type="file"
           multiple
           hidden
-          accept={`.pdf,.docx,.pptx,.zip,.txt,.md,.csv,.tsv,.json,.har,.xml,.gpx,.kml,.html,.htm,${MEDIA_ACCEPT}`}
+          accept={`.pdf,.docx,.pptx,.epub,.zip,.txt,.md,.csv,.tsv,.json,.har,.xml,.gpx,.kml,.html,.htm,${MEDIA_ACCEPT}`}
           onChange={(e) => {
             if (e.target.files) uploadFiles(e.target.files);
             e.target.value = "";

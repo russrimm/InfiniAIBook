@@ -70,8 +70,31 @@ inside pictures is not read. Protected decks (sensitivity labels, IRM,
 passwords) and legacy .ppt files renamed to .pptx are refused with a message
 saying what to do.
 
+**EPUB books** (.epub) are read chapter by chapter in reading order, under the
+book's title and author. Headings and paragraphs keep their breaks, and the table
+of contents is left out. The file is only read in memory: it is refused if it is not
+a real EPUB, lists more than 5,000 files, or is DRM-protected (fonts are fine), a
+chapter over 10 MB is skipped, and at most 5 million characters of text are kept,
+with a note saying which chapters were left out. A book made only of page images
+(a scanned or comic EPUB) has no text to read and is refused with a message.
+
+**Google Docs, Sheets and Slides** are added by pasting their link into **Add link**,
+when the document is shared with **Anyone with the link**. The app asks Google for the
+document's text export through the same guarded fetch as any other link: a Doc or Slides
+deck becomes plain text and a Sheet becomes the CSV of the tab the link points at (the
+`#gid=` part). No sign-in, key or Google account is involved, so a private document
+cannot be read: the message says to set General access to Anyone with the link, or to
+download or paste it instead. "Published to the web" links are ordinary pages and work
+as any link does. Linked sources can be checked for changes like other URLs.
+
+**Scanned PDFs** (pictures of pages with no text layer) are not read: the app does not
+run OCR on PDFs. It says so, and how to fix it (make a searchable PDF with Google Drive,
+Acrobat or your scanner app, or add photos of the pages as images, which the vision model
+reads). OCR was not added because it would need either a native rendering library or a
+model call per page whose cost the budget cannot yet estimate for images.
+
 **ZIP archives** are unpacked on the server and every supported file inside
-(PDF, DOCX, PPTX, text, Markdown, CSV, JSON, HTML, images, audio and video)
+(PDF, DOCX, PPTX, EPUB, text, Markdown, CSV, JSON, HTML, images, audio and video)
 becomes its own source, titled with its path in the archive. Archives nested
 inside the ZIP are opened too, up to three levels. Other files are skipped and
 listed in a warning, and OS clutter such as `__MACOSX/`, dotfiles and
