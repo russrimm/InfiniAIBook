@@ -25,3 +25,22 @@ export function findPassage(text: string, passage: string): [number, number] | n
   const end = Math.min(text.length, Math.max(start + m[0].length, start + passage.trim().length));
   return [start, end];
 }
+
+/** The most matches shown at once, so a one-letter search cannot build a huge page. */
+export const MAX_FIND_MATCHES = 500;
+
+/**
+ * Every place `query` occurs in `text`, ignoring case, as [start, end) ranges.
+ * A blank query matches nothing. Stops at MAX_FIND_MATCHES; `capped` says so.
+ */
+export function findMatches(text: string, query: string): { ranges: [number, number][]; capped: boolean } {
+  const needle = query.trim();
+  const ranges: [number, number][] = [];
+  if (!needle || !text) return { ranges, capped: false };
+  const re = new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+  for (const m of text.matchAll(re)) {
+    if (ranges.length === MAX_FIND_MATCHES) return { ranges, capped: true };
+    ranges.push([m.index, m.index + m[0].length]);
+  }
+  return { ranges, capped: false };
+}
