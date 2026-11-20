@@ -72,6 +72,8 @@ type Job = {
   icon: string;
   queued?: boolean;
   error?: string;
+  /** Present on a failed add, so the same request can be sent again. */
+  retry?: () => void;
 };
 
 let jobSeq = 0;
@@ -303,9 +305,11 @@ export default function SourcesPanel({
         }
       } catch (e) {
         const message = e instanceof Error ? e.message : "Could not add this source";
-        setJobs((prev) =>
-          prev.map((j) => (j.id === id ? { ...j, error: message } : j))
-        );
+        const retry = () => {
+          setJobs((prev) => prev.filter((j) => j.id !== id));
+          startJob(label, icon, init, notice);
+        };
+        setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, error: message, retry } : j)));
       }
     });
     pump();
@@ -683,6 +687,19 @@ export default function SourcesPanel({
                   >
                     {job.error ?? (job.queued ? "Queued…" : "Processing…")}
                   </p>
+                  {job.retry && (
+                    <button
+                      type="button"
+                      className="btn mt-1.5 !px-2 !py-0.5 !text-[11px]"
+                      aria-label={`Try adding ${job.label} again`}
+                      onClick={(e) => {
+                        keepFocusNear(e.currentTarget);
+                        job.retry?.();
+                      }}
+                    >
+                      Retry
+                    </button>
+                  )}
                 </div>
                 {job.error && (
                   <button

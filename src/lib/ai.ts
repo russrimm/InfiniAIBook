@@ -306,6 +306,16 @@ async function requestImage(prompt: string, opts: ImageOptions): Promise<Generat
 
 export class MissingConfigError extends Error {}
 
+/**
+ * True when a model provider is set up: an OpenAI-compatible endpoint, or an
+ * Azure OpenAI endpoint. With neither, every chat and Studio call would fail
+ * with MissingConfigError, so the UI explains how to configure one instead of
+ * showing a model name that nothing can serve.
+ */
+export function providerConfigured(): boolean {
+  return PROVIDER === "openai" || Boolean(endpoint);
+}
+
 let client: OpenAI | AzureOpenAI | null = null;
 let tokenProvider: (() => Promise<string>) | null = null;
 
@@ -338,9 +348,10 @@ export function getClient(): OpenAI | AzureOpenAI {
 
   if (!endpoint) {
     throw new MissingConfigError(
-      "No model provider is configured. Set AI_PROVIDER (openai, anthropic, gemini, groq, " +
-        "mistral, ollama, …) with its API key, AI_BASE_URL for any OpenAI-compatible endpoint, " +
-        "or AZURE_OPENAI_ENDPOINT for Azure. See .env.example."
+      "No model provider is configured. Add one to .env.local and restart the app: " +
+        "AI_PROVIDER (openai, anthropic, gemini, groq, mistral, ollama, …) with its API key, " +
+        "AI_BASE_URL for any OpenAI-compatible endpoint, or AZURE_OPENAI_ENDPOINT for Azure. " +
+        "See .env.example and docs/configuration.md."
     );
   }
 

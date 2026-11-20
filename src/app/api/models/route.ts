@@ -12,6 +12,7 @@ import {
   envImageModel,
   envVisionModel,
   getClient,
+  providerConfigured,
 } from "@/lib/ai";
 import {
   getSetting,
@@ -119,6 +120,7 @@ export async function GET() {
 
     return ok({
       provider: PROVIDER,
+      configured: providerConfigured(),
       current,
       env: {
         chat: envChatModel(),

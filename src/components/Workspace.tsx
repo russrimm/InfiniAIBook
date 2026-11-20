@@ -84,6 +84,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   /** Open live discussion, with the focus it started from. */
   const [discussing, setDiscussing] = useState<{ focus: string } | null>(null);
   const [model, setModel] = useState("");
+  /** False when no model provider is set up, so chat and Studio cannot work yet. */
+  const [providerReady, setProviderReady] = useState(true);
   const [budgetNote, setBudgetNote] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [tab, setTab] = useState<Tab>("chat");
@@ -258,7 +260,11 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const loadModel = useCallback(async () => {
     try {
       const res = await fetch("/api/models");
-      if (res.ok) setModel((await res.json()).current.chat);
+      if (res.ok) {
+        const info = (await res.json()) as { configured?: boolean; current: { chat: string } };
+        setProviderReady(info.configured !== false);
+        setModel(info.configured === false ? "" : info.current.chat);
+      }
       const budget = await fetch("/api/budget");
       if (budget.ok) {
         const status = (await budget.json()) as {
@@ -677,6 +683,22 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         </div>
       </header>
 
+
+      {!providerReady && (
+        <p
+          role="status"
+          className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-amber-900/50 bg-amber-950/25 px-4 py-2 text-[13px] text-amber-100"
+        >
+          <span>No model provider is set up, so chat and Studio cannot answer yet.</span>
+          <button
+            type="button"
+            className="underline underline-offset-2 hover:text-white"
+            onClick={() => setPickingModel(true)}
+          >
+            Show me how to set one up
+          </button>
+        </p>
+      )}
 
       {budgetNote && (
         <p className="shrink-0 border-b border-amber-900/50 bg-amber-950/25 px-4 py-2 text-[13px] text-amber-100">

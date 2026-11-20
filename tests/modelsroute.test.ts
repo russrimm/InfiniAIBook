@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({
   provider: "openai" as "openai" | "azure",
   models: { list: vi.fn() },
   authHeaders: vi.fn(),
+  configured: true,
 }));
 
 // PROVIDER is a constant in the real module; the proxy lets each test choose one.
@@ -18,6 +19,7 @@ vi.mock("@/lib/ai", async (importOriginal) => {
       if (prop === "PROVIDER") return state.provider;
       if (prop === "getClient") return () => ({ models: state.models });
       if (prop === "authHeaders") return state.authHeaders;
+      if (prop === "providerConfigured") return () => state.configured;
       return Reflect.get(target, prop, receiver);
     },
   });
@@ -36,6 +38,7 @@ beforeEach(() => {
   setSetting(SETTING_CHAT_MODEL, null);
   setSetting(SETTING_EMBED_MODEL, null);
   state.provider = "openai";
+  state.configured = true;
   state.models.list.mockReset();
   state.authHeaders.mockReset().mockResolvedValue({ authorization: "Bearer token" });
   delete process.env.AI_MODEL;
@@ -54,6 +57,15 @@ afterEach(() => {
 
 const get = async () => (await GET()).json();
 const post = (body: unknown) => POST(request("/api/models", "POST", body));
+
+describe("GET /api/models provider status", () => {
+  it("reports whether a model provider is configured so the UI can explain setup", async () => {
+    state.models.list.mockResolvedValue(listing("gpt-test"));
+    expect((await get()).configured).toBe(true);
+    state.configured = false;
+    expect((await get()).configured).toBe(false);
+  });
+});
 
 describe("GET /api/models with an OpenAI-compatible provider", () => {
   it("sorts the provider's models into chat, embedding and image lists and drops audio models", async () => {

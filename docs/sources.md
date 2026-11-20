@@ -61,7 +61,9 @@ the model provider with embedding calls. The two-sentence summary is written
 just after the source lands and appears a few seconds later. You can keep
 dropping files, pasting links or running a discovery search while earlier items
 are still processing; a failure affects only its own row, which explains what
-happened and can be dismissed. Sources join the chat context automatically as
+happened and offers **Retry** (sends the same file, link or text again, so a
+dropped connection or rate limit does not mean starting over) or dismissal.
+Sources join the chat context automatically as
 they land.
 
 Files over 50 MB (`MAX_UPLOAD_BYTES`) are refused before they are sent, except

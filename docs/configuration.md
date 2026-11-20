@@ -2,6 +2,11 @@
 
 InfiniAIBook talks to any **OpenAI-compatible** endpoint, or to Azure OpenAI.
 
+If none is configured, the notebook shows a banner, **Models** opens a short
+setup guide instead of a model list, and the header shows no model name (it
+used to show a default that nothing could serve). Add a provider to `.env.local`
+as below and restart the app.
+
 ### Named providers
 
 The quickest route is a preset: set `AI_PROVIDER` and that provider's usual key
