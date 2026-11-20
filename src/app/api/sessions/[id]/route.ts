@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import { deleteSession, getSession, sessionMessages } from "@/lib/sessions";
 import { NextResponse } from "next/server";
 
@@ -25,7 +25,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
     if (!getSession(id)) return notFound();
-    const body = (await req.json()) as { title?: string };
+    const body = (await readBody(req)) as { title?: string };
     const title = body.title?.trim().slice(0, 120);
     if (!title) return NextResponse.json({ error: "Title is required" }, { status: 400 });
     db.prepare("UPDATE chat_sessions SET title = ? WHERE id = ?").run(title, id);

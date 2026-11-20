@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import { videoPath } from "@/lib/paths";
 import { serveRangedFile } from "@/lib/rangefile";
 import { normalizeMotionPlan, normalizeMotionOptions, type MotionPlan } from "@/lib/motion";
@@ -71,7 +71,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       );
     }
 
-    const body = (await req.json()) as {
+    const body = (await readBody(req)) as {
       title?: string;
       description?: string;
       scenes?: unknown[];

@@ -3,12 +3,18 @@ import { BudgetExceededError } from "./budget";
 import { MissingConfigError, describeAuthError, isConnectionError, isDroppedConnection } from "./ai";
 import { db } from "./db";
 import { SourceBoundaryError } from "./artifactsources";
+import { BadRequestError } from "./badrequest";
+
+export { readBody } from "./badrequest";
 
 export function ok(data: unknown, init?: number) {
   return NextResponse.json(data, { status: init ?? 200 });
 }
 
 export function fail(e: unknown) {
+  if (e instanceof BadRequestError) {
+    return NextResponse.json({ error: e.message, code: "invalid" }, { status: 400 });
+  }
   if (e instanceof SourceBoundaryError) {
     return NextResponse.json({ error: e.message, code: "invalid_sources" }, { status: 400 });
   }

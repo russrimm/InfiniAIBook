@@ -27,6 +27,10 @@ Two checks apply whether or not a password is set:
   `Sec-Fetch-Site`, or a foreign `Origin`) gets `403 {"code": "csrf"}`. Scripts
   that send neither header are unaffected.
 
+A request body that is missing, empty, not valid JSON or not a JSON object gets
+`400 {"error": "...", "code": "invalid"}` on every route that takes JSON.
+Importing a file that is not a notebook export (`POST /api/notebooks/import`)
+also returns 400 with the reason.
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | POST | `/api/auth/login` | `{ password }` | Sets a signed 30-day HTTP-only cookie. Attempts are serialized; each failure delays the next one longer (up to 30 s) |

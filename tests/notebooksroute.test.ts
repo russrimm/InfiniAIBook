@@ -163,10 +163,10 @@ describe("/api/notebooks/[id]", () => {
     expect(res.status).toBe(404);
   });
 
-  it("reports an unreadable body as an error response", async () => {
+  it("rejects an unreadable body with a 400", async () => {
     const id = seedNotebook();
     const res = await PATCH(request(`/api/notebooks/${id}`, "PATCH", "{nope"), idCtx(id));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
     expect(await res.json()).toHaveProperty("error");
   });
 
@@ -252,22 +252,29 @@ describe("/api/notebooks/[id]/export and /api/notebooks/import", () => {
     expect(await res.json()).toEqual({ error: "That export is larger than 200 MB." });
   });
 
-  it("reports a file that is not a notebook export", async () => {
+  it("rejects a file that is not a notebook export", async () => {
     const zip = new JSZip();
     zip.file("hello.txt", "hi");
     const bytes = await zip.generateAsync({ type: "arraybuffer" });
     const res = await importNotebook(upload(new File([bytes], "other.zip")));
-    expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({ error: "That file is not a notebook export." });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "That file is not a notebook export.", code: "invalid" });
     expect(count("notebooks")).toBe(0);
   });
 
-  it("reports an export from a different format version", async () => {
+  it("rejects a file that is not a zip archive", async () => {
+    const res = await importNotebook(upload(new File(["this is not a zip"], "broken.zip")));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/not a valid \.zip archive/);
+    expect(count("notebooks")).toBe(0);
+  });
+
+  it("rejects an export from a different format version", async () => {
     const zip = new JSZip();
     zip.file("manifest.json", JSON.stringify({ format: PACK_FORMAT, version: PACK_VERSION + 1, notebook: {} }));
     const bytes = await zip.generateAsync({ type: "arraybuffer" });
     const res = await importNotebook(upload(new File([bytes], "future.zip")));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/newer or different app/);
   });
 
@@ -276,7 +283,7 @@ describe("/api/notebooks/[id]/export and /api/notebooks/import", () => {
     zip.file("../evil.txt", "x");
     const bytes = await zip.generateAsync({ type: "arraybuffer" });
     const res = await importNotebook(upload(new File([bytes], "evil.zip")));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/unsafe file path/);
     expect(fs.existsSync("evil.txt")).toBe(false);
   });

@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import { createNote, listNotes } from "@/lib/notes";
 import type { Citation } from "@/lib/types";
 import { NextResponse } from "next/server";
@@ -27,7 +27,7 @@ export async function POST(req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
     if (!exists(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const body = (await req.json()) as {
+    const body = (await readBody(req)) as {
       title?: string;
       content?: string;
       kind?: "human" | "ai";

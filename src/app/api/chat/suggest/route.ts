@@ -1,4 +1,4 @@
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import { getSession, sessionMessages } from "@/lib/sessions";
 import { suggestFollowUps } from "@/lib/chatsuggest";
 import { NextResponse } from "next/server";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   try {
-    const { sessionId, messageId } = (await req.json()) as { sessionId?: string; messageId?: string };
+    const { sessionId, messageId } = (await readBody(req)) as { sessionId?: string; messageId?: string };
     if (!sessionId || !messageId) {
       return NextResponse.json({ error: "Missing sessionId or messageId" }, { status: 400 });
     }

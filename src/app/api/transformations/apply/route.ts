@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import { chatText } from "@/lib/ai";
 import { createNote } from "@/lib/notes";
 import { buildContext, citationList, sampleCorpus } from "@/lib/retrieve";
@@ -25,7 +25,7 @@ export function POST(req: Request) {
 
 async function applyTransformation(req: Request, report: GenerationStatus) {
   try {
-    const { transformationId, sourceId } = (await req.json()) as {
+    const { transformationId, sourceId } = (await readBody(req)) as {
       transformationId?: string;
       sourceId?: string;
     };
