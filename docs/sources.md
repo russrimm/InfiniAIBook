@@ -16,6 +16,8 @@ opens the list when sources exist. A source without a saved summary explicitly
 shows **No synopsis available**; viewing the list does not generate another
 summary or re-import the source.
 
+**Rename** (the pencil on a row) changes only the source's name. Its text, passages and embeddings are untouched, so nothing needs re-indexing; Enter saves and Escape cancels. A name like "Untitled" or a long page title is easy to fix this way, and the new name appears in citations and exports from then on. Once a notebook has six or more sources, a **Filter sources** box at the top of the list narrows it by name or synopsis. The filter only hides rows: hidden sources keep their ticks, so Chat and Studio still use whatever is ticked.
+
 ## Adding sources
 
 Open **Add sources** in the notebook header. Use **Drop files or click to
