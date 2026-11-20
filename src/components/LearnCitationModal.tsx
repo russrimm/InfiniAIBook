@@ -16,13 +16,13 @@ export default function LearnCitationModal({ citation, onClose }: { citation: Ci
     <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/65 p-0 backdrop-blur-sm sm:items-center sm:p-6" {...backdropProps}>
       <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="learn-citation-title"
         className="fade-up flex max-h-full w-full max-w-3xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:max-h-[80vh] sm:rounded-2xl">
-        <header className="flex items-start gap-3 border-b border-[var(--border)] px-5 py-4">
+        <div className="flex items-start gap-3 border-b border-[var(--border)] px-5 py-4">
           <div className="min-w-0 flex-1">
             <h2 id="learn-citation-title" className="text-[15px] font-semibold">Microsoft Learn citation</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">{citation.sourceTitle}</p>
           </div>
           <button type="button" className="btn !px-2.5 !py-1.5 !text-xs" aria-label="Close" onClick={onClose}>Close</button>
-        </header>
+        </div>
         <div className="min-h-0 overflow-y-auto px-5 py-4">
           <p className="mb-4 text-xs text-[var(--muted)]">
             This excerpt was saved with the answer. The current documentation may have changed.

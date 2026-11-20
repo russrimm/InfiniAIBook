@@ -158,14 +158,14 @@ export default function RegenerateDialog({
         aria-labelledby="regen-title"
         className="fade-up card flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden !p-0 outline-none"
       >
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <h2 id="regen-title" className="flex-1 truncate text-[15px] font-semibold">
             Regenerate {studioLabel(type)}
           </h2>
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={onClose} disabled={busy}>
             ✕
           </button>
-        </header>
+        </div>
         <form
           className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 text-[13px]"
           onSubmit={(e) => {

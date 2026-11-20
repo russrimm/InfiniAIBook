@@ -1955,13 +1955,13 @@ export default function StudioPanel({
                             <button
                               type="button"
                               onClick={() => setGalleryOpen(true)}
-                              aria-label={`Style: ${chosen.label}. Browse all ${STYLE_ORDER.length} styles with examples`}
                               className="group flex w-full items-center gap-2.5 rounded-md border border-[var(--border)] bg-well p-1.5 text-left transition hover:border-line-hover"
                             >
                               <span className="w-[5.5rem] shrink-0 overflow-hidden rounded border border-[var(--border)]">
                                 <ScaledExample style={style} crop />
                               </span>
                               <span className="min-w-0 flex-1">
+                                <span className="sr-only">Style. Browse all {STYLE_ORDER.length} styles with examples. </span>
                                 <span className="block truncate text-[13px] font-medium">
                                   {chosen.icon} {chosen.label}
                                 </span>

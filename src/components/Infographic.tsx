@@ -75,12 +75,12 @@ export default function Infographic({ content: stored, citations }: Props) {
     <div className="p-4" style={card}>
       <div className="mb-2.5 flex items-center gap-2">
         <span className={large ? "text-2xl" : "text-xl"}>{section.icon || "•"}</span>
-        <h3
+        <h2
           className={`font-semibold ${large ? "text-[17px]" : "text-[15px]"}`}
           style={headingStyle}
         >
           {section.heading}
-        </h3>
+        </h2>
       </div>
       <Bullets items={section.bullets} />
     </div>
@@ -138,12 +138,12 @@ export default function Infographic({ content: stored, citations }: Props) {
   const NextSteps = () =>
     !content.nextSteps?.length ? null : (
       <div className="p-4" style={card}>
-        <h3
+        <h2
           className="mb-2.5 text-[13px] font-semibold"
           style={{ ...headingStyle, letterSpacing: "0.09em" }}
         >
           Next steps
-        </h3>
+        </h2>
         <ol className="space-y-2">
           {content.nextSteps.map((s, i) => (
             <li key={i} className="flex gap-2.5 text-[13px] leading-snug">
@@ -212,10 +212,10 @@ export default function Infographic({ content: stored, citations }: Props) {
     <div className="space-y-4">
       {content.sections.map((s, i) => (
         <div key={i}>
-          <h3 className="mb-1.5 text-[17px] font-semibold" style={headingStyle}>
+          <h2 className="mb-1.5 text-[17px] font-semibold" style={headingStyle}>
             <span className="mr-2">{s.icon}</span>
             {s.heading}
-          </h3>
+          </h2>
           <Bullets items={s.bullets} />
           {i === 0 && <PullQuote />}
         </div>
@@ -260,9 +260,9 @@ export default function Infographic({ content: stored, citations }: Props) {
                 <div className="min-w-0 flex-1 p-4" style={card}>
                   <div className="mb-1.5 flex items-center gap-2">
                     {section?.icon && <span className="text-lg">{section.icon}</span>}
-                    <h3 className="text-[15px] font-semibold" style={headingStyle}>
+                    <h2 className="text-[15px] font-semibold" style={headingStyle}>
                       {section?.heading || stage}
-                    </h3>
+                    </h2>
                   </div>
                   {section && <Bullets items={section.bullets} />}
                 </div>
@@ -288,9 +288,9 @@ export default function Infographic({ content: stored, citations }: Props) {
     const max = Math.max(...data.map((d) => d.value)) || 1;
     return (
       <div className="p-4" style={card}>
-        <h3 className="mb-3 text-[13px] font-semibold" style={headingStyle}>
+        <h2 className="mb-3 text-[13px] font-semibold" style={headingStyle}>
           By the numbers
-        </h3>
+        </h2>
         <div className="space-y-2.5">
           {data.map((d, i) => (
             <div key={i}>
@@ -571,12 +571,12 @@ export default function Infographic({ content: stored, citations }: Props) {
           <div className="space-y-3">
             {content.regions.map((r, i) => (
               <div key={i} style={card} className="p-4">
-                <h3
+                <h2
                   className="text-[11px] font-bold tracking-[0.12em] uppercase"
                   style={{ ...headingStyle, color: t.accent }}
                 >
                   {plain(r.heading)}
-                </h3>
+                </h2>
                 <ul className="mt-2 space-y-2">
                   {r.concepts?.map((c, j) => (
                     <li key={j} className="text-sm">
@@ -606,12 +606,12 @@ export default function Infographic({ content: stored, citations }: Props) {
   };
 
   const captionHeading = (label: string) => (
-    <h3
+    <h2
       className="text-[11px] font-bold tracking-[0.12em] uppercase"
       style={{ ...headingStyle, color: t.accent }}
     >
       {label}
-    </h3>
+    </h2>
   );
 
   /** The visual guide's hub, kept as a cited caption. */
@@ -721,9 +721,9 @@ export default function Infographic({ content: stored, citations }: Props) {
                     {m.date || `Step ${i + 1}`}
                   </span>
                   <div className="mt-1.5 p-3.5 text-left" style={card}>
-                    <h3 className="text-[14.5px] font-semibold" style={headingStyle}>
+                    <h2 className="text-[14.5px] font-semibold" style={headingStyle}>
                       {m.title}
-                    </h3>
+                    </h2>
                     {m.detail && (
                       <p className="mt-1 text-[12.5px] leading-snug">{cite(m.detail)}</p>
                     )}
@@ -954,10 +954,10 @@ export default function Infographic({ content: stored, citations }: Props) {
         className="p-4"
         style={{ ...card, borderTop: `4px solid ${c}` }}
       >
-        <h3 className="mb-3 flex items-center gap-2 text-[15px] font-semibold" style={headingStyle}>
+        <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold" style={headingStyle}>
           <span aria-hidden>{mark === "+" ? "👍" : "👎"}</span>
           {label}
-        </h3>
+        </h2>
         <ul className="space-y-2">
           {items.map((p, i) => (
             <li key={i} className="flex gap-2.5 text-[13px] leading-snug">
@@ -1048,9 +1048,9 @@ export default function Infographic({ content: stored, citations }: Props) {
               </span>
               <div className="mb-1.5 flex items-center gap-2">
                 <span className="text-lg">{s.icon || "🧱"}</span>
-                <h3 className="text-[15px] font-bold" style={{ fontFamily: t.headingFont }}>
+                <h2 className="text-[15px] font-bold" style={{ fontFamily: t.headingFont }}>
                   {s.heading}
-                </h3>
+                </h2>
                 {i === 0 && (
                   <span className="ml-auto rounded-full bg-black/15 px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
                     Foundation
@@ -1139,7 +1139,7 @@ export default function Infographic({ content: stored, citations }: Props) {
       {/* The image already contains the headline, so repeating it above the
           picture would show it twice. */}
       {def.layout !== "image" && (
-      <header
+      <div
         className={`text-center ${def.layout === "illustrated" ? "px-7 py-9" : "px-7 py-7"}`}
         style={{
           background: t.headerBg,
@@ -1171,7 +1171,7 @@ export default function Infographic({ content: stored, citations }: Props) {
             {plain(content.subtitle)}
           </p>
         )}
-      </header>
+      </div>
       )}
 
       <div className="space-y-4 p-5 sm:p-6">

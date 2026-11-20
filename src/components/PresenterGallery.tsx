@@ -150,7 +150,7 @@ export default function PresenterGallery({
         aria-labelledby="gallery-title"
         className="fade-up card flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden !p-0 outline-none"
       >
-        <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <div className="min-w-0 flex-1">
             <h2 id="gallery-title" className="text-[15px] font-semibold">
               Compare presenters
@@ -171,7 +171,7 @@ export default function PresenterGallery({
           >
             ✕
           </button>
-        </header>
+        </div>
 
         <div
           role="tablist"

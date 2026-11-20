@@ -371,7 +371,7 @@ export default function ArtifactModal({
           artifact.type === "infographic" ? "max-w-6xl" : "max-w-4xl"
         }`}
       >
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <span className="text-lg">{spec?.icon}</span>
           <div className="min-w-0 flex-1">
             <h2 id="artifact-title" className="truncate text-[15px] font-semibold">
@@ -442,7 +442,7 @@ export default function ArtifactModal({
           >
             ✕
           </button>
-        </header>
+        </div>
 
         <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8">
           <Body artifact={artifact} citations={citations} onRefresh={onRefresh} />

@@ -135,7 +135,7 @@ export default function BrowserModal({
         aria-label="Browse the web"
         className="fade-up flex h-full w-full max-w-6xl flex-col overflow-hidden border border-[var(--border)] bg-[var(--panel)] outline-none sm:rounded-2xl"
       >
-        <header className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-4 py-2.5">
+        <div className="flex shrink-0 items-center gap-2 border-b border-[var(--border)] px-4 py-2.5">
           <button
             className="btn !px-2.5 !py-1.5 !text-xs disabled:opacity-40"
             onClick={back}
@@ -178,7 +178,7 @@ export default function BrowserModal({
           >
             ✕
           </button>
-        </header>
+        </div>
 
         {(error || added || page?.alreadyAdded) && (
           <div className="shrink-0 border-b border-[var(--border)] px-4 py-2 text-[11px]">

@@ -316,7 +316,7 @@ export default function AboutModal({
         aria-labelledby="about-title"
         className="fade-up card flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden !p-0 outline-none"
       >
-        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
           <Logo size={40} />
           <div className="flex-1">
             <h2 id="about-title" className="text-[15px] font-semibold">
@@ -330,7 +330,7 @@ export default function AboutModal({
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={onClose}>
             ✕
           </button>
-        </header>
+        </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <section aria-labelledby="help-title">
