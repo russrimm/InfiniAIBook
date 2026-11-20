@@ -2,8 +2,8 @@ import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), ".data");
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+const DATA_DIR = process.env.DATA_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), ".data");
+if (!fs.existsSync(/*turbopackIgnore: true*/ DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const globalForDb = globalThis as unknown as { __db?: DatabaseSync };
 
@@ -21,7 +21,7 @@ function adoptLegacyDatabase() {
   const old = path.join(DATA_DIR, LEGACY_DB_FILE);
   if (fs.existsSync(next) || !fs.existsSync(old)) return;
   for (const suffix of ["", "-wal", "-shm"]) {
-    if (fs.existsSync(old + suffix)) fs.renameSync(old + suffix, next + suffix);
+    if (fs.existsSync(/*turbopackIgnore: true*/ old + suffix)) fs.renameSync(old + suffix, next + suffix);
   }
   console.log(`[db] moved ${LEGACY_DB_FILE} to ${DB_FILE}`);
 }

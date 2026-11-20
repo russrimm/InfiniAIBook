@@ -35,7 +35,7 @@ function refuse(pathname: string, status: number, error: string, code: string) {
  * uses (a pod IP, say). It returns only "ok" or "unavailable", so skipping the
  * checks exposes nothing; every other method and path is still checked.
  */
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const password = authPassword();
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host");

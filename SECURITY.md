@@ -16,14 +16,14 @@ mind before running it anywhere other than your own machine:
   who can reach the server can read every notebook, add sources, and spend your
   model, Speech and search quota using the credentials the server runs with.
   So by default `npm run dev` and `npm start` listen on `127.0.0.1` only, and
-  the middleware (`src/middleware.ts`, `src/lib/access.ts`) answers only to
+  the proxy (`src/proxy.ts`, `src/lib/access.ts`) answers only to
   loopback hostnames plus any in `ALLOWED_HOSTS`. That blocks DNS rebinding,
   where a page you visit re-points its own domain at your machine. Browsers are
   also refused when they send a state-changing API request (POST, PATCH,
   DELETE) from another site (CSRF). `npm run dev:lan` / `npm run start:lan`
   listen on every interface; use them only with a password set.
   Setting the password puts every page and API route behind one shared password
-  (`src/middleware.ts`). Browsers sign in at `/login` and get an HTTP-only
+  (`src/proxy.ts`). Browsers sign in at `/login` and get an HTTP-only
   cookie that holds a signed expiry (30 days), never the password. Scripts send
   `INFINIAIBOOK_API_TOKEN` as a bearer token. The password is not accepted as a
   bearer token unless `INFINIAIBOOK_ALLOW_PASSWORD_BEARER=true`.
@@ -31,7 +31,7 @@ mind before running it anywhere other than your own machine:
   **Sign out** on the home page clears this browser's cookie. Sign-in attempts
   are handled one at a time, and each failure holds the next attempt for
   longer (up to 30 s). Wrong bearer tokens go through the same back-off in the
-    middleware, so the API cannot be used to guess the password at full speed; a
+    proxy, so the API cannot be used to guess the password at full speed; a
     valid session cookie is checked first and never waits behind them. When too
     many failed attempts are already waiting, further ones get an immediate 429.
   After sign-in, the `?next=` path is resolved against this origin and dropped
