@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 export function dataDir(): string {
-  return process.env.DATA_DIR || path.join(process.cwd(), ".data");
+  return process.env.DATA_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), ".data");
 }
 
 export function audioDir(): string {

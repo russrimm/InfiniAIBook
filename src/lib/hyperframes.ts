@@ -38,7 +38,7 @@ export function hyperframesAvailable(): boolean {
   if (probed === undefined) {
     const win = process.platform === "win32";
     const run = spawnSync(
-      win ? process.env.ComSpec || "cmd.exe" : "npx",
+      /*turbopackIgnore: true*/ win ? process.env.ComSpec || "cmd.exe" : "npx",
       win ? ["/d", "/s", "/c", "npx --version"] : ["--version"],
       { stdio: "ignore", timeout: 15_000 },
     );
@@ -116,7 +116,7 @@ export function stageHyperframesProject(project: HyperframesProject, dir: string
     }
   };
   for (const f of project.files) place(f.from, path.join(dir, f.name));
-  fs.copyFileSync(path.join(process.cwd(), "scripts", "hyperframes", "gsap.min.js"), path.join(dir, GSAP_FILE));
+  fs.copyFileSync(path.join(/*turbopackIgnore: true*/ process.cwd(), "scripts", "hyperframes", "gsap.min.js"), path.join(dir, GSAP_FILE));
   fs.writeFileSync(path.join(dir, "index.html"), project.html);
   fs.writeFileSync(path.join(dir, "hyperframes.json"), "{}");
   fs.writeFileSync(path.join(dir, "meta.json"), JSON.stringify({ id: "training", name: "Training video" }));
@@ -146,7 +146,7 @@ export function runHyperframesRender(
       : [program[0], program.slice(1), false];
 
   return new Promise((resolve, reject) => {
-    const child = spawn(file, fileArgs, {
+    const child = spawn(/*turbopackIgnore: true*/ file, fileArgs, {
       cwd: dir,
       windowsVerbatimArguments: verbatim,
       env: { ...process.env, DO_NOT_TRACK: "1" },

@@ -13,9 +13,9 @@ export function runPythonRenderer(
   onProgress?: (fraction: number) => void,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const script = path.join(process.cwd(), "scripts", ...scriptPath);
+    const script = path.join(/*turbopackIgnore: true*/ process.cwd(), "scripts", ...scriptPath);
     const py = process.env.PYTHON_BIN || "python";
-    const child = spawn(py, [script, configPath], { cwd: process.cwd() });
+    const child = spawn(/*turbopackIgnore: true*/ py, [script, configPath], { cwd: process.cwd() });
 
     // A renderer that hangs would hold the build, its heartbeat and a worker
     // forever. Generous, because real renders run for many minutes.

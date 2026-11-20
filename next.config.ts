@@ -64,29 +64,21 @@ const nextConfig: NextConfig = {
   // default output so `npm start` behaves as before.
   output: process.env.NEXT_OUTPUT_STANDALONE ? "standalone" : undefined,
   // These rely on Node built-ins / dynamic requires and must not be bundled.
-  serverExternalPackages: ["unpdf", "mammoth", "cheerio", "undici"],
+  serverExternalPackages: ["unpdf", "mammoth", "cheerio", "undici", "@azure/identity"],
   poweredByHeader: false,
-  webpack(config, { isServer, webpack }) {
-    // pptxgenjs builds decks in the browser. Its ES build still names Node's
-    // fs and https (for server use) with the node: scheme, which webpack
-    // rejects before it reads the package's "browser" field mapping them to
-    // nothing. Dropping the scheme lets that mapping apply.
-    if (!isServer) {
-      config.plugins.push(
-        new webpack.NormalModuleReplacementPlugin(/^node:(fs|https)$/, (resource: { request: string }) => {
-          resource.request = resource.request.replace(/^node:/, "");
-        })
-      );
-      config.resolve.fallback = { ...config.resolve.fallback, fs: false, https: false };
-    }
-    return config;
+  // Turbopack traces data-directory paths built from process.cwd() as if they
+  // reached the whole project, which would copy docs, promo videos and tests
+  // into the standalone image. The runtime needs none of them; the Dockerfile
+  // copies the renderer scripts itself.
+  outputFileTracingExcludes: {
+    "*": ["./docs/**", "./promo/**", "./tests/**", "./infra/**", "./e2e/**", "./skills/**", "./.next/cache/**"],
   },
   experimental: {
-    // Requests pass through middleware, which buffers at most 10 MB by default
+    // Requests pass through the proxy (src/proxy.ts), which buffers at most 10 MB by default
     // and silently truncates anything larger. Allow the largest body the app
     // accepts — an upload, a music track, or a 200 MB notebook import — plus
     // room for multipart overhead.
-    middlewareClientMaxBodySize:
+    proxyClientMaxBodySize:
       Math.max(Number(process.env.MAX_UPLOAD_BYTES || 50 * 1024 * 1024), 200 * 1024 * 1024) +
       1024 * 1024,
   },

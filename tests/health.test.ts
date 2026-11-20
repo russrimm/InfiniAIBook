@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { GET } from "@/app/api/health/route";
-import { middleware } from "@/middleware";
+import { proxy } from "@/proxy";
 
 const call = (path: string, host: string, method = "GET") =>
-  middleware(new NextRequest(`http://${host}${path}`, { method, headers: { host } }));
+  proxy(new NextRequest(`http://${host}${path}`, { method, headers: { host } }));
 
 afterEach(() => {
   delete process.env.INFINIAIBOOK_PASSWORD;
@@ -39,7 +39,7 @@ describe("GET /api/health", () => {
   });
 });
 
-describe("middleware and /api/health", () => {
+describe("proxy and /api/health", () => {
   it("serves it to loopback probes when no password is set", async () => {
     for (const host of ["localhost:3000", "127.0.0.1:3000"]) {
       expect((await call("/api/health", host)).status).toBe(200);

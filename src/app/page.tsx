@@ -50,6 +50,8 @@ export default function Home() {
 
   const signOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
+    // A full reload clears all client state when signing out.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = "/login";
   };
 

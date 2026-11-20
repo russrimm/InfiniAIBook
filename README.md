@@ -14,7 +14,7 @@ PowerPoint decks, infographics, mind maps, quizzes, flashcards, study guides,
 FAQs, timelines, audio overviews, whiteboard videos, motion explainers and
 avatar training videos**. Every claim is cited back to the document it came from.
 
-Built with Next.js 15, TypeScript and SQLite. Runs against Azure OpenAI, a dozen
+Built with Next.js 16, TypeScript and SQLite. Runs against Azure OpenAI, a dozen
 named providers (OpenAI, Anthropic, Gemini, Groq, Mistral, DeepSeek, OpenRouter,
 xAI, Perplexity, Together) or any OpenAI-compatible endpoint, including local
 models via Ollama, llama.cpp or LM Studio.

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { middleware } from "@/middleware";
+import { proxy } from "@/proxy";
 import { AUTH_COOKIE, createSessionToken } from "@/lib/auth";
 
 const ENV_KEYS = [
@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 const call = (path: string, headers: Record<string, string> = {}, method = "GET") =>
-  middleware(new NextRequest(`http://localhost:3000${path}`, { method, headers: { host: "localhost:3000", ...headers } }));
+  proxy(new NextRequest(`http://localhost:3000${path}`, { method, headers: { host: "localhost:3000", ...headers } }));
 
 const passes = (res: Response) => res.headers.get("x-middleware-next") === "1";
 
@@ -37,7 +37,7 @@ const callWithBackoff = async (...args: Parameters<typeof call>) => {
   return res;
 };
 
-describe("middleware without a password", () => {
+describe("proxy without a password", () => {
   it("serves loopback hosts", async () => {
     for (const host of ["localhost:3000", "127.0.0.1:3000", "[::1]:3000"]) {
       expect(passes(await call("/", { host }))).toBe(true);
@@ -78,7 +78,7 @@ describe("middleware without a password", () => {
   });
 });
 
-describe("middleware with a password", () => {
+describe("proxy with a password", () => {
   const PASSWORD = "correct horse";
   const withPassword = () => {
     process.env.INFINIAIBOOK_PASSWORD = PASSWORD;
