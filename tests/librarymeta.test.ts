@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { GET } from "@/app/api/notebooks/[id]/route";
 import { exportNotebookZip, importNotebookZip } from "@/lib/notebookpack";
 import { INFOGRAPHIC_STYLES, STYLE_ORDER } from "@/lib/infographic";
-import { filterLibrary, infographicStyleLabel, libraryMeta } from "@/lib/librarymeta";
+import { filterLibrary, infographicStyleLabel, isLibrarySort, libraryMeta, sortLibrary } from "@/lib/librarymeta";
 
 const WHEN = new Date(2026, 10, 19, 8, 49, 25).getTime();
 const stamp = new Date(WHEN).toLocaleString();
@@ -108,5 +108,32 @@ describe("filterLibrary", () => {
     expect(filterLibrary(items, "infographic water").map((a) => a.title)).toEqual(["Water cycle"]);
     expect(filterLibrary(items, "water river")).toEqual([]);
     expect(filterLibrary(items, String(new Date().getFullYear()))).toEqual([]);
+  });
+});
+
+describe("Library sort", () => {
+  const rows = [
+    { title: "quiz 10", type: "quiz", createdAt: 3 },
+    { title: "Quiz 2", type: "quiz", createdAt: 1 },
+    { title: "Atlas", type: "report", createdAt: 2 },
+    { title: "atlas", type: "faq", createdAt: 4 },
+  ];
+  const titles = (s: Parameters<typeof sortLibrary>[1]) => sortLibrary(rows, s).map((r) => r.title);
+
+  it("orders by date either way, by name ignoring case and reading numbers, and by format", () => {
+    expect(titles("newest")).toEqual(["atlas", "quiz 10", "Atlas", "Quiz 2"]);
+    expect(titles("oldest")).toEqual(["Quiz 2", "Atlas", "quiz 10", "atlas"]);
+    // Equal names fall back to newest first; "Quiz 2" comes before "quiz 10".
+    expect(titles("name")).toEqual(["atlas", "Atlas", "Quiz 2", "quiz 10"]);
+    // FAQ, Quiz and Report in alphabetical order of their labels, newest first within each.
+    expect(sortLibrary(rows, "type").map((r) => r.type)).toEqual(["faq", "quiz", "quiz", "report"]);
+  });
+
+  it("never changes the list it is given, and knows its own keys", () => {
+    const before = rows.map((r) => r.title);
+    sortLibrary(rows, "name");
+    expect(rows.map((r) => r.title)).toEqual(before);
+    expect(isLibrarySort("name")).toBe(true);
+    expect(isLibrarySort("size")).toBe(false);
   });
 });

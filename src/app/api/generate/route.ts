@@ -1,12 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
-import { db } from "@/lib/db";
+import { db, transaction } from "@/lib/db";
 import { ok, fail, generationSourceError } from "@/lib/http";
 import { throwIfCancelled } from "@/lib/jobs";
 import { generationReply, type GenerationStatus } from "@/lib/keepalive";
 import { chatJSON, generateImage, type ChatMsg } from "@/lib/ai";
-import { imageDir } from "@/lib/paths";
+import { imageDir, removeImage } from "@/lib/paths";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
 import { GROUNDING_RULES, STUDIO } from "@/lib/studio";
 import {
@@ -223,6 +223,19 @@ async function generateArtifact(req: Request, report: GenerationStatus, signal: 
     const none = generationSourceError(notebookId, sourceIds);
     if (none) return none;
 
+    // Regenerating: `basedOn` names the version being redone. It is kept unless
+    // `replace` is true, in which case it is deleted together with the saving
+    // of the new one, so a failed generation never costs the original.
+    const { basedOn, replace } = body as { basedOn?: unknown; replace?: unknown };
+    let base: { id: string } | null = null;
+    if (basedOn !== undefined && basedOn !== null) {
+      if (typeof basedOn !== "string") return bad("basedOn must be an item id.");
+      base = (db.prepare("SELECT id FROM artifacts WHERE id = ? AND notebook_id = ? AND type = ?").get(basedOn, notebookId, type) as unknown as { id: string } | undefined) ?? null;
+      if (!base && replace === true) {
+        return bad("The version you are replacing no longer exists. Close this and open the Library to see what is there.");
+      }
+    }
+
     // Reject unknown values rather than passing them into the prompt, where
     // they would silently become instructions.
     const safeLength = (["short", "standard", "long"] as const).includes(
@@ -413,8 +426,25 @@ async function generateArtifact(req: Request, report: GenerationStatus, signal: 
     }
 
     report("Saving the generated artifact");
+    const request = {
+      ...(typeof topic === "string" && topic.trim() ? { topic: topic.trim() } : {}),
+      ...(spec.study || spec.sized || type === "slides" ? { length: safeLength } : {}),
+      ...(spec.study ? { difficulty: safeDifficulty } : {}),
+      ...(type === "slides" && typeof theme === "string" ? { theme } : {}),
+      ...(activeStyle ? { style: activeStyle } : {}),
+      ...(infographicOpts
+        ? {
+            orientation: infographicOpts.orientation,
+            detail: infographicOpts.detail,
+            ...(infographicOpts.instructions ? { instructions: infographicOpts.instructions } : {}),
+            ...(infographicOpts.title ? { title: infographicOpts.title } : {}),
+          }
+        : {}),
+    };
     const stored = {
       ...content,
+      request,
+      ...(base ? { basedOn: base.id } : {}),
       ...(storedStyle ? { style: storedStyle } : {}),
       ...(infographicOpts
         ? { orientation: infographicOpts.orientation, detail: infographicOpts.detail }
@@ -427,9 +457,13 @@ async function generateArtifact(req: Request, report: GenerationStatus, signal: 
     };
     // A cancelled request must not leave a half-made item behind.
     throwIfCancelled(signal);
-    db.prepare(
-      "INSERT INTO artifacts (id, notebook_id, type, title, content, created_at) VALUES (?,?,?,?,?,?)"
-    ).run(id, notebookId, type, title, JSON.stringify(stored), Date.now());
+    transaction(() => {
+      db.prepare(
+        "INSERT INTO artifacts (id, notebook_id, type, title, content, created_at) VALUES (?,?,?,?,?,?)"
+      ).run(id, notebookId, type, title, JSON.stringify(stored), Date.now());
+      if (base && replace === true) db.prepare("DELETE FROM artifacts WHERE id = ?").run(base.id);
+    });
+    if (base && replace === true && type === "infographic") removeImage(base.id);
 
     return ok({ id, type, title, content: stored, createdAt: Date.now() });
   } catch (e) {

@@ -46,3 +46,32 @@ export function filterLibrary<T extends { title: string; type: string; style?: s
     return words.every((w) => haystack.includes(w));
   });
 }
+
+export type LibrarySort = "newest" | "oldest" | "name" | "type";
+
+export const LIBRARY_SORTS: { key: LibrarySort; label: string }[] = [
+  { key: "newest", label: "Newest first" },
+  { key: "oldest", label: "Oldest first" },
+  { key: "name", label: "Name (A to Z)" },
+  { key: "type", label: "Format (A to Z)" },
+];
+
+export const isLibrarySort = (v: unknown): v is LibrarySort => LIBRARY_SORTS.some((s) => s.key === v);
+
+const compareText = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true });
+
+/**
+ * A sorted copy of the Library. Name and format sorts ignore case and read
+ * numbers as numbers ("Quiz 2" before "Quiz 10"); ties fall back to newest
+ * first, so the order never shuffles between renders.
+ */
+export function sortLibrary<T extends { title: string; type: string; createdAt: number }>(artifacts: T[], sort: LibrarySort): T[] {
+  const newest = (a: T, b: T) => b.createdAt - a.createdAt;
+  const order: Record<LibrarySort, (a: T, b: T) => number> = {
+    newest,
+    oldest: (a, b) => a.createdAt - b.createdAt,
+    name: (a, b) => compareText(a.title, b.title) || newest(a, b),
+    type: (a, b) => compareText(studioLabel(a.type), studioLabel(b.type)) || newest(a, b),
+  };
+  return [...artifacts].sort(order[sort] ?? newest);
+}

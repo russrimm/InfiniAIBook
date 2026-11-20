@@ -116,6 +116,62 @@ describe("POST /api/generate validation", () => {
   });
 });
 
+describe("regenerating an item", () => {
+  const faq = (title: string) => ({ title, items: [{ q: "When does water boil?", a: "At 100 C." }] });
+  const titles = (notebookId: string) =>
+    (db.prepare("SELECT title FROM artifacts WHERE notebook_id = ? ORDER BY title").all(notebookId) as unknown as { title: string }[]).map((r) => r.title);
+
+  it("stores the options it was made with, so they can be edited next time", async () => {
+    const { notebookId, sourceId } = setup();
+    mocks.chatJSON.mockResolvedValue({ title: "Quiz", questions: [{ question: "Q?", choices: ["a", "b"], answerIndex: 0, explanation: "e" }] });
+    const made = await (await generate({ notebookId, type: "quiz", sourceIds: [sourceId], topic: "  boiling  ", difficulty: "hard", length: "long" })).json();
+    expect(made.content.request).toEqual({ topic: "boiling", length: "long", difficulty: "hard" });
+  });
+
+  it("keeps the original and records where the new version came from", async () => {
+    const { notebookId, sourceId } = setup();
+    mocks.chatJSON.mockResolvedValueOnce(faq("First")).mockResolvedValueOnce(faq("Second"));
+    const first = await (await generate({ notebookId, type: "faq", sourceIds: [sourceId] })).json();
+    const second = await (await generate({ notebookId, type: "faq", sourceIds: [sourceId], topic: "only boiling", basedOn: first.id })).json();
+    expect(second.content.basedOn).toBe(first.id);
+    expect(second.content.request.topic).toBe("only boiling");
+    expect(titles(notebookId)).toEqual(["First", "Second"]);
+  });
+
+  it("replaces the original only when asked, and only once the new one is saved", async () => {
+    const { notebookId, sourceId } = setup();
+    mocks.chatJSON.mockResolvedValueOnce(faq("Old")).mockResolvedValueOnce(faq("New"));
+    const old = await (await generate({ notebookId, type: "faq", sourceIds: [sourceId] })).json();
+    const next = await (await generate({ notebookId, type: "faq", sourceIds: [sourceId], basedOn: old.id, replace: true })).json();
+    expect(titles(notebookId)).toEqual(["New"]);
+    expect(count("artifacts", "id = ?", old.id)).toBe(0);
+    expect(count("artifacts", "id = ?", next.id)).toBe(1);
+  });
+
+  it("leaves the original alone when the new version fails", async () => {
+    const { notebookId, sourceId } = setup();
+    mocks.chatJSON.mockResolvedValueOnce(faq("Old")).mockRejectedValueOnce(new Error("model down"));
+    const old = await (await generate({ notebookId, type: "faq", sourceIds: [sourceId] })).json();
+    const res = await generate({ notebookId, type: "faq", sourceIds: [sourceId], basedOn: old.id, replace: true });
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(titles(notebookId)).toEqual(["Old"]);
+  });
+
+  it("refuses to replace an item that is gone, or one of another format, before spending anything", async () => {
+    const { notebookId, sourceId } = setup();
+    const gone = await generate({ notebookId, type: "faq", sourceIds: [sourceId], basedOn: "deleted", replace: true });
+    expect(gone.status).toBe(400);
+    expect((await gone.json()).error).toMatch(/no longer exists/);
+    mocks.chatJSON.mockResolvedValueOnce(faq("A FAQ"));
+    const faqItem = await (await generate({ notebookId, type: "faq", sourceIds: [sourceId] })).json();
+    mocks.chatJSON.mockClear();
+    const wrongType = await generate({ notebookId, type: "quiz", sourceIds: [sourceId], basedOn: faqItem.id, replace: true });
+    expect(wrongType.status).toBe(400);
+    expect(mocks.chatJSON).not.toHaveBeenCalled();
+    expect(titles(notebookId)).toEqual(["A FAQ"]);
+  });
+});
+
 describe("POST /api/generate", () => {
   it("writes a grounded FAQ and stores it with its sources and citations", async () => {
     const { notebookId, sourceId } = setup();
