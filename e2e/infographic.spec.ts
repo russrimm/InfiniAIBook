@@ -186,7 +186,7 @@ test("a typed title is the headline, Library name and download name, and survive
 
   const dialog = await generate();
   await expect(dialog.getByRole("heading", { level: 1 })).toHaveText('<b>Riverside</b> Garden: "Plan"');
-  await expect(dialog.getByRole("heading", { level: 2 })).toHaveText('<b>Riverside</b> Garden: "Plan"');
+  await expect(dialog.locator("#artifact-title")).toHaveText('<b>Riverside</b> Garden: "Plan"');
   await expect(dialog.locator("b")).toHaveCount(0);
   const sent = (await (await request.get(`${MOCK_LLM}/last`)).json()) as { system: string };
   expect(sent.system).toContain("FIXED TITLE");

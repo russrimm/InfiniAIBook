@@ -826,8 +826,9 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
             title="Choose which models to use"
           >
             <ModelIcon width={14} height={14} />{" "}
-            <span className="sr-only">{model ? "Models, chat: " : "Models"}</span>
+            <span className="sr-only">{model ? "Models (chat: " : "Models"}</span>
             <span className="max-w-[10rem] truncate">{model}</span>
+            {model ? <span className="sr-only">)</span> : null}
           </button>
           <ThemeToggle />
           <button

@@ -27,7 +27,12 @@ export default function ShortcutsModal({ onClose }: { onClose: () => void }) {
             ✕
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        <div
+          className="min-h-0 flex-1 overflow-y-auto px-5 py-4 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          role="region"
+          aria-label="Shortcut list"
+          tabIndex={0}
+        >
           <table className="w-full text-left text-[13px]">
             <caption className="sr-only">Keys and what they do</caption>
             <thead className="text-[11px] text-[var(--muted)]">

@@ -113,6 +113,11 @@ for (const { scheme, width, height } of COMBOS) {
     await check("shortcuts");
     await page.keyboard.press("Escape");
 
+    await page.keyboard.press("Control+k");
+    await expect(page.getByRole("dialog", { name: "Command palette" }).getByRole("option").first()).toBeVisible();
+    await check("command palette");
+    await page.keyboard.press("Escape");
+
     expect(problems, problems.join("\n")).toEqual([]);
   });
 }
