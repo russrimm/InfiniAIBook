@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import { removeAudio, removeImage, removeVideo } from "@/lib/paths";
 import { reconcileStalledVideos } from "@/lib/videobuild";
 import { forgetTraining, resumeStalledTrainings } from "@/lib/trainingbuild";
@@ -116,7 +116,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 export async function PATCH(req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
-    const body = (await req.json()) as { title?: string; narration?: unknown; liveLearn?: unknown };
+    const body = (await readBody(req)) as { title?: string; narration?: unknown; liveLearn?: unknown };
     if (body.liveLearn !== undefined) {
       if (typeof body.liveLearn !== "boolean") {
         return NextResponse.json({ error: "liveLearn must be a boolean." }, { status: 400 });

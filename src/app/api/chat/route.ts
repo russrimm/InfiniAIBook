@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { db, transaction } from "@/lib/db";
-import { fail, noSourcesSelected } from "@/lib/http";
+import { fail, noSourcesSelected, readBody } from "@/lib/http";
 import { chatStream, describeAuthError, type ChatMsg } from "@/lib/ai";
 import { citationsUsed, historyForPrompt } from "@/lib/citations";
 import { buildContext, citationList } from "@/lib/retrieve";
@@ -21,7 +21,7 @@ const MAX_MESSAGE_CHARS = 20_000;
 
 export async function POST(req: Request) {
   try {
-    const { notebookId, message, sourceIds, sessionId, mode, messageId } = (await req.json()) as {
+    const { notebookId, message, sourceIds, sessionId, mode, messageId } = (await readBody(req)) as {
       notebookId: string;
       message: string;
       sourceIds?: string[];

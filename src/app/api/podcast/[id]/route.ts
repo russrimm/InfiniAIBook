@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import { normalizeMusicChoice } from "@/lib/musicchoice";
 import { readNarration } from "@/lib/narration";
 import { normalizeEditedScript, podcastSettings } from "@/lib/podcastscript";
@@ -30,7 +30,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       );
     }
 
-    const body = (await req.json()) as {
+    const body = (await readBody(req)) as {
       title?: string;
       description?: string;
       script?: unknown;

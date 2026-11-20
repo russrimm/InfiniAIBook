@@ -82,10 +82,10 @@ describe("POST /api/notebooks/[id]/sources", () => {
     expect(await res.json()).toEqual({ error: "Nothing was added." });
   });
 
-  it("returns 500 for a body that is not JSON", async () => {
+  it("returns 400 for a body that is not JSON", async () => {
     const id = seedNotebook();
     const res = await add(id, "{nope");
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
   });
 
   it("adds pasted text with embedded chunks, names the notebook, and schedules a summary", async () => {

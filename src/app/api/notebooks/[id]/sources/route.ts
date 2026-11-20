@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { after, NextResponse } from "next/server";
 import { db, floatsToBlob, transaction } from "@/lib/db";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import { chunkText, extractFromFile, extractFromUrl, extractFromZip, isZipUpload } from "@/lib/ingest";
 import { fetchYouTubeTranscript, isYouTubeUrl } from "@/lib/youtube";
 import { chatText, embed, describeAuthError, embedModel } from "@/lib/ai";
@@ -283,7 +283,7 @@ export async function POST(req: Request, { params }: Ctx) {
         }
       }
     } else {
-      const body = (await req.json()) as {
+      const body = (await readBody(req)) as {
         learnUrl?: string;
         url?: string;
         text?: string;

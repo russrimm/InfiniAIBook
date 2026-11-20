@@ -187,9 +187,9 @@ describe("/api/notes/[id]", () => {
     expect((await deleteNote(request("/x", "DELETE"), idCtx(note.id))).status).toBe(200);
   });
 
-  it("reports a body that is not JSON as an error", async () => {
+  it("rejects a body that is not JSON with a 400", async () => {
     const note = createNote({ notebookId: seedNotebook(), content: "x" });
-    expect((await patchNote(request("/x", "PATCH", "{nope"), idCtx(note.id))).status).toBe(500);
+    expect((await patchNote(request("/x", "PATCH", "{nope"), idCtx(note.id))).status).toBe(400);
   });
 });
 
