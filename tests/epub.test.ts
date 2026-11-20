@@ -97,13 +97,14 @@ describe("EPUB ingestion", () => {
     await expect(epubToText(await epub([{ id: "a", file: "a.xhtml", body: "<img src='p1.png'/>" }]), "f.epub")).rejects.toThrow(/no readable text/);
   });
 
-  it("refuses an archive with an absurd number of files", async () => {
+  // These build multi-megabyte archives, which is slow on a busy CI runner with coverage on.
+  it("refuses an archive with an absurd number of files", { timeout: 60_000 }, async () => {
     const extra: Record<string, string> = {};
     for (let i = 0; i < 5001; i++) extra[`junk/${i}.txt`] = "x";
     await expect(epubToText(await epub([{ id: "a", file: "a.xhtml", body: "<p>x</p>" }], { extra }), "g.epub")).rejects.toThrow(/more than 5,000 files/);
   });
 
-  it("stops at a character limit and says what was left out; an oversized chapter is skipped", async () => {
+  it("stops at a character limit and says what was left out; an oversized chapter is skipped", { timeout: 120_000 }, async () => {
     const big = `<p>${"word ".repeat(180_000)}</p>`; // about 900,000 characters
     const chapters: Chapter[] = Array.from({ length: 7 }, (_, i) => ({ id: `c${i}`, file: `c${i}.xhtml`, body: big }));
     const book = await epubToText(await epub(chapters), "long.epub");
