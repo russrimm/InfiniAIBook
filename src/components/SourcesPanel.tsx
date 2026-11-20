@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import type { Source } from "@/lib/types";
 import { MAX_TITLE_CHARS } from "@/lib/limits";
 import type { DiscoverHit } from "./DiscoverModal";
+import { BulkBar, RowTags, TagFilter } from "./SourceTags";
+import { hasTag, tagCounts } from "@/lib/tags";
 
 const ICONS: Record<string, string> = {
   pdf: "📕",
@@ -119,8 +121,10 @@ export default function SourcesPanel({
   allSelected,
   onToggle,
   onToggleAll,
+  onSelectMany,
   onOpen,
   onRemove,
+  onRemoveMany,
   onChanged,
   onDiscover,
   onLearn,
@@ -142,9 +146,13 @@ export default function SourcesPanel({
   allSelected: boolean;
   onToggle: (id: string) => void;
   onToggleAll: () => void;
+  /** Tick exactly these sources (`only`) or add them to the ticked ones. */
+  onSelectMany: (ids: string[], only: boolean) => void;
   onOpen: (id: string) => void;
   /** Delete with an undo window; the panel only asks. */
   onRemove: (s: Source) => void;
+  /** Delete several at once, with one undo. */
+  onRemoveMany: (items: Source[]) => void;
   onChanged: () => Promise<void> | void;
   onDiscover: () => void;
   onLearn: () => void;
@@ -180,6 +188,9 @@ export default function SourcesPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [managing, setManaging] = useState(false);
+  const [editingTagsId, setEditingTagsId] = useState<string | null>(null);
 
   const startRename = (s: Source) => {
     setEditingId(s.id);
@@ -220,10 +231,18 @@ export default function SourcesPanel({
     }
   };
 
-  const needle = filter.trim().toLowerCase();
-  const visibleSources = needle
-    ? sources.filter((s) => `${s.title} ${s.summary ?? ""}`.toLowerCase().includes(needle))
-    : sources;
+  // The filter box only exists for longer lists, so a leftover filter must not hide a short one.
+  const needle = sources.length >= FILTER_FROM ? filter.trim().toLowerCase() : "";
+  const tags = tagCounts(sources);
+  // A tag that no source carries any more cannot keep filtering.
+  const activeTag = tagFilter && tags.some((t) => t.tag.toLowerCase() === tagFilter.toLowerCase()) ? tagFilter : null;
+  const visibleSources = sources.filter(
+    (s) =>
+      (!needle || `${s.title} ${s.summary ?? ""}`.toLowerCase().includes(needle)) &&
+      (!activeTag || hasTag(s.tags ?? [], activeTag)),
+  );
+  const filtering = Boolean(needle || activeTag);
+  const tickedHere = visibleSources.filter((s) => selected.has(s.id));
 
   /**
    * Each source is ingested by its own request, so slow items (a large PDF, a
@@ -438,7 +457,7 @@ export default function SourcesPanel({
             </button>
           </div>
         </div>
-        <div className="mt-2">
+        <div className="mt-2 flex items-center gap-3">
           {sources.length > 0 && (
             <button
               id="select-all-sources"
@@ -446,6 +465,17 @@ export default function SourcesPanel({
               onClick={onToggleAll}
             >
               {allSelected ? "Deselect all" : "Select all"}
+            </button>
+          )}
+          {sources.length > 1 && (
+            <button
+              type="button"
+              className="text-xs text-[var(--muted)] transition hover:text-[var(--fg)]"
+              aria-pressed={managing}
+              title="Tag or delete several sources at once"
+              onClick={() => setManaging((m) => !m)}
+            >
+              Manage
             </button>
           )}
         </div>
@@ -659,6 +689,33 @@ export default function SourcesPanel({
                 )}
               </div>
             )}
+            {tags.length > 0 && (
+              <div className="mb-2 px-1">
+                <TagFilter tags={tags} active={activeTag} onChange={setTagFilter} />
+              </div>
+            )}
+            {filtering && visibleSources.length > 0 && (
+              <div className="mb-2 flex flex-wrap items-center gap-1.5 px-1 text-[11px] text-[var(--muted)]">
+                <span>
+                  {visibleSources.length} showing{activeTag ? ` tagged “${activeTag}”` : ""}.
+                </span>
+                <button type="button" className="btn !px-2 !py-0.5 !text-[11px]" onClick={() => onSelectMany(visibleSources.map((s) => s.id), false)}>
+                  Tick these
+                </button>
+                <button type="button" className="btn !px-2 !py-0.5 !text-[11px]" onClick={() => onSelectMany(visibleSources.map((s) => s.id), true)}>
+                  Only these
+                </button>
+              </div>
+            )}
+            {managing && (
+              <BulkBar
+                notebookId={notebookId}
+                targets={tickedHere}
+                tags={tags.map((t) => t.tag)}
+                onChanged={onChanged}
+                onRemoveMany={onRemoveMany}
+              />
+            )}
           <ul className="space-y-1">
             {jobs.map((job) => (
               <li
@@ -767,7 +824,8 @@ export default function SourcesPanel({
                     </div>
                   </form>
                 ) : (
-                  <button className="min-w-0 flex-1 text-left" onClick={() => onOpen(s.id)}>
+                  <div className="min-w-0 flex-1">
+                  <button className="w-full text-left" onClick={() => onOpen(s.id)}>
                     <div className="flex items-start gap-1.5">
                       <span aria-hidden className="shrink-0 text-sm">
                         {ICONS[s.kind] ?? "📄"}
@@ -780,6 +838,24 @@ export default function SourcesPanel({
                       {s.summary?.trim() || "No synopsis available."}
                     </p>
                     <p className="mt-1 text-[10px] text-dim">{bytes(s.chars)}</p>
+                  </button>
+                  <RowTags
+                    source={s}
+                    editing={editingTagsId === s.id}
+                    onFilter={setTagFilter}
+                    onDone={() => setEditingTagsId(null)}
+                    onChanged={onChanged}
+                  />
+                  </div>
+                )}
+                {editingId !== s.id && (
+                  <button
+                    type="button"
+                    aria-label={`Edit tags for ${s.title}`}
+                    className="reveal h-fit shrink-0 rounded px-1 text-xs text-[var(--muted)] transition hover:text-[var(--fg)]"
+                    onClick={() => setEditingTagsId(s.id)}
+                  >
+                    <span aria-hidden>#</span>
                   </button>
                 )}
                 {editingId !== s.id && (
@@ -803,9 +879,10 @@ export default function SourcesPanel({
                 </button>
               </li>
             ))}
-            {needle && visibleSources.length === 0 && (
+            {filtering && visibleSources.length === 0 && (
               <li className="px-2 py-6 text-center text-xs text-[var(--muted)]">
-                No source matches “{filter.trim()}”. Clear the filter to see all {sources.length}.
+                            No source matches{needle ? ` “${filter.trim()}”` : ""}
+                            {activeTag ? ` with the tag “${activeTag}”` : ""}. Clear the filter to see all {sources.length}.
               </li>
             )}
           </ul>

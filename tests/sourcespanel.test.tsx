@@ -25,8 +25,10 @@ function render(sources = [source], adding = false) {
       allSelected
       onToggle={noop}
       onToggleAll={noop}
+      onSelectMany={noop}
       onOpen={noop}
       onRemove={noop}
+      onRemoveMany={noop}
       onChanged={noop}
       onDiscover={noop}
       onLearn={noop}

@@ -82,6 +82,9 @@ just after the response, so it appears on the next `GET /api/notebooks/{id}`.
 | GET | `/api/sources/{id}` | Full text and metadata. `?part=n` also returns `passage`, the text of that cited part |
 | POST | `/api/sources/{id}` | `{ action: "apply"\|"dismiss" }` — accept or discard a detected change to a linked source |
 | PATCH | `/api/sources/{id}` | `{ title }`: rename a source (whitespace collapsed, up to 300 characters). Its text and passages are unchanged. 400 for a blank or non-text title, 404 for an unknown source |
+| PATCH | `/api/sources/{id}` | `{ tags }` instead of `title` sets the source's tags (a list or comma-separated string; up to 8 of 32 characters, duplicates ignored) → `{ id, tags }`. Sources list their `tags` in `GET /api/notebooks/{id}` |
+| POST | `/api/notebooks/{id}/sources/bulk` | `{ action: "addTag"\|"removeTag", ids, tag }` (up to 500 ids) → `{ updated, skipped, previous }`; `{ action: "restore", tags: { id: [...] } }` puts earlier tags back. Only this notebook's sources are touched |
+| DELETE | `/api/notebooks/{id}/sources/bulk?ids=a,b,c` | Delete several sources → `{ deleted }` |
 | DELETE | `/api/sources/{id}` | |
 | GET | `/api/sources/{id}/structure` | Discovers the structure of a JSON, XML, CSV, TSV or HAR source: a path tree with types, counts and value stats, or a table. For HAR, `?request=n` returns one request's headers, cookies and bodies, and `?download=sanitized` returns the archive with secrets redacted. 422 for a source that cannot be parsed |
 | POST | `/api/sources/{id}/diagnose` | `{ problem? }` (up to 600 characters) → `{ diagnosis, model }`: asks the Studio model what is likely wrong in a HAR source. Only a redacted digest leaves the server, never the archive. 422 for a source that is not HAR |

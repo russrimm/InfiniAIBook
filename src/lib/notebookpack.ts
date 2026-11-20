@@ -7,6 +7,7 @@ import { db, transaction } from "./db";
 import { chunkText } from "./ingest";
 import { notebookNarration } from "./narrationstore";
 import { listNotes } from "./notes";
+import { normalizeTags, parseTags, serializeTags } from "./tags";
 import { audioPath, captionsPath, imagePath, videoPath } from "./paths";
 import { listSessions, sessionMessages } from "./sessions";
 import { MAX_TITLE_CHARS } from "./limits";
@@ -26,6 +27,8 @@ type PackSource = {
   text: string;
   summary: string | null;
   createdAt: number;
+  /** Absent in exports made before sources could be tagged. */
+  tags?: string[];
 };
 
 type PackNote = {
@@ -135,7 +138,7 @@ export async function exportNotebookZip(
 
   const sources = db
     .prepare(
-      `SELECT id, title, kind, url, text, summary, created_at
+      `SELECT id, title, kind, url, text, summary, created_at, tags
        FROM sources WHERE notebook_id = ? ORDER BY created_at`
     )
     .all(notebookId) as unknown as {
@@ -146,6 +149,7 @@ export async function exportNotebookZip(
     text: string;
     summary: string | null;
     created_at: number;
+    tags: string | null;
   }[];
 
   const artifacts = db
@@ -181,6 +185,7 @@ export async function exportNotebookZip(
       text: s.text,
       summary: s.summary,
       createdAt: s.created_at,
+      tags: parseTags(s.tags),
     })),
     notes: listNotes(notebookId).map((n) => ({
       id: n.id,
@@ -394,8 +399,8 @@ export async function importNotebookZip(buffer: Buffer): Promise<{ id: string; t
     );
 
     const insertSource = db.prepare(
-      `INSERT INTO sources (id, notebook_id, title, kind, url, text, chars, summary, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO sources (id, notebook_id, title, kind, url, text, chars, summary, created_at, tags)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
     const insertChunk = db.prepare(
       `INSERT INTO chunks (id, source_id, notebook_id, idx, text, embedding, embed_model, embed_dims)
@@ -417,7 +422,8 @@ export async function importNotebookZip(buffer: Buffer): Promise<{ id: string; t
         text,
         text.length,
         str(row.summary, 1000) || null,
-        Number(row.createdAt) || Date.now()
+        Number(row.createdAt) || Date.now(),
+        serializeTags(normalizeTags(row.tags))
       );
       chunkText(text).forEach((chunk, idx) => {
         insertChunk.run(nanoid(12), sourceId, notebookId, idx, chunk);

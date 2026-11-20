@@ -392,6 +392,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         // this handler runs, so containment is checked on the dispatch path.
         (sourcesPanel.current && event.composedPath().includes(sourcesPanel.current)) ||
         target.closest('[aria-controls="sources-panel"], [data-keeps-sources-open]') ||
+        // A click inside a dialog (a confirmation closes itself before this runs) is not outside the panel.
+        event.composedPath().some((el) => el instanceof Element && el.matches('[role="dialog"], [role="alertdialog"]')) ||
         document.querySelector('[role="dialog"], [role="alertdialog"]')
       ) return;
       setSourcesOpen(false);
@@ -443,6 +445,32 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       onCommitted: async () => {
         await load();
         unhide(id);
+      },
+    });
+  };
+
+  /** The same for several sources at once: one Undo brings them all back. */
+  const deferRemoveMany = (items: Source[]) => {
+    const ids = items.map((s) => s.id);
+    setHidden((h) => new Set([...h, ...ids]));
+    const urls: string[] = [];
+    for (let i = 0; i < ids.length; i += 40) {
+      urls.push(`/api/notebooks/${notebookId}/sources/bulk?ids=${ids.slice(i, i + 40).join(",")}`);
+    }
+    const restore = () =>
+      setHidden((h) => {
+        const next = new Set(h);
+        for (const id of ids) next.delete(id);
+        return next;
+      });
+    deferDelete({
+      label: `${items.length} sources`,
+      url: urls[0],
+      urls,
+      onUndo: restore,
+      onCommitted: async () => {
+        await load();
+        restore();
       },
     });
   };
@@ -825,8 +853,10 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
                 allSelected ? new Set() : new Set(sources.map((s) => s.id))
               )
             }
+            onSelectMany={(ids, only) => setSelected((prev) => new Set(only ? ids : [...prev, ...ids]))}
             onOpen={(id) => openSource(id)}
             onRemove={(s) => deferRemove(s.id, `Source “${s.title}”`, `/api/sources/${s.id}`)}
+            onRemoveMany={deferRemoveMany}
             onChanged={() => void load()}
             onDiscover={() => setDiscovering(true)}
             onLearn={() => setLearning(true)}

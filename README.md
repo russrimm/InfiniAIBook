@@ -147,6 +147,7 @@ How it works, customization and setup: [Motion explainers](docs/motion-explainer
   [More](docs/studio.md#spoken-formats-script-review-instructions-and-music)
 
 - **Structure explorer** — open any JSON, XML, CSV/TSV or HAR source in a modal that discovers its structure: a path tree and graph with types, counts and value stats, or a sortable table. HAR files get a request table, waterfall, findings (failures, slow TTFB, uncompressed or uncached responses, redirects, duplicates, third parties, secrets in URLs), Server-Timing and redirect-chain views, CSV export, a sanitized download, and **Diagnose with AI**, which sends a redacted digest (never the raw archive) to the Studio model to name likely root causes.
+- **Source tags and bulk actions** — tag sources like folders ("Interviews", "2024 filings"), filter the list by tag, tick only the matches, then tag, untag or delete many at once, with one Undo. [More](docs/sources.md#tags-folders-and-bulk-actions)
 - **Backup and restore** — download the whole library (database, sources, generated media, shared music and watermarks, never secrets) as one ZIP from the home page, and restore it with a check, an explicit confirmation and automatic rollback. [More](docs/backup-and-restore.md)
 - **Exports** — Markdown, PPTX, MP3, MP4, PNG and Anki/Quizlet CSV. [More](docs/studio.md#exporting)
 - **Model picker** — switch the chat, embedding, image and vision models from
