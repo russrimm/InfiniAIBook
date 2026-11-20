@@ -243,6 +243,16 @@ function getDb(): DatabaseSync {
 }
 
 /**
+ * Close the shared connection. The next query reopens it, which is how a
+ * restore swaps the database file underneath a running server.
+ */
+export function closeDb() {
+  const open = globalForDb.__db;
+  globalForDb.__db = undefined;
+  open?.close();
+}
+
+/**
  * Lazily-opened handle. Opening on first *use* (rather than at import time)
  * keeps `next build` page-data collection from racing several workers onto the
  * same SQLite file.

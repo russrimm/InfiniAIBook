@@ -177,6 +177,7 @@ commentary. Only a model provider is required.
 | `ALLOW_PRIVATE_NETWORK_FETCH` | Allow fetching private/loopback addresses (default off; see [SECURITY.md](../SECURITY.md)) |
 | `MAX_FETCH_BYTES`, `FETCH_MAX_REDIRECTS`, `FETCH_TIMEOUT_MS` | Limits on fetched pages and files |
 | `LEARN_MAX_RESULTS` | Most Microsoft Learn site-search pages one **Sources → Microsoft Learn** search can list across **Load more results** (default 100, allowed 10 to 300, 30 per page). Pages found by the extra passage searches on a broad topic come in addition |
+| `BACKUP_MAX_RESTORE_BYTES` | Largest unpacked size a [backup restore](backup-and-restore.md) accepts (default 50 GiB) |
 | `MAX_UPLOAD_BYTES` | Largest uploaded file or request body when adding sources (default 50 MB; larger requests get a 413) |
 | `MAX_ARCHIVE_FILES`, `MAX_ARCHIVE_EXPANDED_BYTES` | Most files imported from one uploaded ZIP (default 100) and the total size it may expand to (default 500 MB) |
 | `DATA_DIR` | Where the database and generated media live (default `./.data`) |

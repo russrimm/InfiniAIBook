@@ -32,6 +32,8 @@
 - [Motion explainers](motion-explainers.md) — narrated 2D animated explainer videos,
   customizable length, tone, look, colors, character and closing
 - [Training videos](training-videos.md) — avatar-presented training sessions from your research
+- [Backup and restore](backup-and-restore.md) — one ZIP of the whole data folder,
+  checked before it replaces anything, with rollback if a step fails
 - [Study aids, mind maps and exporting](studio.md) — quizzes, flashcards, mind
   maps and export formats
 
