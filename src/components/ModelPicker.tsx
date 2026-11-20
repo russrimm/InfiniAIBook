@@ -5,6 +5,8 @@ import { useDialog } from "./useDialog";
 
 type ModelsResponse = {
   provider: "azure" | "openai";
+  /** False when no model provider is set up. */
+  configured: boolean;
   current: { chat: string; embedding: string; image: string; vision: string };
   env: { chat: string; embedding: string; image: string; vision: string };
   overridden: { chat: boolean; embedding: boolean; image: boolean; vision: boolean };
@@ -62,6 +64,40 @@ export default function ModelPicker({ onClose }: { onClose: () => void }) {
   }
 
   const embeddingChanged = embedding !== data.current.embedding;
+  if (!data.configured) {
+    return (
+      <Shell onClose={onClose}>
+        <p className="mb-3 text-[13px] leading-snug">
+          No model provider is set up yet, so chat, Studio and search cannot answer. Add one to the{" "}
+          <code>.env.local</code> file next to the app, then restart it.
+        </p>
+        <ul className="mb-3 space-y-2.5 text-xs leading-snug text-[var(--muted)]">
+          <li>
+            <span className="font-medium text-[var(--fg)]">A hosted provider</span> (OpenAI, Anthropic, Gemini,
+            Groq, Mistral…): set <code>AI_PROVIDER</code> and its key, for example <code>AI_PROVIDER=openai</code>{" "}
+            and <code>OPENAI_API_KEY=…</code>.
+          </li>
+          <li>
+            <span className="font-medium text-[var(--fg)]">A model on this computer</span> (Ollama, LM Studio):{" "}
+            set <code>AI_PROVIDER=ollama</code>. No key is needed.
+          </li>
+          <li>
+            <span className="font-medium text-[var(--fg)]">Azure OpenAI:</span> set{" "}
+            <code>AZURE_OPENAI_ENDPOINT</code> and <code>AZURE_OPENAI_DEPLOYMENT</code> (your deployment name).
+          </li>
+        </ul>
+        <p className="mb-4 text-[11px] text-[var(--muted)]">
+          Every option is listed in <code>.env.example</code> and <code>docs/configuration.md</code>. Once the app
+          has restarted, this dialog lets you pick the models.
+        </p>
+        <div className="flex justify-end">
+          <button className="btn !py-1.5 !text-xs" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </Shell>
+    );
+  }
   const dirty =
     chat !== data.current.chat ||
     embeddingChanged ||
