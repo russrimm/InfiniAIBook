@@ -49,6 +49,9 @@ for (const [label, path] of [
     await expect(modal.getByRole("heading", { name: label, exact: true })).toBeVisible();
     await page.keyboard.press("Tab");
     await expect(modal.getByRole("button", { name: "Close generation status" })).toBeFocused();
+    // Focus stays inside the dialog: Close, then Cancel generation, then back to Close.
+    await page.keyboard.press("Tab");
+    await expect(modal.getByRole("button", { name: "Cancel generation" })).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(modal.getByRole("button", { name: "Close generation status" })).toBeFocused();
     await page.keyboard.press("Escape");

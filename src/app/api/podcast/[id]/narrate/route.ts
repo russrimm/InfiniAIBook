@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { NextResponse } from "next/server";
 import { ok, fail } from "@/lib/http";
+import { endJob, isCancellation, startJob, throwIfCancelled } from "@/lib/jobs";
 import { keepAliveJSON } from "@/lib/keepalive";
 import { audioDir, audioPath } from "@/lib/paths";
 import { synthesizeDialogue } from "@/lib/speech";
@@ -52,6 +53,7 @@ async function narrate(params: Ctx["params"]) {
     note: undefined,
   });
 
+  const signal = startJob(id);
   try {
     const speakers = current.speakers?.length
       ? current.speakers
@@ -71,8 +73,10 @@ async function narrate(params: Ctx["params"]) {
       voices,
       speed,
       6,
-      breath
+      breath,
+      signal
     );
+    throwIfCancelled(signal);
 
     fs.mkdirSync(audioDir(), { recursive: true });
     const file = audioPath(id);
@@ -126,8 +130,14 @@ async function narrate(params: Ctx["params"]) {
       ...fresh,
       stage: previousStage,
       narratingAt: undefined,
-      note: e instanceof Error ? e.message : "Narration failed.",
+      note: isCancellation(e)
+        ? "Narration cancelled. The script is unchanged; narrate again when you are ready."
+        : e instanceof Error
+          ? e.message
+          : "Narration failed.",
     });
     return fail(e);
+  } finally {
+    endJob(id, signal);
   }
 }

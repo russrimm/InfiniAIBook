@@ -161,7 +161,8 @@ How it works, customization and setup: [Motion explainers](docs/motion-explainer
   show each stage's progress while they render, and report why a render failed.
 - **Spend ceiling** — estimated model, speech and image spend stops at $25 per
   UTC day when a cloud provider is configured; set `DAILY_BUDGET_USD` to change
-  or turn it off. [More](SECURITY.md)
+  or turn it off. Every long generator shows an estimated cost first, asks before
+  anything over $1, and can be cancelled while it runs. [More](docs/costs-and-budget.md)
 - **Everything is local** — sources, embeddings, chat history, artifacts and
   media live under `.data/`. Password protection and a Docker image included.
 

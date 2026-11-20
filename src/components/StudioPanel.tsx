@@ -56,7 +56,9 @@ import {
   TRAINING_LOOK_LABELS,
   type TrainingLook,
 } from "@/lib/trainingvisuals";
-import { readJSONReply } from "@/lib/jsonreply";
+import { JSONReplyError, readJSONReply } from "@/lib/jsonreply";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { estimateBreakdown, estimateNote, fetchEstimate, shouldConfirm } from "@/lib/estimateclient";
 import {
   DEFAULT_STYLE,
   DETAIL_LEVELS,
@@ -375,6 +377,7 @@ export default function StudioPanel({
     DEFAULT_COMPOSITION.look,
   );
   const [running, setRunning] = useState<Set<ArtifactType>>(new Set());
+  const askConfirm = useConfirm();
   const [generationJobs, setGenerationJobs] = useState<Partial<Record<ArtifactType, GenerationJob>>>({});
   const [statusOpen, setStatusOpen] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<ArtifactType, string>>>(
@@ -430,16 +433,32 @@ export default function StudioPanel({
     url: string,
     body: Record<string, unknown>,
   ) => {
+    let note: string | undefined;
+    // Cancel stops the server-side work and its model calls as well as the wait here.
+    const jobId = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("");
+    const controller = new AbortController();
+    let cancelled = false;
+    let cancellable = false;
+    const cancel = () => {
+      cancelled = true;
+      controller.abort();
+      const send = () =>
+        fetch(`/api/jobs/${jobId}/cancel`, { method: "POST" })
+          .then((r) => r.json() as Promise<{ cancelled?: boolean }>)
+          .catch(() => ({ cancelled: false }));
+      // The request may still be on its way when Cancel is pressed; try once more shortly after.
+      void send().then((r) => (r.cancelled ? undefined : new Promise((res) => setTimeout(res, 1500)).then(send)));
+    };
     const report = (status: string) => setGenerationJobs((prev) => ({
       ...prev,
-      [type]: { id: type, label: studioLabel(type), status },
+      [type]: { id: type, label: studioLabel(type), status, detail: note, onCancel: cancellable ? cancel : undefined },
     }));
     const removeJob = () => setGenerationJobs((prev) => {
       const next = { ...prev };
       delete next[type];
       return next;
     });
-    report("Sending generation request");
+    report("Estimating the cost");
     setStatusOpen(true);
     setRunning((prev) => new Set(prev).add(type));
     setErrors((prev) => {
@@ -448,10 +467,30 @@ export default function StudioPanel({
       return next;
     });
     try {
+      const estimate = await fetchEstimate(type, body);
+      if (estimate) {
+        if (!estimate.fits) throw new Error(estimate.message || "This would not fit today's budget.");
+        note = estimateNote(estimate);
+        if (shouldConfirm(estimate)) {
+          const go = await askConfirm({
+            title: `Generate ${studioLabel(type)}?`,
+            message: `This is expected to cost about ${estimate.display} (${estimateBreakdown(estimate)}). Estimates are rough and count against today's budget as the calls are made.`,
+            confirmLabel: `Generate for about ${estimate.display}`,
+            cancelLabel: "Not now",
+          });
+          if (!go) {
+            removeJob();
+            return;
+          }
+        }
+      }
+      cancellable = true;
+      report("Sending generation request");
       const res = await fetch(url, {
         method: "POST",
-        headers: { "content-type": "application/json", accept: "application/x-ndjson" },
+        headers: { "content-type": "application/json", accept: "application/x-ndjson", "x-job-id": jobId },
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
       const json = await readJSONReply<ArtifactSummary & { error?: string }>(
         res,
@@ -465,6 +504,14 @@ export default function StudioPanel({
       removeJob();
       onOpen(json as ArtifactSummary);
     } catch (e) {
+      if (cancelled || (e instanceof JSONReplyError && e.code === "cancelled")) {
+        setGenerationJobs((prev) => ({
+          ...prev,
+          [type]: { id: type, label: studioLabel(type), status: "Cancelled", cancelled: true, detail: note },
+        }));
+        await Promise.resolve(onChanged()).catch(() => {});
+        return;
+      }
       const error = e instanceof Error ? e.message : "Generation failed";
       setGenerationJobs((prev) => ({
         ...prev,

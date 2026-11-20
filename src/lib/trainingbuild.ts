@@ -43,6 +43,7 @@ import { stampWatermark } from "./watermark";
 import { applyBookends, assertBookendsReady } from "./bookendbuild";
 import { normalizeBookends, shiftCaptions } from "./bookends";
 import { runPythonRenderer } from "./python";
+import { JobCancelledError, isCancellation } from "./jobs";
 import {
   chooseRenderer,
   clipsHaveAlpha,
@@ -126,6 +127,34 @@ function abortWhenDeleted(id: string, controller: AbortController): () => void {
     if (!read(id)) controller.abort();
   }, 5_000);
   return () => clearInterval(t);
+}
+
+/**
+ * Stop a render that is submitting, rendering or composing. The avatar jobs
+ * already running are deleted at the provider so they stop billing, clips that
+ * were already downloaded stay cached, and the video goes back to its
+ * transcript (or its previous render). False when nothing was rendering.
+ */
+export function cancelTrainingRender(id: string): boolean {
+  const c = read(id);
+  if (!c || !isRendering(c)) return false;
+  aborts.get(id)?.abort(new JobCancelledError());
+  if (c.progress.synthesisId) void deleteAvatarJob(c.progress.synthesisId);
+  for (const k of c.progress.clips ?? []) {
+    if ((k.status === "submitted" || k.status === "rendering") && k.synthesisId) void deleteAvatarJob(k.synthesisId);
+  }
+  const clips = (c.progress.clips ?? []).map((k) =>
+    k.status === "submitted" || k.status === "rendering" ? { hash: k.hash, status: "pending" as const } : k,
+  );
+  writeTraining(id, {
+    progress: {
+      stage: c.videoUrl ? "done" : "transcript",
+      synthesisId: undefined,
+      clips: clips.length ? clips : undefined,
+      note: "Render cancelled. Nothing more will be charged for it; render again when you are ready.",
+    },
+  });
+  return true;
 }
 
 /** Records why a render is waiting, where the progress card shows it. */
@@ -272,7 +301,7 @@ export async function startTrainingRender(id: string): Promise<void> {
     );
   } catch (e) {
     // Deleted while waiting: there is nothing left to record the failure on.
-    if (read(id))
+    if (read(id) && !controller.signal.aborted)
       writeTraining(id, {
         progress: {
           stage: c.videoUrl ? "done" : "transcript",
@@ -594,7 +623,7 @@ async function pollComposed(id: string, signal: AbortSignal): Promise<void> {
     const c = read(id);
     if (!c || !isRendering(c) || !c.progress.clips) return;
     if (c.progress.stage === "composing") {
-      await compose(id, c);
+      await compose(id, c, signal);
       return;
     }
 
@@ -742,7 +771,7 @@ async function pollComposed(id: string, signal: AbortSignal): Promise<void> {
   }
 }
 
-async function compose(id: string, c: TrainingContent): Promise<void> {
+async function compose(id: string, c: TrainingContent, signal?: AbortSignal): Promise<void> {
   const input = composeInput(c);
   const comp = input.composition;
   const work = videoWorkDir(id);
@@ -816,10 +845,11 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
         });
         const dir = path.join(work, "hyperframes");
         stageHyperframesProject(project, dir);
-        const mp4 = await runHyperframesRender(dir, project.fps, reporter());
+        const mp4 = await runHyperframesRender(dir, project.fps, reporter(), signal);
         await finishHyperframesRender(mp4, out, tl.duration, work);
         rendered = fs.existsSync(out);
       } catch (e) {
+        if (isCancellation(e)) throw e;
         console.warn(
           "[training] HyperFrames render failed, using the standard compositor",
           e,
@@ -841,7 +871,7 @@ async function compose(id: string, c: TrainingContent): Promise<void> {
       });
       const configPath = path.join(work, "training.json");
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-      await runPythonRenderer(["training", "render.py"], configPath, reporter());
+      await runPythonRenderer(["training", "render.py"], configPath, reporter(), signal);
     }
     if (!fs.existsSync(out))
       throw new Error("The compositor finished but produced no file.");

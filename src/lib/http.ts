@@ -4,6 +4,7 @@ import { MissingConfigError, describeAuthError, isConnectionError, isDroppedConn
 import { db } from "./db";
 import { SourceBoundaryError } from "./artifactsources";
 import { BadRequestError } from "./badrequest";
+import { isCancellation } from "./jobs";
 
 export { readBody } from "./badrequest";
 
@@ -12,6 +13,10 @@ export function ok(data: unknown, init?: number) {
 }
 
 export function fail(e: unknown) {
+  // A stopped request or job is not an error worth logging or a 500.
+  if (isCancellation(e)) {
+    return NextResponse.json({ error: "Cancelled.", code: "cancelled" }, { status: 499 });
+  }
   if (e instanceof BadRequestError) {
     return NextResponse.json({ error: e.message, code: "invalid" }, { status: 400 });
   }

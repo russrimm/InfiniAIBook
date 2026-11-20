@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { JobCancelledError } from "./jobs";
 import { runPythonRenderer } from "./python";
 import { lineSplitter, parseRenderProgress } from "./renderprogress";
 import { GSAP_FILE, type HyperframesProject } from "./hyperframesproject";
@@ -135,6 +136,7 @@ export function runHyperframesRender(
   dir: string,
   fps: number,
   onProgress?: (fraction: number) => void,
+  signal?: AbortSignal,
 ): Promise<string> {
   const bin = process.env.HYPERFRAMES_BIN?.trim();
   const args = ["render", "-f", String(fps), "-q", "standard", "-w", String(workers()), "-o", "render.mp4"];
@@ -146,11 +148,18 @@ export function runHyperframesRender(
       : [program[0], program.slice(1), false];
 
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new JobCancelledError());
     const child = spawn(/*turbopackIgnore: true*/ file, fileArgs, {
       cwd: dir,
       windowsVerbatimArguments: verbatim,
       env: { ...process.env, DO_NOT_TRACK: "1" },
     });
+    let cancelled = false;
+    const onAbort = () => {
+      cancelled = true;
+      killTree(child.pid, child);
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
     // Its progress lines would crowd the real error out of the tail kept for a failure.
     let log = "";
     const hear = () =>
@@ -169,12 +178,15 @@ export function runHyperframesRender(
     }, TIMEOUT_MS());
     child.on("error", (e) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       reject(new Error(`Could not start HyperFrames (${bin ?? "npx"}). ${e.message}`));
     });
     child.on("close", (code) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       out.end();
       err.end();
+      if (cancelled) return reject(new JobCancelledError());
       const mp4 = path.join(dir, "render.mp4");
       if (code === 0 && fs.existsSync(mp4)) return resolve(mp4);
       const tail = log
@@ -255,12 +267,13 @@ export async function renderMotionWithHyperframes(
   out: string,
   workDir: string,
   onProgress?: (fraction: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const srcs = config.scenes.flatMap((s) => s.layers.flatMap((l) => (l.type === "actor" ? [l.src] : [])));
   const cutouts = srcs.length ? await prepareMotionCutouts(srcs, path.join(workDir, "cutouts")) : {};
   const project = buildMotionHyperframes(config, { cutout: (src) => cutouts[src] });
   const dir = path.join(workDir, "hyperframes");
   stageHyperframesProject(project, dir);
-  const silent = await runHyperframesRender(dir, project.fps, onProgress);
+  const silent = await runHyperframesRender(dir, project.fps, onProgress, signal);
   await muxMotionAudio(configPath, silent, out, workDir);
 }

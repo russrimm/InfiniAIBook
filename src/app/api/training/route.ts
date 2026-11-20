@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ok, fail, generationSourceError, readBody } from "@/lib/http";
+import { throwIfCancelled } from "@/lib/jobs";
 import { generationReply, type GenerationStatus } from "@/lib/keepalive";
 import { studioJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, type Passage } from "@/lib/retrieve";
@@ -45,10 +46,10 @@ type Loose = Record<string, unknown>;
  */
 export function POST(req: Request) {
   // A long transcript plus visual planning can outlast an idle-proxy timeout.
-  return generationReply(req, (report) => writeTranscript(req, report));
+  return generationReply(req, (report, signal) => writeTranscript(req, report, signal));
 }
 
-async function writeTranscript(req: Request, report: GenerationStatus) {
+async function writeTranscript(req: Request, report: GenerationStatus, signal: AbortSignal) {
   const started = Date.now();
   try {
     const body = (await readBody(req)) as {
@@ -108,7 +109,8 @@ ${buildContext(passages)}`;
             { role: "system", content: system() },
             { role: "user", content: user() },
           ] satisfies ChatMsg[],
-          0.6
+          0.6,
+          { signal }
         );
         script = normalizeScript(raw);
         // One retry for a malformed draft; more is just spending tokens.
@@ -153,7 +155,8 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"}, keeping the same structure. ${
               { role: "system", content: system(note) },
               { role: "user", content: user() },
             ],
-            0.6
+            0.6,
+            { signal }
           )
         );
         if (
@@ -211,6 +214,8 @@ Rewrite it ${ratio > 1 ? "SHORTER" : "LONGER"}, keeping the same structure. ${
 
     report("Saving the training script for review");
     const now = Date.now();
+    // A cancelled request must not leave a half-made item behind.
+    throwIfCancelled(signal);
     db.prepare(
       "INSERT INTO artifacts (id, notebook_id, type, title, content, created_at) VALUES (?,?,?,?,?,?)"
     ).run(id, notebookId, "training", content.title, JSON.stringify(content), now);

@@ -5,6 +5,7 @@ import { runPythonRenderer } from "./python";
 import { mixMusicInto } from "./music";
 import { stampWatermark } from "./watermark";
 import { generateImage } from "./ai";
+import { throwIfCancelled } from "./jobs";
 import { synthesizeRawSsml } from "./speech";
 import { addBreaths } from "./prosody";
 import { videoDir, videoPath, videoWorkDir } from "./paths";
@@ -17,7 +18,8 @@ export type VideoStage =
   | "narration"
   | "rendering"
   | "done"
-  | "failed";
+  | "failed"
+  | "cancelled";
 
 export type VideoProgress = {
   stage: VideoStage;
@@ -87,7 +89,7 @@ function reconcileRow(r: VideoRow): boolean {
     return false;
   }
   const progress = content.progress as VideoProgress | undefined;
-  if (!progress || progress.stage === "done" || progress.stage === "failed") return false;
+  if (!progress || progress.stage === "done" || progress.stage === "failed" || progress.stage === "cancelled") return false;
   // Waiting for the user to review the script: nothing is running to stall.
   if (progress.stage === "script") return false;
 
@@ -155,34 +157,38 @@ export function reconcileStalledVideo(id: string): boolean {
  * cached. Regenerating it per video would add a minute and a pound of tokens
  * for an identical picture.
  */
-async function ensureHand(): Promise<string> {
+async function ensureHand(signal?: AbortSignal): Promise<string> {
   const file = path.join(videoDir(), "hand-marker.png");
   if (fs.existsSync(file) && fs.statSync(file).size > 10_000) return file;
   const { png } = await generateImage(HAND_PROMPT, {
     size: "1024x1536",
     quality: "high",
+    signal,
   });
   fs.mkdirSync(videoDir(), { recursive: true });
   fs.writeFileSync(file, png);
   return file;
 }
 
-export async function narrate(text: string, speaker: string): Promise<Buffer> {
+export async function narrate(text: string, speaker: string, signal?: AbortSignal): Promise<Buffer> {
   const ssml =
     `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' ` +
     `xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='en-US'>` +
     `<voice name='en-Multitalker:DragonHDLatestNeural'><mstts:dialog>` +
     `<mstts:turn speaker='${speaker}'>${addBreaths(escapeXml(text), 1)}</mstts:turn>` +
     `</mstts:dialog></voice></speak>`;
-  return synthesizeRawSsml(ssml);
+  return synthesizeRawSsml(ssml, undefined, signal);
 }
 
 /** Run a handful at a time: the image deployment has small capacity. */
-export async function pool<T>(items: T[], n: number, work: (item: T, i: number) => Promise<void>) {
+export async function pool<T>(items: T[], n: number, work: (item: T, i: number) => Promise<void>, signal?: AbortSignal) {
   let next = 0;
   await Promise.all(
     Array.from({ length: Math.min(n, items.length) }, async () => {
-      for (let i = next++; i < items.length; i = next++) await work(items[i], i);
+      for (let i = next++; i < items.length; i = next++) {
+        throwIfCancelled(signal);
+        await work(items[i], i);
+      }
     })
   );
 }
@@ -199,7 +205,7 @@ export async function buildVideo(
   id: string,
   plan: ScenePlan,
   voice: string,
-  opts: { music?: { file: string; gain: number } | null; watermark?: unknown } = {}
+  opts: { music?: { file: string; gain: number } | null; watermark?: unknown; signal?: AbortSignal } = {}
 ): Promise<void> {
   const work = videoWorkDir(id);
   fs.mkdirSync(work, { recursive: true });
@@ -209,7 +215,7 @@ export async function buildVideo(
   const beat = setInterval(() => touch(id), HEARTBEAT_MS);
 
   try {
-    await runBuild(id, plan, voice, work, opts.music ?? null, opts.watermark ?? null);
+    await runBuild(id, plan, voice, work, opts.music ?? null, opts.watermark ?? null, opts.signal);
   } finally {
     clearInterval(beat);
   }
@@ -221,7 +227,8 @@ async function runBuild(
   voice: string,
   work: string,
   music: { file: string; gain: number } | null,
-  watermark: unknown
+  watermark: unknown,
+  signal?: AbortSignal
 ): Promise<void> {
   const scenes = plan.scenes;
   const images: string[] = new Array(scenes.length);
@@ -231,7 +238,7 @@ async function runBuild(
     progress: { stage: "artwork", done: 0, total: scenes.length } satisfies VideoProgress,
   });
 
-  const hand = await ensureHand();
+  const hand = await ensureHand(signal);
 
   let drawn = 0;
   // One at a time. The image deployment is small — two concurrent calls
@@ -241,6 +248,7 @@ async function runBuild(
     const { png } = await generateImage(scenePrompt(scene), {
       size: "1536x1024",
       quality: "medium",
+      signal,
     });
     const file = path.join(work, `scene-${String(i + 1).padStart(2, "0")}.png`);
     fs.writeFileSync(file, png);
@@ -249,7 +257,7 @@ async function runBuild(
     setProgress(id, {
       progress: { stage: "artwork", done: drawn, total: scenes.length } satisfies VideoProgress,
     });
-  });
+  }, signal);
 
   setProgress(id, {
     progress: { stage: "narration", done: 0, total: scenes.length } satisfies VideoProgress,
@@ -257,7 +265,7 @@ async function runBuild(
 
   let spoken = 0;
   await pool(scenes, 3, async (scene: Scene, i: number) => {
-    const mp3 = await narrate(scene.narration, voice);
+    const mp3 = await narrate(scene.narration, voice, signal);
     const file = path.join(work, `narration-${String(i + 1).padStart(2, "0")}.mp3`);
     fs.writeFileSync(file, mp3);
     audios[i] = file;
@@ -265,7 +273,7 @@ async function runBuild(
     setProgress(id, {
       progress: { stage: "narration", done: spoken, total: scenes.length } satisfies VideoProgress,
     });
-  });
+  }, signal);
 
   setProgress(id, {
     progress: { stage: "rendering", done: 0, total: 1 } satisfies VideoProgress,
@@ -289,7 +297,8 @@ async function runBuild(
   const configPath = path.join(work, "config.json");
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 
-  await runPythonRenderer(["whiteboard", "render.py"], configPath);
+  await runPythonRenderer(["whiteboard", "render.py"], configPath, undefined, signal);
+  throwIfCancelled(signal);
 
   if (!fs.existsSync(out)) {
     throw new Error("The renderer finished but produced no file.");

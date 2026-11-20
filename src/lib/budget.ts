@@ -65,6 +65,43 @@ export function budgetDay(now = Date.now()): string {
   return new Date(now).toISOString().slice(0, 10);
 }
 
+/**
+ * Prices, in US cents, that the budget charges and that cost estimates quote.
+ * They are deliberately rough (see the note at the top of this file) and can
+ * be changed per deployment with the PRICE_* variables in .env.example.
+ *
+ * - studioCall: one Studio or chat-model call that writes a script or document
+ * - image: one generated picture
+ * - speechPer1kChars: text-to-speech, per 1,000 characters (each call counts at least 4)
+ * - avatarPer150Words: avatar video, per 150 spoken words (about a minute; each render counts at least 25)
+ */
+export type Rates = { studioCall: number; image: number; speechPer1kChars: number; avatarPer150Words: number };
+
+export const DEFAULT_RATES: Rates = { studioCall: 8, image: 12, speechPer1kChars: 3, avatarPer150Words: 40 };
+
+const rate = (raw: string | undefined, fallback: number): number => {
+  const n = Number(raw?.trim());
+  return raw?.trim() && Number.isFinite(n) && n >= 0 ? n : fallback;
+};
+
+export function rates(env: Record<string, string | undefined> = process.env): Rates {
+  return {
+    studioCall: rate(env.PRICE_STUDIO_CALL_CENTS, DEFAULT_RATES.studioCall),
+    image: rate(env.PRICE_IMAGE_CENTS, DEFAULT_RATES.image),
+    speechPer1kChars: rate(env.PRICE_SPEECH_PER_1K_CHARS_CENTS, DEFAULT_RATES.speechPer1kChars),
+    avatarPer150Words: rate(env.PRICE_AVATAR_PER_150_WORDS_CENTS, DEFAULT_RATES.avatarPer150Words),
+  };
+}
+
+/** Cents for one text-to-speech call of this many characters (SSML markup included). */
+export function speechCents(chars: number, r: Rates = rates()): number {
+  return Math.max(4, Math.ceil(chars / 1000) * r.speechPer1kChars);
+}
+
+/** Cents for one avatar render that speaks this many words. */
+export function avatarCents(words: number, r: Rates = rates()): number {
+  return Math.max(25, Math.ceil((words / 150) * r.avatarPer150Words));
+}
 let ready = false;
 
 function ensure() {
