@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Source } from "@/lib/types";
+import { MAX_TITLE_CHARS } from "@/lib/limits";
 import type { DiscoverHit } from "./DiscoverModal";
 
 const ICONS: Record<string, string> = {
@@ -81,6 +82,9 @@ let jobSeq = 0;
  * embedding calls, which is how a provider's rate limit got tripped.
  */
 const CONCURRENT_UPLOADS = 3;
+
+/** A filter box earns its space once the list is too long to scan. */
+const FILTER_FROM = 6;
 
 function formatMb(n: number) {
   return `${Math.round((n / 1024 / 1024) * 10) / 10} MB`;
@@ -170,6 +174,54 @@ export default function SourcesPanel({
   const [textValue, setTextValue] = useState("");
   const [textTitle, setTextTitle] = useState("");
   const [dragging, setDragging] = useState(false);
+  const [filter, setFilter] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
+
+  const startRename = (s: Source) => {
+    setEditingId(s.id);
+    setDraft(s.title);
+    setRenameError(null);
+  };
+  const cancelRename = () => {
+    const id = editingId;
+    setEditingId(null);
+    setRenameError(null);
+    // Hand focus back to the row's rename button so keyboard users keep their place.
+    setTimeout(() => {
+      document.querySelector<HTMLElement>(`#source-list [data-rename="${id}"]`)?.focus();
+    }, 0);
+  };
+  const saveRename = async (s: Source) => {
+    const title = draft.replace(/\s+/g, " ").trim();
+    if (!title) {
+      setRenameError("Give the source a name.");
+      return;
+    }
+    if (title === s.title) {
+      cancelRename();
+      return;
+    }
+    try {
+      const res = await fetch(`/api/sources/${s.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(json.error || "Could not rename this source.");
+      await onChanged();
+      cancelRename();
+    } catch (e) {
+      setRenameError(e instanceof Error ? e.message : "Could not rename this source.");
+    }
+  };
+
+  const needle = filter.trim().toLowerCase();
+  const visibleSources = needle
+    ? sources.filter((s) => `${s.title} ${s.summary ?? ""}`.toLowerCase().includes(needle))
+    : sources;
 
   /**
    * Each source is ingested by its own request, so slow items (a large PDF, a
@@ -585,6 +637,24 @@ export default function SourcesPanel({
               : "No sources yet. Everything you ask and generate is grounded in what you add here."}
           </p>
         ) : (
+          <>
+            {sources.length >= FILTER_FROM && (
+              <div className="sticky top-0 z-10 -mx-1 mb-1 bg-[var(--panel)] px-1 pb-2 pt-1">
+                <input
+                  type="search"
+                  className="input w-full !py-1.5 text-[13px]"
+                  placeholder="Filter sources by name or summary"
+                  aria-label="Filter sources"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                />
+                {needle && (
+                  <p role="status" className="mt-1 text-[11px] text-[var(--muted)]">
+                    Showing {visibleSources.length} of {sources.length} sources. Hidden sources keep their ticks.
+                  </p>
+                )}
+              </div>
+            )}
           <ul className="space-y-1">
             {jobs.map((job) => (
               <li
@@ -627,7 +697,7 @@ export default function SourcesPanel({
               </li>
             ))}
 
-            {sources.map((s) => (
+            {visibleSources.map((s) => (
               <li
                 key={s.id}
                 className={`group flex gap-2.5 rounded-xl border px-2.5 py-2.5 transition ${
@@ -643,20 +713,69 @@ export default function SourcesPanel({
                   onChange={() => onToggle(s.id)}
                   aria-label={`Use “${s.title}” in chat and Studio`}
                 />
-                <button className="min-w-0 flex-1 text-left" onClick={() => onOpen(s.id)}>
-                  <div className="flex items-start gap-1.5">
-                    <span aria-hidden className="shrink-0 text-sm">
-                      {ICONS[s.kind] ?? "📄"}
-                    </span>
-                    <span className="line-clamp-2 text-[13px] leading-snug font-medium">
-                      {s.title}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-[13px] leading-relaxed break-words text-[var(--muted)]">
-                    {s.summary?.trim() || "No synopsis available."}
-                  </p>
-                  <p className="mt-1 text-[10px] text-dim">{bytes(s.chars)}</p>
-                </button>
+                {editingId === s.id ? (
+                  <form
+                    className="min-w-0 flex-1"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void saveRename(s);
+                    }}
+                  >
+                    <label className="sr-only" htmlFor={`rename-${s.id}`}>
+                      Source name
+                    </label>
+                    <input
+                      id={`rename-${s.id}`}
+                      className="input w-full !py-1 text-[13px]"
+                      value={draft}
+                      maxLength={MAX_TITLE_CHARS}
+                      autoFocus
+                      onFocus={(e) => e.currentTarget.select()}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Escape") return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        cancelRename();
+                      }}
+                    />
+                    {renameError && <p className="mt-1 text-[11px] text-red-300">{renameError}</p>}
+                    <div className="mt-1.5 flex gap-1.5">
+                      <button type="submit" className="btn btn-primary !px-2 !py-0.5 !text-[11px]">
+                        Save name
+                      </button>
+                      <button type="button" className="btn !px-2 !py-0.5 !text-[11px]" onClick={cancelRename}>
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <button className="min-w-0 flex-1 text-left" onClick={() => onOpen(s.id)}>
+                    <div className="flex items-start gap-1.5">
+                      <span aria-hidden className="shrink-0 text-sm">
+                        {ICONS[s.kind] ?? "📄"}
+                      </span>
+                      <span className="line-clamp-2 text-[13px] leading-snug font-medium">
+                        {s.title}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[13px] leading-relaxed break-words text-[var(--muted)]">
+                      {s.summary?.trim() || "No synopsis available."}
+                    </p>
+                    <p className="mt-1 text-[10px] text-dim">{bytes(s.chars)}</p>
+                  </button>
+                )}
+                {editingId !== s.id && (
+                  <button
+                    type="button"
+                    aria-label={`Rename source ${s.title}`}
+                    data-rename={s.id}
+                    className="reveal h-fit shrink-0 rounded px-1 text-xs text-[var(--muted)] transition hover:text-[var(--fg)]"
+                    onClick={() => startRename(s)}
+                  >
+                    ✎
+                  </button>
+                )}
                 <button
                   aria-label={`Remove source ${s.title}`}
                   data-row-remove
@@ -667,7 +786,13 @@ export default function SourcesPanel({
                 </button>
               </li>
             ))}
+            {needle && visibleSources.length === 0 && (
+              <li className="px-2 py-6 text-center text-xs text-[var(--muted)]">
+                No source matches “{filter.trim()}”. Clear the filter to see all {sources.length}.
+              </li>
+            )}
           </ul>
+          </>
         )}
       </div>
 

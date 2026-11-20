@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { ok, fail, readBody } from "@/lib/http";
+import { MAX_TITLE_CHARS } from "@/lib/limits";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -45,6 +46,22 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     const { id } = await params;
     db.prepare("DELETE FROM sources WHERE id = ?").run(id);
     return ok({ ok: true });
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Rename a source. Only the title changes; its text, passages and embeddings are untouched. */
+export async function PATCH(req: Request, { params }: Ctx) {
+  try {
+    const { id } = await params;
+    const body = await readBody<{ title?: unknown }>(req);
+    const title = typeof body.title === "string" ? body.title.replace(/\s+/g, " ").trim().slice(0, MAX_TITLE_CHARS) : "";
+    if (!title) return NextResponse.json({ error: "Give the source a name.", code: "invalid" }, { status: 400 });
+
+    const changed = db.prepare("UPDATE sources SET title = ? WHERE id = ?").run(title, id).changes;
+    if (!changed) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return ok({ id, title });
   } catch (e) {
     return fail(e);
   }
