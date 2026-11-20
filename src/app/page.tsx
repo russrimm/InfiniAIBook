@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import type { Notebook } from "@/lib/types";
 import AboutModal from "@/components/AboutModal";
 import ScreenHelperModal from "@/components/ScreenHelperModal";
+import BackupModal from "@/components/BackupModal";
 import { SUBLINE, TAGLINE } from "@/lib/brand";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -23,6 +24,7 @@ export default function Home() {
   const [authOn, setAuthOn] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [helperOpen, setHelperOpen] = useState(false);
+  const [backupOpen, setBackupOpen] = useState(false);
   const deferDelete = useDeferredDelete();
   const askConfirm = useConfirm();
   /** Notebooks deleted but still within their undo window. */
@@ -154,6 +156,13 @@ export default function Home() {
             title="Share an app and get coached through it step by step"
           >
             <span aria-hidden>🖥️</span> Screen helper
+          </button>
+          <button
+            className="rounded-lg px-3 py-1.5 whitespace-nowrap text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
+            onClick={() => setBackupOpen(true)}
+            title="Download everything as one ZIP, or restore from one"
+          >
+            <span aria-hidden>💾</span> Backup
           </button>
           <button
             aria-label="Help and about"
@@ -377,6 +386,7 @@ export default function Home() {
       )}
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
       {helperOpen && <ScreenHelperModal onClose={() => setHelperOpen(false)} />}
+      {backupOpen && <BackupModal onClose={() => setBackupOpen(false)} />}
     </main>
   );
 }
