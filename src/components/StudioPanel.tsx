@@ -69,7 +69,7 @@ import {
   isImageStyle,
   type InfographicStyle,
 } from "@/lib/infographic";
-import { libraryMeta } from "@/lib/librarymeta";
+import { filterLibrary, libraryMeta } from "@/lib/librarymeta";
 import InfographicGallery, {
   ScaledExample,
 } from "@/components/InfographicGallery";
@@ -105,6 +105,9 @@ import {
 
 /** Speakers that can be pinned, listed when a chosen one cannot be. */
 const PINNABLE = Object.keys(PINNED_VOICES);
+
+/** A Library filter box earns its space once the list is too long to scan. */
+const LIBRARY_FILTER_FROM = 6;
 
 /** The formats that are spoken aloud and so take instructions and music. */
 const SPOKEN = ["podcast", "video", "motion", "training"] as const;
@@ -242,6 +245,7 @@ export default function StudioPanel({
   onShowSources?: () => void;
 }) {
   const [view, setView] = useState<"create" | "library">("create");
+  const [libraryQuery, setLibraryQuery] = useState("");
   const [query, setQuery] = useState("");
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const [topic, setTopic] = useState("");
@@ -718,8 +722,26 @@ export default function StudioPanel({
               </div>
             </div>
           ) : (
+            <>
+              {artifacts.length >= LIBRARY_FILTER_FROM && (
+                <div className="sticky top-0 z-10 mb-1 bg-[var(--panel)] pb-2 pt-1">
+                  <input
+                    type="search"
+                    className="input w-full !py-1.5 text-[13px]"
+                    placeholder="Filter by name, format or style"
+                    aria-label="Filter Library"
+                    value={libraryQuery}
+                    onChange={(e) => setLibraryQuery(e.target.value)}
+                  />
+                  {libraryQuery.trim() && (
+                    <p role="status" className="mt-1 text-[11px] text-[var(--muted)]">
+                      Showing {filterLibrary(artifacts, libraryQuery).length} of {artifacts.length}.
+                    </p>
+                  )}
+                </div>
+              )}
             <ul className="space-y-1">
-              {artifacts.map((a) => (
+              {filterLibrary(artifacts, libraryQuery).map((a) => (
                 <li
                   key={a.id}
                   className="group flex items-center gap-2 rounded-xl border border-transparent px-2 py-2 transition hover:border-[var(--border)] hover:bg-panel2"
@@ -749,7 +771,16 @@ export default function StudioPanel({
                   </button>
                 </li>
               ))}
+              {libraryQuery.trim() && filterLibrary(artifacts, libraryQuery).length === 0 && (
+                <li className="px-2 py-6 text-center text-[11px] text-[var(--muted)]">
+                  Nothing in the Library matches “{libraryQuery.trim()}”.{" "}
+                  <button type="button" className="underline" onClick={() => setLibraryQuery("")}>
+                    Clear filter
+                  </button>
+                </li>
+              )}
             </ul>
+            </>
           )}
         </div>
       ) : (

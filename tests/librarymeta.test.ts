@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { GET } from "@/app/api/notebooks/[id]/route";
 import { exportNotebookZip, importNotebookZip } from "@/lib/notebookpack";
 import { INFOGRAPHIC_STYLES, STYLE_ORDER } from "@/lib/infographic";
-import { infographicStyleLabel, libraryMeta } from "@/lib/librarymeta";
+import { filterLibrary, infographicStyleLabel, libraryMeta } from "@/lib/librarymeta";
 
 const WHEN = new Date(2026, 10, 19, 8, 49, 25).getTime();
 const stamp = new Date(WHEN).toLocaleString();
@@ -80,5 +80,33 @@ describe("notebook listing", () => {
     const { artifacts } = (await res.json()) as { artifacts: { title: string; style?: string }[] };
     expect(artifacts.find((a) => a.title === "Blueprint one")?.style).toBe("blueprint");
     expect(artifacts.find((a) => a.title === "Old one")?.style).toBeUndefined();
+  });
+});
+
+describe("filterLibrary", () => {
+  const items = [
+    { title: "Soil report", type: "report" },
+    { title: "River quiz", type: "quiz" },
+    { title: "Water cycle", type: "infographic", style: "bento" },
+    { title: "Old poster", type: "infographic" },
+  ];
+
+  it("returns everything for an empty or blank query", () => {
+    expect(filterLibrary(items, "")).toHaveLength(4);
+    expect(filterLibrary(items, "   ")).toHaveLength(4);
+  });
+
+  it("matches the title, the format and the infographic style, case-insensitively", () => {
+    expect(filterLibrary(items, "RIVER").map((a) => a.title)).toEqual(["River quiz"]);
+    expect(filterLibrary(items, "quiz").map((a) => a.title)).toEqual(["River quiz"]);
+    expect(filterLibrary(items, INFOGRAPHIC_STYLES.bento.label.toLowerCase()).map((a) => a.title)).toEqual(["Water cycle"]);
+    // An infographic saved before styles existed shows as Classic.
+    expect(filterLibrary(items, INFOGRAPHIC_STYLES.classic.label).map((a) => a.title)).toEqual(["Old poster"]);
+  });
+
+  it("needs every word to match, and ignores the date", () => {
+    expect(filterLibrary(items, "infographic water").map((a) => a.title)).toEqual(["Water cycle"]);
+    expect(filterLibrary(items, "water river")).toEqual([]);
+    expect(filterLibrary(items, String(new Date().getFullYear()))).toEqual([]);
   });
 });

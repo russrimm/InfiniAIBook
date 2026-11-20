@@ -20,6 +20,8 @@ sources**; each dimmed Generate button points to it for screen readers.
 notebook, newest first, each with its format and date (an infographic also shows
 its style, for example "Infographic · Bento grid · 11/19/2026, 8:49 AM"; ones saved
 before styles existed show as Classic); open an item to read, play or export it.
+From six items on, a **Filter Library** box narrows the list to entries whose
+name, format or style contains every word you type (the date is not searched).
 
 Every format uses only the sources you have ticked, steered by the optional
 **Focus** box at the top of Create. Notes and outside web results are not added
