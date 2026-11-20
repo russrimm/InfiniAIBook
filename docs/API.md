@@ -81,6 +81,7 @@ just after the response, so it appears on the next `GET /api/notebooks/{id}`.
 | GET | `/api/sources?exclude={notebookId}` | Every source with its notebook's id and title — the Library |
 | GET | `/api/sources/{id}` | Full text and metadata. `?part=n` also returns `passage`, the text of that cited part |
 | POST | `/api/sources/{id}` | `{ action: "apply"\|"dismiss" }` — accept or discard a detected change to a linked source |
+| PATCH | `/api/sources/{id}` | `{ title }`: rename a source (whitespace collapsed, up to 300 characters). Its text and passages are unchanged. 400 for a blank or non-text title, 404 for an unknown source |
 | DELETE | `/api/sources/{id}` | |
 | GET | `/api/sources/{id}/structure` | Discovers the structure of a JSON, XML, CSV, TSV or HAR source: a path tree with types, counts and value stats, or a table. For HAR, `?request=n` returns one request's headers, cookies and bodies, and `?download=sanitized` returns the archive with secrets redacted. 422 for a source that cannot be parsed |
 | POST | `/api/sources/{id}/diagnose` | `{ problem? }` (up to 600 characters) → `{ diagnosis, model }`: asks the Studio model what is likely wrong in a HAR source. Only a redacted digest leaves the server, never the archive. 422 for a source that is not HAR |
@@ -290,6 +291,6 @@ stored. A model that cannot read images returns `400` with `code: "vision"`.
 
 | Method | Path | Notes |
 |---|---|---|
-| GET/POST | `/api/models` | Read / change the active chat, embedding, image and vision models (`null` resets one to the environment value) |
+| GET/POST | `/api/models` | Read / change the active chat, embedding, image and vision models (`null` resets one to the environment value). The GET reply includes `configured`, false when no model provider is set up |
 | POST | `/api/discover` | `{ topic, notebookId?, expand?, provider?: "microsoft-learn", offset? }` → `{ queries, provider, results }`; defaults to Bing-first web search. The Learn provider searches official documentation directly (topic up to 1,000 characters), with no API key, and returns distinct pages with a `kind` (Documentation, Training, Videos, Certifications) plus `nextOffset` (send it back as `offset` to load more; null when done), `limit` (the `LEARN_MAX_RESULTS` cap) and `warnings` for partial failures; import selected results using `learnUrl` |
 | GET | `/api/browse?url=` | Server-side page fetch for the in-app browser |
