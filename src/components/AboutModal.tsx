@@ -293,7 +293,14 @@ const HELP: {
   },
 ];
 
-export default function AboutModal({ onClose }: { onClose: () => void }) {
+export default function AboutModal({
+  onClose,
+  onShortcuts,
+}: {
+  onClose: () => void;
+  /** Opens the keyboard shortcuts list; only offered where shortcuts exist. */
+  onShortcuts?: () => void;
+}) {
   const { dialogRef, backdropProps } = useDialog(onClose);
 
   return (
@@ -341,6 +348,11 @@ export default function AboutModal({ onClose }: { onClose: () => void }) {
                 </a>
               ))}
               <a href="#about-details" className="btn !py-1 !text-[13px]">About and licenses</a>
+              {onShortcuts && (
+                <button type="button" className="btn !py-1 !text-[13px]" onClick={onShortcuts}>
+                  Keyboard shortcuts
+                </button>
+              )}
             </nav>
             {HELP.map((group) => (
               <section key={group.id} aria-labelledby={group.id} className="mt-4">

@@ -30,6 +30,8 @@ import NotesPanel from "./NotesPanel";
 import TransformationsModal from "./TransformationsModal";
 import LibraryModal from "./LibraryModal";
 import AboutModal from "./AboutModal";
+import ShortcutsModal from "./ShortcutsModal";
+import { shortcutFor } from "@/lib/shortcuts";
 import DiscussionModal from "./DiscussionModal";
 import ScreenHelperModal from "./ScreenHelperModal";
 import { CitationContext } from "./CitationContext";
@@ -80,6 +82,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [browsing, setBrowsing] = useState(false);
   const [pickingModel, setPickingModel] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [helperOpen, setHelperOpen] = useState(false);
   /** Open live discussion, with the focus it started from. */
   const [discussing, setDiscussing] = useState<{ focus: string } | null>(null);
@@ -236,6 +239,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         browsing ||
         pickingModel ||
         aboutOpen ||
+        shortcutsOpen ||
         showUpdates ||
         openNoteId ||
         managingTransformations ||
@@ -250,6 +254,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     browsing,
     pickingModel,
     aboutOpen,
+    shortcutsOpen,
     showUpdates,
     openNoteId,
     managingTransformations,
@@ -287,6 +292,32 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   useEffect(() => {
     void loadModel();
   }, [loadModel]);
+
+  // Notebook shortcuts: "?" lists them, "/" jumps to the question box. They are
+  // ignored while typing and while any dialog is open.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const action = shortcutFor(e);
+      if (!action) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      e.preventDefault();
+      if (action === "help") {
+        setShortcutsOpen(true);
+        return;
+      }
+      const find = () => document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Question"]');
+      const box = find();
+      if (box && box.offsetParent !== null) {
+        box.focus();
+        return;
+      }
+      // On a narrow screen the chat may be on another tab.
+      setTab("chat");
+      setTimeout(() => find()?.focus(), 50);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   const exportNotebook = async () => {
     setExporting(true);
@@ -1017,7 +1048,16 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           }}
         />
       )}
-      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+      {aboutOpen && (
+        <AboutModal
+          onClose={() => setAboutOpen(false)}
+          onShortcuts={() => {
+            setAboutOpen(false);
+            setShortcutsOpen(true);
+          }}
+        />
+      )}
+      {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
       {helperOpen && (
         <ScreenHelperModal
           notebookId={notebookId}
