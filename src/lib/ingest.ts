@@ -1,5 +1,8 @@
 import * as cheerio from "cheerio";
 import JSZip from "jszip";
+import { epubToText } from "./epub";
+import { parseGoogleDocLink, privateDocMessage, titleFromDisposition, type GoogleDocLink } from "./googledocs";
+import { ArchiveLimitError, readEntryCapped } from "./zipread";
 import mammoth from "mammoth";
 import { describeImage, imageMimeFor } from "./vision";
 import { BlockedHostError, readCapped, safeFetch } from "./safefetch";
@@ -120,6 +123,10 @@ export async function extractFromFile(file: File): Promise<Extracted> {
   return extractFromBuffer(Buffer.from(await file.arrayBuffer()), file.name || "Untitled", file.type);
 }
 
+/** What to say when a PDF has pictures of pages instead of text. */
+export const SCANNED_PDF_HELP =
+  "has no text layer, so it is probably a scan of paper pages, and this app does not run OCR on PDFs. Make it searchable first (Google Drive: right-click, Open with Google Docs; Adobe Acrobat: Scan & OCR; or save a \"searchable PDF\" from your scanner app) and add it again. You can also add photos of the pages as images, which the vision model reads.";
+
 async function extractFromBuffer(buf: Buffer, name: string, type = ""): Promise<Extracted> {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
 
@@ -136,7 +143,9 @@ async function extractFromBuffer(buf: Buffer, name: string, type = ""): Promise<
     const { getDocumentProxy, extractText } = await import("unpdf");
     const pdf = await getDocumentProxy(new Uint8Array(buf));
     const { text } = await extractText(pdf, { mergePages: true });
-    return { title: name, text: clean(String(text)), kind: "pdf" };
+    const cleaned = clean(String(text));
+    if (!cleaned) throw new Error(`"${name}" ${SCANNED_PDF_HELP}`);
+    return { title: name, text: cleaned, kind: "pdf" };
   }
 
   if (ext === "docx") {
@@ -158,6 +167,11 @@ async function extractFromBuffer(buf: Buffer, name: string, type = ""): Promise<
 
   if (ext === "html" || ext === "htm") {
     return { title: name, text: htmlToText(buf.toString("utf8")).text, kind: "html" };
+  }
+
+  if (ext === "epub" || type === "application/epub+zip") {
+    const book = await epubToText(buf, name);
+    return { title: book.title, text: book.text, kind: "epub" };
   }
 
   // txt, md, csv, json, code, ...
@@ -197,6 +211,7 @@ function isArchiveImportable(path: string): boolean {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
   return (
     ext === "pdf" ||
+    ext === "epub" ||
     ext in OFFICE_FORMATS ||
     ARCHIVE_TEXT_EXTENSIONS.has(ext) ||
     !!imageMimeFor(path) ||
@@ -219,46 +234,6 @@ export type ArchiveEntry =
   | { path: string; extracted: Extracted }
   | { path: string; error: string }
   | { path: string; skipped: true };
-
-class ArchiveLimitError extends Error {}
-
-/**
- * Decompress one entry, giving up as soon as it passes `cap` bytes, so a
- * small archive that inflates to gigabytes (a "zip bomb") is stopped early
- * rather than after it has filled memory.
- */
-function readEntryCapped(entry: JSZip.JSZipObject, cap: number): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const parts: Buffer[] = [];
-    let size = 0;
-    let done = false;
-    const stream = entry.nodeStream("nodebuffer");
-    stream
-      .on("data", (chunk: Buffer) => {
-        if (done) return;
-        size += chunk.length;
-        if (size > cap) {
-          done = true;
-          // Backpressure then pauses the inflater itself.
-          stream.pause();
-          reject(new ArchiveLimitError(`it expands to more than ${mb(cap)}`));
-          return;
-        }
-        parts.push(chunk);
-      })
-      .on("error", (e: Error) => {
-        if (done) return;
-        done = true;
-        reject(e);
-      })
-      .on("end", () => {
-        if (done) return;
-        done = true;
-        resolve(Buffer.concat(parts, size));
-      })
-      .resume();
-  });
-}
 
 async function openZip(buf: Buffer, name: string): Promise<JSZip> {
   try {
@@ -556,7 +531,40 @@ function looksLikeFeed(ctype: string, raw: string): boolean {
   return /<(rss|feed)\b/i.test(head) || /<rdf:RDF\b/i.test(head);
 }
 
+/**
+ * A Google Doc, Sheet or Slides deck shared with "Anyone with the link", read
+ * through its text export. Goes through the same guarded fetch as any URL.
+ */
+async function extractFromGoogleDoc(link: GoogleDocLink): Promise<Extracted> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  let res: Response;
+  let finalUrl: string;
+  try {
+    ({ res, finalUrl } = await safeFetch(link.exportUrl, { headers: FETCH_HEADERS, signal: controller.signal }));
+  } catch (e) {
+    if (e instanceof BlockedHostError) throw e;
+    throw describeFetchFailure(e, "docs.google.com");
+  } finally {
+    clearTimeout(timer);
+  }
+  // A private document answers with an error or a redirect to the sign-in page.
+  const signIn = /(^|\.)accounts\.google\.com$/i.test(new URL(finalUrl).hostname);
+  if (signIn || res.status === 401 || res.status === 403 || res.status === 404) throw new Error(privateDocMessage(link));
+  if (res.status === 429) throw new Error("Google is rate-limiting requests (429). Try again shortly.");
+  if (!res.ok) throw new Error(`Google returned ${res.status} for this ${link.noun}.`);
+  const ctype = res.headers.get("content-type") ?? "";
+  const raw = (await readCapped(res)).toString("utf8").replace(/^\uFEFF/, "");
+  // An HTML reply is a sign-in or error page, not the document.
+  if (ctype.includes("text/html") || /^\s*<(!doctype|html)/i.test(raw)) throw new Error(privateDocMessage(link));
+  const text = clean(raw);
+  if (!text) throw new Error(`This ${link.noun} is empty, so there is nothing to add.`);
+  return { title: titleFromDisposition(res.headers.get("content-disposition")) ?? link.noun, text, kind: "url" };
+}
+
 export async function extractFromUrl(url: string): Promise<Extracted> {
+  const gdoc = parseGoogleDocLink(url);
+  if (gdoc) return extractFromGoogleDoc(gdoc);
   const host = hostOf(url);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -623,9 +631,7 @@ export async function extractFromUrl(url: string): Promise<Extracted> {
     const { text } = await extractText(pdf, { mergePages: true });
     const cleaned = clean(String(text));
     if (!cleaned) {
-      throw new Error(
-        `The PDF at ${host} has no extractable text — it is probably a scan. Only images, no text layer.`
-      );
+      throw new Error(`The PDF at ${host} ${SCANNED_PDF_HELP}`);
     }
     return { title: decodeURIComponent(url.split("/").pop() || host), text: cleaned, kind: "pdf" };
   }

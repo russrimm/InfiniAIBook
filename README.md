@@ -91,7 +91,7 @@ How it works, customization and setup: [Motion explainers](docs/motion-explainer
 
 ## Features
 
-- **Sources** — PDF, DOCX, PPTX, TXT, MD, CSV, JSON, HTML, images, audio/video, ZIP archives,
+- **Sources** — PDF, DOCX, PPTX, EPUB, Google Docs/Sheets/Slides links, TXT, MD, CSV, JSON, HTML, images, audio/video, ZIP archives,
   pasted text, URLs, YouTube links and RSS/Atom feeds; discover sources from a topic,
   browse the web in-app, import full **Microsoft Learn** pages, or reuse a source
   from another notebook. Uploads are processed in the background, and linked
