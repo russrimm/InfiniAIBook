@@ -1006,6 +1006,10 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
               // worth showing, and the next tick will pick it up.
             }
           }}
+          onRegenerated={async (made) => {
+            await load();
+            setOpenArtifact(made);
+          }}
         />
       )}
       {openSourceId && (

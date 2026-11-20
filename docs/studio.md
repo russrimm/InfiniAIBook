@@ -22,6 +22,30 @@ its style, for example "Infographic · Bento grid · 11/19/2026, 8:49 AM"; ones 
 before styles existed show as Classic); open an item to read, play or export it.
 From six items on, a **Filter Library** box narrows the list to entries whose
 name, format or style contains every word you type (the date is not searched).
+With two or more items, **Sort** orders the Library by **Newest first** (the default),
+**Oldest first**, **Name (A to Z)** or **Format (A to Z)**. Names ignore case and read
+numbers as numbers ("Quiz 2" before "Quiz 10"), and items that tie keep the newest
+first. The browser remembers your choice.
+
+### Regenerate with changes
+
+Open a report, briefing, study guide, FAQ, quiz, flashcard set, mind map, timeline,
+slide deck or infographic and press **Regenerate…** to make a new version after
+changing what you asked for. The window starts from the options the item was made
+with (older items fall back to what they stored) and uses the same sources:
+
+- **Focus or instruction**, and **Length**, **Difficulty**, slide **Theme**, or
+  an infographic's **Style** and **Extra instructions**, depending on the format.
+- **Keep it** (the default) adds the new version to the Library next to the
+  original. **Replace it** deletes the original, but only after the new version has
+  been saved, so a failed or cancelled generation never costs you the original.
+  Replacing cannot be undone, so it is a separate, explicit choice.
+- The estimated cost is shown first, and **Cancel generation** stops it, exactly as in
+  [Costs, budget and cancelling](costs-and-budget.md).
+
+A kept version records which item it was made from (`basedOn`). Audio overviews,
+videos and the other formats with a script to review are redone from their script
+editors instead.
 
 Every format uses only the sources you have ticked, steered by the optional
 **Focus** box at the top of Create. Notes and outside web results are not added

@@ -11,6 +11,7 @@ import PodcastPlayer from "./PodcastPlayer";
 import VideoPlayer from "./VideoPlayer";
 import TrainingVideo from "./TrainingVideo";
 import ClipViewer from "./ClipViewer";
+import RegenerateDialog, { REGENERABLE } from "./RegenerateDialog";
 import SlideDeck from "./SlideDeck";
 import { STUDIO } from "@/lib/studio";
 import { escapeMarkdownText, fileStem } from "@/lib/infographic";
@@ -236,12 +237,16 @@ export default function ArtifactModal({
   artifact,
   onClose,
   onRefresh,
+  onRegenerated,
 }: {
   artifact: Artifact;
   onClose: () => void;
   /** Re-reads the artifact so a background build can show its progress. */
   onRefresh?: () => Promise<void> | void;
+  /** A new version was made; the host refreshes the Library and shows it. */
+  onRegenerated?: (made: Artifact) => void | Promise<void>;
 }) {
+  const [regenerating, setRegenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [buildingPptx, setBuildingPptx] = useState(false);
@@ -379,6 +384,11 @@ export default function ArtifactModal({
           <button className="btn !px-2.5 !py-1.5 !text-xs" onClick={() => void copy()}>
             {copied ? "Copied" : "Copy"}
           </button>
+          {onRegenerated && REGENERABLE.has(artifact.type) && (
+            <button className="btn !px-2.5 !py-1.5 !text-xs" onClick={() => setRegenerating(true)}>
+              Regenerate…
+            </button>
+          )}
           {artifact.type === "podcast" &&
             (artifact.content as { audioUrl?: string }).audioUrl && (
               <a
@@ -470,6 +480,16 @@ export default function ArtifactModal({
           </footer>
         )}
       </div>
+      {regenerating && onRegenerated && (
+        <RegenerateDialog
+          artifact={artifact}
+          onClose={() => setRegenerating(false)}
+          onDone={async (made) => {
+            setRegenerating(false);
+            await onRegenerated(made);
+          }}
+        />
+      )}
     </div>
   );
 }
