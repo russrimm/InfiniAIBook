@@ -2,6 +2,7 @@ import type { MotionOptions, MotionPlan } from "./motion";
 import type { TrainingComposition, TrainingCue } from "./trainingvisuals";
 import type { MusicChoice } from "./musicchoice";
 import type { WatermarkChoice } from "./watermarkchoice";
+import type { Bookends, BookendSlot } from "./bookends";
 import type { NarrationSettings } from "./narration";
 import type { PodcastScript } from "./podcastscript";
 import type { ScenePlan } from "./whiteboard";
@@ -22,6 +23,10 @@ export type VideoExtras = {
   watermarkChoice?: WatermarkChoice | null;
   /** Whether the last render actually had a watermark stamped on it. */
   watermarked?: boolean;
+  /** The intro and outro to put around the next render; absent or all off for none. */
+  bookends?: Bookends;
+  /** Which of them the last render actually has. */
+  bookendsApplied?: BookendSlot[];
 };
 
 export type ArtifactType =
@@ -38,6 +43,7 @@ export type ArtifactType =
   | "video"
   | "motion"
   | "training"
+  | "clip"
   | "podcast";
 
 /** Study aids can be tuned for depth and rigour at generation time. */
@@ -175,6 +181,8 @@ export type InfographicContent = {
   orientation?: InfographicOrientation;
   /** Requested amount of detail. */
   detail?: InfographicDetail;
+  /** The title was typed by the user and is shown exactly as written. */
+  customTitle?: boolean;
   /**
    * Set when an image style could not be rendered and the brief was kept in
    * the HTML illustrated layout instead, so no generated content is lost.
@@ -330,9 +338,47 @@ export type TrainingContent = SpokenExtras & VideoExtras & SourceProvenance & {
   editedSinceRender?: boolean;
 };
 
+/** How far a clip run has got. "partial" means some clips failed and some were kept. */
+export type ClipStage = "generating" | "done" | "partial" | "failed" | "cancelled";
+export type ClipItemStatus = "queued" | "in_progress" | "downloading" | "completed" | "failed" | "cancelled";
+
+export type ClipItem = {
+  index: number;
+  prompt: string;
+  /** Which variant of its prompt this is, from 1. */
+  variant: number;
+  status: ClipItemStatus;
+  /** 0 to 100 when the provider reports it. */
+  progress?: number;
+  /** A note while running, such as that a retry is waiting. */
+  note?: string;
+  error?: string;
+  /** The provider refused the prompt; reword it. */
+  moderation?: boolean;
+  videoUrl?: string;
+  posterUrl?: string;
+  bytes?: number;
+  /** The provider's id for the job, kept so deleting the clip can delete it there too. */
+  remoteId?: string;
+};
+
+/** A short AI-generated video clip set (Studio "Video clip"). */
+export type ClipContent = {
+  title: string;
+  provider: { kind: string; label: string; model: string };
+  options: { aspect: string; duration: number; resolution: string; variants: number; reference?: boolean };
+  clips: ClipItem[];
+  progress: { stage: ClipStage; done: number; failed: number; total: number };
+  /** An estimate in US dollars, from the provider's published per-second rate. */
+  estimate: { usd: number; seconds: number; priceNote: string };
+  createdAt?: number;
+  note?: string;
+};
+
 export type ArtifactContent =
   | DocContent
   | TrainingContent
+  | ClipContent
   | FaqContent
   | QuizContent
   | FlashcardsContent
@@ -364,6 +410,8 @@ export type ArtifactSummary = {
   type: ArtifactType;
   title: string;
   createdAt: number;
+  /** Infographics only: the saved style key, absent for artifacts saved before styles existed. */
+  style?: string;
 };
 
 export type Source = {

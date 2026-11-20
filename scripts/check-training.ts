@@ -10,6 +10,9 @@
  * Add --hyperframes to compose with the HyperFrames renderer (the one
  * TRAINING_RENDERER=hyperframes selects) instead of render.py. It needs
  * Node, Chrome and ffmpeg for HyperFrames, and fetches it with npx on first use.
+ * Add --head to use square 512x512 talking-head clips (VASA-style) and a
+ * talking-head layout, then check that the presenter in the result keeps its
+ * natural aspect ratio and size instead of being stretched to 16:9.
  *
  * Writes into .data/training-check/ and prints the MP4 path, so the result can
  * be watched as well as checked.
@@ -27,19 +30,23 @@ import {
 import {
   compileTrainingTimeline,
   estimateSectionTiming,
+  presenterRect,
   rasterJobs,
   renderConfig,
+  sampleAvatar,
   type ComposeInput,
 } from "../src/lib/trainingtimeline";
 import { buildHyperframesProject } from "../src/lib/traininghyperframes";
 import {
   clipsHaveAlpha,
   finishHyperframesRender,
+  fitCueClips,
   runHyperframesRender,
   stageHyperframesProject,
 } from "../src/lib/hyperframes";
 
 const useHyperframes = process.argv.includes("--hyperframes");
+const head = process.argv.includes("--head");
 
 const py = process.env.PYTHON_BIN || "python";
 const dir = path.join(process.env.DATA_DIR || path.join(process.cwd(), ".data"), "training-check");
@@ -68,6 +75,7 @@ const composition = {
 };
 const input: ComposeInput = {
   title: "Compositor check",
+  head,
   description: "Synthetic sections exercising every layout and transition.",
   objectives: ["See the stage", "See the panels"],
   composition,
@@ -78,6 +86,9 @@ const input: ComposeInput = {
       cues: normalizeCues([
         { kind: "objectives", anchor: "Here is what you will learn", layout: "side-left", transition: "slide",
           bullets: [{ text: "Stage", anchor: "First the stage" }, { text: "Panels", anchor: "then the panels" }] },
+        // A portrait clip that is shorter than its visual, in a landscape panel.
+        { kind: "clip", anchor: "First the stage", layout: "side-right", transition: "fade",
+          clipId: "checkclip", clipSeconds: 1, caption: "Generated B-roll" },
       ]),
     },
     {
@@ -95,8 +106,9 @@ const input: ComposeInput = {
 
 fs.mkdirSync(dir, { recursive: true });
 const jobsPath = path.join(dir, "jobs.json");
-fs.writeFileSync(jobsPath, JSON.stringify(rasterJobs(input)));
-run([path.join("scripts", "training", "fixtures.py"), dir, jobsPath, ...(useHyperframes ? ["--alpha"] : [])]);
+const clipCueIds = new Set(input.sections.flatMap((s) => s.cues ?? []).filter((q) => q.kind === "clip").map((q) => q.id));
+fs.writeFileSync(jobsPath, JSON.stringify(rasterJobs(input).map((j) => ({ ...j, clip: Boolean(j.cueId && clipCueIds.has(j.cueId)) }))));
+run([path.join("scripts", "training", "fixtures.py"), dir, jobsPath, ...(useHyperframes ? ["--alpha"] : []), ...(head ? ["--head"] : [])]);
 
 // The fixture clips run 6 s and 5 s; time the speech to them as Azure's would be.
 const timings = [
@@ -115,10 +127,22 @@ async function composeWithHyperframes() {
   const clips = [0, 1].map((i) => path.join(dir, `clip-${i}.webm`));
   const alpha = await clipsHaveAlpha(clips, dir);
   if (clips.some((c) => !alpha[c])) throw new Error("a fixture clip has no transparency");
+  // Cut, held or looped to each visual's length, as the real render prepares them.
+  const fitted = new Map<string, string>();
+  await fitCueClips(
+    tl.cues.flatMap((q) => {
+      if (!q.clip) return [];
+      const dest = path.join(dir, `cue-clip-${q.id}.mp4`);
+      fitted.set(q.id, dest);
+      return [{ src: path.join(dir, "cue-clip.mp4"), dest, seconds: q.end - q.start + tl.timing.cueOut, fit: q.clip.fit }];
+    }),
+    dir,
+  );
   const project = buildHyperframesProject(tl, {
     background: "#1F2A37",
     clip: (i) => clips[i],
     raster: (key, state) => path.join(dir, `${key}-${state}.png`),
+    cueClip: (cueId) => fitted.get(cueId)!,
     burnCaptions: true,
   });
   const projectDir = path.join(dir, "hyperframes");
@@ -134,6 +158,7 @@ function composeWithPython() {
     palette: compositionPalette(composition),
     clip: (i) => at(`clip-${i}.webm`),
     raster: (key, state) => at(`${key}-${state}.png`),
+    cueClip: () => at("cue-clip.mp4"),
     burnCaptions: true,
   });
   const configPath = path.join(dir, "config.json");
@@ -151,12 +176,61 @@ function report() {
   );
 }
 
-if (useHyperframes) {
-  composeWithHyperframes().then(report, (e) => {
-    console.error(`FAIL  ${e instanceof Error ? e.message : e}`);
+/** Grab a frame where the presenter stands in a side layout and measure its face. */
+function checkPresenterShape() {
+  let pick: { t: number; scale: number; cx: number; cy: number } | null = null;
+  for (let t = 0.5; t < tl.duration && !pick; t += 0.25) {
+    const pose = sampleAvatar(tl.avatar, t);
+    const covered = tl.cards.some((c) => t >= c.start && t < c.start + c.duration);
+    if (!covered && pose.opacity > 0.99 && pose.scale < 0.9 && pose.scale > 0.2 && t < tl.sections[0].start + 6) {
+      pick = { t, scale: pose.scale, cx: pose.cx, cy: pose.cy };
+    }
+  }
+  if (!pick) {
+    console.error("FAIL  no moment with the presenter beside a visual to measure");
     process.exit(1);
-  });
+  }
+  // The face disk is 261 px of a 512 px square clip.
+  const rect = presenterRect(pick, { width: tl.width, height: tl.height }, 512, 512);
+  const expected = (261 / 512) * rect.h;
+  const frame = at(`presenter-${useHyperframes ? "hyperframes" : "python"}.png`);
+  run([path.join("scripts", "training", "check_presenter.py"), out, String(pick.t), String(expected), frame]);
+}
+
+/** The generated clip must play in its panel without being stretched, and hold its last frame. */
+function checkClipVisual() {
+  const q = tl.cues.find((c) => c.clip);
+  if (!q) {
+    console.error("FAIL  the clip visual is not on the timeline");
+    process.exit(1);
+  }
+  const mid = q.start + 0.7;
+  const held = Math.min(q.end - 0.15, q.start + 1.6);
+  run([path.join("scripts", "training", "check_clip.py"), out, String(270 / 480), String(mid), String(held)]);
+}
+
+/** An intro and an outro put around the rendered video, in step with it and not stretched. */
+function checkBookends() {
+  run([path.join("scripts", "bookends", "check_bookends.py"), out, path.join(dir, "bookends")]);
+}
+
+if (useHyperframes) {
+  composeWithHyperframes().then(
+    () => {
+      report();
+      checkClipVisual();
+      checkBookends();
+      if (head) checkPresenterShape();
+    },
+    (e) => {
+      console.error(`FAIL  ${e instanceof Error ? e.message : e}`);
+      process.exit(1);
+    }
+  );
 } else {
   composeWithPython();
   report();
+  checkClipVisual();
+  checkBookends();
+  if (head) checkPresenterShape();
 }

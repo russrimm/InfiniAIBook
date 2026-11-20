@@ -47,7 +47,7 @@ Success means the user ends up with output they can use or share without re-chec
 
 ## Brand Commitments
 
-- Name: **InfiniAIBook**. Tagline in metadata: "grounded research studio."
+- Name: **InfiniAIBook**. Tagline: "Sources in. Cited answers, audio and video out." Descriptor in metadata: "self-hosted research notebook." Both live in `src/lib/brand.ts`.
 - Language: US English in UI copy, docs, and generated content (owner preference).
 - Voice in the docs is plain, precise, and candid about limits and costs. For example, the docs explain why a fallback exists and what it costs _(inferred from docs)_.
 - The logo is an infinity loop over an open book with a spark (public/brand/). Regenerate every icon with `python scripts/brand/make-icons.py`.

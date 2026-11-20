@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import fs from "node:fs";
 
 /**
  * The infographic style gallery and generation options, in a real browser,
@@ -148,4 +149,154 @@ test("rejects unknown styles and oversized descriptions", async ({ request }) =>
   });
   expect(proto.status()).toBe(400);
   expect((await proto.json()).error).toBe("Unknown artifact type");
+
+  const tooLong = await request.post("/api/generate", {
+    data: { notebookId: id, sourceIds, type: "infographic", style: "timeline", title: "x".repeat(81) },
+  });
+  expect(tooLong.status()).toBe(400);
+  expect((await tooLong.json()).error).toContain("Keep the title under 80 characters.");
+  const notText = await request.post("/api/generate", {
+    data: { notebookId: id, sourceIds, type: "infographic", style: "timeline", title: 7 },
+  });
+  expect(notText.status()).toBe(400);
+});
+
+test("a typed title is the headline, Library name and download name, and survives regenerating", async ({
+  page,
+  request,
+}) => {
+  const id = await notebookWithSource(request);
+  const card = await openStudio(page, id);
+  const studio = page.getByRole("complementary", { name: "Studio" });
+  await card.getByRole("button", { name: /^Options/ }).click();
+
+  const title = card.getByRole("textbox", { name: "Title" });
+  await expect(title).toHaveAttribute("maxlength", "80");
+  await expect(card).toContainText("Leave blank to generate a title from your content");
+  await expect(title).toHaveAccessibleDescription(/Leave blank to generate a title/);
+  await title.fill("  <b>Riverside</b>   Garden: \"Plan\" ");
+  await expect(card).toContainText("/80");
+
+  const generate = async () => {
+    await card.getByRole("button", { name: "Generate Infographic" }).click();
+    const dialog = page.getByRole("dialog").filter({ has: page.locator("[data-infographic-style]") });
+    await expect(dialog).toBeVisible({ timeout: 30_000 });
+    return dialog;
+  };
+
+  const dialog = await generate();
+  await expect(dialog.getByRole("heading", { level: 1 })).toHaveText('<b>Riverside</b> Garden: "Plan"');
+  await expect(dialog.getByRole("heading", { level: 2 })).toHaveText('<b>Riverside</b> Garden: "Plan"');
+  await expect(dialog.locator("b")).toHaveCount(0);
+  const sent = (await (await request.get(`${MOCK_LLM}/last`)).json()) as { system: string };
+  expect(sent.system).toContain("FIXED TITLE");
+  expect(sent.system).toContain('<b>Riverside</b> Garden: "Plan"');
+
+  const download = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "Export" }).click();
+  expect((await download).suggestedFilename()).toBe("bRiversideb Garden Plan.md");
+  await dialog.getByRole("button", { name: "Close" }).click();
+
+  // Regenerating keeps the typed title.
+  await expect(title).toHaveValue('<b>Riverside</b> Garden: "Plan"');
+  await (await generate()).getByRole("button", { name: "Close" }).click();
+  await studio.getByRole("button", { name: "Library (2)" }).click();
+  await expect(studio.getByText('<b>Riverside</b> Garden: "Plan"')).toHaveCount(2);
+
+  // Clearing it hands the title back to the model.
+  await studio.getByRole("button", { name: /^Create/ }).click();
+  const options = card.getByRole("button", { name: /^Options/ });
+  if ((await options.getAttribute("aria-expanded")) !== "true") await options.click();
+  await expect(title).toHaveValue('<b>Riverside</b> Garden: "Plan"');
+  await title.fill("");
+  const generated = await generate();
+  await expect(generated.getByRole("heading", { level: 1 })).toHaveText("Garden pilot at a glance");
+  const blank = (await (await request.get(`${MOCK_LLM}/last`)).json()) as { system: string };
+  expect(blank.system).not.toContain("FIXED TITLE");
+});
+
+test("the Title field fits a phone-width Studio", async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const id = await notebookWithSource(request);
+  await page.goto(`/notebook/${id}`);
+  await page.getByRole("navigation", { name: "Notebook panels" }).getByRole("button", { name: /^studio/i }).click();
+  const card = page.getByTestId("infographic-card");
+  await expect(card).toBeVisible();
+  await card.getByRole("button", { name: /^Options/ }).click();
+  const title = card.getByRole("textbox", { name: "Title" });
+  await title.fill("w".repeat(80));
+  const box = (await title.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+const SPECIAL_TITLE = "Q3 🌱 plan: \"wins\" / <b>risks</b> * مشروع";
+
+for (const style of ["bento", "guide"]) {
+  // "guide" is drawn by the image model, so its PNG is fetched from /api/image;
+  // the others are rasterized in the browser.
+  test(`exports the ${style} infographic as PNG and Markdown`, async ({ page, request }) => {
+    const id = await notebookWithSource(request);
+    const nb = (await (await request.get(`/api/notebooks/${id}`)).json()) as { sources: { id: string }[] };
+    await request.post(`${MOCK_LLM}/faults`, { data: { images: style === "guide", reset: true } });
+    try {
+      const made = await request.post("/api/generate", {
+        data: { notebookId: id, sourceIds: nb.sources.map((s) => s.id), type: "infographic", style, title: SPECIAL_TITLE },
+      });
+      expect(made.ok()).toBeTruthy();
+      const artifact = (await made.json()) as { title: string; content: { imageUrl?: string } };
+      expect(Boolean(artifact.content.imageUrl)).toBe(style === "guide");
+
+      const errors: string[] = [];
+      page.on("console", (m) => {
+        if (m.type() === "error") errors.push(m.text());
+      });
+      await page.goto(`/notebook/${id}`);
+      await page.getByRole("complementary", { name: "Studio" }).getByRole("button", { name: /^Library/ }).click();
+      const row = page.getByRole("button", { name: new RegExp(`^${SPECIAL_TITLE.slice(0, 8)}`) }).first();
+      await expect(row).toContainText(style === "bento" ? "Infographic · Bento grid · " : "Infographic · Visual guide · ");
+      await row.click();
+      const dialog = page.getByRole("dialog").filter({ has: page.locator("[data-infographic-style]") });
+      await expect(dialog).toBeVisible();
+
+      const png = page.waitForEvent("download");
+      await dialog.getByRole("button", { name: "PNG" }).click();
+      const file = await png;
+      expect(file.suggestedFilename()).toBe("Q3 🌱 plan wins brisksb مشروع.png");
+      expect(file.failure()).resolves.toBeNull();
+      const bytes = fs.readFileSync((await file.path())!);
+      expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+      if (style === "bento") expect(bytes.length).toBeGreaterThan(5000);
+      await expect(dialog.getByRole("alert")).toHaveCount(0);
+
+      const md = page.waitForEvent("download");
+      await dialog.getByRole("button", { name: "Export" }).click();
+      expect((await md).suggestedFilename()).toBe("Q3 🌱 plan wins brisksb مشروع.md");
+      await expect(dialog.getByRole("alert")).toHaveCount(0);
+      expect(errors.filter((e) => /Content Security Policy|Failed to fetch/i.test(e))).toEqual([]);
+    } finally {
+      await request.post(`${MOCK_LLM}/faults`, { data: { images: false, reset: true } });
+    }
+  });
+}
+
+test("a long Library subtitle stays inside the row at phone width", async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const id = await notebookWithSource(request);
+  const nb = (await (await request.get(`/api/notebooks/${id}`)).json()) as { sources: { id: string }[] };
+  const made = await request.post("/api/generate", {
+    data: { notebookId: id, sourceIds: nb.sources.map((s) => s.id), type: "infographic", style: "papercraft", title: "w".repeat(80) },
+  });
+  expect(made.ok()).toBeTruthy();
+  await page.goto(`/notebook/${id}`);
+  await page.getByRole("navigation", { name: "Notebook panels" }).getByRole("button", { name: /^studio/i }).click();
+  await page.getByRole("button", { name: /^Library/ }).click();
+  // The image model is not configured here, so the brief is kept as Illustrated.
+  const row = page.getByRole("button", { name: /^w{20}/ });
+  await expect(row).toContainText("Infographic · Illustrated · ");
+  await expect(row).toHaveAttribute("title", /^w{80} — Infographic · Illustrated · /);
+  const box = (await row.boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });

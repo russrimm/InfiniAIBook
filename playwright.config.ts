@@ -7,6 +7,8 @@ const PORT = Number(process.env.E2E_PORT || 3123);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const MOCK_LLM_PORT = Number(process.env.MOCK_LLM_PORT || 3124);
 const MOCK_LLM_URL = `http://127.0.0.1:${MOCK_LLM_PORT}`;
+const MOCK_VIDEO_PORT = Number(process.env.MOCK_VIDEO_PORT || 3125);
+const MOCK_VIDEO_URL = `http://127.0.0.1:${MOCK_VIDEO_PORT}`;
 
 // A throwaway database, so end-to-end runs never touch the developer's .data/.
 const dataDir =
@@ -36,6 +38,12 @@ export default defineConfig({
       env: { MOCK_LLM_PORT: String(MOCK_LLM_PORT) },
     },
     {
+      command: "node e2e/mock-video.mjs",
+      url: `${MOCK_VIDEO_URL}/health`,
+      reuseExistingServer: !process.env.CI,
+      env: { MOCK_VIDEO_PORT: String(MOCK_VIDEO_PORT) },
+    },
+    {
       command: `npx next dev -H 127.0.0.1 -p ${PORT}`,
       url: BASE_URL,
       reuseExistingServer: !process.env.CI,
@@ -52,6 +60,12 @@ export default defineConfig({
         AI_API_KEY: "e2e",
         AI_MODEL: "mock-chat",
         AI_VISION_MODEL: "mock-vision",
+        // The Videos API stand-in in e2e/mock-video.mjs; polls fast so tests are quick.
+        AI_VIDEO_BASE_URL: `${MOCK_VIDEO_URL}/v1`,
+        AI_VIDEO_API_KEY: "e2e-video-key",
+        AI_VIDEO_MODEL: "mock-video",
+        AI_VIDEO_DURATIONS: "4,8",
+        VIDEO_CLIP_POLL_SECONDS: "1",
       },
     },
   ],

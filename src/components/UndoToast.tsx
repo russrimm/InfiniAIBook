@@ -91,7 +91,11 @@ export function UndoProvider({ children }: { children: React.ReactNode }) {
               <span className="text-[var(--muted)]"> (+{pending.length - 1} more)</span>
             )}
           </span>
-          <button className="btn btn-primary !py-1 !text-[11px]" onClick={() => undo(latest.id)}>
+          <button
+            className="btn btn-primary !py-1 !text-[11px]"
+            data-keeps-sources-open
+            onClick={() => undo(latest.id)}
+          >
             Undo
           </button>
         </div>

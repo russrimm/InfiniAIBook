@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useDialog } from "./useDialog";
+import { appendHits, filterHits, groupHits, kindCounts } from "@/lib/discoverlist";
 
 export type DiscoverHit = {
   title: string;
@@ -11,6 +12,8 @@ export type DiscoverHit = {
   provider: string;
   added?: boolean;
   reachable?: boolean;
+  /** Content type, such as Documentation or Training (Microsoft Learn only). */
+  kind?: string;
 };
 
 const SUGGESTIONS = [
@@ -41,6 +44,14 @@ export default function DiscoverModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [queries, setQueries] = useState<string[]>([]);
+  const [lastQuery, setLastQuery] = useState("");
+  const [nextOffset, setNextOffset] = useState<number | null>(null);
+  const [limit, setLimit] = useState(Infinity);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreError, setMoreError] = useState<string | null>(null);
+  const [filter, setFilter] = useState("");
+  const [kind, setKind] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [savingLive, setSavingLive] = useState(false);
   const [liveDraft, setLiveDraft] = useState(liveLearn);
@@ -60,6 +71,11 @@ export default function DiscoverModal({
     setError(null);
     setResults(null);
     setChosen(new Set());
+    setNextOffset(null);
+    setWarnings([]);
+    setMoreError(null);
+    setFilter("");
+    setKind(null);
     try {
       const res = await fetch("/api/discover", {
         method: "POST",
@@ -70,6 +86,10 @@ export default function DiscoverModal({
       if (!res.ok) throw new Error(json.error || "Search failed");
       setResults(json.results as DiscoverHit[]);
       setQueries(json.queries ?? []);
+      setLastQuery(query);
+      setNextOffset(typeof json.nextOffset === "number" ? json.nextOffset : null);
+      setLimit(typeof json.limit === "number" ? json.limit : Infinity);
+      setWarnings(Array.isArray(json.warnings) ? json.warnings : []);
       // Pre-select the strongest handful that will actually ingest; the user
       // prunes from there and can still opt into the blocked ones.
       setChosen(
@@ -87,9 +107,44 @@ export default function DiscoverModal({
     }
   };
 
-  const selectable = (results ?? []).filter((r) => !r.added);
-  const allChosen = selectable.length > 0 && chosen.size === selectable.length;
+  const loadMore = async () => {
+    if (nextOffset === null || loadingMore || !results) return;
+    setLoadingMore(true);
+    setMoreError(null);
+    try {
+      const res = await fetch("/api/discover", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ notebookId, topic: lastQuery, offset: nextOffset, ...(provider ? { provider } : {}) }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Could not load more results");
+      const merged = appendHits(results, json.results as DiscoverHit[], limit);
+      setResults(merged);
+      setNextOffset(merged.length >= limit || typeof json.nextOffset !== "number" ? null : json.nextOffset);
+    } catch (e) {
+      setMoreError(e instanceof Error ? e.message : "Could not load more results");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const kinds = kindCounts(results ?? []);
+  const shown = filterHits(results ?? [], filter, kind);
+  const filtered = shown.length !== (results ?? []).length;
+  const selectable = shown.filter((r) => !r.added);
+  const allChosen = selectable.length > 0 && selectable.every((r) => chosen.has(r.url));
   const blockedCount = selectable.filter((r) => r.reachable === false).length;
+
+  const setShownChosen = (on: boolean) =>
+    setChosen((prev) => {
+      const next = new Set(prev);
+      for (const r of selectable) {
+        if (on) next.add(r.url);
+        else next.delete(r.url);
+      }
+      return next;
+    });
 
   const toggle = (url: string) =>
     setChosen((prev) => {
@@ -238,9 +293,58 @@ export default function DiscoverModal({
             </p>
           )}
 
-          {results && results.length > 0 && (
+          {results && results.length > 0 && learn && (
+            <div className="mb-3 space-y-2">
+              <p role="status" className="text-xs text-[var(--muted)]">
+                {filtered
+                  ? `Showing ${shown.length} of ${results.length} pages`
+                  : `${results.length} pages found`}
+                {nextOffset !== null ? " so far" : ""}
+              </p>
+              {warnings.map((w) => (
+                <p key={w} role="alert" className="text-[11px] text-amber-300/90">{w}</p>
+              ))}
+              <input
+                className="input"
+                type="search"
+                placeholder="Filter these results"
+                aria-label="Filter results"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              />
+              {kinds.length > 1 && (
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label="Content type">
+                  {[{ kind: null as string | null, count: results.length }, ...kinds].map((k) => (
+                    <button
+                      key={k.kind ?? "all"}
+                      type="button"
+                      aria-pressed={kind === k.kind}
+                      className={`btn !px-2.5 !py-1 !text-[11px] ${kind === k.kind ? "!border-[var(--accent)]" : ""}`}
+                      onClick={() => setKind(k.kind)}
+                    >
+                      {k.kind ?? "All"} ({k.count})
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {results && results.length > 0 && shown.length === 0 && (
+            <p className="py-8 text-center text-sm text-[var(--muted)]">
+              No results match that filter.
+            </p>
+          )}
+
+          {results && results.length > 0 && groupHits(shown).map((group) => (
+            <section key={group.kind ?? "all"} className="mb-4 last:mb-0" aria-label={group.kind ?? undefined}>
+              {group.kind && kinds.length > 1 && (
+                <h3 className="mb-2 text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                  {group.kind} ({group.hits.length})
+                </h3>
+              )}
             <ul className="space-y-2">
-              {results.map((r) => {
+              {group.hits.map((r) => {
                 const isChosen = chosen.has(r.url);
                 return (
                   <li key={r.url}>
@@ -303,18 +407,31 @@ export default function DiscoverModal({
                 );
               })}
             </ul>
+            </section>
+          ))}
+
+          {results && results.length > 0 && nextOffset !== null && (
+            <div className="mt-3 flex flex-col items-center gap-2">
+              <button className="btn !text-xs" disabled={loadingMore} onClick={() => void loadMore()}>
+                {loadingMore ? "Loading…" : "Load more results"}
+              </button>
+              {moreError && <p role="alert" className="text-[11px] text-red-300">{moreError}</p>}
+            </div>
           )}
         </div>
 
-        {results && selectable.length > 0 && (
+        {results && (selectable.length > 0 || chosen.size > 0) && (
           <footer className="flex shrink-0 items-center gap-3 border-t border-[var(--border)] px-5 py-3">
             <button
-              className="text-xs text-[var(--muted)] transition hover:text-[var(--fg)]"
-              onClick={() =>
-                setChosen(allChosen ? new Set() : new Set(selectable.map((r) => r.url)))
-              }
+              className="text-xs text-[var(--muted)] transition hover:text-[var(--fg)] disabled:opacity-40"
+              disabled={selectable.length === 0}
+              onClick={() => setShownChosen(!allChosen)}
             >
-              {allChosen ? "Clear selection" : `Select all ${selectable.length}`}
+              {allChosen
+                ? "Clear selection"
+                : filtered
+                  ? `Select ${selectable.length} shown`
+                  : `Select all ${selectable.length}`}
             </button>
             {blockedCount > 0 && (
               <span className="text-[11px] text-amber-300/80">

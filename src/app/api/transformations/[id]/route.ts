@@ -1,4 +1,4 @@
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import {
   deleteTransformation,
   getTransformation,
@@ -32,7 +32,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 export async function PATCH(req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
-    const body = (await req.json()) as { name?: string; description?: string; prompt?: string };
+    const body = (await readBody(req)) as { name?: string; description?: string; prompt?: string };
     const t = updateTransformation(decodeURIComponent(id), body);
     return t ? ok({ transformation: t }) : NextResponse.json({ error: "Not found" }, { status: 404 });
   } catch (e) {

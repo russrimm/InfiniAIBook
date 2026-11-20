@@ -5,6 +5,7 @@ import {
   GITHUB_URL, LINKEDIN_URL, MIT_LICENSE, REPO_URL,
 } from "@/lib/about";
 import Logo from "./Logo";
+import { TAGLINE } from "@/lib/brand";
 import { useDialog } from "./useDialog";
 
 const DOCS = `${REPO_URL}/blob/main/docs`;
@@ -174,7 +175,7 @@ const HELP: {
         title: "Infographic styles and suggestions",
         body: [
           "Open the style gallery from the Infographic card to browse or search styles and filter Drawn by AI, Structure-led or Look-led. Compare examples; AI-drawn examples are labeled layout sketches, not generated previews. Use this style selects a style; Generate in the gallery also starts generation.",
-          "Suggest styles for my sources recommends styles for your selected sources and Focus. Choose Orientation (landscape, portrait or square), Level of detail, and Describe the infographic you want. Drawn styles require an image model; Illustrated is the HTML alternative. Open a finished infographic for PNG or Markdown export.",
+          "Suggest styles for my sources recommends styles for your selected sources and Focus. Choose Orientation (landscape, portrait or square), Level of detail, an optional Title (leave it blank to have one written from your content), and Describe the infographic you want. Drawn styles require an image model; Illustrated is the HTML alternative. Open a finished infographic for PNG or Markdown export.",
         ],
         doc: "infographics.md",
       },
@@ -219,6 +220,14 @@ const HELP: {
           "Both need an image model, Azure Speech and the server's video-rendering dependencies. Follow stage progress, read any failure message, and play or download MP4 when ready. Edit script and render again to change narration or drawings; re-rendering redraws artwork and can incur new image and speech costs.",
         ],
         doc: "motion-explainers.md#customizing-a-video",
+      },
+      {
+        title: "Video clip",
+        body: [
+          "Video clip makes short AI-generated clips from your checked sources, for B-roll or on its own. It is off until a video model is configured; the card then says \"No video model is configured\" and links to the setup guide. Press Generate to open the composer: it drafts up to three clip prompts from your sources, which you can edit, add to or redraft before anything is billed.",
+          "Choose Shape, Length (only values the model accepts), Quality and Variants of each prompt, and optionally upload a reference image the clip starts from. Estimated cost shows the seconds, clips and per-second rate, and a run that does not fit under today's budget is refused. Generate opens the clips with live status for each; Cancel stops the run and keeps finished clips. Play each clip, Download MP4, Rename or delete it from the library. A prompt the provider declines shows its message so you can reword it.",
+        ],
+        doc: "video-clips.md",
       },
       {
         title: "Training video: presenter, script and live preview",
@@ -284,7 +293,14 @@ const HELP: {
   },
 ];
 
-export default function AboutModal({ onClose }: { onClose: () => void }) {
+export default function AboutModal({
+  onClose,
+  onShortcuts,
+}: {
+  onClose: () => void;
+  /** Opens the keyboard shortcuts list; only offered where shortcuts exist. */
+  onShortcuts?: () => void;
+}) {
   const { dialogRef, backdropProps } = useDialog(onClose);
 
   return (
@@ -301,14 +317,14 @@ export default function AboutModal({ onClose }: { onClose: () => void }) {
         className="fade-up card flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden !p-0 outline-none"
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
-          <Logo size={32} />
+          <Logo size={40} />
           <div className="flex-1">
             <h2 id="about-title" className="text-[15px] font-semibold">
               InfiniAIBook
             </h2>
             <p className="text-[11px] text-[var(--muted)]">
-              Help and about: a self-hosted research notebook for grounded chat, notes and
-              Studio artifacts.
+              {TAGLINE} A self-hosted research notebook for grounded chat, notes and Studio
+              artifacts.
             </p>
           </div>
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={onClose}>
@@ -332,6 +348,11 @@ export default function AboutModal({ onClose }: { onClose: () => void }) {
                 </a>
               ))}
               <a href="#about-details" className="btn !py-1 !text-[13px]">About and licenses</a>
+              {onShortcuts && (
+                <button type="button" className="btn !py-1 !text-[13px]" onClick={onShortcuts}>
+                  Keyboard shortcuts
+                </button>
+              )}
             </nav>
             {HELP.map((group) => (
               <section key={group.id} aria-labelledby={group.id} className="mt-4">

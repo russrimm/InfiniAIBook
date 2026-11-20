@@ -55,8 +55,8 @@ describe("/api/transformations", () => {
     expect(count("transformations")).toBe(0);
   });
 
-  it("returns 500 for a body that is not JSON", async () => {
-    expect((await create(request("/api/transformations", "POST", "{nope"))).status).toBe(500);
+  it("returns 400 for a body that is not JSON", async () => {
+    expect((await create(request("/api/transformations", "POST", "{nope"))).status).toBe(400);
   });
 });
 

@@ -35,6 +35,7 @@ COPY --from=build /app/scripts/whiteboard ./scripts/whiteboard
 COPY --from=build /app/scripts/motion ./scripts/motion
 COPY --from=build /app/scripts/audio ./scripts/audio
 COPY --from=build /app/scripts/training ./scripts/training
+COPY --from=build /app/scripts/bookends ./scripts/bookends
 RUN mkdir -p /data && chown -R node:node /data /app
 USER node
 VOLUME ["/data"]

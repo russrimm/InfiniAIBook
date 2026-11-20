@@ -175,3 +175,69 @@ test("prepares and uploads training visuals with no animation frames after closi
   expect(after.missing).toEqual([]);
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
+
+const MOCK = `http://127.0.0.1:${process.env.MOCK_LLM_PORT || 3124}`;
+
+test("keeps the pictures that worked when one fails to draw, and retries only the missing one", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  // While the visuals are planned, every picture request loses its connection, as Azure
+  // sometimes does: each is retried, still fails, and is left for the render to fill in.
+  await request.post(`${MOCK}/faults`, { data: { dropPrompt: "editorial illustration", pictureCues: true, images: true, reset: true } });
+  try {
+    const notebookId = await notebookWithSource(request);
+    await page.goto(`/notebook/${notebookId}`);
+    await page.getByRole("button", { name: "Generate Training video" }).click();
+    const editor = page.getByRole("dialog").last();
+    await expect(editor.getByRole("tab", { name: "Visuals" })).toBeVisible({ timeout: 90_000 });
+
+    const { artifacts } = (await (await request.get(`/api/notebooks/${notebookId}`)).json()) as {
+      artifacts: { id: string; type: string }[];
+    };
+    const id = artifacts.find((a) => a.type === "training")!.id;
+    type Cue = { imageId?: string; imagePrompt?: string };
+    const cuesOf = async () =>
+      ((await (await request.get(`/api/artifacts/${id}`)).json()) as {
+        content: { sections: { cues?: Cue[] }[] };
+      }).content.sections.flatMap((s) => s.cues ?? []).filter((c) => c.imagePrompt);
+    const planned = await cuesOf();
+    expect(planned).toHaveLength(4);
+    expect(planned.filter((c) => c.imageId)).toHaveLength(0);
+
+    // Now only one picture's request fails, the way a passing network problem would.
+    await request.post(`${MOCK}/faults`, { data: { dropPrompt: "UNLUCKY", reset: true } });
+    let renders = 0;
+    await page.route(`**/api/training/${id}/render`, (route) => {
+      renders++;
+      return route.fulfill({ json: { ok: true } });
+    });
+
+    await editor.getByRole("button", { name: "Render video", exact: true }).click();
+    const alert = page.getByRole("alert").filter({ hasText: "could not be created" });
+    await expect(alert.first()).toBeVisible({ timeout: 90_000 });
+    await expect(alert.first()).toContainText("1 of 4 pictures could not be created, so the video has not been rendered yet");
+    await expect(alert.first()).toContainText("The 3 that worked were kept");
+    expect(renders).toBe(0);
+    expect((await cuesOf()).filter((c) => c.imageId)).toHaveLength(3);
+
+    // The problem passes; retrying draws only the missing picture and the render goes ahead.
+    await request.post(`${MOCK}/faults`, { data: { dropPrompt: null, reset: true } });
+    const status = page.getByRole("dialog", { name: "Video processing status" });
+    if (await status.isVisible()) await page.keyboard.press("Escape");
+    const submitted = page.waitForRequest(
+      (req) => req.method() === "POST" && req.url().endsWith(`/api/training/${id}/render`),
+      { timeout: 60_000 },
+    );
+    await editor.getByRole("button", { name: "Retry missing pictures" }).click();
+    await submitted;
+    const calls = (await (await request.get(`${MOCK}/faults`)).json()) as { imageCalls: string[] };
+    expect(calls.imageCalls).toHaveLength(1);
+    expect(calls.imageCalls[0]).toContain("UNLUCKY");
+    expect((await cuesOf()).filter((c) => c.imageId)).toHaveLength(4);
+    expect(renders).toBe(1);
+  } finally {
+    await request.post(`${MOCK}/faults`, { data: { dropPrompt: null, pictureCues: false, images: false, reset: true } });
+  }
+});

@@ -34,6 +34,17 @@ Like NotebookLM's infographic settings, each generation takes:
   viewing and PNG export.
 - **Detail** — concise (only the essentials, at the low end of every count),
   standard, or detailed (the high end of every count, with names and figures).
+- **Title** — optional, up to 80 characters. Leave it blank and the model
+  writes a concise title from your content (falling back to the notebook's name
+  if it returns nothing usable). Type one and the infographic is titled exactly
+  that: it is the headline, the Library name and the download name (PNG and
+  Markdown). Spaces are collapsed and line breaks and invisible control
+  characters are removed, nothing else is changed. The model is told the title
+  is fixed and writes the rest to fit it; it never rewrites it, and the title is
+  treated as text to display, not as an instruction. In the drawn (image) styles
+  the exact title is lettered into the picture, so check the spelling of long or
+  unusual titles; straight double quotes inside it become curly quotes in the
+  picture. The title stays set when you generate again until you clear it.
 - **Describe the infographic you want** — up to 600 characters of free text
   for focus, audience, tone and wording ("for new volunteers; focus on the
   weekly schedule"). It is passed to the model below the grounding rules, so it

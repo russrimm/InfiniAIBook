@@ -9,12 +9,16 @@ checkbox to choose whether Chat and Studio use it. **Pin** keeps the panel open
 while you work elsewhere; the close button or Escape collapses an unpinned
 panel.
 
+Inside the reader, **Find** searches the source's text: matches are highlighted, the first is scrolled into view, and Enter or the up and down buttons step to the next or previous one (Shift+Enter goes back). The count shows `2 of 12` (`500+` once a search matches more than 500 places). The first Escape clears the search; the next closes the reader.
+
 **Add sources** in the header opens the same panel with upload tools expanded.
 You can also expand or hide those tools inside the panel without losing an
 unfinished link or pasted-text draft. On narrow screens, the **Sources** tab
 opens the list when sources exist. A source without a saved summary explicitly
 shows **No synopsis available**; viewing the list does not generate another
 summary or re-import the source.
+
+**Rename** (the pencil on a row) changes only the source's name. Its text, passages and embeddings are untouched, so nothing needs re-indexing; Enter saves and Escape cancels. A name like "Untitled" or a long page title is easy to fix this way, and the new name appears in citations and exports from then on. Once a notebook has six or more sources, a **Filter sources** box at the top of the list narrows it by name or synopsis. The filter only hides rows: hidden sources keep their ticks, so Chat and Studio still use whatever is ticked.
 
 ## Adding sources
 
@@ -59,7 +63,9 @@ the model provider with embedding calls. The two-sentence summary is written
 just after the source lands and appears a few seconds later. You can keep
 dropping files, pasting links or running a discovery search while earlier items
 are still processing; a failure affects only its own row, which explains what
-happened and can be dismissed. Sources join the chat context automatically as
+happened and offers **Retry** (sends the same file, link or text again, so a
+dropped connection or rate limit does not mean starting over) or dismissal.
+Sources join the chat context automatically as
 they land.
 
 Files over 50 MB (`MAX_UPLOAD_BYTES`) are refused before they are sent, except
@@ -88,8 +94,23 @@ Two things make the results usable rather than noisy:
 ### Microsoft Learn: imports and live chat
 
 Open **Sources → Microsoft Learn** to search official documentation through the
-public Microsoft Learn MCP server. No additional API key is needed. The app
-server needs outbound HTTPS access to `https://learn.microsoft.com/api/mcp`.
+public Microsoft Learn MCP server and Learn's site search. No additional API key
+is needed. The app server needs outbound HTTPS access to
+`https://learn.microsoft.com/api/mcp` and `https://learn.microsoft.com/api/search`.
+
+**Find pages.** A search lists distinct *pages*, not passages: pages are matched
+across locales, fragments and trailing slashes, so each appears once. The first
+search blends Learn's paged site search with MCP passage searches for your
+topic and, for short topics (three words or fewer), a few complementary angles
+(overview, get started, tutorial, how to, concepts). Pages several searches
+agree on rank first. A broad query such as "Copilot Studio" lists about 50
+pages at once, grouped by type (Documentation, Training, Videos,
+Certifications). The count shows how many pages were found; **Load more
+results** pages further through the site search until the cap
+(`LEARN_MAX_RESULTS`, default 100 site-search pages). Use **Filter these
+results** and the type buttons to narrow the list, and **Select all** /
+**Clear selection** to act on the pages currently shown. If some searches fail
+or are slow, the rest still appear with a notice.
 
 **Import pages.** Search a topic, review the results, and choose **Add sources**.
 The app fetches each selected page's full documentation, not just its search

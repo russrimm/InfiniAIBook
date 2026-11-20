@@ -1,12 +1,13 @@
 import { nanoid } from "nanoid";
 import { after, NextResponse } from "next/server";
 import { db, floatsToBlob, transaction } from "@/lib/db";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import { chunkText, extractFromFile, extractFromUrl, extractFromZip, isZipUpload } from "@/lib/ingest";
 import { fetchYouTubeTranscript, isYouTubeUrl } from "@/lib/youtube";
 import { chatText, embed, describeAuthError, embedModel } from "@/lib/ai";
 import { MAX_TITLE_CHARS, MAX_UPLOAD_BYTES, mb } from "@/lib/limits";
 import { fetchLearnPage, normalizeLearnUrl } from "@/lib/learn";
+import { canonicalLearnUrl } from "@/lib/learndiscover";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +40,9 @@ async function summarize(sourceId: string, text: string) {
 function alreadyImported(notebookId: string, url: string): boolean {
   const rows = db.prepare("SELECT url FROM sources WHERE notebook_id = ? AND url IS NOT NULL")
     .all(notebookId) as { url: string }[];
-  const canonical = (value: string) => value.split(/[?#]/)[0].replace(/\/$/, "");
+  // Learn pages are the same page in any locale and letter case.
+  const canonical = (value: string) =>
+    value.startsWith("https://learn.microsoft.com/") ? canonicalLearnUrl(value) : value.split(/[?#]/)[0].replace(/\/$/, "");
   return rows.some((row) => canonical(row.url) === canonical(url));
 }
 
@@ -280,7 +283,7 @@ export async function POST(req: Request, { params }: Ctx) {
         }
       }
     } else {
-      const body = (await req.json()) as {
+      const body = (await readBody(req)) as {
         learnUrl?: string;
         url?: string;
         text?: string;

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import JSZip from "jszip";
 import { nanoid } from "nanoid";
+import { BadRequestError } from "./badrequest";
 import { db, transaction } from "./db";
 import { chunkText } from "./ingest";
 import { notebookNarration } from "./narrationstore";
@@ -305,37 +306,45 @@ function writeMedia(name: string, bytes: Buffer, mediaIds: Map<string, string>) 
   fs.writeFileSync(disk, bytes);
 }
 
+/** The uploaded file is not a usable notebook export; the caller can fix it. */
+export class NotebookImportError extends BadRequestError {}
+
 /**
  * Restore an export as a new notebook. Ids are regenerated so an import cannot
  * overwrite an existing notebook or escape the data directory.
  */
 export async function importNotebookZip(buffer: Buffer): Promise<{ id: string; title: string }> {
   if (buffer.length > MAX_ZIP_BYTES) {
-    throw new Error("That export is larger than 200 MB.");
+    throw new NotebookImportError("That export is larger than 200 MB.");
   }
-  const zip = await JSZip.loadAsync(buffer);
+  let zip: JSZip;
+  try {
+    zip = await JSZip.loadAsync(buffer);
+  } catch {
+    throw new NotebookImportError("That file is not a valid .zip archive. Choose a notebook export saved from this app.");
+  }
   const names = Object.keys(zip.files);
-  if (names.length > MAX_ITEMS) throw new Error("That export has too many files.");
+  if (names.length > MAX_ITEMS) throw new NotebookImportError("That export has too many files.");
   if (names.some((n) => n.includes("..") || n.startsWith("/") || n.includes("\\"))) {
-    throw new Error("That export has an unsafe file path.");
+    throw new NotebookImportError("That export has an unsafe file path.");
   }
   const manifestFile = zip.file("manifest.json");
-  if (!manifestFile) throw new Error("That file is not a notebook export.");
+  if (!manifestFile) throw new NotebookImportError("That file is not a notebook export.");
   const manifestBytes = await manifestFile.async("uint8array");
   if (manifestBytes.byteLength > 50_000_000) {
-    throw new Error("The export manifest is too large.");
+    throw new NotebookImportError("The export manifest is too large.");
   }
   let pack: Pack;
   try {
     pack = JSON.parse(new TextDecoder().decode(manifestBytes)) as Pack;
   } catch {
-    throw new Error("The export manifest is not valid JSON.");
+    throw new NotebookImportError("The export manifest is not valid JSON.");
   }
   if (pack?.format !== PACK_FORMAT || pack.version !== PACK_VERSION) {
-    throw new Error("That export is from a newer or different app and cannot be imported.");
+    throw new NotebookImportError("That export is from a newer or different app and cannot be imported.");
   }
   const notebook = asRecord(pack.notebook);
-  if (!notebook) throw new Error("The export is missing the notebook.");
+  if (!notebook) throw new NotebookImportError("The export is missing the notebook.");
   const title = str(notebook.title, MAX_TITLE_CHARS) || "Imported notebook";
   const emoji = str(notebook.emoji, 8) || "📓";
   const sources = Array.isArray(pack.sources) ? pack.sources.slice(0, MAX_ITEMS) : [];
@@ -363,7 +372,7 @@ export async function importNotebookZip(buffer: Buffer): Promise<{ id: string; t
     if (!file) continue;
     const bytes = await file.async("nodebuffer");
     mediaBytes += bytes.length;
-    if (mediaBytes > MAX_ZIP_BYTES) throw new Error("The exported media is larger than 200 MB.");
+    if (mediaBytes > MAX_ZIP_BYTES) throw new NotebookImportError("The exported media is larger than 200 MB.");
     const rel = name.slice("media/".length);
     // Pictures a training video shows are not artifacts; they still need new ids.
     const picture = /^image\/([A-Za-z0-9_-]{1,32})\.png$/.exec(rel);

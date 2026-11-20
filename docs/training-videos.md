@@ -53,6 +53,39 @@ If the connection drops during submission, check the video's progress before
 clicking **Render video** again: Azure may already have accepted the job.
 Completed visual uploads are cached and reused on the next attempt.
 
+#### "Could not reach Azure OpenAI" versus "the connection was closed or timed out"
+
+These are different problems and the message says which one it is.
+
+- **Could not reach Azure OpenAI at …** means the endpoint could not be
+  resolved or connected to: DNS, a refused connection, no route, or a
+  certificate or proxy problem. Check `AZURE_OPENAI_ENDPOINT`, the network, VPN
+  and firewall, and restart the server after changing `.env.local`. The
+  placeholder endpoint from `.env.example` gets its own message.
+- **The connection to Azure OpenAI … was closed or timed out before a reply
+  arrived** means the endpoint is fine but one request lost its connection
+  (`ECONNRESET`, `UND_ERR_SOCKET`, a header or body timeout). It is usually a
+  passing network problem, or a slow image generation that a VPN, proxy or
+  firewall cut off. It is safe to retry, and if the request never completed
+  nothing was billed. The response code is `503` with `"code":
+  "connection_dropped"`.
+
+Picture and chat calls to the model already retry on their own: a dropped
+connection up to twice (1 and 2 seconds apart), an unreachable host once, and a
+429, 408 or 5xx up to four times, honoring `Retry-After`, within three minutes in
+total. A call whose reply had already started arriving is never repeated, so a
+picture is not billed twice. The SDK's own retries are switched off for these
+calls so the two layers do not multiply.
+
+When **Render video** or **Add pictures** still cannot create some pictures
+after those retries, the pictures that worked are saved and the rest are
+reported: "1 of 12 pictures could not be created, so the video has not been
+rendered yet. The 11 that worked were kept." **Retry missing pictures** asks for
+only the missing ones and carries on to the render; **Render without them**
+renders those visuals with words only. A problem that would repeat for every
+picture, such as a rejected credential, a missing configuration or the daily
+budget, stops the run at once instead.
+
 ## Presenter with visuals
 
 A composed training video starts with the avatar and lays visuals over and
@@ -77,6 +110,7 @@ around it on one timeline:
   returns to the presenter alone.
 - **Kinds of visual.** Title card, learning objectives, bullet points, key
   number, quote, knowledge check, AI image (drawn on demand by the image model),
+  video clip (a short generated clip, see [below](#video-clips-as-visuals)),
   screenshot or picture (upload, paste or capture a screen), and notebook
   infographics grounded entirely in the video's selected sources.
 - **A picture on every slide.** Title cards, objectives, bullet points, key
@@ -150,6 +184,91 @@ appears here once rendered". Once the presenter has been rendered, the preview
 plays the real transparent presenter clips instead. Without Azure Speech
 configured, timing is estimated from the word count and the preview is silent.
 
+### Video clips as visuals
+
+When a [video model is configured](video-clips.md#providers), a visual can be a
+short **Video clip** of generated B-roll that plays muted in the visual's panel
+while the presenter's voice continues. Clips cost money per second, so they are
+always opt-in:
+
+- **Planning proposes none by default.** Tick **Propose video clips** beside
+  **Plan all visuals again** (it appears only when a video model is configured)
+  and the planner may add a few, each with a prompt describing one continuous
+  shot. Proposing costs nothing. Planning again replaces every visual,
+  including clips you already made.
+- **A clip is made only when you press Generate** in the visual's editor, after
+  editing its prompt. The editor shows the shape, length and quality choices the
+  model supports, an **estimated cost** (also checked against `DAILY_BUDGET_USD`),
+  a status line, **Cancel**, a player for the result, **Generate another** and
+  **Remove clip**. You can add one by hand by choosing **Video clip** as a
+  visual's kind. With no video model configured the editor says so and links to
+  the setup guide.
+- **A visual without a clip is left out of the render**, with a warning in the
+  preview. Rendering never makes a clip and never bills for one.
+- **Preview.** The browser preview plays the clip in its panel, muted, at the
+  right moment, and scrubbing shows the right frame.
+- **Fitting.** The clip plays from the moment its visual appears, in the panel
+  at its own aspect ratio (a portrait clip is pillarboxed, never stretched),
+  under the visual's caption and with the rounded panel corners. A clip longer
+  than its visual is cut where the visual ends; a shorter one **holds its last
+  frame**, or **loops** if you choose that. The presenter's voice stays the only
+  audio: the clip's own sound is never used. Watermarks, captions and the
+  logo are drawn over it as for any visual.
+- **Both renderers.** The standard Python compositor and HyperFrames play clips
+  the same way (`npm run check:training` and `npm run check:training -- --hyperframes`
+  compose a synthetic clip and check that it is not stretched and holds).
+  HyperFrames first cuts, holds or loops each clip to its visual's length
+  without sound, using the same ffmpeg the compositor uses.
+- **Storage.** Clips live under the training video and are deleted with it;
+  clips no visual uses any more are removed at the next render.
+
+### Intro and outro clips
+
+**Design → Intro and outro** adds an optional clip before the first section and
+after the last. Each is **off by default**, so nothing is billed unless you ask,
+and a video without them renders exactly as before. Pick a source per clip:
+
+- **Generate with AI.** *Draft a prompt from the video* asks the chat model for
+  an opening (intro) or closing, thank-you (outro) shot from the title and
+  script, with no on-screen text. Edit it, choose a length (default about 5
+  seconds, the nearest the model offers) and quality, and press **Generate**.
+  The button and the **Estimated cost** line show the price first, and the daily
+  budget applies. **Cancel**, retries and moderation messages work as in
+  [Video clips](video-clips.md).
+- **Use a clip from this notebook.** Any finished clip from the Studio
+  **Video clip** generator. It is copied, so deleting the original later does
+  not break this video.
+- **Upload a video.** An MP4 up to 100 MB.
+
+The **Final order** strip shows the intro, the video and the outro with their
+lengths and the total. **Join** chooses a short cross-fade (the default), a
+long one or a plain cut; a fade is never more than half the shortest piece.
+
+How it renders. The video is rendered first, by either renderer (Python or
+HyperFrames, including the high-tech look), and the clips are then joined
+around it, so every renderer behaves the same:
+
+- Total length is the pieces added up, less one fade per join. Burned captions,
+  speech, visuals and music are inside the video and stay in step; the **WebVTT
+  captions file** is shifted by the intro. Intro and outro have no spoken text,
+  so the transcript and captions never include them.
+- Every piece is scaled to the video's size and frame rate, never stretched: a
+  clip of another shape is fitted and padded with black.
+- A clip's own sound is used if it has any (matched in loudness, 48 kHz stereo),
+  otherwise it is silent; tick **Play without its own sound** to silence it.
+  The background music and the presenter play only under the video itself, so
+  the music does not run over the intro or outro.
+- The **watermark** covers the intro and outro as well, because it is stamped on
+  the finished file.
+- The MP4 download includes them. The live VASA preview is unaffected.
+
+Generated clips are kept and reused: re-rendering never regenerates or re-bills
+them, and only **Regenerate** makes a new one. A render is refused (with the
+reason, and nothing lost) while a requested intro or outro has no clip, so one
+is never silently dropped; use **Try again**, **Render without it** (turns the
+slot off) or choose another source. If joining fails after a successful render,
+the video is kept without them and the render note says so.
+
 ### How it renders
 
 1. **Visuals are drawn in the browser.** Visuals still without their picture
@@ -183,6 +302,17 @@ It needs Python with `numpy`, `Pillow` and
 setup works. It needs no Azure or model access.
 Use `npm run check:training -- --no-animation` to check the animation-free
 rendering path.
+
+Presenter clips keep their own shape. Full-body avatars arrive as 16:9 frames
+that fill the presenter's box, while the talking-head (photo) avatars are
+512 × 512 squares, which are fitted inside the box at their natural aspect
+ratio: the face is never stretched, and a head sits at about 40% of the frame's
+height beside a visual (full height only when the presenter is alone). Videos
+composed before this fix show a stretched head and need to be recomposed
+(**Recompose video** reuses the rendered clips, so it costs no avatar time).
+`npm run check:training -- --head` (add `--hyperframes` for the other
+renderer) composes square talking-head clips and fails if the presenter's face
+in the result is not round.
 
 ### The HyperFrames compositor
 
@@ -277,20 +407,22 @@ presenter on a flat background.
 
 ## Why the text-to-speech avatar, not a generative video model
 
-Foundry offers two ways to produce a person on video:
+Foundry offers a lip-synced presenter through the Azure Speech avatar service.
+Generative video models (see [Video clips](video-clips.md); Sora 2, which this
+page used to compare against, was retired in 2026) are a different tool:
 
-| | Sora 2 (Azure OpenAI) | Text-to-speech avatar (Azure Speech) |
+| | Generative video model | Text-to-speech avatar (Azure Speech) |
 |---|---|---|
-| Clip length | 4–12 seconds per generation | Up to 20 minutes per job |
-| Same presenter throughout | No — each clip is a new person | Yes |
+| Clip length | A few seconds to about 15 per generation | Up to 20 minutes per job |
+| Same presenter throughout | No: each clip is a new person | Yes |
 | Lip-sync to a script | No | Yes, driven by the neural voice |
-| Approximate price | ~$0.10 per second (~$6 per minute) | Roughly $0.50–$2 per minute |
-| Entra ID auth | Yes | Yes |
+| Approximate price | About $0.07 to $0.10 per second | Roughly $0.50–$2 per minute |
 
 A training video is minutes of one person talking, so it needs a stable,
-lip-synced presenter for its whole length. Sora is the better creative model,
-but it cannot hold a presenter across clips and costs several times as much.
-The avatar service is the best fit for this job at a fraction of the price.
+lip-synced presenter for its whole length: that is the avatar. A generative
+video model is the better creative tool for a few seconds of B-roll, which is
+why a visual can now be a [short generated clip](#video-clips-as-visuals) that
+plays beside or instead of the presenter while the presenter's voice continues.
 
 ## Setup
 
@@ -375,9 +507,8 @@ including your edits, so nothing needs typing.
   stored on the artifact, so you can close it and carry on, and watching
   resumes after a server restart.
 - **Rate limit.** On the S0 tier the service accepts about two new render jobs
-  a minute. Starting more at once returns a "retry after N seconds" message.
-  Composed videos submit one job per section, so keep `AZURE_AVATAR_CONCURRENCY`
-  low on S0.
+  a minute, and answers anything faster with a 429 and a "retry after N
+  seconds" message. See [Rate limits](#rate-limits) for how renders cope.
 - **Rendering time for composed videos.** Transparent VP9 clips render more
   slowly in Azure than the H.264 presenter-only video, and compositing adds
   local time on top.
@@ -387,3 +518,43 @@ including your edits, so nothing needs typing.
   After each composed render, clips and drawings the script no longer uses are
   removed.
 - **Billing.** The finished artifact records the avatar seconds Azure billed.
+
+## Rate limits
+
+Azure limits how fast a Speech resource may create avatar jobs. On the S0 tier
+the "Create avatar batch synthesis" call is refused with a 429 ("have exceeded
+call rate limit … Please retry after 7 seconds") when jobs are started too
+quickly, which a composed video, with one job per section, can do.
+
+- **Retries.** A create, status or delete call that gets a 429, 408, 500, 502,
+  503 or 504, or loses its connection, waits and tries again. It waits for the
+  `Retry-After` header (seconds or a date), or the "retry after N seconds" in
+  Azure's message, plus up to a second of jitter. Without either it backs off
+  2, 4, 8 … seconds, up to 30, with jitter. Calls fail at once on 400, 401, 403
+  and 404, whose messages are unchanged.
+- **Budget.** A call makes at most `AZURE_SPEECH_MAX_RETRIES` retries (default
+  6) and waits at most `AZURE_SPEECH_RETRY_BUDGET_SECONDS` in total (default
+  180). A `Retry-After` longer than what is left of the budget ends the call
+  straight away rather than sleeping uselessly. Status checks use a smaller
+  budget, since the poller asks again anyway.
+- **No double billing.** Each create is a PUT to a job id the app chose, so a
+  retry after a lost reply finds the job already exists (409) and adopts it
+  instead of starting a second one.
+- **Spacing.** New jobs start at least `AZURE_AVATAR_SUBMIT_SPACING_MS` apart
+  (default 2000; the first goes at once, so a single render is not slowed). A
+  429 pushes every later create and status check back by the wait it asked for,
+  and polling slows down the same way. At most `AZURE_AVATAR_CONCURRENCY`
+  section jobs run at once.
+- **Progress.** While a call waits, the progress card says so: "Azure Speech is
+  rate limiting requests; retrying in 7 s (attempt 2 of 7)." If only a new
+  section is refused, the sections already rendering carry on, and the render
+  fails only when nothing is left running.
+- **When the budget runs out,** the render stops with a message saying Azure
+  kept refusing, that nothing was billed for the refused request, and what to
+  do: wait a minute and press **Render** again, ask Azure support to raise the
+  Batch Avatar call rate limit for the Speech resource (or use a higher tier),
+  or shorten the video to fewer sections.
+- **Nothing finished is lost.** Presenter clips are cached by presenter, voice
+  and words, so sections that already finished are reused and are not billed
+  again when you render again.
+- **Cancelling.** Deleting the video stops its waiting within a few seconds.

@@ -2,6 +2,11 @@
 
 InfiniAIBook talks to any **OpenAI-compatible** endpoint, or to Azure OpenAI.
 
+If none is configured, the notebook shows a banner, **Models** opens a short
+setup guide instead of a model list, and the header shows no model name (it
+used to show a default that nothing could serve). Add a provider to `.env.local`
+as below and restart the app.
+
 ### Named providers
 
 The quickest route is a preset: set `AI_PROVIDER` and that provider's usual key
@@ -103,6 +108,7 @@ other provider it is a model id.
 | **Realtime voice** | [Live discussions](discussions.md): the spoken conversation itself, plus a transcription model for what you say | The Live discussion card explains what to set |
 | **Speech** (Azure AI Speech, not a deployment) | Audio overviews, voice previews, whiteboard and motion narration, and training-video avatars | Those features are unavailable |
 | **Gemini** | YouTube transcripts, fetched by Gemini on Google's side | The app tries YouTube's own captions, then falls back to the video description, clearly labeled |
+| **Video** | The Studio **Video clip** generator: short AI-generated clips ([details](video-clips.md)) | The card says "No video model is configured" and nothing is billed |
 
 ### How to configure it
 
@@ -118,6 +124,7 @@ other provider it is a model id.
 | **Realtime transcription** | `AI_REALTIME_TRANSCRIPTION_MODEL` | same | `gpt-4o-mini-transcribe` |
 | **Speech** | `AZURE_SPEECH_REGION` + `AZURE_SPEECH_RESOURCE_ID`, or `AZURE_SPEECH_KEY`<br>`AZURE_SPEECH_ENDPOINT` for the avatar service | same | Multitalker HD and standalone neural voices |
 | **Gemini** | `GEMINI_API_KEY`, `GEMINI_MODEL` | same | `gemini-2.5-flash` |
+| **Video** | `AZURE_OPENAI_VIDEO_DEPLOYMENT` (a deployed video model), or `AI_VIDEO_PROVIDER=gemini` with `GEMINI_API_KEY` | `AI_VIDEO_PROVIDER`, `AI_VIDEO_MODEL`, `AI_VIDEO_BASE_URL`, `AI_VIDEO_API_KEY` | none; Gemini uses `gemini-omni-1.2-flash`. Sora 2 is retired |
 
 The default Speech voice is `en-Multitalker:DragonHDLatestNeural`, alongside the
 standalone neural voices.
@@ -155,16 +162,21 @@ commentary. Only a model provider is required.
 | `AZURE_SPEECH_REGION`, `AZURE_SPEECH_RESOURCE_ID`, `AZURE_SPEECH_KEY` | Azure Speech for audio overviews, video narration and training-video avatars |
 | `AZURE_SPEECH_ENDPOINT` | Custom-domain Speech endpoint for the avatar service; derived from `AZURE_SPEECH_RESOURCE_ID` when unset |
 | `AZURE_AVATAR_BACKGROUND_URL`, `AZURE_AVATAR_PRICE_PER_MINUTE`, `AZURE_AVATAR_CONCURRENCY`, `TRAINING_IMAGES` | Optional training-video background image, cost estimate, parallel section renders and AI-image planning ([Training videos](training-videos.md)) |
+| `AZURE_SPEECH_MAX_RETRIES`, `AZURE_SPEECH_RETRY_BUDGET_SECONDS`, `AZURE_AVATAR_SUBMIT_SPACING_MS` | How avatar calls cope with Azure Speech rate limits: retries per call (default `6`, `0` to turn off), most seconds one call may wait in total (default `180`), and the gap between new avatar jobs in milliseconds (default `2000`, `0` for none). See [Rate limits](training-videos.md#rate-limits) |
 | `STUDIO_CONTEXT_CHARS` | Starting source budget for Studio generation (default `30000`) |
 | `AI_STUDIO_MODEL`, `AI_STUDIO_ENDPOINT`, `AI_STUDIO_API`, `AI_STUDIO_BASE_URL`, `AI_STUDIO_API_KEY`, `AI_STUDIO_MAX_TOKENS` | Separate model for audio-overview, video and training scripts and scene plans; see [Studio script model](#studio-script-model) |
 | `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX` | Optional discovery API fallbacks; Bing RSS is always searched first |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | YouTube transcripts via Gemini |
+| `AI_VIDEO_PROVIDER`, `AI_VIDEO_MODEL`, `AI_VIDEO_BASE_URL`, `AI_VIDEO_API_KEY`, `AZURE_OPENAI_VIDEO_DEPLOYMENT`, `AZURE_OPENAI_VIDEO_API_VERSION`, `AZURE_OPENAI_VIDEO_SCOPE` | Optional video model for the Studio **Video clip** generator: Gemini, an OpenAI-compatible Videos API, or an Azure OpenAI deployment. Off until set; a `GEMINI_API_KEY` alone does not enable it ([Video clips](video-clips.md#providers)) |
+| `AI_VIDEO_DURATIONS`, `AI_VIDEO_ASPECTS`, `AI_VIDEO_RESOLUTIONS`, `AI_VIDEO_PRICE_PER_SECOND_USD` | What an OpenAI-compatible or Azure video model accepts, and your per-second rate for the cost estimate (overrides every built-in rate) |
+| `VIDEO_CLIP_CONCURRENCY`, `VIDEO_CLIP_POLL_SECONDS`, `VIDEO_CLIP_TIMEOUT_MIN`, `VIDEO_CLIP_MAX_MB` | Clips made at once (default 2, at most 4), seconds between polls (default 5), minutes before a clip is abandoned (default 20) and the largest clip saved (default 200 MB) |
 | `YOUTUBE_API_KEY`, `YOUTUBE_COOKIE`, `YOUTUBE_CAPTION_LANG` | YouTube metadata and transcript fallbacks |
 | `PYTHON_BIN` | Python interpreter for the whiteboard, motion and training renderers (default `python`; `python3` in the Docker image) |
 | `TRAINING_RENDERER`, `MOTION_RENDERER`, `HYPERFRAMES_BIN`, `HYPERFRAMES_WORKERS`, `HYPERFRAMES_TIMEOUT_MIN` | Opt in to the HyperFrames renderer for training videos (`TRAINING_RENDERER=hyperframes`) and motion explainers (`MOTION_RENDERER=hyperframes`); the default is the Python renderer. The **High-tech HUD** style uses HyperFrames automatically whenever `npx` (or `HYPERFRAMES_BIN`) can start, unless the matching variable is set to `python`; if HyperFrames is unavailable or fails, the standard renderer runs and the video's note says so. Tune it with a `hyperframes` executable to use instead of `npx`, parallel browser workers (default 1–4 by CPU count) and a time limit (default 120 minutes) ([Training videos](training-videos.md#the-hyperframes-compositor), [Motion explainers](motion-explainers.md#the-hyperframes-renderer), [High-tech look](training-videos.md#the-high-tech-look)) |
 | `MOTION_MUSIC_DIR` | Optional folder of music tracks, listed read-only in the music picker alongside tracks uploaded in the app ([Background music](studio.md#background-music)) |
 | `ALLOW_PRIVATE_NETWORK_FETCH` | Allow fetching private/loopback addresses (default off; see [SECURITY.md](../SECURITY.md)) |
 | `MAX_FETCH_BYTES`, `FETCH_MAX_REDIRECTS`, `FETCH_TIMEOUT_MS` | Limits on fetched pages and files |
+| `LEARN_MAX_RESULTS` | Most Microsoft Learn site-search pages one **Sources → Microsoft Learn** search can list across **Load more results** (default 100, allowed 10 to 300, 30 per page). Pages found by the extra passage searches on a broad topic come in addition |
 | `MAX_UPLOAD_BYTES` | Largest uploaded file or request body when adding sources (default 50 MB; larger requests get a 413) |
 | `MAX_ARCHIVE_FILES`, `MAX_ARCHIVE_EXPANDED_BYTES` | Most files imported from one uploaded ZIP (default 100) and the total size it may expand to (default 500 MB) |
 | `DATA_DIR` | Where the database and generated media live (default `./.data`) |
@@ -176,8 +188,9 @@ commentary. Only a model provider is required.
 | `TRUST_PROXY` | `true` behind a reverse proxy: honor `X-Forwarded-Host` / `X-Forwarded-Proto` |
 
 Microsoft Learn source search and page import use the public MCP endpoint
-`https://learn.microsoft.com/api/mcp`, with no additional API key or environment
-variable. Enable **Use live Microsoft Learn in chat** separately for each
+`https://learn.microsoft.com/api/mcp` and Learn's site search at
+`https://learn.microsoft.com/api/search`, with no additional API key. The only
+optional setting is `LEARN_MAX_RESULTS`, the cap on listed pages. Enable **Use live Microsoft Learn in chat** separately for each
 notebook under **Sources → Microsoft Learn**. It is off by default and affects
 only notebook chat; see [Microsoft Learn sources](sources.md#microsoft-learn-imports-and-live-chat).
 

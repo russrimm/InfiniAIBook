@@ -20,6 +20,8 @@ import {
   type VideoProgress,
 } from "./videobuild";
 import { stampWatermark } from "./watermark";
+import { applyBookends } from "./bookendbuild";
+import { DEFAULT_BOOKENDS, type Bookends } from "./bookends";
 import { chooseRenderer, hyperframesFailedNote, renderMotionWithHyperframes } from "./hyperframes";
 import { throttleProgress } from "./renderprogress";
 
@@ -34,6 +36,8 @@ type BuildOptions = {
   music: { file: string; gain: number; name?: string } | null;
   /** The stored watermark choice; stamped after the render. */
   watermark?: unknown;
+  /** The intro and outro to put around the finished video. */
+  bookends?: Bookends;
   /** Output frame size; the timeline scales every layer to it. */
   width?: number;
   height?: number;
@@ -232,6 +236,7 @@ async function runBuild(
     /* already cleaned up by the renderer */
   }
 
+  const added = await applyBookends(id, out, opts.bookends ?? DEFAULT_BOOKENDS, work);
   const mark = await stampWatermark(out, opts.watermark ?? null, "motion");
 
   const final = videoPath(id);
@@ -243,12 +248,13 @@ async function runBuild(
       stage: "done",
       done: 1,
       total: 1,
-      note: [fallback, mark.note].filter(Boolean).join(" ") || undefined,
+      note: [fallback, added.note, mark.note].filter(Boolean).join(" ") || undefined,
     } satisfies VideoProgress,
     videoUrl: `/api/video/${id}?v=${Date.now()}`,
     bytes: fs.statSync(final).size,
     music: Boolean(music),
     watermarked: mark.watermarked,
+    bookendsApplied: added.applied,
     editedSinceRender: false,
   });
 

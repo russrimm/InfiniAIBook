@@ -1,6 +1,6 @@
 ---
 name: InfiniAIBook
-description: Grounded research studio. A dark, dense, three-panel workspace where cited sources come first.
+description: Self-hosted research notebook. A dark, dense, three-panel workspace where cited sources come first.
 colors:
   night-ink: "#0b0d10"
   slate-panel: "#12151a"
@@ -248,7 +248,7 @@ Status colors use Tailwind's amber, red, emerald, and rose families. They're nev
 **Character:** A single neutral, modern grotesque does every job. Hierarchy comes from size, weight (400/500/600, and 650 for prose headings), and color, not from a second typeface.
 
 ### Hierarchy
-- **Display** (`display`): The "InfiniAIBook" wordmark on the notebook list. It's the only large type in the app.
+- **Display** (`display`): The home headline ("Sources in. Cited answers, audio and video out."), set beside the 160px logo mark (128px at `sm`, 64px on phones). It's the only large type in the app.
 - **Headline** (`headline`): Rendered-prose H1. Prose H2 is 1.2rem with a hairline underline; H3 is 1.03rem.
 - **Title** (`title`): The notebook title in the workspace header, and modal titles.
 - **Body** (`body`): Chat answers, notes, and artifact prose, in Prose Mist. Tables inside prose drop to 14px.
@@ -269,7 +269,7 @@ Status colors use Tailwind's amber, red, emerald, and rose families. They're nev
 - **`lg` to `xl`:** the side columns narrow to 17rem and 20rem so Chat keeps room; the full 320px / 380px widths arrive at `xl`.
 - **Below `lg`:** the three panels collapse into a single column switched by a full-width tab bar of 44px buttons.
 - **Below `md`:** the workspace header is one compact row: back, notebook, title, an **Add sources** icon button and a **More actions** menu (`OverflowMenu`) holding Search, Screen helper, Models, Export, Theme and Help. Every control is a 44px target with an `aria-label` and `title`. The menu follows the menu-button pattern: arrows, Home and End move, Escape and Tab close it, and focus returns to its button. From `md` up the labeled buttons wrap as before.
-- **Icons:** header and menu controls use the line icons in `src/components/icons.tsx` (inherit `currentColor`, decorative, always paired with a text label or `aria-label`). Emoji remain the marks for notebooks, sources and Studio formats.
+- **Icons:** header and menu controls use the line icons in `src/components/icons.tsx` (inherit `currentColor`, decorative, always paired with a text label or `aria-label`). Emoji remain the marks for notebooks, sources and Studio formats. An emoji or icon is never a control's only name: `e2e/accessibility-names.spec.ts` fails when a visible control on the main screens has no letters or digits in its accessible name (emoji ignored), or an image has no `alt`.
 - **Modals:** fill the viewport on small screens. From `sm` up they float with 24px of inset and Sheet corners. Screen helper is an immersive workspace: it fills the browser viewport at every size, without outer insets or rounded corners.
 - **Rhythm:** a 4px base. Dense UI uses 8px gaps (`gap-2` is by far the most common) and 12px between groups. Cards use 20px of internal padding. Lists stack at 8px.
 

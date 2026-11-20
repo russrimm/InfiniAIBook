@@ -21,7 +21,7 @@ A clip that arrives without transparency has its flat background keyed out.
 
 Requires: numpy, Pillow, imageio-ffmpeg  (python -m pip install numpy pillow imageio-ffmpeg)
 """
-import json, os, subprocess, sys, textwrap
+import json, os, re, subprocess, sys, textwrap
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import imageio_ffmpeg
@@ -150,11 +150,34 @@ def shadow(w, h):
 
 # ------------------------------------------------------------- presenter ----
 
+def fit_contain(cw, ch, bw, bh):
+    """Largest (w, h) of aspect cw:ch that fits inside bw x bh: never stretched."""
+    if cw <= 0 or ch <= 0:
+        return max(1, int(round(bw))), max(1, int(round(bh)))
+    s = min(bw / cw, bh / ch)
+    return max(1, int(round(cw * s))), max(1, int(round(ch * s)))
+
+
+def probe_size(src):
+    """Width and height of a clip's video stream, or None when ffmpeg cannot tell."""
+    r = subprocess.run([ff, "-hide_banner", "-i", src], capture_output=True, text=True, errors="replace")
+    for line in r.stderr.splitlines():
+        if "Video:" in line:
+            m = re.search(r"[,\s](\d{2,5})x(\d{2,5})[,\s\[]", line.split("Video:", 1)[1] + " ")
+            if m:
+                return int(m.group(1)), int(m.group(2))
+    return None
+
+
 class Clip:
-    """Sequential RGBA frames of one presenter clip, scaled to the frame."""
+    """Sequential RGBA frames of one presenter clip, fitted inside the frame at its own aspect ratio."""
 
     def __init__(self, spec):
         self.src = spec["src"]
+        # Talking heads are square and full-body presenters 16:9: keep whichever shape the clip has.
+        size = probe_size(self.src)
+        self.w, self.h = fit_contain(size[0], size[1], W, H) if size else (W, H)
+        self.aspect = self.w / self.h
         self.start = float(spec["start"])
         self.duration = float(spec["duration"])
         self.proc = None
@@ -170,7 +193,7 @@ class Clip:
         # The native VP9 decoder drops the alpha plane; libvpx keeps it.
         self.proc = subprocess.Popen(
             [ff, "-v", "error", "-c:v", "libvpx-vp9", "-i", self.src, "-an",
-             "-vf", f"fps={FPS},scale={W}:{H}:flags=bicubic", "-f", "rawvideo", "-pix_fmt", "rgba", "-"],
+             "-vf", f"fps={FPS},scale={self.w}:{self.h}:flags=bicubic", "-f", "rawvideo", "-pix_fmt", "rgba", "-"],
             stdout=subprocess.PIPE,
         )
 
@@ -178,7 +201,7 @@ class Clip:
         want = int(t * FPS + 1e-6)
         if self.proc is None and not self.done:
             self._open()
-        size = W * H * 4
+        size = self.w * self.h * 4
         while self.index < want and not self.done:
             buf = self.proc.stdout.read(size)
             if len(buf) < size:
@@ -190,7 +213,7 @@ class Clip:
         if self.raw is None:
             return None
         if self.image_index != self.index:
-            arr = np.frombuffer(self.raw, np.uint8).reshape(H, W, 4)
+            arr = np.frombuffer(self.raw, np.uint8).reshape(self.h, self.w, 4)
             if self.keyed is None:
                 # No alpha at all means the service ignored the transparent background.
                 self.keyed = bool(arr[..., 3].min() == 255)
@@ -211,7 +234,7 @@ class Clip:
                     arr[..., k] = np.where(edge, np.minimum(rgbv[..., k], cap), rgbv[..., k]).astype(np.uint8)
                 self.image = Image.fromarray(arr, "RGBA")
             else:
-                self.image = Image.frombuffer("RGBA", (W, H), self.raw, "raw", "RGBA", 0, 1)
+                self.image = Image.frombuffer("RGBA", (self.w, self.h), self.raw, "raw", "RGBA", 0, 1)
             self.image_index = self.index
         return self.image
 
@@ -225,6 +248,85 @@ class Clip:
                 pass
             self.proc = None
         self.done = True
+
+
+class PanelVideo:
+    """Muted frames of a generated clip, fitted inside a visual's panel at the clip's own aspect ratio.
+
+    It plays from the moment its visual appears. A clip shorter than the visual
+    holds its last frame, or loops with "fit": "loop"; one that is longer is
+    simply cut off when the visual leaves, since frames are only read as needed.
+    """
+
+    def __init__(self, spec, pw, ph):
+        self.src = spec["src"]
+        self.loop = spec.get("fit") == "loop"
+        size = probe_size(self.src)
+        self.w, self.h = fit_contain(size[0], size[1], pw, ph) if size else (pw, ph)
+        self.proc = None
+        self.index = -1
+        self.raw = None
+        self.image = None
+        self.image_index = -2
+        self.done = False
+
+    def _open(self):
+        loop = ["-stream_loop", "-1"] if self.loop else []
+        self.proc = subprocess.Popen(
+            [ff, "-v", "error", *loop, "-i", self.src, "-an",
+             "-vf", f"fps={FPS},scale={self.w}:{self.h}:flags=bicubic", "-f", "rawvideo", "-pix_fmt", "rgba", "-"],
+            stdout=subprocess.PIPE,
+        )
+
+    def frame(self, t):
+        want = max(0, int(t * FPS + 1e-6))
+        if self.proc is None and not self.done:
+            self._open()
+        size = self.w * self.h * 4
+        while self.index < want and not self.done:
+            buf = self.proc.stdout.read(size)
+            if len(buf) < size:
+                # The clip ended before the visual did: keep showing its last frame.
+                self.done = True
+                break
+            self.raw = buf
+            self.index += 1
+        if self.raw is None:
+            return None
+        if self.image_index != self.index:
+            self.image = Image.frombuffer("RGBA", (self.w, self.h), self.raw, "raw", "RGBA", 0, 1)
+            self.image_index = self.index
+        return self.image
+
+    def close(self):
+        if self.proc:
+            try:
+                self.proc.stdout.close()
+                self.proc.kill()
+                self.proc.wait(timeout=5)
+            except Exception:
+                pass
+            self.proc = None
+        self.done = True
+
+
+def clip_panel(q, t, overlay, w, h):
+    """A video visual: black panel, the clip inside it without stretching, then the drawing (caption) on top."""
+    pv = q.get("_pv")
+    if pv is None:
+        pv = q["_pv"] = PanelVideo(q["video"], w, h)
+    panel = Image.new("RGBA", (w, h), (0, 0, 0, 255))
+    fr = pv.frame(t - q["start"])
+    if fr is not None:
+        panel.alpha_composite(fr, ((w - fr.width) // 2, (h - fr.height) // 2))
+    panel.alpha_composite(overlay.convert("RGBA"))
+    if not (w >= W and h >= H):
+        # The same corners the drawn panels have.
+        radius = max(1, int(round(2.6 * h / 100)))
+        mask = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, w - 1, h - 1), radius=radius, fill=255)
+        panel.putalpha(mask)
+    return panel
 
 
 def pose_at(frames, t):
@@ -250,8 +352,10 @@ def draw_presenter(frame, clip, t):
     cx, cy, scale, opacity = pose_at(cfg["avatar"], t)
     if opacity <= 0.01:
         return
-    if abs(scale - 1) > 0.002:
-        im = im.resize((max(1, int(W * scale)), max(1, int(H * scale))), Image.BILINEAR)
+    # The pose is a box of `scale` times the frame; the clip fits inside it at its own aspect ratio.
+    w, h = fit_contain(clip.w, clip.h, W * scale, H * scale)
+    if (w, h) != im.size:
+        im = im.resize((w, h), Image.BILINEAR)
     paste(frame, im, cx * W - im.width / 2, cy * H - im.height / 2, opacity)
 
 
@@ -268,7 +372,13 @@ def rect_px(r):
 
 def draw_cue(frame, q, t):
     start, end = q["start"], q["end"]
-    if t < start or t >= end + CUE_OUT:
+    if t >= end + CUE_OUT:
+        pv = q.get("_pv")
+        if pv is not None:
+            pv.close()
+            q["_pv"] = None
+        return
+    if t < start:
         return
     x, y, w, h = rect_px(q["panel"])
     states = q["states"]
@@ -279,6 +389,8 @@ def draw_cue(frame, q, t):
     im = load(states[k]["src"], (w, h))
     if k > 0 and states[k]["at"] > start and t - states[k]["at"] < REVEAL:
         im = Image.blend(load(states[k - 1]["src"], (w, h)), im, clamp01((t - states[k]["at"]) / REVEAL))
+    if q.get("video"):
+        im = clip_panel(q, t, im, w, h)
 
     if q.get("kenBurns"):
         z = 1 + 0.06 * clamp01((t - start) / max(0.1, end - start))
@@ -429,6 +541,9 @@ for n in range(frames_total):
 
 for clip in clips:
     clip.close()
+for q in cues:
+    if q.get("_pv") is not None:
+        q["_pv"].close()
 proc.stdin.close()
 proc.wait()
 if proc.returncode != 0:

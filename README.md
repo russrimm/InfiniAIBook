@@ -1,11 +1,14 @@
-<p align="center"><img src="public/brand/infiniaibook-icon.png" alt="InfiniAIBook logo" width="160"></p>
+<p align="center"><img src="public/brand/infiniaibook-mark.png" alt="InfiniAIBook logo" width="200"></p>
 
 # InfiniAIBook
+
+**Sources in. Cited answers, audio and video out.**
 
 [![CI](https://github.com/russrimm/InfiniAIBook/actions/workflows/ci.yml/badge.svg)](https://github.com/russrimm/InfiniAIBook/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A self-hosted Agentic Powered Notebook research studio. Upload your own sources, chat with
+A self-hosted Agentic Powered Notebook research studio. Add your own sources
+(documents, web pages, YouTube, Microsoft Learn, audio, video or images), chat with
 them, talk them through out loud, and turn them into **reports, briefings,
 PowerPoint decks, infographics, mind maps, quizzes, flashcards, study guides,
 FAQs, timelines, audio overviews, whiteboard videos, motion explainers and
@@ -125,7 +128,8 @@ How it works, customization and setup: [Motion explainers](docs/motion-explainer
   | 🎧 [Audio overview](docs/audio-overviews.md) | One to four speakers discuss your sources, with a synced transcript |
   | 🎬 [Whiteboard video](docs/whiteboard-videos.md) | A narrated, hand-drawn explainer, MP4 |
   | 🎞️ [Motion explainer](docs/motion-explainers.md) | A narrated 2D animated explainer (problem → solution → how → benefits → next step), MP4. [Customize](docs/motion-explainers.md#customizing-a-video) the length, tone, audience, illustration style, colors, character, closing call to action, resolution and character motion |
-  | 🧑‍🏫 [Training video](docs/training-videos.md) | An editable trainer's script from sources and notes, rendered by a lip-synced Azure avatar presenter with timed slides, pictures and infographics, MP4 |
+  | 🧑‍🏫 [Training video](docs/training-videos.md) | An editable trainer's script from sources and notes, rendered by a lip-synced Azure avatar presenter with timed slides, pictures, infographics and, optionally, [generated video clips](docs/training-videos.md#video-clips-as-visuals), MP4 |
+  | 🎥 [Video clip](docs/video-clips.md) | Short AI-generated clips from your sources: drafted, editable prompts, a cost estimate before anything is billed, progress and cancel, MP4. Needs a video model (Google Gemini or any OpenAI-compatible Videos API); off until one is configured |
   | 📽️ [PowerPoint deck](docs/studio.md#powerpoint-deck) | Title, agenda, content slides with speaker notes and a sources slide; download as PPTX |
   | 📊 [Infographic](docs/infographics.md) | **33 styles**, each with a live example in the style gallery before you generate — timelines, funnels, pyramids, cycles, myth vs fact, pros & cons, cheat sheets, kawaii, bricks and AI-drawn anime, retro print and paper craft among them. Pick the shape (landscape, portrait, square), the level of detail, describe what you want, or ask for styles that suit your sources |
   | 🕸️ [Mind map](docs/studio.md#mind-maps) | Interactive, expandable concept tree |
@@ -137,6 +141,9 @@ How it works, customization and setup: [Motion explainers](docs/motion-explainer
   and a **word-replacement list** (for terms to avoid, translation or a
   different register), and can add **background music** you upload. Videos
   can also carry a text or image **watermark** in any of nine positions.
+  Motion explainers and training videos can also start and end with an optional
+  [intro and outro clip](docs/video-clips.md#intro-and-outro-clips), AI-generated,
+  taken from your clips or uploaded.
   [More](docs/studio.md#spoken-formats-script-review-instructions-and-music)
 
 - **Structure explorer** — open any JSON, XML, CSV/TSV or HAR source in a modal that discovers its structure: a path tree and graph with types, counts and value stats, or a sortable table. HAR files get a request table, waterfall, findings (failures, slow TTFB, uncompressed or uncached responses, redirects, duplicates, third parties, secrets in URLs), Server-Timing and redirect-chain views, CSV export, a sanitized download, and **Diagnose with AI**, which sends a redacted digest (never the raw archive) to the Studio model to name likely root causes.

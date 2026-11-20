@@ -29,6 +29,7 @@ src/
       podcast/                     write a dialogue script; [id] edits it, [id]/narrate voices it
       video/                       plan a whiteboard video; video/[id] edits a whiteboard or motion script, [id]/render builds it
       motion/                      plan a motion explainer
+      videoclip/                   AI video clips: GET reports the model and budget; POST starts a run, prompts/ drafts prompts, [id]/cancel stops it, [id]/[clip] streams an MP4 (poster/ its still)
       music/                       background-music library: list, upload, stream, delete
       watermark/                   watermark image library: list, upload, serve, delete
       models/                      list deployments, read/set the active models
@@ -41,7 +42,7 @@ src/
     SearchView  LibraryModal  TransformationsModal
     ArtifactModal  SourceModal  DiscoverModal  BrowserModal  SourceUpdates
     MindMap  Quiz  Flashcards  Infographic  Metaphors
-    PodcastPlayer  VideoPlayer  MotionCustomize  Markdown
+    PodcastPlayer  VideoPlayer  MotionCustomize  Markdown  VideoClipCard  ClipViewer
     DiscussionModal  useDiscussion (WebRTC call, tool calls, cancellation)
     ScreenHelperModal  useScreenCapture (getDisplayMedia frames, auto-watch)
     MusicPicker  WatermarkPicker  NarrationOptions  SlideDeck  AboutModal
@@ -65,6 +66,13 @@ src/
     safefetch.ts SSRF-safe fetch: private-address refusal per redirect hop, size caps
     youtube.ts   transcript retrieval and URL parsing
     gemini.ts    YouTube transcripts via the supported video-input route
+    videoclip.ts       video-clip vocabulary: capabilities, request validation, cost estimate, the VideoProvider contract (client-safe)
+    videoproviders.ts  which video model is configured (Gemini, OpenAI-compatible Videos API, Azure) and the provider registry
+    videogemini.ts  videoopenai.ts   one file per provider's wire format
+    videoclipjob.ts    runs one clip: submit, poll, download, retry with Retry-After, cancel, error wording
+    videoclipstore.ts  clip artifacts: background runs, per-clip budget reservation, cancel, cleanup
+    trainingclips.ts   one clip for one training-video visual: started on request, polled, cancelled, saved under the video
+    videohttp.ts       error replies, capped streaming downloads, long-timeout fetch
     ingest.ts    text extraction + chunking
     retrieve.ts  hybrid retrieval, corpus sampling, citation building
     studio.ts    per-format prompts and schemas

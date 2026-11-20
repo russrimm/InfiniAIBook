@@ -1,10 +1,34 @@
 import { JSONReplyError, readJSONReply } from "./jsonreply";
 
 export class TrainingRequestError extends Error {
-  constructor(message: string, public readonly status: number | undefined, cause: unknown) {
+  constructor(
+    message: string,
+    public readonly status: number | undefined,
+    cause: unknown,
+    public readonly code?: string,
+  ) {
     super(message, { cause });
     this.name = "TrainingRequestError";
   }
+}
+
+/** Failures that mean every further picture would fail the same way. */
+const STOP_CODES = new Set(["config", "auth", "no_config", "budget", "invalid_sources"]);
+
+/**
+ * How one failed picture request should affect the rest of the run:
+ * "none" the request worked but found nothing (404), so it is just a visual
+ * without a picture; "transient" a dropped connection, rate limit or server
+ * hiccup that may well pass, so skip this one and carry on; "stop" a
+ * credential, configuration or budget problem that will repeat for every
+ * picture, so stop instead of failing them all.
+ */
+export function pictureFailure(e: unknown): "none" | "transient" | "stop" {
+  if (!(e instanceof TrainingRequestError)) return "stop";
+  if (e.status === 404) return "none";
+  if (e.code && STOP_CODES.has(e.code)) return "stop";
+  if (e.status === 400 || e.status === 401 || e.status === 403) return "stop";
+  return "transient";
 }
 
 /** Keep transport failures distinguishable from server replies during render preparation. */
@@ -30,6 +54,7 @@ export async function trainingRequest<T extends { error?: string }>(
       }`,
       cause instanceof JSONReplyError ? cause.status : response?.status,
       cause,
+      cause instanceof JSONReplyError ? cause.code : undefined,
     );
   }
 }

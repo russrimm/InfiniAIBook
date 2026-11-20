@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ok, fail, generationSourceError } from "@/lib/http";
+import { ok, fail, generationSourceError, readBody } from "@/lib/http";
 import { generationReply, type GenerationStatus } from "@/lib/keepalive";
 import { studioJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
@@ -33,7 +33,7 @@ export function POST(req: Request) {
 
 async function planVideo(req: Request, report: GenerationStatus) {
   try {
-    const body = (await req.json()) as {
+    const body = (await readBody(req)) as {
       notebookId: string;
       topic?: string;
       sourceIds?: string[];

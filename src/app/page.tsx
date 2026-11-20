@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Notebook } from "@/lib/types";
 import AboutModal from "@/components/AboutModal";
 import ScreenHelperModal from "@/components/ScreenHelperModal";
-import Logo from "@/components/Logo";
+import { SUBLINE, TAGLINE } from "@/lib/brand";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useDeferredDelete } from "@/components/UndoToast";
@@ -137,10 +138,7 @@ export default function Home() {
         aria-label="Primary"
         className="mb-14 flex items-center justify-between gap-4"
       >
-        <div className="flex shrink-0 items-center gap-3 text-lg font-semibold tracking-tight">
-          <Logo size={40} />
-          InfiniAIBook
-        </div>
+        <div className="shrink-0 text-lg font-semibold tracking-tight">InfiniAIBook</div>
         <div className="flex flex-wrap items-center justify-end gap-x-1 gap-y-0.5 text-[13px]">
           <Link
             href="/search"
@@ -175,18 +173,33 @@ export default function Home() {
         </div>
       </nav>
 
-      <header className="mb-14 max-w-2xl">
-        <div className="mb-3 text-xs font-medium tracking-widest text-[var(--muted)] uppercase">
-          Grounded research studio
+      <header className="mb-14">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-8 lg:gap-10">
+          {/* The mark is sized to the title and sub-line beside it. Its box is
+              fixed at every breakpoint, so nothing shifts when it loads. */}
+          <Image
+            src="/brand/infiniaibook-mark.png"
+            alt=""
+            width={512}
+            height={512}
+            sizes="(min-width: 1024px) 160px, (min-width: 640px) 128px, 64px"
+            priority
+            unoptimized
+            data-testid="hero-logo"
+            className="h-16 w-16 shrink-0 sm:h-32 sm:w-32 lg:h-40 lg:w-40"
+          />
+          <div className="max-w-2xl">
+            <div className="mb-3 text-xs font-medium tracking-widest text-[var(--muted)] uppercase">
+              Self-hosted research notebook
+            </div>
+            <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+              {TAGLINE}
+            </h1>
+            <p className="mt-4 text-[15px] leading-relaxed text-[var(--muted)]">
+              {SUBLINE}
+            </p>
+          </div>
         </div>
-        <h1 className="text-5xl font-semibold tracking-tight">
-          Turn your documents into answers, audio and video.
-        </h1>
-        <p className="mt-4 text-[15px] leading-relaxed text-[var(--muted)]">
-          Drop in PDFs, pages and notes, then chat, listen, watch and quiz
-          yourself. Every answer is cited back to your sources, so you can
-          trust what you share.
-        </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <button
             className="btn btn-primary"

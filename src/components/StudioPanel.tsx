@@ -11,6 +11,7 @@ import WatermarkPicker from "@/components/WatermarkPicker";
 import NarrationOptions from "@/components/NarrationOptions";
 import StudioCard, { StudioBlockedReason } from "@/components/StudioCard";
 import StudioGroup from "@/components/StudioGroup";
+import VideoClipCard from "@/components/VideoClipCard";
 import { SearchIcon } from "@/components/icons";
 import GenerationModal, { type GenerationJob } from "@/components/GenerationModal";
 import VoicePicker from "@/components/VoicePicker";
@@ -61,12 +62,14 @@ import {
   DETAIL_LEVELS,
   INFOGRAPHIC_STYLES,
   MAX_INFOGRAPHIC_INSTRUCTIONS,
-  ORIENTATIONS,
+  MAX_INFOGRAPHIC_TITLE,
+  cleanTitle,  ORIENTATIONS,
   STYLE_META,
   STYLE_ORDER,
   isImageStyle,
   type InfographicStyle,
 } from "@/lib/infographic";
+import { filterLibrary, libraryMeta } from "@/lib/librarymeta";
 import InfographicGallery, {
   ScaledExample,
 } from "@/components/InfographicGallery";
@@ -102,6 +105,9 @@ import {
 
 /** Speakers that can be pinned, listed when a chosen one cannot be. */
 const PINNABLE = Object.keys(PINNED_VOICES);
+
+/** A Library filter box earns its space once the list is too long to scan. */
+const LIBRARY_FILTER_FROM = 6;
 
 /** The formats that are spoken aloud and so take instructions and music. */
 const SPOKEN = ["podcast", "video", "motion", "training"] as const;
@@ -239,6 +245,7 @@ export default function StudioPanel({
   onShowSources?: () => void;
 }) {
   const [view, setView] = useState<"create" | "library">("create");
+  const [libraryQuery, setLibraryQuery] = useState("");
   const [query, setQuery] = useState("");
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const [topic, setTopic] = useState("");
@@ -247,6 +254,7 @@ export default function StudioPanel({
     useState<InfographicOrientation>("landscape");
   const [detail, setDetail] = useState<InfographicDetail>("standard");
   const [instructions, setInstructions] = useState("");
+  const [infographicTitle, setInfographicTitle] = useState("");
   const [describeOpen, setDescribeOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<StyleSuggestion[] | null>(
@@ -490,6 +498,7 @@ export default function StudioPanel({
             orientation,
             detail,
             instructions: instructions.trim() || undefined,
+            title: cleanTitle(infographicTitle) || undefined,
           }
         : {}),
       ...(type === "slides" ? { theme: slideTheme, length: slideLength } : {}),
@@ -699,7 +708,7 @@ export default function StudioPanel({
       )}
 
       {view === "library" ? (
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+        <div className="relative min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           {artifacts.length === 0 ? (
             <div className="card px-4 py-6 text-center text-[11px] leading-relaxed text-[var(--muted)]">
               Nothing generated yet.
@@ -713,8 +722,26 @@ export default function StudioPanel({
               </div>
             </div>
           ) : (
+            <>
+              {artifacts.length >= LIBRARY_FILTER_FROM && (
+                <div className="sticky top-0 z-10 mb-1 bg-[var(--panel)] pb-2 pt-1">
+                  <input
+                    type="search"
+                    className="input w-full !py-1.5 text-[13px]"
+                    placeholder="Filter by name, format or style"
+                    aria-label="Filter Library"
+                    value={libraryQuery}
+                    onChange={(e) => setLibraryQuery(e.target.value)}
+                  />
+                  {libraryQuery.trim() && (
+                    <p role="status" className="mt-1 text-[11px] text-[var(--muted)]">
+                      Showing {filterLibrary(artifacts, libraryQuery).length} of {artifacts.length}.
+                    </p>
+                  )}
+                </div>
+              )}
             <ul className="space-y-1">
-              {artifacts.map((a) => (
+              {filterLibrary(artifacts, libraryQuery).map((a) => (
                 <li
                   key={a.id}
                   className="group flex items-center gap-2 rounded-xl border border-transparent px-2 py-2 transition hover:border-[var(--border)] hover:bg-panel2"
@@ -726,16 +753,13 @@ export default function StudioPanel({
                     className="min-w-0 flex-1 text-left disabled:opacity-60"
                     onClick={() => onOpen(a)}
                     disabled={openingId === a.id}
+                    title={`${a.title} — ${libraryMeta(a)}`}
                   >
                     <div className="truncate text-[13px] font-medium">
                       {a.title}
                     </div>
-                    <div className="text-[10px] text-dim">
-                      {openingId === a.id
-                        ? "Opening…"
-                        : `${studioLabel(a.type)} · ${new Date(
-                            a.createdAt,
-                          ).toLocaleString()}`}
+                    <div className="truncate text-[10px] text-dim">
+                      {openingId === a.id ? "Opening…" : libraryMeta(a)}
                     </div>
                   </button>
                   <button
@@ -747,11 +771,20 @@ export default function StudioPanel({
                   </button>
                 </li>
               ))}
+              {libraryQuery.trim() && filterLibrary(artifacts, libraryQuery).length === 0 && (
+                <li className="px-2 py-6 text-center text-[11px] text-[var(--muted)]">
+                  Nothing in the Library matches “{libraryQuery.trim()}”.{" "}
+                  <button type="button" className="underline" onClick={() => setLibraryQuery("")}>
+                    Clear filter
+                  </button>
+                </li>
+              )}
             </ul>
+            </>
           )}
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+        <div className="relative min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           {blocked && (
             <div
               id={blockedReasonId}
@@ -1458,6 +1491,19 @@ export default function StudioPanel({
               }
             />
             )}
+
+            {watchShown.includes("clip") && (
+              <VideoClipCard
+                notebookId={notebookId}
+                selectedIds={selectedIds}
+                topic={topic}
+                blocked={blocked}
+                onStarted={async (a) => {
+                  await onChanged();
+                  onOpen(a);
+                }}
+              />
+            )}
               </div>
             </StudioGroup>
           )}
@@ -1654,8 +1700,8 @@ export default function StudioPanel({
                               : s.blurb
                           }
                           summary={`${capitalize(orientation)} · ${capitalize(detail)} detail${
-                            instructions.trim() ? " · description added" : ""
-                          }`}
+                            cleanTitle(infographicTitle) ? " · titled" : ""
+                          }${instructions.trim() ? " · description added" : ""}`}
                           options={
                             <>
                               <div className="flex flex-wrap items-center gap-1.5">
@@ -1745,6 +1791,39 @@ export default function StudioPanel({
                                     ))}
                                   </select>
                                 </label>
+                              </div>
+
+                              <div>
+                                <label
+                                  htmlFor="infographic-title"
+                                  className="block text-[10px] tracking-wide text-[var(--muted)] uppercase"
+                                >
+                                  Title
+                                </label>
+                                <input
+                                  id="infographic-title"
+                                  type="text"
+                                  maxLength={MAX_INFOGRAPHIC_TITLE}
+                                  value={infographicTitle}
+                                  onChange={(e) =>
+                                    setInfographicTitle(e.target.value)
+                                  }
+                                  onBlur={() =>
+                                    setInfographicTitle(cleanTitle)
+                                  }
+                                  aria-describedby="infographic-title-help"
+                                  placeholder="e.g. Riverside garden pilot"
+                                  className="mt-1 w-full min-w-0 rounded-md border border-[var(--border)] bg-well px-2 py-1.5 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
+                                />
+                                <p
+                                  id="infographic-title-help"
+                                  className="mt-0.5 text-[10px] leading-snug text-[var(--muted)]"
+                                >
+                                  Leave blank to generate a title from your
+                                  content ·{" "}
+                                  {[...infographicTitle].length}/
+                                  {MAX_INFOGRAPHIC_TITLE}
+                                </p>
                               </div>
 
                               <div>

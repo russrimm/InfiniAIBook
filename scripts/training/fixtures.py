@@ -1,13 +1,14 @@
 """Write synthetic assets for scripts/check-training.ts.
 
 Usage:
-    python scripts/training/fixtures.py OUT_DIR JOBS_JSON [--alpha]
+    python scripts/training/fixtures.py OUT_DIR JOBS_JSON [--alpha] [--head]
 
 Creates two presenter clips — one transparent VP9 WebM, as Azure returns them,
 and one opaque on green to exercise the compositor's key-out (both transparent
 with --alpha) — each with a tone
 standing in for speech, plus a placeholder drawing for every raster job the
-timeline needs. No model calls, no network.
+timeline needs. --head makes the clips 512x512 squares with a magenta disk for
+a face, like the talking-head avatars. No model calls, no network.
 """
 import json, os, subprocess, sys
 import numpy as np
@@ -19,9 +20,25 @@ jobs = json.load(open(sys.argv[2], encoding="utf-8"))
 os.makedirs(d, exist_ok=True)
 ff = imageio_ffmpeg.get_ffmpeg_exe()
 W, H, FPS = 960, 540, 25
+HEAD = "--head" in sys.argv
+# Talking heads (VASA) are 512x512 squares; the face is a magenta disk so a check can measure its shape.
+if HEAD:
+    W = H = 512
+FACE = (255, 0, 255, 255)
+
+
+def head(i, opaque):
+    im = Image.new("RGBA", (W, H), (0, 200, 0, 255) if opaque else (0, 0, 0, 0))
+    draw = ImageDraw.Draw(im)
+    cx = W // 2 + int(6 * np.sin(i / 6))
+    draw.rounded_rectangle((cx - 170, 400, cx + 170, H + 60), 60, fill=(27, 80, 170, 255))
+    draw.ellipse((cx - 130, 70, cx + 130, 330), fill=FACE)
+    return im
 
 
 def presenter(i, n, opaque):
+    if HEAD:
+        return head(i, opaque)
     im = Image.new("RGBA", (W, H), (0, 200, 0, 255) if opaque else (0, 0, 0, 0))
     draw = ImageDraw.Draw(im)
     sway = int(6 * np.sin(i / 6))
@@ -54,11 +71,40 @@ clip("clip-0.webm", 6, 330, False)
 # HyperFrames lays clips over the stage as they are, so its check needs both transparent.
 clip("clip-1.webm", 5, 392, "--alpha" not in sys.argv)
 
+
+def cue_clip(name, seconds, w, h):
+    """A generated clip as a video model returns it: opaque H.264, here portrait on orange with a moving bar."""
+    out = os.path.join(d, name)
+    proc = subprocess.Popen(
+        [ff, "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h}", "-r", str(FPS),
+         "-i", "-", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast", "-crf", "18", out],
+        stdin=subprocess.PIPE,
+    )
+    n = int(seconds * FPS)
+    for i in range(n):
+        im = Image.new("RGB", (w, h), (255, 128, 0))
+        y = int((h - 24) * i / max(1, n - 1))
+        ImageDraw.Draw(im).rectangle((0, y, w, y + 24), fill=(255, 255, 255))
+        proc.stdin.write(im.tobytes())
+    proc.stdin.close()
+    if proc.wait() != 0:
+        sys.exit(f"could not write {name}")
+
+
+# 9:16 and one second long: shorter than its visual, so the check sees it held and never stretched.
+cue_clip("cue-clip.mp4", 1, 270, 480)
+
 palette = [(37, 99, 235), (14, 165, 233), (245, 158, 11), (30, 41, 59)]
 for n, job in enumerate(jobs):
     for s in range(job["states"]):
         im = Image.new("RGBA", (job["width"], job["height"]), (0, 0, 0, 0))
         draw = ImageDraw.Draw(im)
+        if job.get("clip"):
+            # A video visual's drawing is transparent but for its caption: the clip plays beneath it.
+            draw.rectangle((0, im.height - 30, im.width, im.height), fill=(0, 0, 0, 160))
+            draw.text((12, im.height - 22), "caption", fill=(255, 255, 255, 255))
+            im.save(os.path.join(d, f"{job['key']}-{s}.png"))
+            continue
         full = job["role"] in ("intro", "section", "outro")
         draw.rounded_rectangle((0, 0, im.width - 1, im.height - 1), 0 if full else 18,
                                fill=palette[n % len(palette)] + (255,))

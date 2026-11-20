@@ -800,3 +800,14 @@ mark.cited-passage {
     transition-property: color, background-color, border-color, opacity, box-shadow;
   }
 }
+
+mark.find-match {
+  background: var(--mark-wash);
+  color: inherit;
+  border-radius: 3px;
+}
+
+mark.find-current {
+  box-shadow: 0 0 0 2px var(--accent);
+  border-radius: 3px;
+}

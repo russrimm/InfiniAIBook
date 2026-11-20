@@ -6,6 +6,15 @@ const PORT = Number(process.env.MOCK_LLM_PORT || 3124);
 let last = null;
 /** How many times each chat question was answered, so repeats differ. */
 const chatRuns = new Map();
+/** Image prompts containing this text lose their connection; null lets them through. */
+let dropPrompt = null;
+/** When true the visuals planner also asks for four illustrations. */
+let pictureCues = false;
+/** Image generation answers only when a test turns it on; other specs rely on it failing. */
+let imagesEnabled = false;
+const imageCalls = [];
+const TINY_PNG =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 const send = (res, status, body) => {
   res.writeHead(status, { "content-type": "application/json" });
@@ -28,14 +37,38 @@ http
   .createServer((req, res) => {
     if (req.method === "GET" && req.url === "/health") return send(res, 200, { ok: true });
     if (req.method === "GET" && req.url === "/last") return send(res, 200, last ?? {});
+    // Test control: which image prompts lose their connection, and what was asked for.
+    if (req.url === "/faults") {
+      if (req.method === "GET") return send(res, 200, { dropPrompt, imageCalls });
+      let raw = "";
+      req.on("data", (c) => (raw += c));
+      return req.on("end", () => {
+        const body = JSON.parse(raw || "{}");
+        dropPrompt = typeof body.dropPrompt === "string" ? body.dropPrompt : null;
+        if (typeof body.pictureCues === "boolean") pictureCues = body.pictureCues;
+        if (typeof body.images === "boolean") imagesEnabled = body.images;
+        if (body.reset) imageCalls.length = 0;
+        send(res, 200, { dropPrompt, pictureCues, imagesEnabled, imageCalls });
+      });
+    }
     const isEmbeddings = req.url?.endsWith("/embeddings");
-    if (req.method !== "POST" || !(isEmbeddings || req.url?.endsWith("/chat/completions"))) {
+    const isImages = req.url?.endsWith("/images/generations") && imagesEnabled;
+    if (req.method !== "POST" || !(isEmbeddings || isImages || req.url?.endsWith("/chat/completions"))) {
       return send(res, 404, { error: { message: "not found" } });
     }
     let raw = "";
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
       const body = JSON.parse(raw);
+
+      // Image generation: a one-pixel PNG, or a connection reset like the one
+      // Azure sometimes sends, for prompts a test has marked.
+      if (isImages) {
+        const prompt = String(body.prompt ?? "");
+        imageCalls.push(prompt);
+        if (dropPrompt && prompt.includes(dropPrompt)) return req.socket.resetAndDestroy();
+        return send(res, 200, { created: 1, data: [{ b64_json: TINY_PNG }] });
+      }
 
       // Embeddings: a deterministic hashed bag-of-words vector per input.
       if (isEmbeddings) {
@@ -134,6 +167,33 @@ http
       // Visuals for a training transcript; one anchor is deliberately not in the script.
       if (system.includes("senior instructional designer and video editor")) {
         last = { kind: "training-visuals", system: system.slice(0, 60) };
+        const pictures = pictureCues
+          ? [
+              ["First, why steady volunteers matter", "Volunteers planting seedlings together", "Volunteers"],
+              ["Second, how to plan the build budget", "A drip irrigation kit on a workbench", "Drip kit"],
+            ]
+          : [];
+        const pictures2 = pictureCues
+          ? [
+              ["The pilot built 24 raised beds", "UNLUCKY raised beds in early spring", "Raised beds"],
+              ["Take a moment to remember that number", "A basket of fresh vegetables", "Harvest"],
+            ]
+          : [];
+        const imageCue = ([anchor, imagePrompt, caption]) => ({
+          kind: "image", anchor, layout: "side-right", imagePrompt, caption,
+        });
+        // A video clip only when the planner was asked to propose them.
+        const clipCues = system.includes('"clip" — a short cinematic')
+          ? [
+              {
+                kind: "clip",
+                anchor: "Second, how to plan the build budget",
+                layout: "side-right",
+                clipPrompt: "A slow dolly shot along a row of raised garden beds at dawn, single continuous shot, no text.",
+                caption: "Beds at dawn",
+              },
+            ]
+          : [];
         return reply({
           sections: [
             {
@@ -149,6 +209,8 @@ http
                     { text: "Build budget", anchor: "Second, how to plan the build budget" },
                   ],
                 },
+                ...pictures.map(imageCue),
+                ...clipCues,
               ],
             },
             {
@@ -161,7 +223,60 @@ http
                   stat: { value: "40%", label: "less water than hand watering" },
                 },
                 { kind: "quote", anchor: "words the presenter never says", quote: { text: "Dropped" } },
+                ...pictures2.map(imageCue),
               ],
+            },
+          ],
+        });
+      }
+
+      // Intro and outro prompt drafting for training videos and motion explainers.
+      if (system.includes("cinematographer writing a prompt")) {
+        last = { kind: "bookend-prompt", system: system.slice(0, 60) };
+        return reply({
+          prompt: system.includes("(opening)")
+            ? "A slow push-in over a sunlit community garden at dawn, mist over fresh soil, a single continuous shot with no text on screen."
+            : "A gentle pull-back from a finished raised bed at golden hour, a single continuous shot with no text on screen.",
+        });
+      }
+
+      // A motion explainer script.
+      if (system.includes("scriptwriter and art director for 2D motion-graphics")) {
+        last = { kind: "motion-plan", system: system.slice(0, 60) };
+        const scene = (beat, headline, narration, transition) => ({
+          beat,
+          headline,
+          subline: "The pilot builds 24 raised beds.",
+          callouts: [],
+          background: beat === "cta" ? "" : "A bright community garden with raised wooden beds in the morning",
+          actors: [{ kind: "prop", description: "a raised garden bed with seedlings", placement: "center", entrance: "pop", idle: "float" }],
+          narration,
+          transition,
+        });
+        return reply({
+          title: "Riverside garden pilot",
+          description: "How a garden pilot gets built.",
+          style: {
+            palette: { dark: "#1B2A41", primary: "#2E7D32", accent: "#F9A825", pop: "#E64A19", light: "#F5F7F2" },
+            hero: "a gardener in a green apron and a yellow hat",
+          },
+          scenes: [
+            scene("problem", "NO FRESH FOOD", "Many neighbors live far from fresh vegetables. A garden can change that.", "wipe"),
+            scene("how", "24 RAISED BEDS", "The pilot builds twenty four raised beds in April, with a drip kit for each.", "slide"),
+            scene("cta", "JOIN THE PILOT", "Sign up to volunteer for the next build day.", "fade"),
+          ],
+        });
+      }
+
+      // Clip prompt drafting for the Studio "Video clip" generator.
+      if (system.includes("cinematographer writing prompts")) {
+        last = { kind: "clip-prompts", system: system.slice(0, 60) };
+        return reply({
+          prompts: [
+            {
+              title: "Raised beds at dawn",
+              prompt:
+                "A slow dolly shot along twenty-four raised garden beds at dawn, warm light on fresh soil, a single continuous shot with no text on screen.",
             },
           ],
         });

@@ -27,6 +27,10 @@ Two checks apply whether or not a password is set:
   `Sec-Fetch-Site`, or a foreign `Origin`) gets `403 {"code": "csrf"}`. Scripts
   that send neither header are unaffected.
 
+A request body that is missing, empty, not valid JSON or not a JSON object gets
+`400 {"error": "...", "code": "invalid"}` on every route that takes JSON.
+Importing a file that is not a notebook export (`POST /api/notebooks/import`)
+also returns 400 with the reason.
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | POST | `/api/auth/login` | `{ password }` | Sets a signed 30-day HTTP-only cookie. Attempts are serialized; each failure delays the next one longer (up to 30 s) |
@@ -77,6 +81,7 @@ just after the response, so it appears on the next `GET /api/notebooks/{id}`.
 | GET | `/api/sources?exclude={notebookId}` | Every source with its notebook's id and title — the Library |
 | GET | `/api/sources/{id}` | Full text and metadata. `?part=n` also returns `passage`, the text of that cited part |
 | POST | `/api/sources/{id}` | `{ action: "apply"\|"dismiss" }` — accept or discard a detected change to a linked source |
+| PATCH | `/api/sources/{id}` | `{ title }`: rename a source (whitespace collapsed, up to 300 characters). Its text and passages are unchanged. 400 for a blank or non-text title, 404 for an unknown source |
 | DELETE | `/api/sources/{id}` | |
 | GET | `/api/sources/{id}/structure` | Discovers the structure of a JSON, XML, CSV, TSV or HAR source: a path tree with types, counts and value stats, or a table. For HAR, `?request=n` returns one request's headers, cookies and bodies, and `?download=sanitized` returns the archive with secrets redacted. 422 for a source that cannot be parsed |
 | POST | `/api/sources/{id}/diagnose` | `{ problem? }` (up to 600 characters) → `{ diagnosis, model }`: asks the Studio model what is likely wrong in a HAR source. Only a redacted digest leaves the server, never the archive. 422 for a source that is not HAR |
@@ -195,11 +200,15 @@ request still running after about five seconds returns `200` at once and sends
 spaces, which JSON ignores, until the result is ready. A failure after that
 point therefore arrives as `{ "error": "...", "status": 502 }` in the body, not
 as the HTTP status. When you script these routes, parse the whole body and check
-for `error` before using the result.
+for `error` before using the result. The body of a failed model call carries a
+`code`: `connection_dropped` (`503`: the connection to the provider was closed or
+timed out mid-request, retried automatically and safe to retry), `config` (`502`:
+the provider endpoint cannot be reached or does not exist), `rate_limit`,
+`budget`, `auth` and `no_config`.
 
 | Method | Path | Body |
 |---|---|---|
-| POST | `/api/generate` | `{ notebookId, type, sourceIds, topic?, style?, theme?, difficulty?, length?, orientation?, detail?, instructions? }` (`theme` applies to `type: "slides"`; `style`, `orientation` (`landscape`/`portrait`/`square`), `detail` (`concise`/`standard`/`detailed`) and `instructions` (free text, up to 600 characters) to `type: "infographic"`). Unknown types and styles, a `topic` over 2,000 characters and malformed `sourceIds` are refused with 400 |
+| POST | `/api/generate` | `{ notebookId, type, sourceIds, topic?, style?, theme?, difficulty?, length?, orientation?, detail?, title?, instructions? }` (`theme` applies to `type: "slides"`; `style`, `orientation` (`landscape`/`portrait`/`square`), `detail` (`concise`/`standard`/`detailed`), `title` (optional text, up to 80 characters once trimmed; blank means the model writes one, a value is used exactly and stored with `customTitle: true`) and `instructions` (free text, up to 600 characters) to `type: "infographic"`). Unknown types and styles, a `topic` over 2,000 characters, a `title` that is not text or over 80 characters, and malformed `sourceIds` are refused with 400 |
 | POST | `/api/infographic/suggest` | `{ notebookId, sourceIds, topic? }` → `{ suggestions: [{ style, reason }], source: "model" \| "heuristic" }`: up to three infographic styles that suit the sources, best first. Falls back to a model-free guess when the model is unavailable |
 | POST | `/api/podcast` | `{ notebookId, sourceIds, topic?, preset?, speakers?: [{ voice?, name?, role? }] (1–4), rate?, breath?, length?, narration?, music? }` → audio-overview **script** (`stage: "script"`), not yet narrated |
 | PATCH | `/api/podcast/{id}` | Edit `title`, `description`, `script: { segments: [{ title, turns: [{ speaker, text }] }] }`, `voices`, `rate`, `music`, `narration`; 409 while narrating |
@@ -282,6 +291,6 @@ stored. A model that cannot read images returns `400` with `code: "vision"`.
 
 | Method | Path | Notes |
 |---|---|---|
-| GET/POST | `/api/models` | Read / change the active chat, embedding, image and vision models (`null` resets one to the environment value) |
-| POST | `/api/discover` | `{ topic, notebookId?, expand?, provider?: "microsoft-learn" }` → `{ queries, provider, results }`; defaults to Bing-first web search. The Learn provider searches official documentation directly (topic up to 1,000 characters, no query expansion), with no API key; import selected results using `learnUrl` |
+| GET/POST | `/api/models` | Read / change the active chat, embedding, image and vision models (`null` resets one to the environment value). The GET reply includes `configured`, false when no model provider is set up |
+| POST | `/api/discover` | `{ topic, notebookId?, expand?, provider?: "microsoft-learn", offset? }` → `{ queries, provider, results }`; defaults to Bing-first web search. The Learn provider searches official documentation directly (topic up to 1,000 characters), with no API key, and returns distinct pages with a `kind` (Documentation, Training, Videos, Certifications) plus `nextOffset` (send it back as `offset` to load more; null when done), `limit` (the `LEARN_MAX_RESULTS` cap) and `warnings` for partial failures; import selected results using `learnUrl` |
 | GET | `/api/browse?url=` | Server-side page fetch for the in-app browser |

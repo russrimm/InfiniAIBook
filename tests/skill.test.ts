@@ -95,7 +95,7 @@ describe("skills/infiniaibook", () => {
     const all = [...union.matchAll(/"([a-z_]+)"/g)].map((m) => m[1]);
     const api = read("references", "api.md");
     // The long-form media types have their own routes; the rest go to /api/generate.
-    for (const t of all.filter((x) => !["video", "motion", "training", "podcast"].includes(x))) {
+    for (const t of all.filter((x) => !["video", "motion", "training", "podcast", "clip"].includes(x))) {
       expect(api, t).toContain(`\`${t}\``);
     }
   });

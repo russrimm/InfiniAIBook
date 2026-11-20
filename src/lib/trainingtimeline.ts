@@ -15,6 +15,7 @@ import { AVATAR_PRESETS } from "./avatars";
 import type { TrainingSection } from "./types";
 import {
   compositionPalette,
+  cueHasClip,
   findAnchor,
   hashText,
   normalizeComposition,
@@ -23,6 +24,7 @@ import {
   resolvePip,
   tokenize,
   TRAINING_RESOLUTIONS,
+  type ClipFit,
   type CueKind,
   type CueTransition,
   type TrainingBullet,
@@ -170,6 +172,26 @@ export type Rect = { x: number; y: number; w: number; h: number };
 export type AvatarPose = { cx: number; cy: number; scale: number; opacity: number };
 
 export const PRESENTER_POSE: AvatarPose = { cx: 0.5, cy: 0.5, scale: 1, opacity: 1 };
+
+/**
+ * Where a presenter clip of any shape is drawn for a pose, in frame pixels.
+ * A pose gives a box of `scale` times the frame; the clip is fitted inside it
+ * at its own aspect ratio, never stretched. Talking heads from the VASA models
+ * are 512x512 squares while full-body clips are 16:9, which fills the box.
+ */
+export function presenterRect(
+  pose: Pick<AvatarPose, "cx" | "cy" | "scale">,
+  frame: { width: number; height: number },
+  clipWidth?: number,
+  clipHeight?: number
+): { x: number; y: number; w: number; h: number } {
+  const boxW = frame.width * pose.scale;
+  const boxH = frame.height * pose.scale;
+  const aspect = clipWidth && clipHeight && clipWidth > 0 && clipHeight > 0 ? clipWidth / clipHeight : boxW / boxH;
+  const w = Math.min(boxW, boxH * aspect);
+  const h = w / aspect;
+  return { x: pose.cx * frame.width - w / 2, y: pose.cy * frame.height - h / 2, w, h };
+}
 
 /**
  * Talking heads (photo avatars) fill their whole frame with a face, so they
@@ -370,6 +392,8 @@ export function rasterJobs(input: ComposeInput): RasterJob[] {
     for (const cue of s.cues ?? []) {
       const { panel } = layoutGeometry(cue.layout, c);
       if (!panel || cue.kind === "presenter") continue;
+      // Left out of the timeline, so nothing is drawn for it.
+      if (cue.kind === "clip" && !cue.clipId) continue;
       const px = rectPixels(panel, c);
       jobs.push({
         key: cueKey(cue, input, px, vocab),
@@ -423,7 +447,8 @@ export type TimelineCue = {
   /** Absolute time each build state appears; state 0 at `start`. */
   states: number[];
   kenBurns: boolean;
-  /** The anchor only matched approximately, or not at all. */
+  /** A generated video that plays muted in the panel from the cue's start, for the cue's length. */
+  clip?: { id: string; seconds: number; fit: ClipFit };
   match: "exact" | "approx" | "missing";
 };
 
@@ -561,7 +586,12 @@ export function compileTrainingTimeline(
     });
 
     // Place each cue at its anchor; unmatched ones keep their listed order.
-    const list = section.cues ?? [];
+    // A clip visual without its clip is left out: rendering never starts a billable video job.
+    const list = (section.cues ?? []).filter((cue) => {
+      if (cue.kind !== "clip" || cue.clipId) return true;
+      warnings.push(`Section ${i + 1}: the video clip visual at "${cue.anchor || "(none)"}" has no clip yet, so it is left out.`);
+      return false;
+    });
     const placed = list.map((cue, n) => {
       const m = at(cue.anchor);
       if (!m) {
@@ -636,6 +666,9 @@ export function compileTrainingTimeline(
         rasterKey: cueKeyOf(p.cue),
         states: states.map(round),
         kenBurns: animation.pictures && Boolean(p.cue.kenBurns),
+        ...(cueHasClip(p.cue)
+          ? { clip: { id: p.cue.clipId!, seconds: p.cue.clipSeconds ?? 0, fit: p.cue.clipFit ?? "hold" } }
+          : {}),
         match: p.match,
       });
     });
@@ -760,6 +793,8 @@ export function renderConfig(
     palette: unknown;
     clip: (section: number) => string;
     raster: (key: string, state: number) => string;
+    /** Where a generated cue clip is stored; omit to render clip visuals as their (empty) panel only. */
+    cueClip?: (clipId: string) => string;
     burnCaptions: boolean;
     logo?: string | null;
     fps?: number;
@@ -784,6 +819,9 @@ export function renderConfig(
         transition: q.transition,
         panel: q.panel,
         kenBurns: q.kenBurns,
+        ...(q.clip && opts.cueClip
+          ? { video: { src: opts.cueClip(q.clip.id), seconds: q.clip.seconds, fit: q.clip.fit } }
+          : {}),
         states: q.states.map((at, k) => ({ at, src: opts.raster(q.rasterKey!, k) })),
       })),
     cards: tl.cards.map((k) => ({ start: k.start, duration: k.duration, src: opts.raster(k.rasterKey, 0) })),

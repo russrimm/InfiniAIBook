@@ -30,6 +30,8 @@ import NotesPanel from "./NotesPanel";
 import TransformationsModal from "./TransformationsModal";
 import LibraryModal from "./LibraryModal";
 import AboutModal from "./AboutModal";
+import ShortcutsModal from "./ShortcutsModal";
+import { shortcutFor } from "@/lib/shortcuts";
 import DiscussionModal from "./DiscussionModal";
 import ScreenHelperModal from "./ScreenHelperModal";
 import { CitationContext } from "./CitationContext";
@@ -80,10 +82,13 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [browsing, setBrowsing] = useState(false);
   const [pickingModel, setPickingModel] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [helperOpen, setHelperOpen] = useState(false);
   /** Open live discussion, with the focus it started from. */
   const [discussing, setDiscussing] = useState<{ focus: string } | null>(null);
   const [model, setModel] = useState("");
+  /** False when no model provider is set up, so chat and Studio cannot work yet. */
+  const [providerReady, setProviderReady] = useState(true);
   const [budgetNote, setBudgetNote] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [tab, setTab] = useState<Tab>("chat");
@@ -234,6 +239,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         browsing ||
         pickingModel ||
         aboutOpen ||
+        shortcutsOpen ||
         showUpdates ||
         openNoteId ||
         managingTransformations ||
@@ -248,6 +254,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     browsing,
     pickingModel,
     aboutOpen,
+    shortcutsOpen,
     showUpdates,
     openNoteId,
     managingTransformations,
@@ -258,7 +265,11 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const loadModel = useCallback(async () => {
     try {
       const res = await fetch("/api/models");
-      if (res.ok) setModel((await res.json()).current.chat);
+      if (res.ok) {
+        const info = (await res.json()) as { configured?: boolean; current: { chat: string } };
+        setProviderReady(info.configured !== false);
+        setModel(info.configured === false ? "" : info.current.chat);
+      }
       const budget = await fetch("/api/budget");
       if (budget.ok) {
         const status = (await budget.json()) as {
@@ -281,6 +292,32 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   useEffect(() => {
     void loadModel();
   }, [loadModel]);
+
+  // Notebook shortcuts: "?" lists them, "/" jumps to the question box. They are
+  // ignored while typing and while any dialog is open.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const action = shortcutFor(e);
+      if (!action) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      e.preventDefault();
+      if (action === "help") {
+        setShortcutsOpen(true);
+        return;
+      }
+      const find = () => document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Question"]');
+      const box = find();
+      if (box && box.offsetParent !== null) {
+        box.focus();
+        return;
+      }
+      // On a narrow screen the chat may be on another tab.
+      setTab("chat");
+      setTimeout(() => find()?.focus(), 50);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   const exportNotebook = async () => {
     setExporting(true);
@@ -351,7 +388,9 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       const target = event.target;
       if (
         !(target instanceof Element) ||
-        sourcesPanel.current?.contains(target) ||
+        // Removing a row (delete, dismiss) detaches the clicked button before
+        // this handler runs, so containment is checked on the dispatch path.
+        (sourcesPanel.current && event.composedPath().includes(sourcesPanel.current)) ||
         target.closest('[aria-controls="sources-panel"], [data-keeps-sources-open]') ||
         document.querySelector('[role="dialog"], [role="alertdialog"]')
       ) return;
@@ -550,7 +589,14 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
 
   return (
     <CitationContext.Provider value={openCitation}>
-    <div className="flex h-screen flex-col">
+    <div className="relative flex h-dvh flex-col overflow-clip">
+      {/*
+        The workspace is exactly one dynamic viewport tall and never scrolls
+        itself; panes scroll internally. relative + overflow-clip makes this the
+        containing block and clip for absolutely positioned descendants (such as
+        sr-only text) that would otherwise escape a pane's scroller and stretch
+        the document, and clip (unlike hidden) cannot be scrolled by focus.
+      */}
       {/*
         Below md the header is one compact row: back, notebook, title, Add
         sources and a More menu holding everything secondary, all 44px touch
@@ -668,6 +714,22 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         </div>
       </header>
 
+
+      {!providerReady && (
+        <p
+          role="status"
+          className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-amber-900/50 bg-amber-950/25 px-4 py-2 text-[13px] text-amber-100"
+        >
+          <span>No model provider is set up, so chat and Studio cannot answer yet.</span>
+          <button
+            type="button"
+            className="underline underline-offset-2 hover:text-white"
+            onClick={() => setPickingModel(true)}
+          >
+            Show me how to set one up
+          </button>
+        </p>
+      )}
 
       {budgetNote && (
         <p className="shrink-0 border-b border-amber-900/50 bg-amber-950/25 px-4 py-2 text-[13px] text-amber-100">
@@ -986,7 +1048,16 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
           }}
         />
       )}
-      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+      {aboutOpen && (
+        <AboutModal
+          onClose={() => setAboutOpen(false)}
+          onShortcuts={() => {
+            setAboutOpen(false);
+            setShortcutsOpen(true);
+          }}
+        />
+      )}
+      {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
       {helperOpen && (
         <ScreenHelperModal
           notebookId={notebookId}

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET as listLibrary } from "@/app/api/sources/route";
-import { DELETE as deleteSource, GET as getSource, POST as decideSource } from "@/app/api/sources/[id]/route";
+import { DELETE as deleteSource, GET as getSource, PATCH as renameSource, POST as decideSource } from "@/app/api/sources/[id]/route";
 import { DELETE as deleteNote, GET as getNote, PATCH as patchNote } from "@/app/api/notes/[id]/route";
 import { DELETE as deleteSession, GET as getSession, PATCH as patchSession } from "@/app/api/sessions/[id]/route";
 import { DELETE as deleteArtifact, GET as getArtifact } from "@/app/api/artifacts/[id]/route";
@@ -89,6 +89,33 @@ describe("/api/sources/[id]", () => {
     for (const part of ["0", "-1", "abc", "1.5"]) {
       expect(await (await getSource(request(`/x?part=${part}`), idCtx(id))).json()).not.toHaveProperty("passage");
     }
+  });
+
+  it("renames a source without touching its text or passages", async () => {
+    const nb = seedNotebook();
+    const id = seedSource(nb, { title: "Old name", chunks: ["only passage"] });
+
+    const res = await renameSource(request("/x", "PATCH", { title: "  Field   notes\n 2024 " }), idCtx(id));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ id, title: "Field notes 2024" });
+    expect(await (await getSource(request("/x"), idCtx(id))).json()).toMatchObject({
+      title: "Field notes 2024",
+      text: "only passage",
+    });
+    expect(count("chunks", "source_id = ?", id)).toBe(1);
+  });
+
+  it.each([["a blank name", { title: "   " }], ["no title", {}], ["a non-text title", { title: 5 }], ["a body that is not JSON", "{nope"]])(
+    "refuses to rename with %s",
+    async (_name, body) => {
+      const id = seedSource(seedNotebook(), { title: "Keep me" });
+      expect((await renameSource(request("/x", "PATCH", body), idCtx(id))).status).toBe(400);
+      expect((await (await getSource(request("/x"), idCtx(id))).json()).title).toBe("Keep me");
+    },
+  );
+
+  it("returns 404 when renaming an unknown source", async () => {
+    expect((await renameSource(request("/x", "PATCH", { title: "x" }), idCtx("missing"))).status).toBe(404);
   });
 
   it("deletes a source and its chunks, and tolerates an unknown id", async () => {
@@ -187,9 +214,9 @@ describe("/api/notes/[id]", () => {
     expect((await deleteNote(request("/x", "DELETE"), idCtx(note.id))).status).toBe(200);
   });
 
-  it("reports a body that is not JSON as an error", async () => {
+  it("rejects a body that is not JSON with a 400", async () => {
     const note = createNote({ notebookId: seedNotebook(), content: "x" });
-    expect((await patchNote(request("/x", "PATCH", "{nope"), idCtx(note.id))).status).toBe(500);
+    expect((await patchNote(request("/x", "PATCH", "{nope"), idCtx(note.id))).status).toBe(400);
   });
 });
 

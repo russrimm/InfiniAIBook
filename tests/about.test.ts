@@ -60,7 +60,7 @@ describe("Help and about", () => {
     expect(dialog.attr("aria-labelledby")).toBe("about-title");
     expect(dialog.attr("tabindex")).toBe("-1");
     expect(help.find("section")).toHaveLength(5);
-    expect(help.find("details")).toHaveLength(28);
+    expect(help.find("details")).toHaveLength(29);
     expect(help.find("details[open]")).toHaveLength(1);
     for (const link of $('nav[aria-label="Help topics"] a').toArray()) {
       const target = $(link).attr("href")!;

@@ -94,7 +94,8 @@ curl -s -X POST $B/api/generate -H "$H" \
 `type` is `report`, `briefing`, `study_guide`, `faq`, `quiz`, `flashcards`,
 `mindmap`, `timeline`, `slides` or `infographic`. Optional: `topic` (up to 2,000
 characters), `difficulty` and `length` (study aids), `theme`
-(slides), and for infographics `style`, `orientation`, `detail` and
+(slides), and for infographics `style`, `orientation`, `detail`, `title`
+(optional, up to 80 characters; blank means the model writes one) and
 `instructions` (up to 600 characters). `POST /api/infographic/suggest` returns up
 to three styles that suit the sources. Every Studio generation and style
 suggestion requires explicit, nonempty `sourceIds` belonging to the notebook.
@@ -135,6 +136,41 @@ if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`);
 Composed training videos return 409 until every visual is drawn
 (`GET /api/training/{id}/raster` lists what is missing). Voices:
 `GET /api/voices`; a sample: `GET /api/voices/preview?voice=...&style=...`.
+
+## Video clips (need a video model; off by default)
+
+`GET /api/videoclip` says whether a video model is configured and what it supports
+(`configured`, `capabilities.durations`, `capabilities.aspects`, prices, today's budget).
+Nothing is billed until `POST /api/videoclip`.
+
+| Step | Call |
+|---|---|
+| Draft prompts | `POST /api/videoclip/prompts` `{ notebookId, sourceIds, topic?, aspect?, duration?, count? }` returns `{ prompts: [{ title, prompt }] }` |
+| Make clips | `POST /api/videoclip` `{ notebookId, sourceIds, prompts, aspect?, duration?, resolution?, variants?, reference? }`; returns the artifact at once with `progress.stage: "generating"` |
+| Wait | Poll `GET /api/artifacts/{id}`; each `clips[]` entry has a `status` and, when done, a `videoUrl` |
+| Stop | `POST /api/videoclip/{id}/cancel` |
+| Play | `GET /api/videoclip/{id}/{n}` (byte ranges supported) |
+
+For training-video visuals (a cue of kind `clip`): `POST /api/training/{id}/assets/clip`
+`{ cueId, prompt, aspect?, seconds?, resolution? }` starts one clip and returns at once,
+`GET /api/training/{id}/assets/clip?cueId=` reports its state (`clipId` when done), the same
+route with `{ cueId, cancel: true }` stops it, and `GET /api/training/{id}/cueclips/{clipId}`
+plays it. `POST /api/training/{id}/visuals` proposes clips only with `{ clips: true }`.
+Rendering never makes a clip, and a clip visual without one is left out.
+
+Intro and outro clips on a training video or motion explainer (`{id}` is the artifact id,
+both off by default): `GET /api/bookends/{id}` returns the settings, each slot's status,
+the combined estimate and the budget; `PUT /api/bookends/{id}` `{ intro, outro, fade, clear? }`
+saves them (`mode` is `off`, `ai`, `library` or `upload`; `fade` is `cut`, `short` or `long`).
+`POST /api/bookends/{id}/prompt` `{ slot }` drafts a prompt, `POST /api/bookends/{id}/clip`
+`{ slot, prompt, seconds?, resolution? }` starts a clip (or `{ slot, cancel: true }`) and
+`GET /api/bookends/{id}/clip?slot=` reports it. `POST /api/bookends/{id}/file` takes an MP4
+upload (`slot`, `file`) or `{ slot, artifactId, index }` for a library clip, and
+`GET /api/bookends/{id}/library` lists the clips to choose from. `GET /api/bookends/{id}/media/{clipId}`
+plays a clip. A render is refused with 409 while a requested slot has no clip.
+
+An unsupported duration or shape is refused with 400, a run over today's budget with 429
+`code: "budget"`, and no configured model with 400 `code: "not_configured"`.
 
 ## Notes and transformations
 

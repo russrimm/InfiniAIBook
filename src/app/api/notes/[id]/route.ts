@@ -1,4 +1,4 @@
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import { deleteNote, getNote, updateNote } from "@/lib/notes";
 import { NextResponse } from "next/server";
 
@@ -22,7 +22,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 export async function PATCH(req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
-    const body = (await req.json()) as { title?: string; content?: string };
+    const body = (await readBody(req)) as { title?: string; content?: string };
     const note = updateNote(id, body);
     return note ? ok({ note }) : notFound();
   } catch (e) {

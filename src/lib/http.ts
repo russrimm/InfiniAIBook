@@ -1,14 +1,20 @@
 import { NextResponse } from "next/server";
 import { BudgetExceededError } from "./budget";
-import { MissingConfigError, describeAuthError, isConnectionError } from "./ai";
+import { MissingConfigError, describeAuthError, isConnectionError, isDroppedConnection } from "./ai";
 import { db } from "./db";
 import { SourceBoundaryError } from "./artifactsources";
+import { BadRequestError } from "./badrequest";
+
+export { readBody } from "./badrequest";
 
 export function ok(data: unknown, init?: number) {
   return NextResponse.json(data, { status: init ?? 200 });
 }
 
 export function fail(e: unknown) {
+  if (e instanceof BadRequestError) {
+    return NextResponse.json({ error: e.message, code: "invalid" }, { status: 400 });
+  }
   if (e instanceof SourceBoundaryError) {
     return NextResponse.json({ error: e.message, code: "invalid_sources" }, { status: 400 });
   }
@@ -27,6 +33,9 @@ export function fail(e: unknown) {
         { error: described, code: "rate_limit" },
         { status: 429 }
       );
+    }
+    if (isDroppedConnection(e)) {
+      return NextResponse.json({ error: described, code: "connection_dropped" }, { status: 503 });
     }
     if (status === 404 || isConnectionError(e)) {
       return NextResponse.json({ error: described, code: "config" }, { status: 502 });

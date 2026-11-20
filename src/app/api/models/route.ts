@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import {
   PROVIDER,
   authHeaders,
@@ -12,6 +12,7 @@ import {
   envImageModel,
   envVisionModel,
   getClient,
+  providerConfigured,
 } from "@/lib/ai";
 import {
   getSetting,
@@ -119,6 +120,7 @@ export async function GET() {
 
     return ok({
       provider: PROVIDER,
+      configured: providerConfigured(),
       current,
       env: {
         chat: envChatModel(),
@@ -146,7 +148,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as {
+    const body = (await readBody(req)) as {
       chat?: string | null;
       embedding?: string | null;
       image?: string | null;

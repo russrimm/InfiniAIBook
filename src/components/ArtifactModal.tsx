@@ -10,8 +10,11 @@ import Infographic from "./Infographic";
 import PodcastPlayer from "./PodcastPlayer";
 import VideoPlayer from "./VideoPlayer";
 import TrainingVideo from "./TrainingVideo";
+import ClipViewer from "./ClipViewer";
 import SlideDeck from "./SlideDeck";
 import { STUDIO } from "@/lib/studio";
+import { escapeMarkdownText, fileStem } from "@/lib/infographic";
+import { exportErrorMessage, rasterize } from "@/lib/imageexport";
 import { buildPptx, slidesToMarkdown } from "@/lib/slides";
 import { scriptOf } from "@/lib/podcastscript";
 import { CUE_KIND_LABELS } from "@/lib/trainingvisuals";
@@ -19,6 +22,7 @@ import type {
   Artifact,
   ArtifactType,
   Citation,
+  ClipContent,
   DocContent,
   FaqContent,
   FlashcardsContent,
@@ -53,7 +57,7 @@ function podcastSpeakerLabel(p: PodcastContent, id: PodcastSpeakerId): string {
 
 function toMarkdown(a: Artifact): string {
   const c = a.content as Record<string, unknown>;
-  const head = `# ${a.title}\n\n`;
+  const head = `# ${a.type === "infographic" ? escapeMarkdownText(a.title) : a.title}\n\n`;
   switch (a.type) {
     case "quiz": {
       const q = c as unknown as QuizContent;
@@ -216,6 +220,13 @@ function toMarkdown(a: Artifact): string {
         .join("\n\n");
       return `${head}${v.description ? `${v.description}\n\n` : ""}${body}\n`;
     }
+    case "clip": {
+      const k = c as unknown as ClipContent;
+      const body = k.clips
+        .map((clip, i) => `## Clip ${i + 1}\n\n${clip.prompt}\n\n${clip.status === "completed" ? `Video: ${clip.videoUrl}` : `Status: ${clip.status}${clip.error ? ` — ${clip.error}` : ""}`}`)
+        .join("\n\n");
+      return `${head}${body}\n`;
+    }
     default:
       return head + ((c as unknown as DocContent).markdown ?? "");
   }
@@ -235,6 +246,7 @@ export default function ArtifactModal({
   const [exporting, setExporting] = useState(false);
   const [buildingPptx, setBuildingPptx] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [exportNote, setExportNote] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const citations = (artifact.content as { citations?: Citation[] }).citations ?? [];
   const spec = STUDIO[artifact.type as ArtifactType];
@@ -242,7 +254,9 @@ export default function ArtifactModal({
   const { dialogRef, backdropProps } = useDialog(onClose);
 
   const safeName = (ext: string) =>
-    `${artifact.title.replace(/[^\w\s-]/g, "").trim().slice(0, 60) || "artifact"}.${ext}`;
+    artifact.type === "infographic"
+      ? `${fileStem(artifact.title)}.${ext}`
+      : `${artifact.title.replace(/[^\w\s-]/g, "").trim().slice(0, 60) || "artifact"}.${ext}`;
 
   const saveBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
@@ -250,7 +264,9 @@ export default function ArtifactModal({
     link.href = url;
     link.download = filename;
     link.click();
-    URL.revokeObjectURL(url);
+    // The browser starts reading the blob after the click returns, so a
+    // revoke right away can cancel the download.
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
 
   const download = () => saveBlob(
@@ -291,6 +307,7 @@ export default function ArtifactModal({
   const downloadPng = async () => {
     setExporting(true);
     setExportError(null);
+    setExportNote(null);
     try {
       const direct = (artifact.content as { imageUrl?: string }).imageUrl;
       if (direct) {
@@ -303,20 +320,16 @@ export default function ArtifactModal({
       const node = bodyRef.current?.firstElementChild as HTMLElement | null;
       if (!node) throw new Error("Nothing to export.");
 
-      const { toPng } = await import("html-to-image");
-      const dataUrl = await toPng(node, {
-        pixelRatio: 2,
+      const { blob, ext, note } = await rasterize(
+        node,
         // Transparent areas pick up whatever sits behind them in a viewer, so
         // the panel color is painted in explicitly.
-        backgroundColor: getComputedStyle(node).backgroundColor || "#0e1116",
-        // Web fonts are already loaded in the document; re-inlining them costs
-        // seconds and occasionally fails on cross-origin CSS.
-        skipFonts: true,
-      });
-      const blob = await (await fetch(dataUrl)).blob();
-      saveBlob(blob, safeName("png"));
+        getComputedStyle(node).backgroundColor || "#0e1116"
+      );
+      saveBlob(blob, safeName(ext));
+      if (note) setExportNote(note);
     } catch (e) {
-      setExportError(e instanceof Error ? e.message : "Could not export an image.");
+      setExportError(exportErrorMessage(e));
     } finally {
       setExporting(false);
     }
@@ -434,6 +447,15 @@ export default function ArtifactModal({
           </p>
         )}
 
+        {exportNote && (
+          <p
+            role="status"
+            className="shrink-0 border-t border-[var(--border)] bg-well px-5 py-2 text-[11px] text-[var(--muted)]"
+          >
+            {exportNote}
+          </p>
+        )}
+
         {citations.length > 0 && artifact.type !== "mindmap" && (
           <footer className="shrink-0 border-t border-[var(--border)] px-5 py-2.5 text-[11px] text-[var(--muted)]">
             Grounded in{" "}
@@ -508,6 +530,14 @@ function Body({
         <TrainingVideo
           artifactId={artifact.id}
           content={c as TrainingContent}
+          onRefresh={onRefresh ?? (() => {})}
+        />
+      );
+    case "clip":
+      return (
+        <ClipViewer
+          artifactId={artifact.id}
+          content={c as ClipContent}
           onRefresh={onRefresh ?? (() => {})}
         />
       );

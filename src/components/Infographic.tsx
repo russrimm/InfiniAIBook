@@ -48,6 +48,8 @@ export default function Infographic({ content: stored, citations }: Props) {
    * this also cleans up ones stored before that.
    */
   const plain = (s: string) => s.replace(/\s*\[\d+\](?:\[\d+\])*/g, "").trim();
+  // A typed title is shown as written, so brackets or asterisks in it stay.
+  const headline = stored.customTitle ? stored.title : plain(content.title);
 
   const Bullets = ({ items }: { items: string[] }) => (
     <ul className="space-y-1.5">
@@ -558,7 +560,7 @@ export default function Infographic({ content: stored, citations }: Props) {
         {/* eslint-disable-next-line @next/next/no-img-element -- generated PNG served from our own API, not a static asset */}
         <img
           src={content.imageUrl}
-          alt={plain(content.title) || "Generated infographic"}
+          alt={headline || "Generated infographic"}
           className="w-full"
           style={{ borderRadius: t.radius, border: `${t.borderWidth}px solid ${t.border}` }}
         />
@@ -1154,13 +1156,12 @@ export default function Infographic({ content: stored, citations }: Props) {
               : "text-[26px] leading-tight font-bold sm:text-[30px]"
           }
           style={{
+            overflowWrap: "anywhere",
             color: t.headerText,
-            fontFamily: t.headingFont,
-            letterSpacing: t.uppercaseHeadings ? "0.04em" : undefined,
             textShadow: t.glow ? `0 0 26px ${t.accent}55` : undefined,
           }}
         >
-          {plain(content.title)}
+          {headline}
         </h1>
         {content.subtitle && (
           <p

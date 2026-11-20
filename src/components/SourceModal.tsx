@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Note, Transformation } from "@/lib/types";
-import { findPassage } from "@/lib/highlight";
+import { findMatches, findPassage } from "@/lib/highlight";
 import { isExplorable } from "@/lib/explorekinds";
 import LoadingRows from "./LoadingRows";
 import { useDialog } from "./useDialog";
@@ -23,6 +23,27 @@ type Full = {
 
 /** A citation to show in place: which part, and the excerpt it quoted. */
 export type SourceHighlight = { part: number; snippet?: string };
+
+/** The text with every match marked, and the current one flagged for scrolling. */
+function renderMatches(text: string, ranges: [number, number][], current: number) {
+  const out: React.ReactNode[] = [];
+  let at = 0;
+  ranges.forEach(([start, end], i) => {
+    out.push(text.slice(at, start));
+    out.push(
+      <mark
+        key={start}
+        className={i === current ? "find-match find-current" : "find-match"}
+        {...(i === current ? { "data-find-current": "" } : {})}
+      >
+        {text.slice(start, end)}
+      </mark>
+    );
+    at = end;
+  });
+  out.push(text.slice(at));
+  return out;
+}
 
 export default function SourceModal({
   sourceId,
@@ -46,6 +67,9 @@ export default function SourceModal({
   const [generationStatus, setGenerationStatus] = useState("");
   const [applyError, setApplyError] = useState<string | null>(null);
   const [exploring, setExploring] = useState(false);
+  const [query, setQuery] = useState("");
+  const [current, setCurrent] = useState(0);
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     void fetch("/api/transformations")
@@ -118,6 +142,19 @@ export default function SourceModal({
   useEffect(() => {
     markRef.current?.scrollIntoView({ block: "center" });
   }, [rangeStart, src]);
+
+  const found = src && query.trim() ? findMatches(src.text, query) : null;
+  const matchCount = found?.ranges.length ?? 0;
+  const step = (by: 1 | -1) => {
+    if (!matchCount) return;
+    setCurrent((c) => (c + by + matchCount) % matchCount);
+  };
+  // Bring the current match into view whenever it, or the search, changes.
+  useEffect(() => {
+    contentRef.current
+      ?.querySelector<HTMLElement>("[data-find-current]")
+      ?.scrollIntoView({ block: "center" });
+  }, [current, query, src]);
 
   return (
     <div
@@ -210,7 +247,61 @@ export default function SourceModal({
           </div>
         )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        {src && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border)] px-5 py-2">
+            <label htmlFor="source-find" className="text-[11px] text-[var(--muted)]">
+              Find
+            </label>
+            <input
+              id="source-find"
+              type="search"
+              className="input !h-8 !w-auto min-w-0 flex-1 !py-0 text-[13px]"
+              placeholder="Find in this source"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setCurrent(0);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  step(e.shiftKey ? -1 : 1);
+                } else if (e.key === "Escape" && query) {
+                  // The first Escape clears the search; the next one closes the dialog.
+                  e.preventDefault();
+                  setQuery("");
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="btn !px-2 !py-1 !text-[11px]"
+              aria-label="Previous match"
+              disabled={matchCount === 0}
+              onClick={() => step(-1)}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              className="btn !px-2 !py-1 !text-[11px]"
+              aria-label="Next match"
+              disabled={matchCount === 0}
+              onClick={() => step(1)}
+            >
+              ↓
+            </button>
+            <span role="status" className="min-w-[5.5rem] text-[11px] text-[var(--muted)]">
+              {!query.trim()
+                ? ""
+                : matchCount === 0
+                  ? "No matches"
+                  : `${current + 1} of ${matchCount}${found?.capped ? "+" : ""}`}
+            </span>
+          </div>
+        )}
+
+        <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
           {loadError && (
             <p className="text-[13px] text-[var(--muted)]">{loadError}</p>
           )}
@@ -227,7 +318,9 @@ export default function SourceModal({
             </div>
           )}
           <pre className="font-sans text-[13px] leading-relaxed whitespace-pre-wrap text-prose-soft">
-            {src && range ? (
+            {src && found && found.ranges.length > 0 ? (
+              renderMatches(src.text, found.ranges, current)
+            ) : src && range ? (
               <>
                 {src.text.slice(0, range[0])}
                 <mark
