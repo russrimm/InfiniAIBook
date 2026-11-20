@@ -1,10 +1,11 @@
 import type { MetadataRoute } from "next";
+import { DESCRIPTION } from "@/lib/brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "InfiniAIBook",
     short_name: "InfiniAIBook",
-    description: "A grounded research studio: chat with your own sources and generate reports, quizzes, mind maps and videos from them.",
+    description: DESCRIPTION,
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",

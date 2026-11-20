@@ -5,6 +5,7 @@ import {
   GITHUB_URL, LINKEDIN_URL, MIT_LICENSE, REPO_URL,
 } from "@/lib/about";
 import Logo from "./Logo";
+import { TAGLINE } from "@/lib/brand";
 import { useDialog } from "./useDialog";
 
 const DOCS = `${REPO_URL}/blob/main/docs`;
@@ -309,14 +310,14 @@ export default function AboutModal({ onClose }: { onClose: () => void }) {
         className="fade-up card flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden !p-0 outline-none"
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-5 py-3">
-          <Logo size={32} />
+          <Logo size={40} />
           <div className="flex-1">
             <h2 id="about-title" className="text-[15px] font-semibold">
               InfiniAIBook
             </h2>
             <p className="text-[11px] text-[var(--muted)]">
-              Help and about: a self-hosted research notebook for grounded chat, notes and
-              Studio artifacts.
+              {TAGLINE} A self-hosted research notebook for grounded chat, notes and Studio
+              artifacts.
             </p>
           </div>
           <button aria-label="Close" className="btn !px-2.5 !py-1.5 !text-xs" onClick={onClose}>

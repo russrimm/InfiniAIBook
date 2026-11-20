@@ -63,7 +63,7 @@ export default function LoginPage() {
           void submit();
         }}
       >
-        <Logo size={56} className="mb-3" />
+        <Logo size={72} className="mb-4" />
         <h1 className="text-2xl font-semibold tracking-tight">InfiniAIBook</h1>
         <p className="mt-1 mb-6 text-[13px] text-[var(--muted)]">
           This instance is password protected.

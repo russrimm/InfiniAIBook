@@ -4,17 +4,23 @@ import "./globals.css";
 import { UndoProvider } from "@/components/UndoToast";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
+import { DESCRIPTION } from "@/lib/brand";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    default: "InfiniAIBook — grounded research studio",
+    default: "InfiniAIBook — self-hosted research notebook",
     template: "%s — InfiniAIBook",
   },
-  description:
-    "Upload sources, chat with them, and generate reports, quizzes, mind maps and infographics grounded in your own documents.",
+  description: DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: "InfiniAIBook",
+    title: "InfiniAIBook — self-hosted research notebook",
+    description: DESCRIPTION,
+  },
 };
 
 export default function RootLayout({
