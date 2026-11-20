@@ -220,9 +220,9 @@ describe("POST /api/models", () => {
     expect(same.staleChunks).toBe(1);
   });
 
-  it("returns 500 for a body that is not JSON", async () => {
+  it("returns 400 for a body that is not JSON", async () => {
     const res = await POST(request("/api/models", "POST", "{nope"));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
     expect(await res.json()).toHaveProperty("error");
   });
 

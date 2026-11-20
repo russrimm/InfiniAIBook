@@ -1,4 +1,4 @@
-import { ok, fail } from "@/lib/http";
+import { ok, fail, readBody } from "@/lib/http";
 import { chatText } from "@/lib/ai";
 import { buildContext, searchPassages } from "@/lib/retrieve";
 import { GROUNDING_RULES } from "@/lib/studio";
@@ -15,7 +15,7 @@ export const maxDuration = 300;
  */
 export async function POST(req: Request) {
   try {
-    const { question, notebookId } = (await req.json()) as {
+    const { question, notebookId } = (await readBody(req)) as {
       question?: string;
       notebookId?: string;
     };

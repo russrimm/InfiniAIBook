@@ -87,6 +87,12 @@ SQLite database on the Azure Files share. The endpoint needs no password and is
 safe to expose; see [SECURITY.md](../SECURITY.md). You can run the same check by
 hand with `curl https://<fqdn>/api/health`.
 
+The Container App's own liveness and readiness probes call the same
+`/api/health` endpoint (`infra/modules/container-app.bicep`), as the Dockerfile
+and `docker-compose.yml` healthchecks do. Unlike `/api/auth/status`, it answers
+under any `Host` header and also fails when the database cannot be read, so a
+replica with a broken data share is taken out of rotation. The probes change only
+when you next run the Bicep deployment; the image workflow does not touch them.
 The workflow only changes the app image. Run the Bicep deployment above when
 `infra/` changes, passing the `containerImage` that is currently running.
 
