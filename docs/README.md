@@ -34,6 +34,8 @@
 - [Training videos](training-videos.md) — avatar-presented training sessions from your research
 - [Backup and restore](backup-and-restore.md) — one ZIP of the whole data folder,
   checked before it replaces anything, with rollback if a step fails
+- [Costs, budget and cancelling](costs-and-budget.md) — the estimate shown before
+  each generation, the daily budget, price settings, and stopping a job
 - [Study aids, mind maps and exporting](studio.md) — quizzes, flashcards, mind
   maps and export formats
 

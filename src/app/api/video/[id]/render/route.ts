@@ -1,4 +1,7 @@
+import fs from "node:fs";
 import { NextResponse } from "next/server";
+import { endJob, isCancellation, startJob } from "@/lib/jobs";
+import { videoWorkDir } from "@/lib/paths";
 import { db } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 import {
@@ -77,7 +80,20 @@ export async function POST(_req: Request, { params }: Ctx) {
       editedSinceRender: false,
     });
 
+    const signal = startJob(id);
     const onFail = (e: unknown) => {
+      if (isCancellation(e)) {
+        setProgress(id, {
+          progress: {
+            stage: "cancelled",
+            done: 0,
+            total,
+            note: "Cancelled. The previous video, if there was one, is unchanged.",
+          },
+        });
+        fs.rmSync(videoWorkDir(id), { recursive: true, force: true });
+        return;
+      }
       console.error(`[${row.type}] build failed`, e);
       setProgress(id, {
         progress: {
@@ -92,7 +108,7 @@ export async function POST(_req: Request, { params }: Ctx) {
     // Deliberately not awaited: artwork alone runs for minutes.
     if (row.type === "video") {
       const plan = replaceInScenePlan(content.plan as ScenePlan, replacements);
-      void buildVideo(id, plan, voice, { music, watermark }).catch(onFail);
+      void buildVideo(id, plan, voice, { music, watermark, signal }).catch(onFail).finally(() => endJob(id, signal));
     } else {
       const options = normalizeMotionOptions(content.options ?? {});
       const plan = applyMovement(
@@ -100,7 +116,9 @@ export async function POST(_req: Request, { params }: Ctx) {
         options.movement
       );
       const { width, height } = MOTION_RESOLUTIONS[options.resolution];
-      void buildMotionVideo(id, plan, voice, { music, watermark, bookends, width, height }).catch(onFail);
+      void buildMotionVideo(id, plan, voice, { music, watermark, bookends, width, height, signal })
+        .catch(onFail)
+        .finally(() => endJob(id, signal));
     }
 
     const fresh = db.prepare("SELECT content FROM artifacts WHERE id = ?").get(id) as unknown as {

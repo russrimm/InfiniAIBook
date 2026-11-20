@@ -3,6 +3,7 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import { ok, fail, generationSourceError } from "@/lib/http";
+import { throwIfCancelled } from "@/lib/jobs";
 import { generationReply, type GenerationStatus } from "@/lib/keepalive";
 import { chatJSON, generateImage, type ChatMsg } from "@/lib/ai";
 import { imageDir } from "@/lib/paths";
@@ -175,10 +176,10 @@ const OWN_ROUTE = new Set<string>(["podcast", "video", "motion", "training", "cl
 const bad = (error: string) => NextResponse.json({ error, code: "invalid" }, { status: 400 });
 
 export function POST(req: Request) {
-  return generationReply(req, (report) => generateArtifact(req, report));
+  return generationReply(req, (report, signal) => generateArtifact(req, report, signal));
 }
 
-async function generateArtifact(req: Request, report: GenerationStatus) {
+async function generateArtifact(req: Request, report: GenerationStatus, signal: AbortSignal) {
   try {
     const body = (await req.json().catch(() => null)) as Loose | null;
     if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -326,7 +327,7 @@ async function generateArtifact(req: Request, report: GenerationStatus) {
       ];
       try {
         report(attempt ? "Retrying with a smaller source context" : `Writing ${spec.label.toLowerCase()}`);
-        raw = await chatJSON<Loose>(messages, 0.5);
+        raw = await chatJSON<Loose>(messages, 0.5, { signal });
         break;
       } catch (e) {
         lastError = e;
@@ -392,7 +393,7 @@ async function generateArtifact(req: Request, report: GenerationStatus) {
             activeStyle,
             infographicOpts?.orientation
           ),
-          { size: imageSizeFor(infographicOpts?.orientation) }
+          { size: imageSizeFor(infographicOpts?.orientation), signal }
         );
         fs.mkdirSync(imageDir(), { recursive: true });
         fs.writeFileSync(path.join(imageDir(), `${id}.png`), png);
@@ -424,6 +425,8 @@ async function generateArtifact(req: Request, report: GenerationStatus) {
       sourceIds: [...new Set(sourceIds)],
       citations,
     };
+    // A cancelled request must not leave a half-made item behind.
+    throwIfCancelled(signal);
     db.prepare(
       "INSERT INTO artifacts (id, notebook_id, type, title, content, created_at) VALUES (?,?,?,?,?,?)"
     ).run(id, notebookId, type, title, JSON.stringify(stored), Date.now());

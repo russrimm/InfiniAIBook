@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ok, fail, generationSourceError, readBody } from "@/lib/http";
+import { throwIfCancelled } from "@/lib/jobs";
 import { generationReply, type GenerationStatus } from "@/lib/keepalive";
 import { studioJSON, type ChatMsg } from "@/lib/ai";
 import {
@@ -52,10 +53,10 @@ const MIN_CONTEXT_CHARS = 6000;
  * has reviewed it and pressed Narrate (POST /api/podcast/[id]/narrate).
  */
 export function POST(req: Request) {
-  return generationReply(req, (report) => writePodcast(req, report));
+  return generationReply(req, (report, signal) => writePodcast(req, report, signal));
 }
 
-async function writePodcast(req: Request, report: GenerationStatus) {
+async function writePodcast(req: Request, report: GenerationStatus, signal: AbortSignal) {
   try {
     const body = (await readBody(req)) as {
       notebookId: string;
@@ -137,7 +138,7 @@ async function writePodcast(req: Request, report: GenerationStatus) {
       ];
       try {
         report(attempt ? "Retrying with a smaller source context" : "Writing the audio script");
-        script = await studioJSON<RawScript>(messages, 0.7);
+        script = await studioJSON<RawScript>(messages, 0.7, { signal });
         break;
       } catch (e) {
         lastError = e;
@@ -203,7 +204,8 @@ Count the words in your answer before returning it.`;
               content: `SOURCE EXCERPTS\n===============\n${buildContext(passages)}`,
             },
           ],
-          0.7
+          0.7,
+          { signal }
         );
         const nextParsed = readScript(retry, profiles.length);
         const next = nextParsed.turns;
@@ -277,6 +279,8 @@ Count the words in your answer before returning it.`;
 
     report("Saving the audio script for review");
     const now = Date.now();
+    // A cancelled request must not leave a half-made item behind.
+    throwIfCancelled(signal);
     db.prepare(
       "INSERT INTO artifacts (id, notebook_id, type, title, content, created_at) VALUES (?,?,?,?,?,?)"
     ).run(id, notebookId, "podcast", content.title, JSON.stringify(content), now);

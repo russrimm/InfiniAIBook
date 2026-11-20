@@ -189,6 +189,7 @@ export default function TrainingVideo({
   >(null);
   const [prep, setPrep] = useState<string | null>(null);
   const [statusOpen, setStatusOpen] = useState(rendering);
+  const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gap, setGap] = useState<{
     errored: number;
@@ -655,6 +656,20 @@ export default function TrainingVideo({
     }
   };
 
+  const cancelRender = async () => {
+    setCancelling(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/jobs/${artifactId}/cancel`, { method: "POST" });
+      if (!res.ok) throw new Error("Could not cancel the render.");
+      await refresh.current();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not cancel the render.");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const plan = async (section?: number) => {
     setBusy("plan");
     setStatusOpen(true);
@@ -908,6 +923,9 @@ export default function TrainingVideo({
             </span>
             <button type="button" className="btn !text-xs" onClick={() => setStatusOpen(true)}>
               View status
+            </button>
+            <button type="button" className="btn !text-xs" onClick={() => void cancelRender()} disabled={cancelling}>
+              {cancelling ? "Cancelling…" : "Cancel render"}
             </button>
           </div>
           <ol className="mt-3 space-y-1.5">

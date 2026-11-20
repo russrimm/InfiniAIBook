@@ -1,7 +1,7 @@
 import OpenAI, { AzureOpenAI, toFile } from "openai";
 import { getBearerTokenProvider } from "@azure/identity";
 import { buildCredential } from "./azureCredential";
-import { reserve } from "./budget";
+import { rates, reserve } from "./budget";
 import { getSetting, SETTING_CHAT_MODEL, SETTING_EMBED_MODEL, SETTING_IMAGE_MODEL, SETTING_VISION_MODEL } from "./settings";
 import { resolveEndpoint, type ResolvedEndpoint } from "./providers";
 import { classifyNetworkError, failedAfterResponse, markAfterResponse, networkErrorCode, type NetworkFailure } from "./connectionerror";
@@ -200,6 +200,8 @@ export type ImageOptions = {
    * must cope with an opaque result.
    */
   background?: "transparent" | "opaque";
+  /** Stops the request (and any retry wait) when aborted, so a cancelled job stops costing money. */
+  signal?: AbortSignal;
 };
 
 /**
@@ -224,7 +226,7 @@ export async function generateImage(
 }
 
 async function requestImage(prompt: string, opts: ImageOptions): Promise<GeneratedImage> {
-  reserve("image", 12);
+  reserve("image", rates().image);
   const model = imageModel();
   const size = opts.size || "1536x1024";
   const quality = opts.quality || "high";
@@ -250,6 +252,7 @@ async function requestImage(prompt: string, opts: ImageOptions): Promise<Generat
           ? { prompt, n: 1, size, quality, ...extra }
           : { model, prompt, n: 1, size, response_format: "b64_json", ...extra }
       ),
+      signal: opts.signal,
     });
 
     if (!res.ok) {
@@ -301,7 +304,7 @@ async function requestImage(prompt: string, opts: ImageOptions): Promise<Generat
       throw new Error("The image model returned no image data.");
     }
     return { png: Buffer.from(first.b64_json, "base64"), model, size };
-  }, "image");
+  }, "image", opts.signal);
 }
 
 export class MissingConfigError extends Error {}
@@ -541,8 +544,8 @@ async function createChat(
   }, "chat", options.signal);
 }
 
-export async function chatText(messages: ChatMsg[], temperature = 0.3): Promise<string> {
-  const res = await createChat({ model: chatModel(), temperature, messages });
+export async function chatText(messages: ChatMsg[], temperature = 0.3, options: { signal?: AbortSignal } = {}): Promise<string> {
+  const res = await createChat({ model: chatModel(), temperature, messages }, options);
   return (
     (res as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content?.trim() ??
     ""
@@ -612,15 +615,16 @@ export async function visionChat(
 }
 
 /** Ask the model for a JSON object and parse it defensively. */
-export async function chatJSON<T>(messages: ChatMsg[], temperature = 0.4): Promise<T> {
-  return jsonChat<T>(getClient(), chatModel(), messages, temperature);
+export async function chatJSON<T>(messages: ChatMsg[], temperature = 0.4, options: { signal?: AbortSignal } = {}): Promise<T> {
+  return jsonChat<T>(getClient(), chatModel(), messages, temperature, options.signal);
 }
 
 async function jsonChat<T>(
   client: OpenAI | AzureOpenAI,
   model: string,
   messages: ChatMsg[],
-  temperature: number
+  temperature: number,
+  signal?: AbortSignal
 ): Promise<T> {
   const res = await createChat(
     {
@@ -629,7 +633,7 @@ async function jsonChat<T>(
       response_format: { type: "json_object" },
       messages,
     },
-    {},
+    { signal },
     client
   );
   const raw =
@@ -676,12 +680,12 @@ function studioClient(): OpenAI | AzureOpenAI {
 }
 
 /** Structured JSON for studio scripts and scene plans, on the studio model. */
-export async function studioJSON<T>(messages: ChatMsg[], temperature = 0.4): Promise<T> {
+export async function studioJSON<T>(messages: ChatMsg[], temperature = 0.4, options: { signal?: AbortSignal } = {}): Promise<T> {
   const model = process.env.AI_STUDIO_MODEL?.trim();
-  if (!model) return chatJSON<T>(messages, temperature);
-  if (studioApi() === "anthropic") return anthropicJSON<T>(model, messages, temperature);
+  if (!model) return chatJSON<T>(messages, temperature, options);
+  if (studioApi() === "anthropic") return anthropicJSON<T>(model, messages, temperature, options.signal);
   try {
-    return await jsonChat<T>(studioClient(), model, messages, temperature);
+    return await jsonChat<T>(studioClient(), model, messages, temperature, options.signal);
   } catch (e) {
     const status = (e as { status?: number })?.status;
     if (status !== 401 && status !== 403 && status !== 404) throw e;
@@ -741,9 +745,10 @@ const anthropicTemperature = new Map<string, boolean>();
 async function anthropicJSON<T>(
   model: string,
   messages: ChatMsg[],
-  temperature: number
+  temperature: number,
+  signal?: AbortSignal
 ): Promise<T> {
-  reserve("studio", 8);
+  reserve("studio", rates().studioCall);
   const base = anthropicBaseURL();
   const url = `${base}/v1/messages`;
   const maxTokens = Number(process.env.AI_STUDIO_MAX_TOKENS) || 16000;
@@ -770,6 +775,7 @@ async function anthropicJSON<T>(
         messages: turns,
         ...(withTemp ? { temperature: Math.min(1, Math.max(0, temperature)) } : {}),
       }),
+      signal,
     });
     // The model has answered once the headers are here; a read failure must not run the call again.
     const text = await res.text().catch((e: unknown) => {
@@ -811,7 +817,7 @@ async function anthropicJSON<T>(
       anthropicTemperature.set(model, false);
       return send(false);
     }
-  }, "studio");
+  }, "studio", signal);
 
   if (body.stop_reason === "max_tokens") {
     throw new Error(

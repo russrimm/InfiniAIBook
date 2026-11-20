@@ -12,7 +12,7 @@ import { EMPTY_NARRATION, readNarration, type NarrationSettings } from "@/lib/na
 import { normalizeMusicChoice, type MusicChoice } from "@/lib/musicchoice";
 import { MULTITALKER_SPEAKERS, RATE_CHOICES, WORDS_PER_MINUTE } from "@/lib/voices";
 import { scrollBehavior } from "@/lib/reducedMotion";
-import { readJSONReply } from "@/lib/jsonreply";
+import { JSONReplyError, readJSONReply } from "@/lib/jsonreply";
 import MusicPicker from "./MusicPicker";
 import NarrationOptions from "./NarrationOptions";
 
@@ -441,10 +441,24 @@ export default function PodcastPlayer({
         setEditing(false);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      // A cancelled narration explains itself in the note the server saved.
+      setError(e instanceof JSONReplyError && e.code === "cancelled" ? null : e instanceof Error ? e.message : "Something went wrong.");
       await Promise.resolve(refresh.current?.()).catch(() => {});
     } finally {
       setBusy(null);
+    }
+  };
+
+  const [cancelling, setCancelling] = useState(false);
+  const cancelNarration = async () => {
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/jobs/${artifactId}/cancel`, { method: "POST" });
+      if (!res.ok) throw new Error("Could not cancel the narration.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not cancel the narration.");
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -483,6 +497,9 @@ export default function PodcastPlayer({
             <span className="ml-auto font-mono text-[11px] text-[var(--muted)] tabular-nums">
               {clock(elapsed)}
             </span>
+            <button type="button" className="btn !text-xs" onClick={() => void cancelNarration()} disabled={cancelling}>
+              {cancelling ? "Cancelling…" : "Cancel"}
+            </button>
           </div>
           <p className="mt-2 text-[11px] leading-snug text-[var(--muted)]">
             Every line is being voiced{draft.music ? " and the music mixed in" : ""}. Longer

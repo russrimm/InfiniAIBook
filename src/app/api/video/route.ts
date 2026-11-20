@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ok, fail, generationSourceError, readBody } from "@/lib/http";
+import { throwIfCancelled } from "@/lib/jobs";
 import { generationReply, type GenerationStatus } from "@/lib/keepalive";
 import { studioJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
@@ -28,10 +29,10 @@ type Loose = Record<string, unknown>;
  * be read and edited first.
  */
 export function POST(req: Request) {
-  return generationReply(req, (report) => planVideo(req, report));
+  return generationReply(req, (report, signal) => planVideo(req, report, signal));
 }
 
-async function planVideo(req: Request, report: GenerationStatus) {
+async function planVideo(req: Request, report: GenerationStatus, signal: AbortSignal) {
   try {
     const body = (await readBody(req)) as {
       notebookId: string;
@@ -83,7 +84,7 @@ async function planVideo(req: Request, report: GenerationStatus) {
     ];
 
     report("Writing the whiteboard scene plan");
-    const raw = await studioJSON<Loose>(messages, 0.6);
+    const raw = await studioJSON<Loose>(messages, 0.6, { signal });
     report("Checking the scenes and narration");
     // More scenes than asked for multiplies cost and running time.
     const normalized = normalizeScenePlan(raw, size.scenes + 2);
@@ -112,6 +113,8 @@ async function planVideo(req: Request, report: GenerationStatus) {
 
     report("Saving the whiteboard script for review");
     const now = Date.now();
+    // A cancelled request must not leave a half-made item behind.
+    throwIfCancelled(signal);
     db.prepare(
       "INSERT INTO artifacts (id, notebook_id, type, title, content, created_at) VALUES (?,?,?,?,?,?)"
     ).run(id, notebookId, "video", plan.title, JSON.stringify(content), now);

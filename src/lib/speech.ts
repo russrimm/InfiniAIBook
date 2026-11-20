@@ -1,6 +1,7 @@
 import { getBearerTokenProvider } from "@azure/identity";
 import { buildCredential } from "./azureCredential";
-import { reserve } from "./budget";
+import { reserve, speechCents } from "./budget";
+import { JobCancelledError, cancellableDelay } from "./jobs";
 import { addBreaths, turnLeadIn } from "./prosody";
 import { VOICE_PRESETS, type SpeakerId, type VoiceSelection } from "./voices";
 export type { SpeakerId, VoicePair } from "./voices";
@@ -97,10 +98,8 @@ function buildSsml(
   return `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='en-US'>${body}</speak>`;
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-async function synthesize(ssml: string, format?: string): Promise<Buffer> {
-  reserve("speech", Math.max(4, Math.ceil(ssml.length / 1000) * 3));
+async function synthesize(ssml: string, format?: string, signal?: AbortSignal): Promise<Buffer> {
+  reserve("speech", speechCents(ssml.length));
   const url = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
   const headers: Record<string, string> = {
     "Content-Type": "application/ssml+xml",
@@ -113,10 +112,10 @@ async function synthesize(ssml: string, format?: string): Promise<Buffer> {
   let lastError: unknown;
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
-      const res = await fetch(url, { method: "POST", headers, body: ssml });
+      const res = await fetch(url, { method: "POST", headers, body: ssml, signal });
       if (res.status === 429 || res.status >= 500) {
         const after = Number(res.headers.get("retry-after"));
-        await sleep(Number.isFinite(after) && after > 0 ? after * 1000 : 2 ** attempt * 1000);
+        await cancellableDelay(Number.isFinite(after) && after > 0 ? after * 1000 : 2 ** attempt * 1000, signal);
         lastError = new Error(`Speech returned ${res.status}`);
         continue;
       }
@@ -131,11 +130,12 @@ async function synthesize(ssml: string, format?: string): Promise<Buffer> {
       }
       return Buffer.from(await res.arrayBuffer());
     } catch (e) {
+      if (signal?.aborted) throw new JobCancelledError();
       lastError = e;
       // A long SSML payload can have its connection dropped mid-stream; the
       // caller keeps chunks small, but retry once more before giving up.
       if (attempt === 3) throw e;
-      await sleep(2 ** attempt * 1000);
+      await cancellableDelay(2 ** attempt * 1000, signal);
     }
   }
   throw lastError;
@@ -158,10 +158,11 @@ export type SynthesisResult = {
  */
 export async function synthesizeRawSsml(
   ssml: string,
-  format?: string
+  format?: string,
+  signal?: AbortSignal
 ): Promise<Buffer> {
   assertConfigured();
-  return synthesize(ssml, format);
+  return synthesize(ssml, format, signal);
 }
 
 export type ServiceVoice = {
@@ -203,7 +204,8 @@ export async function synthesizeDialogue(
   voices: VoiceSelection = VOICE_PRESETS.conversational,
   rate = 1,
   batchSize = 6,
-  breath = 1
+  breath = 1,
+  signal?: AbortSignal
 ): Promise<SynthesisResult> {
   assertConfigured();
   if (!turns.length) throw new Error("Nothing to synthesize.");
@@ -214,7 +216,7 @@ export async function synthesizeDialogue(
 
   for (let i = 0; i < turns.length; i += batchSize) {
     const batch = turns.slice(i, i + batchSize);
-    const audio = await synthesize(buildSsml(batch, voices, rate, breath));
+    const audio = await synthesize(buildSsml(batch, voices, rate, breath), undefined, signal);
     const batchSeconds = audio.length / BYTES_PER_SECOND;
 
     // Exact offset for the batch; within it, apportion by text length. Good

@@ -1,4 +1,5 @@
 import { fail } from "./http";
+import { requestJob } from "./jobs";
 
 export type GenerationStatus = (status: string) => void;
 
@@ -8,11 +9,19 @@ export type GenerationStatus = (status: string) => void;
  */
 export function generationReply(
   req: Request,
-  work: (report: GenerationStatus) => Promise<Response>,
+  work: (report: GenerationStatus, signal: AbortSignal) => Promise<Response>,
   { intervalMs = 15_000 }: { intervalMs?: number } = {},
 ): Promise<Response> | Response {
+  const cancellable = async (report: GenerationStatus) => {
+    const job = requestJob(req);
+    try {
+      return await work(report, job.signal);
+    } finally {
+      job.end();
+    }
+  };
   if (!req.headers.get("accept")?.split(",").some((v) => v.trim() === "application/x-ndjson")) {
-    return keepAliveJSON(() => work(() => {}));
+    return keepAliveJSON(() => cancellable(() => {}));
   }
 
   const encoder = new TextEncoder();
@@ -27,7 +36,7 @@ export function generationReply(
       report("Preparing generation");
       beat = setInterval(() => write({ event: "heartbeat" }), intervalMs);
       try {
-        const res = await work(report).catch((e) => fail(e));
+        const res = await cancellable(report).catch((e) => fail(e));
         write({ event: "result", status: res.status, body: await res.json() });
       } catch (e) {
         const res = fail(e);

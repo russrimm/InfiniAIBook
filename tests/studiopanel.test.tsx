@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { load } from "cheerio";
 import StudioPanel from "@/components/StudioPanel";
+import { ConfirmProvider } from "@/components/ConfirmDialog";
 import OverflowMenu from "@/components/OverflowMenu";
 import GettingStarted from "@/components/GettingStarted";
 import {
@@ -18,18 +19,20 @@ const noop = () => {};
 function renderStudio(hasSources: boolean, selectedIds: string[]) {
   return load(
     renderToStaticMarkup(
-      <StudioPanel
-        notebookId="notebook"
-        hasSources={hasSources}
-        selectedIds={selectedIds}
-        artifacts={[]}
-        onOpen={noop}
-        openingId={null}
-        onRemove={noop}
-        onChanged={noop}
-        onDiscuss={noop}
-        onShowSources={noop}
-      />,
+      <ConfirmProvider>
+        <StudioPanel
+          notebookId="notebook"
+          hasSources={hasSources}
+          selectedIds={selectedIds}
+          artifacts={[]}
+          onOpen={noop}
+          openingId={null}
+          onRemove={noop}
+          onChanged={noop}
+          onDiscuss={noop}
+          onShowSources={noop}
+        />
+      </ConfirmProvider>,
     ),
   );
 }

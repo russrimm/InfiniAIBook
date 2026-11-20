@@ -24,6 +24,7 @@ import { applyBookends } from "./bookendbuild";
 import { DEFAULT_BOOKENDS, type Bookends } from "./bookends";
 import { chooseRenderer, hyperframesFailedNote, renderMotionWithHyperframes } from "./hyperframes";
 import { throttleProgress } from "./renderprogress";
+import { isCancellation, throwIfCancelled } from "./jobs";
 
 type AssetJob = {
   key: string;
@@ -41,6 +42,8 @@ type BuildOptions = {
   /** Output frame size; the timeline scales every layer to it. */
   width?: number;
   height?: number;
+  /** Aborted when the person cancels the build. */
+  signal?: AbortSignal;
 };
 
 /**
@@ -129,12 +132,12 @@ async function runBuild(
   // concurrent calls into a race for the retry budget.
   await pool(list, 1, async (job) => {
     try {
-      const { png } = await generateImage(job.prompt, job.options);
+      const { png } = await generateImage(job.prompt, { ...job.options, signal: opts.signal });
       const file = path.join(work, `asset-${job.key}.png`);
       fs.writeFileSync(file, png);
       files.set(job.key, file);
     } catch (e) {
-      if (isFatal(e)) throw e;
+      if (isFatal(e) || isCancellation(e)) throw e;
       console.warn("[motion] asset failed, continuing without it", e);
       firstError ??= e;
     }
@@ -142,7 +145,7 @@ async function runBuild(
     setProgress(id, {
       progress: { stage: "artwork", done: drawn, total: list.length } satisfies VideoProgress,
     });
-  });
+  }, opts.signal);
 
   if (list.length && files.size === 0) {
     throw firstError instanceof Error
@@ -157,7 +160,7 @@ async function runBuild(
   const clips: { file: string; seconds: number }[] = new Array(scenes.length);
   let spoken = 0;
   await pool(scenes, 3, async (scene, i) => {
-    const mp3 = await narrate(scene.narration, voice);
+    const mp3 = await narrate(scene.narration, voice, opts.signal);
     const file = path.join(work, `narration-${String(i + 1).padStart(2, "0")}.mp3`);
     fs.writeFileSync(file, mp3);
     clips[i] = { file, seconds: mp3Duration(mp3) };
@@ -165,7 +168,7 @@ async function runBuild(
     setProgress(id, {
       progress: { stage: "narration", done: spoken, total: scenes.length } satisfies VideoProgress,
     });
-  });
+  }, opts.signal);
 
   setProgress(id, {
     progress: { stage: "rendering", done: 0, total: 100 } satisfies VideoProgress,
@@ -218,14 +221,16 @@ async function runBuild(
   let rendered = false;
   if (choice.renderer === "hyperframes") {
     try {
-      await renderMotionWithHyperframes(config, configPath, out, work, reporter());
+      await renderMotionWithHyperframes(config, configPath, out, work, reporter(), opts.signal);
       rendered = fs.existsSync(out);
     } catch (e) {
+      if (isCancellation(e)) throw e;
       console.warn("[motion] HyperFrames render failed, using the standard renderer", e);
       fallback = hyperframesFailedNote(hightech, "renderer");
     }
   }
-  if (!rendered) await runPythonRenderer(["motion", "render.py"], configPath, reporter());
+  if (!rendered) await runPythonRenderer(["motion", "render.py"], configPath, reporter(), opts.signal);
+  throwIfCancelled(opts.signal);
 
   if (!fs.existsSync(out)) {
     throw new Error("The renderer finished but produced no file.");

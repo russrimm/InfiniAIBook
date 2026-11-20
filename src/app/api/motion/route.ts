@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ok, fail, generationSourceError, readBody } from "@/lib/http";
+import { throwIfCancelled } from "@/lib/jobs";
 import { generationReply, type GenerationStatus } from "@/lib/keepalive";
 import { studioJSON, type ChatMsg } from "@/lib/ai";
 import { buildContext, citationList, retrieve, sampleCorpus, type Passage } from "@/lib/retrieve";
@@ -35,10 +36,10 @@ export async function GET() {
  * when the user presses Render (POST /api/video/[id]/render).
  */
 export function POST(req: Request) {
-  return generationReply(req, (report) => planMotion(req, report));
+  return generationReply(req, (report, signal) => planMotion(req, report, signal));
 }
 
-async function planMotion(req: Request, report: GenerationStatus) {
+async function planMotion(req: Request, report: GenerationStatus, signal: AbortSignal) {
   try {
     const body = (await readBody(req)) as {
       notebookId: string;
@@ -104,7 +105,7 @@ async function planMotion(req: Request, report: GenerationStatus) {
     ];
 
     report("Writing the motion scene plan");
-    const raw = await studioJSON<Record<string, unknown>>(messages, 0.7);
+    const raw = await studioJSON<Record<string, unknown>>(messages, 0.7, { signal });
     report("Checking the scenes and narration");
     const normalized = normalizeMotionPlan(raw, options);
     if (!normalized) {
@@ -134,6 +135,8 @@ async function planMotion(req: Request, report: GenerationStatus) {
 
     report("Saving the motion script for review");
     const now = Date.now();
+    // A cancelled request must not leave a half-made item behind.
+    throwIfCancelled(signal);
     db.prepare(
       "INSERT INTO artifacts (id, notebook_id, type, title, content, created_at) VALUES (?,?,?,?,?,?)"
     ).run(id, notebookId, "motion", plan.title, JSON.stringify(content), now);

@@ -9,6 +9,10 @@ export type GenerationJob = {
   status: string;
   error?: string;
   detail?: string;
+  /** Present while the work can still be stopped; stops it on the server too. */
+  onCancel?: () => void;
+  /** The person stopped it; nothing was saved. */
+  cancelled?: boolean;
   progress?: { done: number; total: number; label: string };
 };
 
@@ -57,6 +61,10 @@ export default function GenerationModal({
                 <p role="alert" className="mt-2 text-[13px] text-red-300">
                   {job.error}
                 </p>
+              ) : job.cancelled ? (
+                <p role="status" className="mt-2 text-[13px] text-[var(--muted)]">
+                  Cancelled. Nothing was saved, and no further model calls are made. Work already started may still be billed.
+                </p>
               ) : (
                 <p role="status" aria-atomic="true" className="mt-2 flex items-center gap-2 text-[13px] text-[var(--muted)]">
                   <span
@@ -89,11 +97,16 @@ export default function GenerationModal({
               {job.detail && (
                 <p className="mt-2 text-[11px] text-[var(--muted)]">{job.detail}</p>
               )}
+              {job.onCancel && !job.error && !job.cancelled && (
+                <button type="button" className="btn mt-3 !px-3 !py-1.5 !text-xs" onClick={job.onCancel}>
+                  Cancel generation
+                </button>
+              )}
             </li>
           ))}
         </ul>
         <footer className="border-t border-[var(--border)] px-5 py-3 text-[11px] text-[var(--muted)]">
-          Closing this status view does not cancel generation.
+          Closing this status view does not cancel generation. Use Cancel to stop it.
         </footer>
       </div>
     </div>

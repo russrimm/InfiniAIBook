@@ -58,7 +58,10 @@ export default function VideoPlayer({
   const progress = content.progress;
   const stage = progress?.stage ?? (content.videoUrl ? "done" : "artwork");
   const inScript = stage === "script";
-  const building = stage !== "done" && stage !== "failed" && !inScript;
+  const cancelled = stage === "cancelled";
+  const building = stage !== "done" && stage !== "failed" && !cancelled && !inScript;
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const editable = Boolean(content.plan);
 
   const [elapsed, setElapsed] = useState(0);
@@ -94,7 +97,7 @@ export default function VideoPlayer({
         artifactId={artifactId}
         content={content}
         variant={variant}
-        rendered={Boolean(content.videoUrl) || stage === "failed"}
+        rendered={Boolean(content.videoUrl) || stage === "failed" || cancelled}
         onCancel={inScript ? undefined : () => setEditing(false)}
         onRefresh={() => refresh.current()}
         statusOpen={statusOpen}
@@ -102,6 +105,20 @@ export default function VideoPlayer({
       />
     );
   }
+
+  const cancelBuild = async () => {
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      const res = await fetch(`/api/jobs/${artifactId}/cancel`, { method: "POST" });
+      if (!res.ok) throw new Error("Could not cancel.");
+      await Promise.resolve(refresh.current()).catch(() => {});
+    } catch (e) {
+      setCancelError(e instanceof Error ? e.message : "Could not cancel.");
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const editButton = editable ? (
     <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -116,11 +133,18 @@ export default function VideoPlayer({
     </div>
   ) : null;
 
-  if (stage === "failed") {
+  if (stage === "failed" || cancelled) {
     return (
       <div>
-        <p className="rounded-xl border border-red-900/50 bg-red-950/20 px-4 py-3 text-[13px] text-red-200">
-          {progress?.note ?? "The video could not be built."}
+        <p
+          role={cancelled ? "status" : undefined}
+          className={
+            cancelled
+              ? "rounded-xl border border-[var(--border)] bg-well px-4 py-3 text-[13px] text-[var(--muted)]"
+              : "rounded-xl border border-red-900/50 bg-red-950/20 px-4 py-3 text-[13px] text-red-200"
+          }
+        >
+          {progress?.note ?? (cancelled ? "Cancelled." : "The video could not be built.")}
         </p>
         {content.videoUrl && (
           <>
@@ -138,7 +162,7 @@ export default function VideoPlayer({
         )}
         {editButton}
         <SceneList content={content} />
-        {statusOpen && (
+        {statusOpen && !cancelled && (
           <GenerationModal
             title="Video processing status"
             jobs={[{
@@ -170,7 +194,15 @@ export default function VideoPlayer({
             <button type="button" className="btn !text-xs" onClick={() => setStatusOpen(true)}>
               View status
             </button>
+            <button type="button" className="btn !text-xs" onClick={() => void cancelBuild()} disabled={cancelling}>
+              {cancelling ? "Cancelling…" : "Cancel"}
+            </button>
           </div>
+          {cancelError && (
+            <p role="alert" className="mt-3 text-[12px] text-red-300">
+              {cancelError}
+            </p>
+          )}
 
           <div className="mt-4 space-y-2">
             {stages.map((s, i) => {

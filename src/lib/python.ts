@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
+import { JobCancelledError } from "./jobs";
 import { lineSplitter, parseRenderProgress } from "./renderprogress";
 
 /**
@@ -11,8 +12,10 @@ export function runPythonRenderer(
   scriptPath: string[],
   configPath: string,
   onProgress?: (fraction: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new JobCancelledError());
     const script = path.join(/*turbopackIgnore: true*/ process.cwd(), "scripts", ...scriptPath);
     const py = process.env.PYTHON_BIN || "python";
     const child = spawn(/*turbopackIgnore: true*/ py, [script, configPath], { cwd: process.cwd() });
@@ -27,6 +30,13 @@ export function runPythonRenderer(
       child.kill();
     }, limitMs);
 
+    let cancelled = false;
+    const onAbort = () => {
+      cancelled = true;
+      child.kill();
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+
     // Progress lines would crowd the real error out of the tail kept for a failure.
     let err = "";
     const read = lineSplitter((line) => {
@@ -37,6 +47,7 @@ export function runPythonRenderer(
     child.stderr.on("data", read);
     child.on("error", (e) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       reject(
         new Error(
           `Could not start Python ("${py}"). The renderer needs Python with numpy, Pillow and imageio-ffmpeg. ${e.message}`
@@ -45,8 +56,11 @@ export function runPythonRenderer(
     });
     child.on("close", (code) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       read.end();
-      if (timedOut) {
+      if (cancelled) {
+        reject(new JobCancelledError());
+      } else if (timedOut) {
         reject(new Error(`The renderer was stopped after ${Math.round(limitMs / 60_000)} minutes.`));
       } else if (code === 0) resolve();
       else reject(new Error(`The renderer failed (exit ${code}). ${err.slice(-400)}`));
