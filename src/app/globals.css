@@ -811,3 +811,13 @@ mark.find-current {
   box-shadow: 0 0 0 2px var(--accent);
   border-radius: 3px;
 }
+
+/* Find in this chat marks text with the CSS Custom Highlight API, so no markup is added. */
+::highlight(chat-find) {
+  background-color: var(--mark-wash);
+  color: inherit;
+}
+::highlight(chat-find-current) {
+  background-color: var(--accent);
+  color: var(--bg);
+}

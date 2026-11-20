@@ -87,6 +87,32 @@ test("dialogs trap focus, close on Escape and restore focus", async ({ page }) =
   await expect(about).toBeFocused();
 });
 
+test("the command palette traps focus, keeps it in the field and restores it on Escape", async ({ page }) => {
+  const id = await createNotebook(page, "Palette focus notebook", true);
+  await page.goto(`/notebook/${id}`);
+  const question = page.getByRole("textbox", { name: "Question" });
+  await question.focus();
+  await page.keyboard.press("Control+k");
+  const dialog = page.getByRole("dialog", { name: "Command palette" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute("aria-modal", "true");
+
+  // Arrow keys move the highlighted option without moving focus out of the field.
+  const field = dialog.getByRole("combobox", { name: "Search commands" });
+  await expect(field).toBeFocused();
+  const first = await field.getAttribute("aria-activedescendant");
+  await page.keyboard.press("ArrowDown");
+  expect(await field.getAttribute("aria-activedescendant")).not.toBe(first);
+  await expect(field).toBeFocused();
+
+  for (let i = 0; i < 6; i++) await page.keyboard.press("Tab");
+  expect(await focusInDialog(page)).toBe(true);
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(question).toBeFocused();
+});
+
 test("a drag that ends on the backdrop does not close a dialog", async ({ page }) => {
   const id = await createNotebook(page, "Backdrop notebook");
   await page.goto(`/notebook/${id}`);

@@ -71,7 +71,7 @@ test.describe("mobile header at 390px", () => {
     await expect(more).toHaveAttribute("aria-expanded", "true");
     const items = menu.getByRole("menuitem");
     await expect(items.first()).toBeFocused();
-    await expect(items).toHaveText([/Search/, /Screen helper/, /Models/, /Export notebook/, /Theme/, /Help & about/]);
+    await expect(items).toHaveText([/Search/, /Screen helper/, /Models/, /Export notebook/, /Theme/, /Command palette/, /Help & about/]);
     for (let i = 0; i < (await items.count()); i++) await expectTouchTarget(items.nth(i));
 
     await page.keyboard.press("ArrowDown");

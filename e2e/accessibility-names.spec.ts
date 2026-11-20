@@ -83,6 +83,11 @@ test("every visible control on the main screens has an accessible name", async (
   await check("about");
   await page.keyboard.press("Escape");
 
+  await page.keyboard.press("Control+k");
+  await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
+  await check("command palette");
+  await page.keyboard.press("Escape");
+
   await page.getByRole("banner").getByRole("button", { name: /^Models/ }).click();
   await expect(page.getByRole("dialog", { name: "Models" })).toBeVisible();
   await check("models");

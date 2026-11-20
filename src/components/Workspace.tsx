@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import CommandPalette from "./CommandPalette";
+import { isPaletteShortcut, type Command } from "@/lib/commands";
 import SourcesPanel from "./SourcesPanel";
 import SourceUpdates, { type PendingUpdate } from "./SourceUpdates";
 import ChatPanel from "./ChatPanel";
@@ -31,13 +34,13 @@ import TransformationsModal from "./TransformationsModal";
 import LibraryModal from "./LibraryModal";
 import AboutModal from "./AboutModal";
 import ShortcutsModal from "./ShortcutsModal";
-import { shortcutFor } from "@/lib/shortcuts";
+import { SHORTCUTS, shortcutFor } from "@/lib/shortcuts";
 import DiscussionModal from "./DiscussionModal";
 import ScreenHelperModal from "./ScreenHelperModal";
 import { CitationContext } from "./CitationContext";
 import { useDeferredDelete } from "./UndoToast";
 import type { SourceHighlight } from "./SourceModal";
-import { studioIcon, studioLabel } from "@/lib/studio";
+import { STUDIO, studioIcon, studioLabel } from "@/lib/studio";
 import type {
   Artifact,
   ArtifactSummary,
@@ -83,6 +86,8 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
   const [pickingModel, setPickingModel] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const router = useRouter();
   const [helperOpen, setHelperOpen] = useState(false);
   /** Open live discussion, with the focus it started from. */
   const [discussing, setDiscussing] = useState<{ focus: string } | null>(null);
@@ -240,6 +245,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         pickingModel ||
         aboutOpen ||
         shortcutsOpen ||
+        paletteOpen ||
         showUpdates ||
         openNoteId ||
         managingTransformations ||
@@ -255,6 +261,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
     pickingModel,
     aboutOpen,
     shortcutsOpen,
+    paletteOpen,
     showUpdates,
     openNoteId,
     managingTransformations,
@@ -314,6 +321,22 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       // On a narrow screen the chat may be on another tab.
       setTab("chat");
       setTimeout(() => find()?.focus(), 50);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Ctrl/Cmd+K opens the command palette from anywhere, even while typing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!isPaletteShortcut(e) || e.repeat) return;
+      e.preventDefault();
+      setPaletteOpen((open) => {
+        if (open) return false;
+        // Not on top of another dialog; the palette would have to close it first.
+        if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return false;
+        return true;
+      });
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -608,12 +631,87 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
       testId: "theme-menu-item",
     },
     {
+      key: "palette",
+      label: "Command palette",
+      detail: "Ctrl+K · find any action, format or source",
+      icon: <SearchIcon />,
+      onSelect: () => setPaletteOpen(true),
+    },
+    {
       key: "help",
       label: "Help & about",
       icon: <HelpIcon />,
       onSelect: () => setAboutOpen(true),
     },
   ];
+
+  const focusQuestion = () => {
+    const find = () => document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Question"]');
+    setTab("chat");
+    setTimeout(() => find()?.focus(), 60);
+  };
+  /** Bring the Studio forward and put focus on one format's Generate button, when it is on screen. */
+  const goToFormat = (type: string) => {
+    setRight("studio");
+    setTab("studio");
+    setTimeout(() => {
+      const button = document.querySelector<HTMLElement>(`button[aria-label="Generate ${STUDIO[type as keyof typeof STUDIO].label}"]`);
+      button?.scrollIntoView({ block: "center" });
+      button?.focus();
+    }, 150);
+  };
+
+  const commands: Command[] = paletteOpen
+    ? [
+        { id: "ask", group: "Actions", label: "Ask a question", detail: "Jump to the question box", keys: "/", keywords: "chat focus", run: focusQuestion },
+        {
+          id: "find-chat",
+          group: "Actions",
+          label: "Find in this chat",
+          detail: "Search the conversation",
+          keywords: "search messages",
+          run: () => {
+            setTab("chat");
+            setTimeout(() => window.dispatchEvent(new Event("infiniaibook:chat-find")), 60);
+          },
+        },
+        { id: "add-sources", group: "Actions", label: "Add sources", detail: "Upload files, add a link or paste text", keywords: "upload import", run: showSources },
+        { id: "choose-sources", group: "Actions", label: "Choose sources", detail: "Tick the sources Chat and Studio use", keywords: "select", run: chooseSources },
+        { id: "studio", group: "Actions", label: "Go to Studio", detail: "Create reports, audio, video and more", run: () => { setRight("studio"); setTab("studio"); } },
+        { id: "notes", group: "Actions", label: "Go to Notes", run: () => { setRight("notes"); setTab("notes"); } },
+        { id: "search", group: "Actions", label: "Search all notebooks", keywords: "find", run: () => router.push(`/search?notebookId=${notebookId}`) },
+        { id: "home", group: "Actions", label: "Back to all notebooks", keywords: "home list", run: () => router.push("/") },
+        { id: "export", group: "Actions", label: "Export this notebook", detail: "Download as a zip", keywords: "download backup", run: () => void exportNotebook() },
+        { id: "models", group: "Actions", label: "Choose the chat model", detail: model ? `Now: ${model}` : undefined, keywords: "provider", run: () => setPickingModel(true) },
+        { id: "theme", group: "Actions", label: `Switch theme (now ${theme.label})`, keywords: "dark light appearance", run: theme.cycle },
+        { id: "helper", group: "Actions", label: "Screen helper", detail: "Get coached through an app", run: () => setHelperOpen(true) },
+        { id: "help", group: "Actions", label: "Help and about", keywords: "documentation", run: () => setAboutOpen(true) },
+        ...(Object.keys(STUDIO) as (keyof typeof STUDIO)[]).map(
+          (type): Command => ({
+            id: `studio-${type}`,
+            group: "Studio",
+            label: STUDIO[type].label,
+            detail: STUDIO[type].blurb,
+            keywords: `generate create make ${type}`,
+            run: () => goToFormat(type),
+          }),
+        ),
+        ...sources.map(
+          (s): Command => ({ id: `source-${s.id}`, group: "Sources", label: s.title, detail: s.summary?.trim() || undefined, keywords: `source open read ${s.kind}`, run: () => openSource(s.id) }),
+        ),
+        ...SHORTCUTS.map(
+          (s, i): Command => ({
+            id: `shortcut-${i}`,
+            group: "Shortcuts",
+            label: `${s.keys.join(" + ")}: ${s.does}`,
+            detail: s.where,
+            keys: s.keys.join("+"),
+            keywords: "keyboard keys",
+            run: () => setShortcutsOpen(true),
+          }),
+        ),
+      ]
+    : [];
 
   return (
     <CitationContext.Provider value={openCitation}>
@@ -1092,6 +1190,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
         />
       )}
       {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
+      {paletteOpen && <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} />}
       {helperOpen && (
         <ScreenHelperModal
           notebookId={notebookId}
