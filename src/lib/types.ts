@@ -423,6 +423,8 @@ export type Source = {
   chars: number;
   summary: string | null;
   createdAt: number;
+  /** Labels that group sources; a tag works as a folder. */
+  tags?: string[];
 };
 
 export type Notebook = {

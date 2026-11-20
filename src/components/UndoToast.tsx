@@ -10,6 +10,8 @@ export type DeferredDelete = {
   label: string;
   /** The request that actually deletes it. */
   url: string;
+  /** Several requests, for a batch (bulk delete). All must succeed for `onCommitted(true)`. */
+  urls?: string[];
   /** Restore whatever was hidden optimistically. */
   onUndo: () => void;
   /** After the delete has gone through (or failed). */
@@ -41,8 +43,8 @@ export function UndoProvider({ children }: { children: React.ReactNode }) {
     if (!item) return;
     clearTimeout(item.timer);
     sync(pendingRef.current.filter((p) => p.id !== id));
-    void fetch(item.url, { method: "DELETE", keepalive })
-      .then((r) => item.onCommitted?.(r.ok))
+    void Promise.all((item.urls ?? [item.url]).map((u) => fetch(u, { method: "DELETE", keepalive })))
+      .then((rs) => item.onCommitted?.(rs.every((r) => r.ok)))
       .catch(() => item.onCommitted?.(false));
   }, []);
 

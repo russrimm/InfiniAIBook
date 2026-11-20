@@ -6,6 +6,7 @@ import { forgetTraining, resumeStalledTrainings } from "@/lib/trainingbuild";
 import { reconcileStalledPodcasts } from "@/lib/podcaststore";
 import { listSessions, sessionMessages } from "@/lib/sessions";
 import { listNotes } from "@/lib/notes";
+import { parseTags } from "@/lib/tags";
 import { MAX_UPLOAD_BYTES } from "@/lib/limits";
 import { readNarration } from "@/lib/narration";
 import { notebookNarration, saveNotebookNarration } from "@/lib/narrationstore";
@@ -18,6 +19,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 type NbRow = { id: string; title: string; emoji: string; created_at: number; live_learn: number };
 type SrcRow = {
+  tags: string | null;
   id: string;
   title: string;
   kind: string;
@@ -57,7 +59,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 
     const sourceRows = db
       .prepare(
-        `SELECT id, title, kind, url, chars, summary, created_at
+        `SELECT id, title, kind, url, chars, summary, created_at, tags
          FROM sources WHERE notebook_id = ? ORDER BY created_at`
       )
       .all(id) as unknown as SrcRow[];
@@ -94,6 +96,7 @@ export async function GET(_req: Request, { params }: Ctx) {
         chars: s.chars,
         summary: s.summary,
         createdAt: s.created_at,
+        tags: parseTags(s.tags),
       })),
       artifacts: artifactRows.map((a) => ({
         id: a.id,

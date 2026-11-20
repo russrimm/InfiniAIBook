@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { ok, fail, readBody } from "@/lib/http";
 import { MAX_TITLE_CHARS } from "@/lib/limits";
+import { normalizeTags, serializeTags } from "@/lib/tags";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -51,11 +52,23 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   }
 }
 
-/** Rename a source. Only the title changes; its text, passages and embeddings are untouched. */
+/**
+ * Rename a source (`title`) or set its tags (`tags`, a list of up to 8). Its
+ * text, passages and embeddings are untouched.
+ */
 export async function PATCH(req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
-    const body = await readBody<{ title?: unknown }>(req);
+    const body = await readBody<{ title?: unknown; tags?: unknown }>(req);
+    if (body.tags !== undefined && body.title === undefined) {
+      if (!Array.isArray(body.tags) && typeof body.tags !== "string") {
+        return NextResponse.json({ error: "Send tags as a list of names.", code: "invalid" }, { status: 400 });
+      }
+      const tags = normalizeTags(body.tags);
+      const changed = db.prepare("UPDATE sources SET tags = ? WHERE id = ?").run(serializeTags(tags), id).changes;
+      if (!changed) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return ok({ id, tags });
+    }
     const title = typeof body.title === "string" ? body.title.replace(/\s+/g, " ").trim().slice(0, MAX_TITLE_CHARS) : "";
     if (!title) return NextResponse.json({ error: "Give the source a name.", code: "invalid" }, { status: 400 });
 

@@ -20,6 +20,33 @@ summary or re-import the source.
 
 **Rename** (the pencil on a row) changes only the source's name. Its text, passages and embeddings are untouched, so nothing needs re-indexing; Enter saves and Escape cancels. A name like "Untitled" or a long page title is easy to fix this way, and the new name appears in citations and exports from then on. Once a notebook has six or more sources, a **Filter sources** box at the top of the list narrows it by name or synopsis. The filter only hides rows: hidden sources keep their ticks, so Chat and Studio still use whatever is ticked.
 
+### Tags (folders) and bulk actions
+
+A **tag** is a label that groups sources, and works as a folder: give related
+sources the same tag ("Interviews", "2024 filings") and show only that group.
+A source can carry up to 8 tags (32 characters each, case ignored), so it can sit
+in several groups at once.
+
+- **Tag one source:** the **#** button on a row opens its tags as a comma-separated
+  list. Enter or **Save tags** keeps them, Escape cancels.
+- **Filter by tag:** once any source has a tag, a row of tag buttons appears above
+  the list with how many sources carry each. Click one to show only those; click it
+  again or **All** to show everything. Clicking a tag on a row does the same. A tag
+  filter, like the text filter, only hides rows and never changes what is ticked.
+- **Select by filter:** while a filter or tag is showing, **Tick these** adds the
+  showing sources to the ticked ones and **Only these** ticks exactly them. That is how
+  you make Chat and Studio use one group.
+- **Manage** (next to *Select all*) opens a bar that acts on the sources that are
+  both ticked and showing:
+  - **Add tag** and **Remove tag** change many sources at once. The result says how many
+    changed ("Tagged 12 sources “Papers”") and **Undo** puts every tag back as it was.
+    A source that already has 8 tags is skipped and the message says so.
+  - **Delete…** asks first, then removes them all. One **Undo** (for a few seconds)
+    brings every one back, like deleting a single source.
+
+Tags are stored with the source and travel in notebook exports and imports. Notebooks
+and exports made before tags existed work unchanged.
+
 ## Adding sources
 
 Open **Add sources** in the notebook header. Use **Drop files or click to

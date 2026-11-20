@@ -165,6 +165,8 @@ function migrate(db: DatabaseSync) {
     ["pending_hash", "TEXT"],
     ["pending_title", "TEXT"],
     ["pending_at", "INTEGER"],
+    // JSON array of tags; NULL when there are none (see tags.ts).
+    ["tags", "TEXT"],
   ] as const) {
     if (!srcCols.includes(name)) {
       db.exec(`ALTER TABLE sources ADD COLUMN ${name} ${type}`);
