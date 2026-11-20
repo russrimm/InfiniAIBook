@@ -27,6 +27,36 @@ excerpt behind every `[n]` marker.
   answer, are never made when you reopen a chat, and are skipped silently if
   the call fails or the daily budget is spent.
 
+## Find in this chat
+
+The **🔍** button next to **＋ New** (or **Find in this chat** in the command palette) opens a
+search bar over the conversation as it is shown. It counts the matches ("3 of 12"),
+marks them all, and scrolls the current one into view. Enter goes to the next match,
+Shift+Enter to the previous, the **↑ / ↓** buttons do the same, and Escape closes the bar
+and puts focus back in the question box. Matching ignores case and looks at what is on the
+page (answers, your questions and citation text, not the Copy and Regenerate buttons); a
+phrase that is split by formatting, such as half in bold, is not found as one match. The
+matches are marked with the browser's CSS Custom Highlight API, so nothing in the chat
+changes; browsers without it select the current match instead.
+
+## Command palette
+
+**Ctrl+K** (**Cmd+K** on a Mac) opens a searchable list from anywhere in a notebook, even
+while you are typing in a field. Type a few words; every word must match. It lists:
+
+- **Actions:** ask a question, find in this chat, add or choose sources, go to Studio or
+  Notes, search all notebooks, export, choose the model, switch theme, screen helper, help.
+- **Studio:** every format by name; choosing one opens the Studio and puts focus on its
+  **Generate** button. It never starts a generation by itself.
+- **Sources:** each source in the notebook; choosing one opens it in the reader.
+- **Shortcuts:** the keyboard shortcuts, which open the full list.
+
+Up and Down move through the results, Home and End jump to the ends, Enter runs the choice
+and Escape closes the palette and returns focus to where you were. It is a combobox with a
+listbox: a screen reader hears how many results there are and the option that is current
+while focus stays in the field. It will not open on top of another dialog. The same command
+is in the **⋯ More** menu as **Command palette**.
+
 ## Notes
 
 The right-hand column switches between **Studio** and **Notes** (on phones,

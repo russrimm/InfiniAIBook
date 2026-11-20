@@ -3,6 +3,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "./Markdown";
 import GettingStarted from "./GettingStarted";
+import ChatFind from "./ChatFind";
 import { useCitationHandler } from "./CitationContext";
 import { useConfirm } from "./ConfirmDialog";
 import { useDeferredDelete } from "./UndoToast";
@@ -524,6 +525,17 @@ export default function ChatPanel({
   const disabled = !liveLearn && sources.length === 0;
   /** Sources exist but none is ticked: nothing to ground an answer in. */
   const noneSelected = !liveLearn && !disabled && selectedIds.length === 0;
+  const [findOpen, setFindOpen] = useState(false);
+  const closeFind = useCallback(() => {
+    setFindOpen(false);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }, []);
+  // The command palette asks for Find through an event, so the two stay decoupled.
+  useEffect(() => {
+    const open = () => setFindOpen(true);
+    window.addEventListener("infiniaibook:chat-find", open);
+    return () => window.removeEventListener("infiniaibook:chat-find", open);
+  }, []);
   const blocked = disabled || noneSelected;
   /** No chat has ever been started here, so the getting-started steps still help. */
   const firstRun = sessionList.length === 0;
@@ -582,6 +594,16 @@ export default function ChatPanel({
         >
           ＋ New
         </button>
+        <button
+          className="btn shrink-0 !px-2 !py-1 !text-[11px]"
+          disabled={messages.length === 0}
+          aria-pressed={findOpen}
+          onClick={() => (findOpen ? closeFind() : setFindOpen(true))}
+          title="Find in this chat"
+          aria-label="Find in this chat"
+        >
+          <span aria-hidden>🔍</span>
+        </button>
         {sessionId && (
           <>
             <button
@@ -617,6 +639,13 @@ export default function ChatPanel({
           </>
         )}
       </div>
+      {findOpen && (
+        <ChatFind
+          scrollRef={scrollRef}
+          contentKey={`${sessionId}:${messages.length}:${messages[messages.length - 1]?.content.length ?? 0}`}
+          onClose={closeFind}
+        />
+      )}
       <div
         ref={scrollRef}
         onScroll={onScroll}

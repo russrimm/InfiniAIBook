@@ -2,6 +2,13 @@
 export const SHORTCUTS: { keys: string[]; does: string; where: string }[] = [
   { keys: ["?"], does: "Show this list", where: "Anywhere in a notebook" },
   { keys: ["/"], does: "Jump to the question box", where: "Anywhere in a notebook" },
+  { keys: ["Ctrl", "K"], does: "Open the command palette (Cmd+K on a Mac)", where: "Anywhere in a notebook" },
+  { keys: ["↑"], does: "Move to the previous result", where: "Command palette" },
+  { keys: ["↓"], does: "Move to the next result", where: "Command palette" },
+  { keys: ["Enter"], does: "Run the chosen command", where: "Command palette" },
+  { keys: ["Enter"], does: "Go to the next match", where: "Find in this chat" },
+  { keys: ["Shift", "Enter"], does: "Go to the previous match", where: "Find in this chat" },
+  { keys: ["Esc"], does: "Close Find and return to the question box", where: "Find in this chat" },
   { keys: ["Enter"], does: "Send the question", where: "Question box" },
   { keys: ["Shift", "Enter"], does: "Start a new line", where: "Question box" },
   { keys: ["Esc"], does: "Close the open dialog, or cancel a rename or edit", where: "Dialogs and inline forms" },
