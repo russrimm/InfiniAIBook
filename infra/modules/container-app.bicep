@@ -159,7 +159,7 @@ resource containerApp 'Microsoft.App/containerApps@2025-07-01' = {
             {
               type: 'Liveness'
               httpGet: {
-                path: '/api/auth/status'
+                path: '/api/health'
                 port: appPort
               }
               initialDelaySeconds: 10
@@ -168,7 +168,7 @@ resource containerApp 'Microsoft.App/containerApps@2025-07-01' = {
             {
               type: 'Readiness'
               httpGet: {
-                path: '/api/auth/status'
+                path: '/api/health'
                 port: appPort
               }
               initialDelaySeconds: 10
