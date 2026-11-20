@@ -9,6 +9,8 @@ checkbox to choose whether Chat and Studio use it. **Pin** keeps the panel open
 while you work elsewhere; the close button or Escape collapses an unpinned
 panel.
 
+Inside the reader, **Find** searches the source's text: matches are highlighted, the first is scrolled into view, and Enter or the up and down buttons step to the next or previous one (Shift+Enter goes back). The count shows `2 of 12` (`500+` once a search matches more than 500 places). The first Escape clears the search; the next closes the reader.
+
 **Add sources** in the header opens the same panel with upload tools expanded.
 You can also expand or hide those tools inside the panel without losing an
 unfinished link or pasted-text draft. On narrow screens, the **Sources** tab
