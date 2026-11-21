@@ -34,9 +34,11 @@ jobs:
       - name: URL-fetch safety tests
         run: npm run check:ssrf
       - name: Dependency audit (production, high severity)
-        # Reports high-severity findings as a warning annotation and never
-        # fails the job: today's findings (undici, @azure/identity, pptxgenjs)
-        # predate this step. Switch the `exit 0` below to `exit 1` once clean.
+        # Reports high-severity findings as a warning annotation and does not
+        # fail the job, so a newly published advisory cannot block every merge
+        # while a fix is prepared. The production tree is clean today (the
+        # image-size advisories behind pptxgenjs are fixed by the override in
+        # package.json); switch the `exit 0` below to `exit 1` to make it a gate.
         run: |
           if npm audit --omit=dev --audit-level=high > audit.log 2>&1; then
             cat audit.log

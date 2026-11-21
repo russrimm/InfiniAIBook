@@ -12,6 +12,7 @@ import { SUBLINE, TAGLINE } from "@/lib/brand";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { useDeferredDelete } from "@/components/UndoToast";
+import NotebookList from "@/components/NotebookList";
 
 export default function Home() {
   const router = useRouter();
@@ -140,10 +141,10 @@ export default function Home() {
     <main className="mx-auto min-h-screen w-full max-w-6xl px-6 py-14">
       <nav
         aria-label="Primary"
-        className="mb-14 flex items-center justify-between gap-4"
+        className="mb-14 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
       >
         <div className="shrink-0 text-lg font-semibold tracking-tight">InfiniAIBook</div>
-        <div className="flex flex-wrap items-center justify-end gap-x-1 gap-y-0.5 text-[13px]">
+        <div className="-mx-3 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[13px] sm:mx-0 sm:justify-end">
           <Link
             href="/search"
             className="rounded-lg px-3 py-1.5 whitespace-nowrap text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
@@ -324,65 +325,13 @@ export default function Home() {
           </button>
         </div>
       ) : (
-        <section aria-labelledby="nb-heading">
-          <h2
-            id="nb-heading"
-            className="mb-4 text-sm font-medium text-[var(--muted)]"
-          >
-            Your notebooks · {visible.length}
-          </h2>
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {visible.map((n) => (
-              <li
-                key={n.id}
-                className="card fade-up group relative p-5 transition focus-within:border-line-hover hover:border-line-hover"
-              >
-                <div aria-hidden className="mb-4 text-3xl">
-                  {n.emoji}
-                </div>
-                <h3 className="mb-1 line-clamp-2 pr-14 font-medium">
-                  {/* The link's overlay makes the whole card the target, while the
-                    delete button stays a separate control rather than nested. */}
-                  <Link
-                    href={`/notebook/${n.id}`}
-                    className="rounded outline-none after:absolute after:inset-0 after:rounded-[14px] after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-[var(--accent)]"
-                  >
-                    {n.title}
-                  </Link>
-                </h3>
-                <p className="text-xs text-[var(--muted)]">
-                  {n.sourceCount ?? 0} source{n.sourceCount === 1 ? "" : "s"} ·
-                  Created{" "}
-                  {new Date(n.createdAt).toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </p>
-                <button
-                  aria-label={`Delete notebook ${n.title}`}
-                  title="Delete notebook"
-                  className="absolute top-3 right-3 z-10 flex size-9 items-center justify-center rounded-lg text-[var(--muted)] transition hover:bg-hover hover:text-red-400"
-                  onClick={() => void remove(n.id, n.title)}
-                >
-                  <svg
-                    aria-hidden="true"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M5 6l1 14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1l1-14M10 10v7M14 10v7" />
-                  </svg>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <NotebookList
+          notebooks={visible}
+          onDelete={(id, title) => void remove(id, title)}
+          onRenamed={(id, title) =>
+            setNotebooks((list) => list?.map((n) => (n.id === id ? { ...n, title } : n)) ?? list)
+          }
+        />
       )}
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
       {helperOpen && <ScreenHelperModal onClose={() => setHelperOpen(false)} />}
