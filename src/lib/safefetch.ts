@@ -140,6 +140,11 @@ export async function assertPublicUrl(raw: string): Promise<URL> {
       `Only http and https addresses can be fetched, not ${u.protocol.replace(":", "")}.`
     );
   }
+  // fetch refuses these itself; saying so here keeps the guard from depending
+  // on that, and gives a readable message instead of "fetch failed".
+  if (u.username || u.password) {
+    throw new BlockedHostError("Web addresses with a username or password in them cannot be fetched.");
+  }
   if (ALLOW_PRIVATE) return u;
 
   const host = u.hostname.replace(/^\[|\]$/g, "");
@@ -225,12 +230,21 @@ function agent(): Agent {
 }
 
 /** `fetch` whose connections resolve through `pinnedLookup`. */
-function pinnedFetch(url: string, init: RequestInit): Promise<Response> {
+async function pinnedFetch(url: string, init: RequestInit): Promise<Response> {
   if (ALLOW_PRIVATE) return fetch(url, init);
-  return undiciFetch(url, {
-    ...(init as Parameters<typeof undiciFetch>[1]),
-    dispatcher: agent(),
-  }) as unknown as Promise<Response>;
+  try {
+    return (await undiciFetch(url, {
+      ...(init as Parameters<typeof undiciFetch>[1]),
+      dispatcher: agent(),
+    })) as unknown as Response;
+  } catch (e) {
+    // fetch wraps a failure inside the connection as `TypeError: fetch failed`.
+    // When the cause is the lookup refusing an address, report that, not the wrapper.
+    for (let c: unknown = e, depth = 0; c && depth < 8; c = (c as { cause?: unknown }).cause, depth++) {
+      if (c instanceof BlockedHostError) throw c;
+    }
+    throw e;
+  }
 }
 
 /**
