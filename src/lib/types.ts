@@ -433,6 +433,8 @@ export type Notebook = {
   emoji: string;
   createdAt: number;
   sourceCount?: number;
+  /** Home list only: the latest of creation and anything added since. */
+  lastActivity?: number;
   liveLearn?: boolean;
   /** Saved narration defaults for the spoken Studio formats (detail view only). */
   narration?: NarrationSettings;
