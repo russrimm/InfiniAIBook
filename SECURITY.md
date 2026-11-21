@@ -106,14 +106,20 @@ mind before running it anywhere other than your own machine:
 - **Secrets stay in `.env.local`.** It is git-ignored. Prefer Microsoft Entra ID
   (`az login` or a managed identity) over API keys for Azure services.
 - **Model spend has a daily ceiling.** When a cloud provider is configured and
-  `DAILY_BUDGET_USD` is unset, estimated chat, image, speech and discussion
-  calls stop at $25 per UTC day. Set `DAILY_BUDGET_USD=0` to turn that off, or
-  another number to change it. Local model endpoints are unlimited unless you
-  set a ceiling. Export a notebook from its header if you want a copy outside
-  `.data`.
-- **Data is stored unencrypted** under `DATA_DIR` (default `./.data`): sources,
+  `DAILY_BUDGET_USD` is unset, estimated chat, image, speech, discussion, video
+  and image-description calls stop at $25 per UTC day. The ceiling uses rough
+  price estimates, not your provider's bill. Set `DAILY_BUDGET_USD=0` to turn
+  it off (only an explicit 0 does; a value that is not a number uses the
+  default), or another number to change it. Local model endpoints are
+  unlimited unless you set a ceiling.
+- **Data is stored unencrypted** under `DATA_DIR` (`./.data` when you run it
+  yourself, `/data` in the Docker image and the Azure deployment): sources,
   embeddings, chat history and generated media. Protect that directory as you
-  would the documents themselves.
+  would the documents themselves. Export a notebook from its header, or use
+  **Backup** on the home page, if you want a copy outside it. On the Azure
+  deployment the data lives on a private NFS file share: encrypted at rest, not
+  encrypted in transit (NFS has none), and reachable only through a private
+  endpoint inside the app's virtual network.
 - **`YOUTUBE_COOKIE` is a live session credential** for a Google account. Use a
   throwaway account if you set it at all.
 - **Builds and releases are pinned.** Every GitHub Action is pinned to a full
@@ -125,3 +131,23 @@ mind before running it anywhere other than your own machine:
   should keep a required reviewer and be limited to the `main` branch in the
   repository's environment settings. `docker-compose.yml` drops all Linux
   capabilities and sets `no-new-privileges` for the container.
+
+## Deploying beyond your own machine
+
+- **Always set `INFINIAIBOOK_PASSWORD`** (and a long random
+  `INFINIAIBOOK_SESSION_SECRET`) before the server is reachable by anyone else.
+  The Docker image listens on every interface inside the container; the
+  compose file publishes it on `127.0.0.1` only. Publish it further only behind
+  HTTPS.
+- **`ALLOWED_HOSTS=*` accepts any `Host` header.** With a password set that is
+  fine, because the password is what protects the app. Without one it removes
+  the DNS-rebinding protection, so list real hostnames instead.
+- **`TRUST_PROXY=true` makes the app believe the proxy's headers**
+  (`X-Forwarded-Host`, `X-Forwarded-Proto`, the last `X-Forwarded-For` entry).
+  Set it only when a proxy you control sits in front and overwrites or appends
+  those headers, never when clients can reach the app directly: they could then
+  choose their own host, protocol and address.
+- **What watches this repository:** CodeQL on every pull request, Dependabot
+  version and security updates, GitHub secret scanning with push protection,
+  and a CI check that the lockfile resolves only from the public npm registry.
+  Report anything they miss through the private reporting link above.
