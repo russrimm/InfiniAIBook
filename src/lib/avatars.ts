@@ -437,11 +437,19 @@ export const AVATAR_PRESETS: Record<string, AvatarPreset> = {
     photoModel: "vasa-2",
   },
 };
-/** The picture shown for a presenter in the gallery. */
-export const avatarPicture = (key: string): string =>
-  AVATAR_PRESETS[key]?.photo ? `/avatars/${key}.jpg` : `/avatars/${key}.png`;
-
 export const DEFAULT_PRESENTER = "lisa-casual";
+
+const AVATAR_PICTURES = new Map(
+  Object.entries(AVATAR_PRESETS).map(([key, p]) => [key, `/avatars/${key}.${p.photo ? "jpg" : "png"}`]),
+);
+
+/**
+ * The picture shown for a presenter in the gallery. Only keys of known
+ * presenters produce a path, so a stale or hand-edited key cannot point the
+ * image somewhere else; it shows the default presenter instead.
+ */
+export const avatarPicture = (key: string): string =>
+  AVATAR_PICTURES.get(key) ?? `/avatars/${DEFAULT_PRESENTER}.png`;
 
 /** Presenters that can be rendered today; what the pickers offer. */
 export const PRESENTER_ENTRIES = Object.entries(AVATAR_PRESETS).filter(([, p]) =>

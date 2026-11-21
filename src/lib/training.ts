@@ -2,6 +2,7 @@ import { retrieve, sampleCorpus, type Passage } from "./retrieve";
 import { AUDIO_LENGTHS, type AudioLength } from "./voices";
 import { cleanStyle, voiceServiceName } from "./voicecatalog";
 import { addBreaths } from "./prosody";
+import { stripTags } from "./htmltext";
 import {
   cleanGesture,
   gestureBookmark,
@@ -103,11 +104,11 @@ export async function researchPassages(
 
 /** Strip anything that the voice would read aloud or the subtitles would show. */
 export function cleanSpoken(text: string): string {
-  return text
+  const unmarked = text
     .replace(/\[\d+\](?:\[\d+\])*/g, "")
     .replace(/\[(?:[A-Z][A-Z \-]{1,18}(?::[^\]]*)?)\]/g, "")
-    .replace(/\((?:laughs?|chuckles?|smiles?|sighs?|pauses?|beat|music|sfx)[^)]*\)/gi, "")
-    .replace(/<\/?[a-z][^<>]*>/gi, "")
+    .replace(/\((?:laughs?|chuckles?|smiles?|sighs?|pauses?|beat|music|sfx)[^)]*\)/gi, "");
+  return stripTags(unmarked)
     .replace(/^\s*>+\s?/gm, "")
     .replace(/[*_`#]/g, "")
     .replace(/https?:\/\/\S+/gi, "")

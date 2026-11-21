@@ -18,6 +18,7 @@ import { escapeMarkdownText, fileStem } from "@/lib/infographic";
 import { exportErrorMessage, rasterize } from "@/lib/imageexport";
 import { buildPptx, slidesToMarkdown } from "@/lib/slides";
 import { scriptOf } from "@/lib/podcastscript";
+import { tableCell } from "@/lib/mdtable";
 import { CUE_KIND_LABELS } from "@/lib/trainingvisuals";
 import type {
   Artifact,
@@ -87,7 +88,7 @@ function toMarkdown(a: Artifact): string {
       // Two columns so the export can be imported by Anki, Quizlet and the
       // other tools that expect a delimited front/back pair.
       const rows = d.cards
-        .map((x) => `| ${x.front.replace(/\|/g, "\\|")} | ${x.back.replace(/\|/g, "\\|")} |`)
+        .map((x) => `| ${tableCell(x.front)} | ${tableCell(x.back)} |`)
         .join("\n");
       return `${head}${d.subtitle ? `${d.subtitle}\n\n` : ""}| Front | Back |\n|---|---|\n${rows}\n`;
     }
