@@ -80,6 +80,27 @@ test("a long notebook list can be searched, sorted and renamed in place", async 
   expect(list.every((n) => n.lastActivity >= n.createdAt)).toBe(true);
 });
 
+test("a notebook can be duplicated from its card, keeping its sources", async ({ page }) => {
+  const title = "Cloning reef survey";
+  const created = await page.request.post("/api/notebooks", { data: { title } });
+  const { id } = (await created.json()) as { id: string };
+  await page.request.post(`/api/notebooks/${id}/sources`, {
+    data: { title: "Reef counts", text: "Coral cover was measured at twelve sites. ".repeat(10) },
+  });
+  await page.goto("/");
+
+  await page.getByRole("button", { name: `Duplicate notebook ${title}` }).click();
+  await expect(page.getByRole("status").filter({ hasText: `Made “${title} (copy)”` })).toBeVisible();
+  await expect(page.getByRole("link", { name: `${title} (copy)` })).toBeVisible();
+
+  const list = (await (await page.request.get("/api/notebooks")).json()) as { id: string; title: string; sourceCount: number }[];
+  const copy = list.find((n) => n.title === `${title} (copy)`);
+  expect(copy?.id).not.toBe(id);
+  expect(copy?.sourceCount).toBe(1);
+  // The original is untouched.
+  expect(list.find((n) => n.id === id)).toMatchObject({ title, sourceCount: 1 });
+});
+
 test("a notebook opens from its card after searching", async ({ page }) => {
   await seed(page, ["Open me"]);
   await page.goto("/");

@@ -22,6 +22,9 @@ export default function Home() {
   const [importing, setImporting] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeRef = useRef<HTMLParagraphElement>(null);
   const [authOn, setAuthOn] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [helperOpen, setHelperOpen] = useState(false);
@@ -136,6 +139,28 @@ export default function Home() {
   };
 
   const visible = notebooks?.filter((n) => !hiddenNb.has(n.id)) ?? null;
+
+  const duplicate = async (id: string, title: string) => {
+    setDuplicatingId(id);
+    setCreateError(null);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/notebooks/${id}/duplicate`, { method: "POST" });
+      const j = (await res.json().catch(() => ({}))) as { id?: string; title?: string; error?: string };
+      if (!res.ok || !j.id) throw new Error(j.error);
+      await load();
+      setNotice(`Made “${j.title}”. The original is unchanged.`);
+      // On a long list the message may be above the fold; bring it into view.
+      requestAnimationFrame(() => noticeRef.current?.scrollIntoView({ block: "nearest" }));
+      setTimeout(() => setNotice(null), 8000);
+    } catch (e) {
+      setCreateError(
+        e instanceof Error && e.message ? e.message : `Could not duplicate “${title}”. Try again.`,
+      );
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl px-6 py-14">
@@ -252,6 +277,16 @@ export default function Home() {
         </p>
       )}
 
+      {notice && (
+        <p
+          ref={noticeRef}
+          role="status"
+          className="mb-6 rounded-xl border border-[var(--border)] bg-[var(--panel)] px-4 py-3 text-sm"
+        >
+          {notice}
+        </p>
+      )}
+
       {loadError && visible === null ? (
         <div
           role="alert"
@@ -328,6 +363,8 @@ export default function Home() {
         <NotebookList
           notebooks={visible}
           onDelete={(id, title) => void remove(id, title)}
+          onDuplicate={(id, title) => void duplicate(id, title)}
+          duplicatingId={duplicatingId}
           onRenamed={(id, title) =>
             setNotebooks((list) => list?.map((n) => (n.id === id ? { ...n, title } : n)) ?? list)
           }
