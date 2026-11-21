@@ -1,6 +1,6 @@
 # InfiniAIBook — self-contained production image.
 #   docker compose up -d        (see docker-compose.yml)
-# The app needs Node 22.5+ for the built-in node:sqlite module.
+# The app needs Node 22.13+ for the built-in node:sqlite module (package.json engines).
 
 FROM node:22.23.5-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS deps
 WORKDIR /app

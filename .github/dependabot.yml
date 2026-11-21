@@ -7,6 +7,20 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    # Majors held back on purpose; each needs something outside this repo first.
+    ignore:
+      # undici 8 requires Node >=22.19.0, but the app declares support for
+      # Node >=22.13 (package.json engines, README, docs). Revisit when that
+      # minimum is raised to 22.19 or later.
+      - dependency-name: undici
+        update-types: ["version-update:semver-major"]
+      # eslint-config-next (16.4.6 and the 16.5 canary) pulls in
+      # eslint-plugin-react and eslint-plugin-jsx-a11y, whose latest releases
+      # declare peer support only up to eslint 9, and eslint-plugin-import 2.32.0,
+      # which does too. Revisit when an eslint-config-next release installs
+      # cleanly against eslint 10 without overrides or --legacy-peer-deps.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
