@@ -28,10 +28,16 @@ export default function NotebookList({
   notebooks,
   onDelete,
   onRenamed,
+  onDuplicate,
+  duplicatingId = null,
 }: {
   notebooks: ListedNotebook[];
   onDelete: (id: string, title: string) => void;
   onRenamed: (id: string, title: string) => void;
+  /** Make a copy; the page does the request and refreshes the list. */
+  onDuplicate: (id: string, title: string) => void;
+  /** The notebook being copied right now, if any. */
+  duplicatingId?: string | null;
 }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<NotebookSort>("recent");
@@ -206,7 +212,7 @@ export default function NotebookList({
                   </div>
                 </form>
               ) : (
-                <h3 className="mb-1 line-clamp-2 pr-24 font-medium">
+                <h3 className="mb-1 line-clamp-2 pr-32 font-medium">
                   {/* The link's overlay makes the whole card the target, while the
                     rename and delete buttons stay separate controls rather than nested. */}
                   <Link
@@ -227,7 +233,7 @@ export default function NotebookList({
                   aria-label={`Rename notebook ${n.title}`}
                   title="Rename notebook"
                   data-rename={n.id}
-                  className="absolute top-3 right-12 z-10 flex size-9 items-center justify-center rounded-lg text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
+                  className="absolute top-3 right-[84px] z-10 flex size-9 items-center justify-center rounded-lg text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)]"
                   onClick={() => startRename(n)}
                 >
                   <svg
@@ -242,6 +248,33 @@ export default function NotebookList({
                     strokeLinejoin="round"
                   >
                     <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                </button>
+              )}
+              {editingId !== n.id && (
+                <button
+                  type="button"
+                  aria-label={`Duplicate notebook ${n.title}`}
+                  title={duplicatingId === n.id ? "Duplicating…" : "Duplicate notebook"}
+                  aria-busy={duplicatingId === n.id}
+                  disabled={duplicatingId !== null}
+                  className="absolute top-3 right-12 z-10 flex size-9 items-center justify-center rounded-lg text-[var(--muted)] transition hover:bg-hover hover:text-[var(--fg)] disabled:opacity-50"
+                  onClick={() => onDuplicate(n.id, n.title)}
+                >
+                  <svg
+                    aria-hidden="true"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={duplicatingId === n.id ? "animate-pulse" : undefined}
+                  >
+                    <rect x="9" y="9" width="12" height="12" rx="2" />
+                    <path d="M5 15V5a2 2 0 0 1 2-2h10" />
                   </svg>
                 </button>
               )}
