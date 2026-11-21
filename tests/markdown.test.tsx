@@ -13,8 +13,17 @@ describe("Markdown", () => {
     expect(html).toContain("open from attacker.example");
   });
 
-  it("loads images when explicitly allowed", () => {
-    expect(render("![cat](https://example.com/cat.png)", true)).toContain("<img");
+  it("loads only this app's own pictures when images are allowed", () => {
+    expect(render("![cat](/api/image/abc123_X-9)", true)).toContain('<img src="/api/image/abc123_X-9"');
+    // Another origin, an API route with side effects, and a `..` that resolves to one are not pictures.
+    for (const src of [
+      "https://example.com/cat.png",
+      "/api/browse?url=https://attacker.example/x",
+      "/api/image/../browse?url=https://attacker.example/x",
+      "/api/voices/preview?voice=en-US-AvaNeural",
+    ]) {
+      expect(render(`![x](${src})`, true), src).not.toContain("<img");
+    }
   });
 
   it("shows a link's host when the text hides it", () => {

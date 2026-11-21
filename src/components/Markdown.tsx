@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Citation } from "@/lib/types";
+import { isLocalImageUrl } from "@/lib/access";
 import { useCitationHandler } from "./CitationContext";
 
 const CITE = /\[(\d{1,2})\]/g;
@@ -141,7 +142,7 @@ function buildComponents(
     },
     img: ({ src, alt }) => {
       const url = typeof src === "string" ? src : undefined;
-      if (allowImages) {
+      if (allowImages && isLocalImageUrl(url)) {
         // eslint-disable-next-line @next/next/no-img-element
         return <img src={url} alt={alt ?? ""} />;
       }
