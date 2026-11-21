@@ -8,21 +8,21 @@ import {
   safeEqual,
 } from "@/lib/auth";
 
-import { FailureThrottle } from "@/lib/throttle";
+import { authThrottle, clientKey } from "@/lib/clientthrottle";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** See FailureThrottle: failures hold a shared queue for a growing delay. */
-const throttle = new FailureThrottle();
-
+/** Failures hold their own client's queue for a growing delay; see ClientThrottle. */
 export async function POST(req: Request) {
   const password = authPassword();
   if (!password) return NextResponse.json({ ok: true, auth: false });
 
   const body = (await req.json().catch(() => ({}))) as { password?: string };
 
-  if (throttle.saturated) {
+  const throttles = authThrottle();
+  const throttle = throttles.forClient(clientKey(req.headers));
+  if (throttle.saturated || throttles.overloaded) {
     return NextResponse.json(
       { error: "Too many failed sign-in attempts. Try again shortly.", code: "auth_throttled" },
       { status: 429 }

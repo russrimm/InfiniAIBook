@@ -42,7 +42,7 @@ also returns 400 with the reason.
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| GET | `/api/notebooks` | — | All notebooks with counts |
+| GET | `/api/notebooks` | — | All notebooks with `sourceCount` and `lastActivity` (ms; the newest of creation, a source, a chat message, a generated item or a note) |
 | POST | `/api/notebooks` | `{ title }` | The new notebook |
 | GET | `/api/notebooks/{id}` | — | Notebook, `sources`, `artifacts` (summaries), `sessions`, `notes`, and `messages` of the latest session |
 | PATCH | `/api/notebooks/{id}` | `{ title?, narration?, liveLearn? }` | Rename, save narration defaults, or persist the boolean live Microsoft Learn chat setting (off by default; also returned in notebook detail) |

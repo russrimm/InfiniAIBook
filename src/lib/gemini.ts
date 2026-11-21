@@ -11,6 +11,8 @@
  * transcribes the audio itself.
  */
 
+import { rates, reserve } from "./budget";
+
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 export const hasGemini = () => Boolean(process.env.GEMINI_API_KEY?.trim());
@@ -50,6 +52,9 @@ export async function transcribeYouTube(
 ): Promise<GeminiTranscript> {
   const model = geminiModel();
 
+  // A long video can bill tens of thousands of tokens, so it counts against the
+  // daily budget as a Studio-sized call.
+  reserve("transcribe", rates().studioCall);
   let res: Response;
   try {
     res = await fetch(`${BASE}/models/${model}:generateContent?key=${geminiKey()}`, {
