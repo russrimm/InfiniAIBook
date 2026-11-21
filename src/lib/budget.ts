@@ -50,16 +50,28 @@ export function cloudSpendLikely(): boolean {
   );
 }
 
-/** Daily ceiling in cents, or null when the ceiling is off. */
+/**
+ * Daily ceiling in cents, or null when the ceiling is off. Only an explicit 0
+ * turns it off. A value that is not a number (a typo such as "25 USD") must not
+ * do the same, or a mistake would silently remove the protection; it falls back
+ * to the default and says so once. A leading "$" is accepted.
+ */
 export function dailyBudgetCents(): number | null {
-  const raw = process.env.DAILY_BUDGET_USD;
-  if (raw !== undefined && raw.trim() !== "") {
-    const n = Number(raw);
-    if (!Number.isFinite(n) || n <= 0) return null;
-    return Math.round(n * 100);
+  const raw = process.env.DAILY_BUDGET_USD?.trim();
+  if (raw) {
+    const n = Number(raw.replace(/^\$/, ""));
+    if (Number.isFinite(n) && n >= 0) return n === 0 ? null : Math.round(n * 100);
+    if (!warnedBudget) {
+      warnedBudget = true;
+      console.warn(
+        `[budget] DAILY_BUDGET_USD="${raw.slice(0, 40)}" is not a number of dollars, so the default ceiling applies. Use a number such as 25, or 0 to turn the ceiling off.`
+      );
+    }
   }
   return cloudSpendLikely() ? 2500 : null;
 }
+
+let warnedBudget = false;
 
 export function budgetDay(now = Date.now()): string {
   return new Date(now).toISOString().slice(0, 10);
