@@ -32,6 +32,11 @@ export class FailureThrottle {
     return this.failures;
   }
 
+  /** Attempts currently waiting or being checked. */
+  get pendingCount(): number {
+    return this.pending;
+  }
+
   /**
    * Whether the queue is full. A flood of guesses would otherwise pile up
    * promises without limit; refusing with 429 keeps memory bounded and tells
