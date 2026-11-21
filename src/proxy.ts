@@ -1,9 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_COOKIE, authPassword, bearerAllowed, verifySessionToken } from "@/lib/auth";
 import { hostAllowed, isCrossSiteRead, isCrossSiteWrite, parseAllowedHosts } from "@/lib/access";
-import { FailureThrottle } from "@/lib/throttle";
-
-const bearerThrottle = new FailureThrottle();
+import { authThrottle, clientKey } from "@/lib/clientthrottle";
 
 function refuse(pathname: string, status: number, error: string, code: string) {
   if (pathname.startsWith("/api/")) {
@@ -95,11 +93,14 @@ export async function proxy(req: NextRequest) {
   const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (bearer) {
     // Bearer guesses go through the same back-off as /login, or they would be
-    // a way to try passwords at full speed.
-    if (bearerThrottle.saturated) {
+    // a way to try passwords at full speed. Each client has its own queue, so
+    // one host guessing does not slow everyone else's sign-in.
+    const throttles = authThrottle();
+    const throttle = throttles.forClient(clientKey(req.headers));
+    if (throttle.saturated || throttles.overloaded) {
       return refuse(pathname, 429, "Too many failed sign-in attempts. Try again shortly.", "auth_throttled");
     }
-    if (await bearerThrottle.attempt(() => bearerAllowed(bearer, password))) {
+    if (await throttle.attempt(() => bearerAllowed(bearer, password))) {
       return NextResponse.next();
     }
   }
