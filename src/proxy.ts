@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_COOKIE, authPassword, bearerAllowed, verifySessionToken } from "@/lib/auth";
-import { hostAllowed, isCrossSiteWrite, parseAllowedHosts } from "@/lib/access";
+import { hostAllowed, isCrossSiteRead, isCrossSiteWrite, parseAllowedHosts } from "@/lib/access";
 import { FailureThrottle } from "@/lib/throttle";
 
 const bearerThrottle = new FailureThrottle();
@@ -22,8 +22,10 @@ function refuse(pathname: string, status: number, error: string, code: string) {
  *    loopback names and ALLOWED_HOSTS are served, so a DNS-rebinding page
  *    cannot read this app from the user's own browser.
  *  - State-changing API requests a browser sends from another site are
- *    refused (CSRF). Clients that send no Origin / Sec-Fetch-Site are not
- *    browsers and pass.
+ *    refused (CSRF), and so are API reads another site started (a page you
+ *    visit could otherwise trigger a paid voice sample or a server-side fetch
+ *    with a plain audio or image element). Clients that send no Origin /
+ *    Sec-Fetch-Site are not browsers and pass.
  *
  * With INFINIAIBOOK_PASSWORD set, every page and API route requires either the
  * signed session cookie from /login or INFINIAIBOOK_API_TOKEN. The password is
@@ -63,6 +65,17 @@ export async function proxy(req: NextRequest) {
         secFetchSite: req.headers.get("sec-fetch-site"),
         origin: req.headers.get("origin"),
         sameHosts: [host ?? "", forwarded ?? ""],
+      })
+    ) {
+      return refuse(pathname, 403, "Cross-site request blocked.", "csrf");
+    }
+    if (
+      isCrossSiteRead({
+        method: req.method,
+        pathname,
+        secFetchSite: req.headers.get("sec-fetch-site"),
+        secFetchMode: req.headers.get("sec-fetch-mode"),
+        secFetchDest: req.headers.get("sec-fetch-dest"),
       })
     ) {
       return refuse(pathname, 403, "Cross-site request blocked.", "csrf");

@@ -12,7 +12,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: deploy-azure
@@ -22,6 +21,7 @@ env:
   AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
   AZURE_CONTAINER_APP: ${{ vars.AZURE_CONTAINER_APP }}
   AZURE_REGISTRY: ${{ vars.AZURE_REGISTRY }}
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
   deploy:
@@ -31,14 +31,20 @@ jobs:
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     environment: production
+    # Only this job signs in to Azure, so only it may request an OIDC token.
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ env.DEPLOY_SHA }}
+          persist-credentials: false
 
       - name: Sign in to Azure
-        uses: azure/login@v3
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -47,19 +53,20 @@ jobs:
       - name: Build the image in the registry
         id: image
         run: |
-          sha="${{ github.event.workflow_run.head_sha || github.sha }}"
-          tag="${sha:0:12}"
+          tag="${DEPLOY_SHA:0:12}"
           az acr build --registry "$AZURE_REGISTRY" \
             --image "infiniaibook:$tag" \
             --build-arg WITH_PYTHON=true --no-logs .
           echo "ref=$AZURE_REGISTRY.azurecr.io/infiniaibook:$tag" >> "$GITHUB_OUTPUT"
 
       - name: Roll the Container App to the new image
+        env:
+          IMAGE_REF: ${{ steps.image.outputs.ref }}
         run: |
           az containerapp update \
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --name "$AZURE_CONTAINER_APP" \
-            --image "${{ steps.image.outputs.ref }}" \
+            --image "$IMAGE_REF" \
             --revision-suffix "r${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}" \
             --output none
 

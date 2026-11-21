@@ -67,10 +67,31 @@ describe("proxy without a password", () => {
     expect(await res.json()).toEqual({ error: "Cross-site request blocked.", code: "csrf" });
   });
 
-  it("allows same-origin writes, reads from anywhere, and clients that send no origin", async () => {
+  it("allows same-origin writes, same-origin reads, and clients that send no origin", async () => {
     expect(passes(await call("/api/notebooks", { "sec-fetch-site": "same-origin", origin: "http://localhost:3000" }, "POST"))).toBe(true);
-    expect(passes(await call("/api/notebooks", { "sec-fetch-site": "cross-site" }, "GET"))).toBe(true);
+    expect(passes(await call("/api/notebooks", { "sec-fetch-site": "same-origin" }, "GET"))).toBe(true);
+    expect(passes(await call("/api/notebooks", { "sec-fetch-site": "none", "sec-fetch-mode": "navigate" }, "GET"))).toBe(true);
     expect(passes(await call("/api/notebooks", {}, "POST"))).toBe(true);
+    expect(passes(await call("/api/notebooks", {}, "GET"))).toBe(true);
+  });
+
+  it("blocks API reads another site started, such as a paid voice sample or a server-side fetch", async () => {
+    for (const path of ["/api/voices/preview?voice=x", "/api/browse?url=https://example.com", "/api/backup"]) {
+      for (const site of ["cross-site", "same-site"]) {
+        const res = await call(path, { "sec-fetch-site": site, "sec-fetch-mode": "no-cors", "sec-fetch-dest": "audio" });
+        expect(res.status, `${site} ${path}`).toBe(403);
+        expect(await res.json()).toEqual({ error: "Cross-site request blocked.", code: "csrf" });
+      }
+    }
+    // A frame is a navigation too, but not the top-level one a clicked link makes.
+    const frame = await call("/api/notebooks", { "sec-fetch-site": "cross-site", "sec-fetch-mode": "navigate", "sec-fetch-dest": "iframe" });
+    expect(frame.status).toBe(403);
+    expect(passes(await call("/api/notebooks", { "sec-fetch-site": "cross-site", "sec-fetch-mode": "navigate", "sec-fetch-dest": "document" }))).toBe(true);
+  });
+
+  it("keeps the health probe and pages readable from anywhere", async () => {
+    expect(passes(await call("/api/health", { "sec-fetch-site": "cross-site" }))).toBe(true);
+    expect(passes(await call("/notebook/abc", { "sec-fetch-site": "cross-site", "sec-fetch-mode": "navigate" }))).toBe(true);
   });
 
   it("does not apply the cross-site check to pages", async () => {

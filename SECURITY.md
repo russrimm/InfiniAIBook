@@ -20,7 +20,10 @@ mind before running it anywhere other than your own machine:
   loopback hostnames plus any in `ALLOWED_HOSTS`. That blocks DNS rebinding,
   where a page you visit re-points its own domain at your machine. Browsers are
   also refused when they send a state-changing API request (POST, PATCH,
-  DELETE) from another site (CSRF). `npm run dev:lan` / `npm run start:lan`
+  DELETE) from another site (CSRF), and when they read an API route that
+  another site started (for example through an audio or image element), since
+  some reads spend Speech quota or make the server fetch a URL. Only a clicked
+  top-level link is let through. `npm run dev:lan` / `npm run start:lan`
   listen on every interface; use them only with a password set.
   Setting the password puts every page and API route behind one shared password
   (`src/proxy.ts`). Browsers sign in at `/login` and get an HTTP-only
@@ -70,7 +73,9 @@ mind before running it anywhere other than your own machine:
   host. Only notes you write yourself render images. Every response also sends
   `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and
   `Referrer-Policy: no-referrer`,   and an enforced Content Security Policy that allows no remote images
-  (`next.config.ts`). Remote images in your own notes do not load. Live
+  (`next.config.ts`). Remote images in your own notes do not load, and a note's
+  image may only be one this app serves (`/api/image/<id>`), so an imported
+  note cannot point an image at an API route. Live
   discussions may connect to the configured Azure OpenAI or OpenAI realtime
   host; other remote connections are refused. The in-app browser does not frame
   this app's own origin or a loopback address.
@@ -87,3 +92,12 @@ mind before running it anywhere other than your own machine:
   would the documents themselves.
 - **`YOUTUBE_COOKIE` is a live session credential** for a Google account. Use a
   throwaway account if you set it at all.
+- **Builds and releases are pinned.** Every GitHub Action is pinned to a full
+  commit SHA and the Docker base image to a digest; Dependabot's
+  `github-actions` and `docker` updates propose newer ones as pull requests, so
+  review those like any dependency change. CI jobs do not keep the checkout
+  token and have time limits, and only the deploy job may request an Azure
+  sign-in token (OIDC). That job runs in the `production` environment, which
+  should keep a required reviewer and be limited to the `main` branch in the
+  repository's environment settings. `docker-compose.yml` drops all Linux
+  capabilities and sets `no-new-privileges` for the container.

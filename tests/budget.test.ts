@@ -28,6 +28,21 @@ describe("dailyBudgetCents", () => {
     process.env.OPENAI_API_KEY = "sk-test";
     expect(dailyBudgetCents()).toBeNull();
   });
+
+  it("reads dollars, with an optional leading $", () => {
+    process.env.DAILY_BUDGET_USD = "$12.50";
+    expect(dailyBudgetCents()).toBe(1250);
+    process.env.DAILY_BUDGET_USD = "40";
+    expect(dailyBudgetCents()).toBe(4000);
+  });
+
+  it("does not let a mistyped ceiling turn the ceiling off", () => {
+    process.env.OPENAI_API_KEY = "sk-test";
+    for (const typo of ["25 USD", "twenty", "-5", "NaN", "25,00"]) {
+      process.env.DAILY_BUDGET_USD = typo;
+      expect(dailyBudgetCents(), typo).toBe(2500);
+    }
+  });
 });
 
 describe("reserve", () => {

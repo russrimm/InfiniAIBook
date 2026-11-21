@@ -17,6 +17,7 @@ import {
   MAX_UPLOAD_BYTES,
   mb,
 } from "./limits";
+import { envInt } from "./envnumber";
 
 export type Extracted = { title: string; text: string; kind: string };
 
@@ -467,7 +468,7 @@ export const FETCH_HEADERS = {
   "accept-language": "en-US,en;q=0.9",
 };
 
-const FETCH_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS || 20000);
+const FETCH_TIMEOUT_MS = envInt("FETCH_TIMEOUT_MS", 20000);
 
 function hostOf(url: string): string {
   try {
