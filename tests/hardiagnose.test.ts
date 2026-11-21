@@ -104,6 +104,72 @@ describe("redaction", () => {
     expect(out).toContain("/old?access_token=[redacted]");
     expect(JSON.stringify(har)).toContain("hunter2");
   });
+
+  it("hides credentials that older rules missed: unlisted header names, hex keys, OAuth codes, URLs in values", () => {
+    const hexKey = "0123456789abcdef0123456789abcdef";
+    const out = JSON.stringify(
+      sanitizeHar({
+        log: {
+          comment: "captured with token=zzz999 on https://app.example.com/cb?code=oauthcode1&ok=1",
+          pages: [{ id: "p", title: "https://app.example.com/home?session=sess777&tab=2" }],
+          entries: [
+            entry({
+              _initiator: { type: "script", url: "https://cdn.example.com/a.js?sig=sigvalue1" },
+              request: {
+                method: "GET",
+                url: "https://app.example.com/x",
+                comment: "retry with api_key=apikeyvalue1",
+                headers: [
+                  { name: "api-key", value: hexKey },
+                  { name: "X-Session-Token", value: "sessiontokenvalue" },
+                  { name: "x-ms-token-aad-access-token", value: "msaadtoken" },
+                  { name: "Referer", value: "https://app.example.com/page?key=refererkey1&a=2" },
+                  { name: ":authority", value: "app.example.com" },
+                  { name: "Access-Control-Allow-Credentials", value: "true" },
+                ],
+                queryString: [],
+                cookies: [],
+              },
+              response: {
+                status: 302,
+                headers: [{ name: "Location", value: "https://idp.example.com/auth?code=locationcode1&state=s" }],
+                content: { size: 40, text: `{"detail":"bad key ${hexKey}","code":404}` },
+              },
+            }),
+          ],
+        },
+      })
+    );
+    expect(out).not.toMatch(
+      new RegExp(
+        [hexKey, "zzz999", "oauthcode1", "sess777", "sigvalue1", "apikeyvalue1", "sessiontokenvalue", "msaadtoken", "refererkey1", "locationcode1"].join("|")
+      )
+    );
+    // Harmless look-alikes keep their values, and a status code in a JSON body is not a secret.
+    expect(out).toContain("app.example.com");
+    expect(out).toContain('"value":"true"');
+    expect(out).toContain('\\"code\\":404');
+    expect(out).toContain("tab=2");
+  });
+
+  it("keeps secrets out of automatic findings", () => {
+    const secret = {
+      log: {
+        entries: [
+          entry({
+            time: 9000,
+            request: { method: "GET", url: "https://api.example.com/slow?access_token=leakedtoken&page=2", headers: [], queryString: [], cookies: [] },
+          }),
+        ],
+      },
+    };
+    const { data } = parseForExplore(JSON.stringify(secret), "har");
+    const summary = summarizeHar(data);
+    const text = summary.findings.map((f) => f.text).join("\n");
+    expect(text).toContain("api.example.com/slow");
+    expect(text).not.toContain("leakedtoken");
+    expect(buildDigest(summary, data, "")).not.toContain("leakedtoken");
+  });
 });
 
 describe("diagnosis", () => {
