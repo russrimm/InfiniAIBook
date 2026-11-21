@@ -1,6 +1,7 @@
 import dns from "node:dns/promises";
 import net from "node:net";
 import { Agent, fetch as undiciFetch } from "undici";
+import { envInt } from "./envnumber";
 
 /**
  * Outbound fetch for URLs a user supplies.
@@ -17,10 +18,10 @@ import { Agent, fetch as undiciFetch } from "undici";
  * follow it and hand back whatever it found.
  */
 
-const MAX_REDIRECTS = Number(process.env.FETCH_MAX_REDIRECTS || 5);
+const MAX_REDIRECTS = envInt("FETCH_MAX_REDIRECTS", 5, 0);
 
 /** Default 25 MB. Sources are documents; anything larger is not one. */
-export const MAX_FETCH_BYTES = Number(process.env.MAX_FETCH_BYTES || 25 * 1024 * 1024);
+export const MAX_FETCH_BYTES = envInt("MAX_FETCH_BYTES", 25 * 1024 * 1024);
 
 /**
  * Self-hosted installs sometimes have a genuine internal wiki to index, so the

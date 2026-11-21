@@ -972,6 +972,7 @@ export default function Workspace({ notebookId }: { notebookId: string }) {
               setSourcesPinned((pinned) => !pinned);
             }}
             onClose={closeSources}
+            onDropped={viewSources}
           />
         </div>
 

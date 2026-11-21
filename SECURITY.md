@@ -32,11 +32,17 @@ mind before running it anywhere other than your own machine:
   bearer token unless `INFINIAIBOOK_ALLOW_PASSWORD_BEARER=true`.
   Changing the password or `INFINIAIBOOK_SESSION_SECRET` signs everyone out;
   **Sign out** on the home page clears this browser's cookie. Sign-in attempts
-  are handled one at a time, and each failure holds the next attempt for
-  longer (up to 30 s). Wrong bearer tokens go through the same back-off in the
-    proxy, so the API cannot be used to guess the password at full speed; a
-    valid session cookie is checked first and never waits behind them. When too
-    many failed attempts are already waiting, further ones get an immediate 429.
+  from one client are handled one at a time, and each failure holds that
+  client's next attempt for longer (up to 30 s). Wrong bearer tokens go through
+  the same back-off, shared with sign-in, so the API cannot be used to guess the
+  password at full speed; a valid session cookie is checked first and never
+  waits behind them. Behind a reverse proxy with `TRUST_PROXY=true`, clients are
+  told apart by the last `X-Forwarded-For` entry (the one your proxy added), so
+  someone guessing from one address does not lock the owner out of signing in.
+  Without a trusted proxy the server cannot tell clients apart and they share
+  one queue. When too many failed attempts are already waiting, further ones get
+  an immediate 429. The back-off is in memory and per process, and it does not
+  replace a strong password.
   After sign-in, the `?next=` path is resolved against this origin and dropped
   unless it stays here, so `/login` cannot be used as an open redirect
   (backslash and control-character tricks included). Behind a TLS-terminating

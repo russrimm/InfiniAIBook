@@ -1,4 +1,5 @@
 import { getClient, visionModel, visionChat, describeAuthError } from "./ai";
+import { rates, reserve } from "./budget";
 
 /** Formats the vision endpoint accepts, keyed by extension. */
 export const IMAGE_TYPES: Record<string, string> = {
@@ -127,6 +128,9 @@ export async function describeImage(
   const model = visionModel();
   const dataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
 
+  // Counted against the daily budget like every other model call: an archive of
+  // images would otherwise be described, and billed, without limit.
+  reserve("vision", rates().studioCall);
   let res;
   try {
     res = await getClient().chat.completions.create({
