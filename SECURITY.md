@@ -32,11 +32,17 @@ mind before running it anywhere other than your own machine:
   bearer token unless `INFINIAIBOOK_ALLOW_PASSWORD_BEARER=true`.
   Changing the password or `INFINIAIBOOK_SESSION_SECRET` signs everyone out;
   **Sign out** on the home page clears this browser's cookie. Sign-in attempts
-  are handled one at a time, and each failure holds the next attempt for
-  longer (up to 30 s). Wrong bearer tokens go through the same back-off in the
-    proxy, so the API cannot be used to guess the password at full speed; a
-    valid session cookie is checked first and never waits behind them. When too
-    many failed attempts are already waiting, further ones get an immediate 429.
+  from one client are handled one at a time, and each failure holds that
+  client's next attempt for longer (up to 30 s). Wrong bearer tokens go through
+  the same back-off, shared with sign-in, so the API cannot be used to guess the
+  password at full speed; a valid session cookie is checked first and never
+  waits behind them. Behind a reverse proxy with `TRUST_PROXY=true`, clients are
+  told apart by the last `X-Forwarded-For` entry (the one your proxy added), so
+  someone guessing from one address does not lock the owner out of signing in.
+  Without a trusted proxy the server cannot tell clients apart and they share
+  one queue. When too many failed attempts are already waiting, further ones get
+  an immediate 429. The back-off is in memory and per process, and it does not
+  replace a strong password.
   After sign-in, the `?next=` path is resolved against this origin and dropped
   unless it stays here, so `/login` cannot be used as an open redirect
   (backslash and control-character tricks included). Behind a TLS-terminating
@@ -57,7 +63,9 @@ mind before running it anywhere other than your own machine:
   YouTube caption requests, which carry `YOUTUBE_COOKIE` when it is set, only
   ever go to `youtube.com`.
   `ALLOW_PRIVATE_NETWORK_FETCH=true` turns that protection off; only set it if
-  you trust everyone who can add a source.
+  you trust everyone who can add a source. A response is also stopped when it
+  grows past `MAX_FETCH_BYTES` or takes longer than `DOWNLOAD_TIMEOUT_MS` (two
+  minutes) to arrive, so a site that trickles bytes cannot hold a request open.
 - **Uploaded archives are checked as they inflate.** ZIP, DOCX, PPTX, EPUB and
   notebook-export files can be tiny and still expand to gigabytes (a "zip
   bomb"). The number of entries is counted from the real directory before any
@@ -71,13 +79,23 @@ mind before running it anywhere other than your own machine:
   studio artifacts, AI notes, search answers) are therefore shown as a link
   rather than loaded (`src/components/Markdown.tsx`), and links show their real
   host. Only notes you write yourself render images. Every response also sends
-  `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and
-  `Referrer-Policy: no-referrer`,   and an enforced Content Security Policy that allows no remote images
-  (`next.config.ts`). Remote images in your own notes do not load, and a note's
+  `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: no-referrer`, a `Permissions-Policy` that turns off the
+  camera, location, payment and USB (the microphone and screen capture stay
+  available to this app only, for live discussion and Screen helper) and an
+  enforced Content Security Policy that allows no remote images
+  (`next.config.ts`). Behind a TLS-terminating proxy that sends
+  `X-Forwarded-Proto: https`, responses also carry `Strict-Transport-Security`
+  (one year, no subdomains); plain-HTTP localhost never does. The CSP still
+  allows inline scripts (`'unsafe-inline'`, Next's bootstrap) and connections to
+  the Azure OpenAI, Speech and OpenAI host families, not only your own
+  resource, so it limits where a script can reach rather than which Azure
+  tenant. Remote images in your own notes do not load, and a note's
   image may only be one this app serves (`/api/image/<id>`), so an imported
   note cannot point an image at an API route. Live
-  discussions may connect to the configured Azure OpenAI or OpenAI realtime
-  host; other remote connections are refused. The in-app browser does not frame
+  discussions may connect to Azure OpenAI or OpenAI realtime hosts (the CSP
+  allows the whole `*.openai.azure.com` and `api.openai.com` families); other
+  remote connections are refused. The in-app browser does not frame
   this app's own origin or a loopback address.
 - **Secrets stay in `.env.local`.** It is git-ignored. Prefer Microsoft Entra ID
   (`az login` or a managed identity) over API keys for Azure services.
