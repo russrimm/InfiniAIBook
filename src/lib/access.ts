@@ -68,6 +68,47 @@ export function refusesFrame(pageUrl: string, appOrigin: string): string | null 
   return null;
 }
 
+/**
+ * Whether a request is a browser read of an API route that another site
+ * started. Reads are not state-changing, but several have side effects: a
+ * voice sample is a paid Speech call that is cached on disk, and /api/browse
+ * makes the server fetch a URL. A page you visit cannot read the answer, but
+ * an audio or image element is enough to trigger the work, so these are
+ * refused too. A top-level navigation (a link you clicked) is let through;
+ * frames, images, media and scripts are not.
+ */
+export function isCrossSiteRead(opts: {
+  method: string;
+  pathname: string;
+  secFetchSite: string | null;
+  secFetchMode: string | null;
+  secFetchDest: string | null;
+}): boolean {
+  const method = opts.method.toUpperCase();
+  if ((method !== "GET" && method !== "HEAD") || !opts.pathname.startsWith("/api/")) return false;
+  const site = opts.secFetchSite?.toLowerCase();
+  if (site !== "cross-site" && site !== "same-site") return false;
+  return !(opts.secFetchMode?.toLowerCase() === "navigate" && opts.secFetchDest?.toLowerCase() === "document");
+}
+
+/**
+ * Whether a Markdown image in a note the user wrote may load. Only pictures
+ * this app serves itself (/api/image/<id>) do. The CSP already refuses other
+ * origins; this also keeps an image from pointing at an API route that has
+ * side effects (for example /api/browse), including through `..` segments,
+ * which the browser resolves before it asks.
+ */
+export function isLocalImageUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    const base = "http://local.invalid";
+    const u = new URL(url, base);
+    return u.origin === base && /^\/api\/image\/[A-Za-z0-9_-]{1,32}$/.test(u.pathname);
+  } catch {
+    return false;
+  }
+}
+
 export function hostAllowed(host: string | null, allowed: string[]): boolean {
   const name = hostnameOf(host);
   if (!name) return false;
