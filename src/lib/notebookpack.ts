@@ -321,6 +321,41 @@ export class NotebookImportError extends BadRequestError {}
  * overwrite an existing notebook or escape the data directory.
  */
 export async function importNotebookZip(buffer: Buffer): Promise<{ id: string; title: string }> {
+  const { id, title } = await importPack(buffer);
+  return { id, title };
+}
+
+/**
+ * A new, independent copy of a notebook: sources, passages (with their
+ * embeddings, so search by meaning keeps working), notes, chats, generated
+ * items and finished media, all under new ids. Goes through the export and
+ * import code so the copy follows exactly the same rules as a restored export.
+ */
+export async function duplicateNotebook(notebookId: string): Promise<{ id: string; title: string } | null> {
+  const packed = await exportNotebookZip(notebookId);
+  if (!packed) return null;
+  const { id, title, sourceIds } = await importPack(packed.buffer);
+  const copyTitle = `${title} (copy)`.slice(0, MAX_TITLE_CHARS);
+  db.prepare("UPDATE notebooks SET title = ? WHERE id = ?").run(copyTitle, id);
+  try {
+    // An export carries text, not vectors, so the copy's passages start without
+    // them. Matching passages by position and text brings the originals' over.
+    const copy = db.prepare(
+      `UPDATE chunks SET embedding = o.embedding, embed_model = o.embed_model, embed_dims = o.embed_dims
+       FROM chunks AS o
+       WHERE chunks.source_id = ? AND o.source_id = ? AND o.idx = chunks.idx AND o.text = chunks.text
+         AND o.embedding IS NOT NULL`
+    );
+    transaction(() => {
+      for (const [oldId, newId] of sourceIds) copy.run(newId, oldId);
+    });
+  } catch {
+    // Without embeddings the copy still searches by keyword; Re-embed restores the rest.
+  }
+  return { id, title: copyTitle };
+}
+
+async function importPack(buffer: Buffer): Promise<{ id: string; title: string; sourceIds: Map<string, string> }> {
   if (buffer.length > MAX_ZIP_BYTES) {
     throw new NotebookImportError("That export is larger than 200 MB.");
   }
@@ -544,5 +579,5 @@ export async function importNotebookZip(buffer: Buffer): Promise<{ id: string; t
     throw e;
   }
 
-  return { id: notebookId, title };
+  return { id: notebookId, title, sourceIds };
 }
