@@ -89,7 +89,7 @@ describe("auth routes", () => {
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ ok: true });
       const cookie = res.headers.get("set-cookie")!;
-      expect(cookie).toMatch(new RegExp(`^${AUTH_COOKIE}=v2\\.`));
+      expect(cookie).toMatch(new RegExp(`^${AUTH_COOKIE}=v3\\.`));
       expect(cookie).toMatch(/HttpOnly/i);
       expect(cookie).toMatch(/SameSite=lax/i);
       expect(cookie).toMatch(/Path=\//);

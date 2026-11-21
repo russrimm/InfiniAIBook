@@ -27,7 +27,13 @@ mind before running it anywhere other than your own machine:
   listen on every interface; use them only with a password set.
   Setting the password puts every page and API route behind one shared password
   (`src/proxy.ts`). Browsers sign in at `/login` and get an HTTP-only
-  cookie that holds a signed expiry (30 days), never the password. Scripts send
+  cookie that holds a signed expiry (30 days), never the password. The signing
+  key is stretched from the password and `INFINIAIBOOK_SESSION_SECRET` with
+  PBKDF2 (210,000 rounds), so a captured cookie cannot be used to test password
+  guesses at hash speed; set a long random `INFINIAIBOOK_SESSION_SECRET` anyway
+  (the Azure template does). Signing out is per browser: a cookie cannot be
+  revoked before it expires except by changing the password or the secret.
+  Scripts send
   `INFINIAIBOOK_API_TOKEN` as a bearer token. The password is not accepted as a
   bearer token unless `INFINIAIBOOK_ALLOW_PASSWORD_BEARER=true`.
   Changing the password or `INFINIAIBOOK_SESSION_SECRET` signs everyone out;
