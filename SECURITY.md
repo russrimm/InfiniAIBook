@@ -55,6 +55,13 @@ mind before running it anywhere other than your own machine:
   ever go to `youtube.com`.
   `ALLOW_PRIVATE_NETWORK_FETCH=true` turns that protection off; only set it if
   you trust everyone who can add a source.
+- **Uploaded archives are checked as they inflate.** ZIP, DOCX, PPTX, EPUB and
+  notebook-export files can be tiny and still expand to gigabytes (a "zip
+  bomb"). The number of entries is counted from the real directory before any
+  is opened, and every part is inflated under a size cap and a running total
+  (`MAX_UPLOAD_BYTES`, `MAX_ARCHIVE_EXPANDED_BYTES`) that stops reading the
+  moment it is passed (`src/lib/zipread.ts`, `src/lib/officeguard.ts`). A file
+  over a cap is refused with a message naming the limit.
 - **Source text can try to steer the model.** Web pages, feeds and documents
   go into the prompt verbatim, and an injected instruction could make an answer
   embed a URL carrying private text. Markdown images in model output (chat,

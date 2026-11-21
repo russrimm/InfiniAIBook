@@ -1,7 +1,7 @@
 import * as cheerio from "cheerio";
 import JSZip from "jszip";
 import { MAX_ARCHIVE_EXPANDED_BYTES, mb } from "./limits";
-import { ArchiveLimitError, readEntryCapped } from "./zipread";
+import { ArchiveLimitError, assertZipEntryCount, readEntryCapped } from "./zipread";
 
 /**
  * Reads the text of an EPUB: its title and author, then every chapter in
@@ -65,6 +65,13 @@ async function readText(zip: JSZip, path: string, cap: number): Promise<string |
 
 export async function epubToText(buf: Buffer, name: string): Promise<EpubText> {
   const bad = (why: string) => new Error(`"${name}" ${why}`);
+  const tooMany = `lists more than ${MAX_ENTRIES.toLocaleString("en-US")} files, which is far more than a book has.`;
+  try {
+    assertZipEntryCount(buf, MAX_ENTRIES);
+  } catch (e) {
+    if (e instanceof ArchiveLimitError) throw bad(tooMany);
+    throw e;
+  }
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(buf);
@@ -72,7 +79,7 @@ export async function epubToText(buf: Buffer, name: string): Promise<EpubText> {
     throw bad("is not a valid EPUB (it is not a readable ZIP archive).");
   }
   if (Object.keys(zip.files).length > MAX_ENTRIES) {
-    throw bad(`lists more than ${MAX_ENTRIES.toLocaleString("en-US")} files, which is far more than a book has.`);
+    throw bad(tooMany);
   }
 
   try {
