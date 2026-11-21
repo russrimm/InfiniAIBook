@@ -21,7 +21,6 @@ import {
   STUDIO,
   STUDIO_SECTIONS,
   STUDIO_SPOKEN_GROUPS,
-  studioIcon,
   studioLabel,
   studioMatches,
   type StudioItemId,
@@ -71,21 +70,17 @@ import {
   isImageStyle,
   type InfographicStyle,
 } from "@/lib/infographic";
-import { LIBRARY_SORTS, filterLibrary, isLibrarySort, libraryMeta, sortLibrary, type LibrarySort } from "@/lib/librarymeta";
+import StudioLibrary, { useLibraryControls } from "@/components/StudioLibrary";
 import InfographicGallery, {
   ScaledExample,
 } from "@/components/InfographicGallery";
 import type { StyleSuggestion } from "@/lib/styleSuggest";
 import {
-  VOICE_PRESETS,
-  MULTITALKER_SPEAKERS,
   RATE_CHOICES,
   AUDIO_LENGTHS,
   PINNED_VOICES,
-  SPEAKER_IDS,
   canPin,
   type AudioLength,
-  type SpeakerId,
 } from "@/lib/voices";
 import type {
   ArtifactSummary,
@@ -105,114 +100,11 @@ import {
   avatarPicture,
 } from "@/lib/avatars";
 
+import { SPOKEN, spokenRecord, EPISODE_PROFILES, profileSpeakers, type Delivery, type SpeakerConfig, type SpokenType, type VideoType } from "@/lib/studioprofiles";
+import { LengthRow, SpeakerSelect, approxLength } from "@/components/StudioControls";
+
 /** Speakers that can be pinned, listed when a chosen one cannot be. */
 const PINNABLE = Object.keys(PINNED_VOICES);
-
-/** A Library filter box earns its space once the list is too long to scan. */
-const LIBRARY_FILTER_FROM = 6;
-
-/** The formats that are spoken aloud and so take instructions and music. */
-const SPOKEN = ["podcast", "video", "motion", "training"] as const;
-type SpokenType = (typeof SPOKEN)[number];
-/** The spoken formats that render a video and so can carry a watermark. */
-type VideoType = Exclude<SpokenType, "podcast">;
-const spokenRecord = <T,>(v: T): Record<SpokenType, T> => ({
-  podcast: v,
-  video: v,
-  motion: v,
-  training: v,
-});
-
-/** How the dialogue is rendered: voice family plus pause shaping. */
-type Delivery = "natural" | "even" | "pinned";
-type SpeakerConfig = {
-  id: SpeakerId;
-  voice: string;
-  name: string;
-  role: string;
-};
-type EpisodeProfile = {
-  key: string;
-  label: string;
-  speakers: Omit<SpeakerConfig, "id" | "voice">[];
-};
-
-const EPISODE_PROFILES: EpisodeProfile[] = [
-  {
-    key: "deep-dive",
-    label: "Deep dive (2 hosts)",
-    speakers: [
-      {
-        name: "",
-        role: "curious host who drives the conversation and asks questions",
-      },
-      { name: "", role: "analyst who explains the details and implications" },
-    ],
-  },
-  {
-    key: "solo",
-    label: "Solo explainer (1)",
-    speakers: [
-      {
-        name: "Narrator",
-        role: "clear, curious narrator who explains the material directly",
-      },
-    ],
-  },
-  {
-    key: "expert-panel",
-    label: "Expert panel (3: host + two experts)",
-    speakers: [
-      {
-        name: "Host",
-        role: "moderator who frames the questions and keeps the pace",
-      },
-      {
-        name: "Technical expert",
-        role: "technical expert who explains mechanisms and tradeoffs",
-      },
-      {
-        name: "Policy expert",
-        role: "domain expert who explains consequences and caveats",
-      },
-    ],
-  },
-  {
-    key: "debate",
-    label: "Debate (4: moderator + 2 sides + fact-checker)",
-    speakers: [
-      {
-        name: "Moderator",
-        role: "moderator who keeps the discussion grounded",
-      },
-      {
-        name: "Advocate",
-        role: "optimistic advocate who argues for the strongest upside",
-      },
-      {
-        name: "Skeptic",
-        role: "skeptical challenger who tests assumptions and risks",
-      },
-      {
-        name: "Fact-checker",
-        role: "fact-checker who resolves claims against the sources",
-      },
-    ],
-  },
-];
-
-const profileSpeakers = (key: string): SpeakerConfig[] => {
-  const profile =
-    EPISODE_PROFILES.find((p) => p.key === key) ?? EPISODE_PROFILES[0]!;
-  return profile.speakers.map((s, i) => {
-    const id = SPEAKER_IDS[i] ?? "a";
-    return {
-      id,
-      voice: VOICE_PRESETS.conversational[id],
-      ...s,
-    };
-  });
-};
 
 export default function StudioPanel({
   notebookId,
@@ -247,25 +139,7 @@ export default function StudioPanel({
   onShowSources?: () => void;
 }) {
   const [view, setView] = useState<"create" | "library">("create");
-  const [libraryQuery, setLibraryQuery] = useState("");
-  const [librarySort, setLibrarySort] = useState<LibrarySort>("newest");
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem("infiniaibook.librarySort");
-      if (isLibrarySort(saved)) setLibrarySort(saved);
-    } catch {
-      // Storage can be blocked; the default order still works.
-    }
-  }, []);
-  const chooseSort = (sort: LibrarySort) => {
-    setLibrarySort(sort);
-    try {
-      window.localStorage.setItem("infiniaibook.librarySort", sort);
-    } catch {
-      // The choice just will not persist.
-    }
-  };
-  const shownArtifacts = sortLibrary(filterLibrary(artifacts, libraryQuery), librarySort);
+  const library = useLibraryControls(artifacts);
   const [query, setQuery] = useState("");
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const [topic, setTopic] = useState("");
@@ -773,98 +647,14 @@ export default function StudioPanel({
       )}
 
       {view === "library" ? (
-        <div className="relative min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-          {artifacts.length === 0 ? (
-            <div className="card px-4 py-6 text-center text-[11px] leading-relaxed text-[var(--muted)]">
-              Nothing generated yet.
-              <div className="mt-3">
-                <button
-                  className="btn !px-2.5 !py-1 !text-[11px]"
-                  onClick={() => setView("create")}
-                >
-                  Choose a format to create
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              {artifacts.length > 1 && (
-                <div className="sticky top-0 z-10 mb-1 bg-[var(--panel)] pb-2 pt-1">
-                  {artifacts.length >= LIBRARY_FILTER_FROM && (
-                    <input
-                      type="search"
-                      className="input w-full !py-1.5 text-[13px]"
-                      placeholder="Filter by name, format or style"
-                      aria-label="Filter Library"
-                      value={libraryQuery}
-                      onChange={(e) => setLibraryQuery(e.target.value)}
-                    />
-                  )}
-                  <div className="mt-1.5 flex items-center gap-2 text-[11px] text-[var(--muted)]">
-                    <label htmlFor="library-sort">Sort</label>
-                    <select
-                      id="library-sort"
-                      className="input min-w-0 flex-1 !py-1 text-[12px]"
-                      value={librarySort}
-                      onChange={(e) => chooseSort(e.target.value as LibrarySort)}
-                    >
-                      {LIBRARY_SORTS.map((s) => (
-                        <option key={s.key} value={s.key}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {artifacts.length >= LIBRARY_FILTER_FROM && libraryQuery.trim() && (
-                    <p role="status" className="mt-1 text-[11px] text-[var(--muted)]">
-                      Showing {shownArtifacts.length} of {artifacts.length}.
-                    </p>
-                  )}
-                </div>
-              )}
-            <ul className="space-y-1">
-              {shownArtifacts.map((a) => (
-                <li
-                  key={a.id}
-                  className="group flex items-center gap-2 rounded-xl border border-transparent px-2 py-2 transition hover:border-[var(--border)] hover:bg-panel2"
-                >
-                  <span aria-hidden className="text-base">
-                    {studioIcon(a.type)}
-                  </span>
-                  <button
-                    className="min-w-0 flex-1 text-left disabled:opacity-60"
-                    onClick={() => onOpen(a)}
-                    disabled={openingId === a.id}
-                    title={`${a.title} — ${libraryMeta(a)}`}
-                  >
-                    <div className="truncate text-[13px] font-medium">
-                      {a.title}
-                    </div>
-                    <div className="truncate text-[10px] text-dim">
-                      {openingId === a.id ? "Opening…" : libraryMeta(a)}
-                    </div>
-                  </button>
-                  <button
-                    aria-label={`Delete ${a.title}`}
-                    className="reveal shrink-0 rounded px-1 text-xs text-[var(--muted)] transition hover:text-red-400"
-                    onClick={() => onRemove(a)}
-                  >
-                    ✕
-                  </button>
-                </li>
-              ))}
-              {libraryQuery.trim() && shownArtifacts.length === 0 && (
-                <li className="px-2 py-6 text-center text-[11px] text-[var(--muted)]">
-                  Nothing in the Library matches “{libraryQuery.trim()}”.{" "}
-                  <button type="button" className="underline" onClick={() => setLibraryQuery("")}>
-                    Clear filter
-                  </button>
-                </li>
-              )}
-            </ul>
-            </>
-          )}
-        </div>
+        <StudioLibrary
+          artifacts={artifacts}
+          controls={library}
+          openingId={openingId}
+          onOpen={onOpen}
+          onRemove={onRemove}
+          onCreate={() => setView("create")}
+        />
       ) : (
         <div className="relative min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           {blocked && (
@@ -2048,102 +1838,5 @@ export default function StudioPanel({
         />
       )}
     </aside>
-  );
-}
-
-/** "about 30 seconds" or "about 2.5 min". */
-function approxLength(seconds: number): string {
-  if (seconds < 90) return `about ${Math.round(seconds / 5) * 5} seconds`;
-  return `about ${Math.round((seconds / 60) * 2) / 2} min`;
-}
-
-/** A labelled length dropdown, shared by the cards that size their output. */
-function LengthRow<K extends string>({
-  label,
-  value,
-  onChange,
-  choices,
-}: {
-  label: string;
-  value: K;
-  onChange: (v: K) => void;
-  choices: { key: K; text: string }[];
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="w-11 shrink-0 text-[10px] tracking-wide text-[var(--muted)] uppercase">
-        Length
-      </span>
-      <select
-        className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus"
-        aria-label={label}
-        value={value}
-        onChange={(e) => onChange(e.target.value as K)}
-      >
-        {choices.map((c) => (
-          <option key={c.key} value={c.key}>
-            {c.text}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-/**
- * One speaker's voice, shared by the audio and video controls.
- */
-function SpeakerSelect({
-  value,
-  disabled,
-  onChange,
-  onPreview,
-  previewing,
-  loading,
-}: {
-  value: string;
-  disabled: boolean;
-  onChange: (v: string) => void;
-  onPreview: (name: string) => void;
-  previewing: string | null;
-  loading: string | null;
-}) {
-  const playing = previewing === value;
-  const isLoading = loading === value;
-  return (
-    <div className="flex min-w-0 flex-1 items-center gap-1">
-      <select
-        aria-label="Voice"
-        className="min-w-0 flex-1 cursor-pointer rounded-md border border-[var(--border)] bg-well px-2 py-1 text-[11px] text-[var(--fg)] outline-none focus:border-focus disabled:cursor-not-allowed disabled:opacity-50"
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        <optgroup label="Female">
-          {MULTITALKER_SPEAKERS.female.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </optgroup>
-        <optgroup label="Male">
-          {MULTITALKER_SPEAKERS.male.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </optgroup>
-      </select>
-      <button
-        type="button"
-        aria-label={`Hear ${value}`}
-        title={`Hear ${value}`}
-        disabled={disabled}
-        onClick={() => onPreview(value)}
-        className="shrink-0 rounded-md border border-[var(--border)] bg-well px-1.5 py-1 text-[11px] leading-none text-[var(--muted)] transition hover:border-line-hover hover:text-[var(--fg)] disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {isLoading ? "…" : playing ? "◼" : "▶"}
-      </button>
-    </div>
   );
 }
