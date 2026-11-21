@@ -269,15 +269,30 @@ export async function safeFetch(
 
 export class ResponseTooLargeError extends Error {}
 
+/** The other end kept the connection open but did not finish sending in time. */
+export class DownloadTimeoutError extends Error {}
+
 /**
- * Read a response body with a ceiling.
+ * Most time a whole body may take to arrive. The per-request timeouts callers
+ * set stop once the headers are in, and the HTTP client's own default waits up
+ * to five minutes between chunks, so a hostile page could otherwise trickle a
+ * byte at a time under the size cap and hold a request (or a whole source
+ * check) open indefinitely. Generous enough for a large PDF on a slow link.
+ */
+const parsedDownloadTimeout = Number(process.env.DOWNLOAD_TIMEOUT_MS);
+export const DOWNLOAD_TIMEOUT_MS =
+  Number.isFinite(parsedDownloadTimeout) && parsedDownloadTimeout >= 1000 ? Math.floor(parsedDownloadTimeout) : 120_000;
+
+/**
+ * Read a response body with a ceiling on its size and on how long it may take.
  *
  * `arrayBuffer()` will hold whatever the other end decides to send, so a single
  * link to a large file is enough to exhaust memory.
  */
 export async function readCapped(
   res: Response,
-  maxBytes = MAX_FETCH_BYTES
+  maxBytes = MAX_FETCH_BYTES,
+  timeoutMs = DOWNLOAD_TIMEOUT_MS
 ): Promise<Buffer> {
   const declared = Number(res.headers.get("content-length") || 0);
   const limitMb = Math.round(maxBytes / 1024 / 1024);
@@ -291,19 +306,41 @@ export async function readCapped(
   const reader = res.body?.getReader();
   if (!reader) return Buffer.alloc(0);
 
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    void reader.cancel().catch(() => {});
+  }, timeoutMs);
+  const tooSlow = () =>
+    new DownloadTimeoutError(
+      `That page took longer than ${Math.round(timeoutMs / 1000)} seconds to download, so it was stopped. If it is a large file, download it and upload it instead.`
+    );
+
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > maxBytes) {
-      await reader.cancel().catch(() => {});
-      throw new ResponseTooLargeError(
-        `That page is larger than the ${limitMb} MB limit.`
-      );
+  try {
+    for (;;) {
+      let result: ReadableStreamReadResult<Uint8Array>;
+      try {
+        result = await reader.read();
+      } catch (e) {
+        // Cancelling the reader on timeout can surface as a read error.
+        if (timedOut) throw tooSlow();
+        throw e;
+      }
+      if (timedOut) throw tooSlow();
+      if (result.done) break;
+      total += result.value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => {});
+        throw new ResponseTooLargeError(
+          `That page is larger than the ${limitMb} MB limit.`
+        );
+      }
+      chunks.push(result.value);
     }
-    chunks.push(value);
+  } finally {
+    clearTimeout(timer);
   }
   return Buffer.concat(chunks);
 }

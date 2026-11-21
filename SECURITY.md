@@ -57,7 +57,9 @@ mind before running it anywhere other than your own machine:
   YouTube caption requests, which carry `YOUTUBE_COOKIE` when it is set, only
   ever go to `youtube.com`.
   `ALLOW_PRIVATE_NETWORK_FETCH=true` turns that protection off; only set it if
-  you trust everyone who can add a source.
+  you trust everyone who can add a source. A response is also stopped when it
+  grows past `MAX_FETCH_BYTES` or takes longer than `DOWNLOAD_TIMEOUT_MS` (two
+  minutes) to arrive, so a site that trickles bytes cannot hold a request open.
 - **Uploaded archives are checked as they inflate.** ZIP, DOCX, PPTX, EPUB and
   notebook-export files can be tiny and still expand to gigabytes (a "zip
   bomb"). The number of entries is counted from the real directory before any
