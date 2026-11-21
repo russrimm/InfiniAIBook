@@ -79,13 +79,23 @@ mind before running it anywhere other than your own machine:
   studio artifacts, AI notes, search answers) are therefore shown as a link
   rather than loaded (`src/components/Markdown.tsx`), and links show their real
   host. Only notes you write yourself render images. Every response also sends
-  `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and
-  `Referrer-Policy: no-referrer`,   and an enforced Content Security Policy that allows no remote images
-  (`next.config.ts`). Remote images in your own notes do not load, and a note's
+  `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: no-referrer`, a `Permissions-Policy` that turns off the
+  camera, location, payment and USB (the microphone and screen capture stay
+  available to this app only, for live discussion and Screen helper) and an
+  enforced Content Security Policy that allows no remote images
+  (`next.config.ts`). Behind a TLS-terminating proxy that sends
+  `X-Forwarded-Proto: https`, responses also carry `Strict-Transport-Security`
+  (one year, no subdomains); plain-HTTP localhost never does. The CSP still
+  allows inline scripts (`'unsafe-inline'`, Next's bootstrap) and connections to
+  the Azure OpenAI, Speech and OpenAI host families, not only your own
+  resource, so it limits where a script can reach rather than which Azure
+  tenant. Remote images in your own notes do not load, and a note's
   image may only be one this app serves (`/api/image/<id>`), so an imported
   note cannot point an image at an API route. Live
-  discussions may connect to the configured Azure OpenAI or OpenAI realtime
-  host; other remote connections are refused. The in-app browser does not frame
+  discussions may connect to Azure OpenAI or OpenAI realtime hosts (the CSP
+  allows the whole `*.openai.azure.com` and `api.openai.com` families); other
+  remote connections are refused. The in-app browser does not frame
   this app's own origin or a loopback address.
 - **Secrets stay in `.env.local`.** It is git-ignored. Prefer Microsoft Entra ID
   (`az login` or a managed identity) over API keys for Azure services.
