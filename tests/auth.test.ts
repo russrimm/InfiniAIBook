@@ -18,7 +18,7 @@ afterEach(() => {
 describe("session tokens", () => {
   it("round-trips and never contains the password", async () => {
     const t = await createSessionToken("hunter2");
-    expect(t).toMatch(/^v2\.\d+\.\d+\.[0-9a-f]{64}$/);
+    expect(t).toMatch(/^v3\.\d+\.\d+\.[0-9a-f]{64}$/);
     expect(t).not.toContain("hunter2");
     expect(await verifySessionToken(t, "hunter2")).toBe(true);
   });
@@ -50,10 +50,35 @@ describe("session tokens", () => {
     expect(await verifySessionToken(t, "pw")).toBe(false);
   });
 
-  it("rejects the old v1 cookie format and garbage", async () => {
+  it("rejects the old v1 and v2 cookie formats and garbage", async () => {
     expect(await verifySessionToken("a".repeat(64), "pw")).toBe(false);
     expect(await verifySessionToken("", "pw")).toBe(false);
-    expect(await verifySessionToken("v2.1.2.zz", "pw", 0 + DAY)).toBe(false);
+    expect(await verifySessionToken("v3.1.2.zz", "pw", 0 + DAY)).toBe(false);
+    // A v2 cookie was signed with the password itself as the key; it is not accepted any more.
+    const enc = new TextEncoder();
+    const legacyKey = await crypto.subtle.importKey("raw", enc.encode("pw\u0000"), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const now = Date.now();
+    const iat = Math.floor(now / 1000);
+    const exp = iat + 3600;
+    const legacy = await crypto.subtle.sign("HMAC", legacyKey, enc.encode(`v2|${iat}|${exp}`));
+    const hex = [...new Uint8Array(legacy)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    expect(await verifySessionToken(`v2.${iat}.${exp}.${hex}`, "pw", now)).toBe(false);
+  });
+
+  it("signs with a key stretched from the password, not the password itself", async () => {
+    // The same message signed directly with the password as the HMAC key must not verify.
+    const enc = new TextEncoder();
+    const directKey = await crypto.subtle.importKey("raw", enc.encode("pw\u0000"), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const now = Date.now();
+    const iat = Math.floor(now / 1000);
+    const exp = iat + 3600;
+    const direct = await crypto.subtle.sign("HMAC", directKey, enc.encode(`v3|${iat}|${exp}`));
+    const hex = [...new Uint8Array(direct)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    expect(await verifySessionToken(`v3.${iat}.${exp}.${hex}`, "pw", now)).toBe(false);
+    // And the real token for the same password still verifies, repeatedly (the key is cached).
+    const real = await createSessionToken("pw", now);
+    expect(await verifySessionToken(real, "pw", now)).toBe(true);
+    expect(await verifySessionToken(real, "pw", now)).toBe(true);
   });
 });
 

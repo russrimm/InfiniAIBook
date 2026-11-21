@@ -1,14 +1,17 @@
 /**
  * Optional single-password protection, enabled by INFINIAIBOOK_PASSWORD.
  *
- * Runs in both the Edge middleware and Node routes, so it sticks to Web Crypto
- * and keeps no server-side state.
+ * Sticks to Web Crypto and keeps no server-side state.
  *
- * The session cookie is `v2.<issuedAt>.<expiresAt>.<mac>`: an expiry signed
+ * The session cookie is `v3.<issuedAt>.<expiresAt>.<mac>`: an expiry signed
  * with a key derived from the password and the optional
  * INFINIAIBOOK_SESSION_SECRET. It never contains the password. Changing either
  * value invalidates every session ("sign out everywhere"); otherwise a cookie
  * stops working when it expires.
+ *
+ * The key comes from PBKDF2 (210,000 rounds), not from the password directly,
+ * so someone who captures a cookie cannot test password guesses against its
+ * signature at hash speed. The derivation runs once per process and is cached.
  */
 
 export const AUTH_COOKIE = "infiniaibook_auth";
@@ -27,20 +30,37 @@ export function apiToken(): string | null {
   return t ? t : null;
 }
 
-function signingKey(password: string): string {
-  return `${password}\u0000${process.env.INFINIAIBOOK_SESSION_SECRET ?? ""}`;
+const KDF_ROUNDS = 210_000;
+const KDF_SALT = "infiniaibook-session-v3";
+const MAX_CACHED_KEYS = 4;
+const keyCache = new Map<string, Promise<CryptoKey>>();
+
+async function deriveKey(material: string): Promise<CryptoKey> {
+  const enc = new TextEncoder();
+  const base = await crypto.subtle.importKey("raw", enc.encode(material), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt: enc.encode(KDF_SALT), iterations: KDF_ROUNDS },
+    base,
+    256
+  );
+  return crypto.subtle.importKey("raw", bits, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
 }
 
-async function hmacHex(key: string, message: string): Promise<string> {
-  const enc = new TextEncoder();
-  const k = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(key),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const sig = await crypto.subtle.sign("HMAC", k, enc.encode(message));
+/** The HMAC key for this password and session secret, derived once and kept. */
+function signingKey(password: string): Promise<CryptoKey> {
+  const material = `${password}\u0000${process.env.INFINIAIBOOK_SESSION_SECRET ?? ""}`;
+  let key = keyCache.get(material);
+  if (!key) {
+    // A changed password or secret must not leave old keys piling up.
+    if (keyCache.size >= MAX_CACHED_KEYS) keyCache.delete(keyCache.keys().next().value as string);
+    key = deriveKey(material);
+    keyCache.set(material, key);
+  }
+  return key;
+}
+
+async function hmacHex(password: string, message: string): Promise<string> {
+  const sig = await crypto.subtle.sign("HMAC", await signingKey(password), new TextEncoder().encode(message));
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
@@ -51,8 +71,8 @@ export async function createSessionToken(
 ): Promise<string> {
   const iat = Math.floor(now / 1000);
   const exp = iat + ttlSeconds;
-  const mac = await hmacHex(signingKey(password), `v2|${iat}|${exp}`);
-  return `v2.${iat}.${exp}.${mac}`;
+  const mac = await hmacHex(password, `v3|${iat}|${exp}`);
+  return `v3.${iat}.${exp}.${mac}`;
 }
 
 export async function verifySessionToken(
@@ -60,10 +80,10 @@ export async function verifySessionToken(
   password: string,
   now = Date.now()
 ): Promise<boolean> {
-  const m = /^v2\.(\d{1,12})\.(\d{1,12})\.([0-9a-f]{64})$/.exec(token);
+  const m = /^v3\.(\d{1,12})\.(\d{1,12})\.([0-9a-f]{64})$/.exec(token);
   if (!m) return false;
   const [, iat, exp, mac] = m;
-  const expected = await hmacHex(signingKey(password), `v2|${iat}|${exp}`);
+  const expected = await hmacHex(password, `v3|${iat}|${exp}`);
   if (!safeEqual(mac, expected)) return false;
   const nowSec = Math.floor(now / 1000);
   // A token "issued" in the future was not issued by this server's clock.
