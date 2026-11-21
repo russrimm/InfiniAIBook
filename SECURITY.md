@@ -62,7 +62,9 @@ mind before running it anywhere other than your own machine:
 - **The server fetches URLs on your behalf.** Links, feeds, discovery results
   and the built-in browser are fetched server-side. Addresses that resolve to
   loopback, private, link-local or cloud-metadata ranges are refused on every
-  redirect hop (`src/lib/safefetch.ts`, tested by `npm run check:ssrf`). The
+  redirect hop (`src/lib/safefetch.ts`, tested by `npm run check:ssrf` and
+  `tests/safefetch-*.test.ts`). Addresses with a username or password in them
+  are refused. The
   check runs inside the connection's own DNS lookup, so the address connected
   to is the address that was checked: a domain that answers with a public
   address first and `127.0.0.1` a moment later (DNS rebinding) is still refused.
