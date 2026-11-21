@@ -89,7 +89,7 @@ describe("auth routes", () => {
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ ok: true });
       const cookie = res.headers.get("set-cookie")!;
-      expect(cookie).toMatch(new RegExp(`^${AUTH_COOKIE}=v2\\.`));
+      expect(cookie).toMatch(new RegExp(`^${AUTH_COOKIE}=v3\\.`));
       expect(cookie).toMatch(/HttpOnly/i);
       expect(cookie).toMatch(/SameSite=lax/i);
       expect(cookie).toMatch(/Path=\//);
@@ -153,14 +153,26 @@ describe("auth routes", () => {
   });
 
   describe("logout", () => {
+    const signOut = (url = "http://localhost/api/auth/logout", headers: Record<string, string> = {}) =>
+      logout(new Request(url, { method: "POST", headers }));
+
     it("expires the session cookie", async () => {
-      const res = await logout();
+      const res = await signOut();
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ ok: true });
       const cookie = res.headers.get("set-cookie")!;
       expect(cookie).toMatch(new RegExp(`^${AUTH_COOKIE}=;`));
       expect(cookie).toMatch(/Max-Age=0/);
       expect(cookie).toMatch(/HttpOnly/i);
+      expect(cookie).not.toMatch(/Secure/i);
+    });
+
+    it("clears the cookie with the same Secure attribute it was set with over HTTPS", async () => {
+      expect((await signOut("https://example.com/api/auth/logout")).headers.get("set-cookie")).toMatch(/Secure/i);
+      process.env.TRUST_PROXY = "true";
+      expect(
+        (await signOut("http://localhost/api/auth/logout", { "x-forwarded-proto": "https" })).headers.get("set-cookie")
+      ).toMatch(/Secure/i);
     });
   });
 });

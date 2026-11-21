@@ -56,7 +56,23 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   // Source links open third-party sites; they need not learn notebook URLs.
   { key: "Referrer-Policy", value: "no-referrer" },
+  // Browser features this app never uses stay off, for it and for the pages it
+  // frames. The microphone (live discussion) and screen capture (Screen helper,
+  // training visuals) are the only ones it asks for, and only for itself.
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), geolocation=(), payment=(), usb=(), microphone=(self), display-capture=(self)",
+  },
+  { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
 ];
+
+/**
+ * HSTS only where the browser reached the app over HTTPS: behind a
+ * TLS-terminating proxy that says so (TRUST_PROXY deployments, such as the
+ * Azure Container App). Plain-HTTP localhost never gets it, so it cannot pin
+ * a development host to HTTPS. No includeSubDomains or preload.
+ */
+const hstsHeaders = [{ key: "Strict-Transport-Security", value: "max-age=31536000" }];
 
 const nextConfig: NextConfig = {
   env: { NEXT_PUBLIC_APP_VERSION: version },
@@ -83,7 +99,14 @@ const nextConfig: NextConfig = {
       1024 * 1024,
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      {
+        source: "/:path*",
+        has: [{ type: "header", key: "x-forwarded-proto", value: "https" }],
+        headers: hstsHeaders,
+      },
+    ];
   },
 };
 

@@ -153,7 +153,7 @@ describe("proxy with a password", () => {
     withPassword();
     const expired = await createSessionToken(PASSWORD, Date.now() - 2 * 3600_000, 60);
     const other = await createSessionToken("other password");
-    for (const value of ["v2.1.2.deadbeef", "garbage", expired, other]) {
+    for (const value of ["v3.1.2.deadbeef", "garbage", expired, other]) {
       const res = await call("/api/notebooks", { cookie: `${AUTH_COOKIE}=${value}` });
       expect(res.status).toBe(401);
     }

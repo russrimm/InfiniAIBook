@@ -51,8 +51,11 @@ and exports made before tags existed work unchanged.
 
 Open **Add sources** in the notebook header. Use **Drop files or click to
 upload**, **Add link**, **Paste text**, **Search web**, **Browse web**,
-**Microsoft Learn** or **From other notebooks**. Drop image files into the
-upload area or use a direct image link. Other plain-text and code files can
+**Microsoft Learn** or **From other notebooks**. Files can be dropped anywhere
+on the notebook, not only on the upload area: a cue appears while you drag,
+and the Sources panel opens to show progress. (While a dialog is open a drop
+is ignored, so nothing is added behind it.) Drop image files or use a direct
+image link. Other plain-text and code files can
 also be dropped. JSON (including JSONL/GeoJSON), HAR, XML-family files
 (GPX/KML, SVG, RSS/Atom, XSD and XHTML) and CSV/TSV sources offer
 **Explore structure** in their reader; see the
