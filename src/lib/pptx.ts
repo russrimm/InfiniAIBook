@@ -1,5 +1,16 @@
 import * as cheerio from "cheerio";
 import JSZip from "jszip";
+import { MAX_ARCHIVE_EXPANDED_BYTES, MAX_OFFICE_ENTRIES, mb } from "./limits";
+import { ArchiveLimitError, assertZipEntryCount, readEntryCapped } from "./zipread";
+
+/** Largest slide, notes or relationship part. Real ones are well under a megabyte. */
+const MAX_PART_BYTES = 20 * 1024 * 1024;
+
+/** Most slides read from one deck. */
+const MAX_SLIDES = 5000;
+
+/** Counts what a deck has inflated so far, so many modest parts cannot add up to a bomb. */
+type Budget = { left: number };
 
 /** Placeholders that repeat on every slide and carry no content. */
 const CHROME_PLACEHOLDERS = new Set(["sldNum", "dt", "ftr", "hdr", "sldImg"]);
@@ -27,18 +38,22 @@ function relsPathFor(part: string): string {
   return `${part.slice(0, i + 1)}_rels/${part.slice(i + 1)}.rels`;
 }
 
-async function readXml(zip: JSZip, path: string): Promise<cheerio.CheerioAPI | null> {
+async function readXml(zip: JSZip, path: string, budget: Budget): Promise<cheerio.CheerioAPI | null> {
   const file = zip.file(path);
   if (!file) return null;
-  return cheerio.load(await file.async("string"), { xml: true });
+  if (budget.left <= 0) throw new ArchiveLimitError(`it expands to more than ${mb(MAX_ARCHIVE_EXPANDED_BYTES)}`);
+  const bytes = await readEntryCapped(file, Math.min(MAX_PART_BYTES, budget.left));
+  budget.left -= bytes.length;
+  return cheerio.load(bytes.toString("utf8"), { xml: true });
 }
 
 /** Relationship id → resolved part path, for one part. */
 async function relationships(
   zip: JSZip,
-  part: string
+  part: string,
+  budget: Budget
 ): Promise<{ id: string; type: string; target: string }[]> {
-  const $ = await readXml(zip, relsPathFor(part));
+  const $ = await readXml(zip, relsPathFor(part), budget);
   if (!$) return [];
   return $("Relationship")
     .toArray()
@@ -51,11 +66,11 @@ async function relationships(
 }
 
 /** Slide parts in presentation order, falling back to their file numbering. */
-async function slideOrder(zip: JSZip): Promise<string[]> {
-  const pres = await readXml(zip, "ppt/presentation.xml");
+async function slideOrder(zip: JSZip, budget: Budget): Promise<string[]> {
+  const pres = await readXml(zip, "ppt/presentation.xml", budget);
   if (pres) {
     const rels = new Map(
-      (await relationships(zip, "ppt/presentation.xml")).map((r) => [r.id, r.target])
+      (await relationships(zip, "ppt/presentation.xml", budget)).map((r) => [r.id, r.target])
     );
     const ordered = pres("p\\:sldIdLst > p\\:sldId")
       .toArray()
@@ -125,24 +140,27 @@ function readShapes($: cheerio.CheerioAPI): { title: string; lines: string[] } {
 
 /**
  * Pull readable text out of a PowerPoint deck: each slide's title and text in
- * presentation order, followed by its speaker notes.
+ * presentation order, followed by its speaker notes. Throws ArchiveLimitError
+ * for a deck that lists or inflates far more than a real one does.
  */
 export async function pptxToText(buf: Buffer | Uint8Array): Promise<string> {
+  assertZipEntryCount(buf, MAX_OFFICE_ENTRIES);
   const zip = await JSZip.loadAsync(buf);
-  const slides = await slideOrder(zip);
+  const budget: Budget = { left: MAX_ARCHIVE_EXPANDED_BYTES };
+  const slides = (await slideOrder(zip, budget)).slice(0, MAX_SLIDES);
   const blocks: string[] = [];
 
   for (const [i, slidePath] of slides.entries()) {
-    const $ = await readXml(zip, slidePath);
+    const $ = await readXml(zip, slidePath, budget);
     if (!$) continue;
     const { title, lines } = readShapes($);
 
     let notes: string[] = [];
-    const notesPart = (await relationships(zip, slidePath)).find((r) =>
+    const notesPart = (await relationships(zip, slidePath, budget)).find((r) =>
       r.type.endsWith("/notesSlide")
     );
     if (notesPart) {
-      const n$ = await readXml(zip, notesPart.target);
+      const n$ = await readXml(zip, notesPart.target, budget);
       if (n$) {
         const read = readShapes(n$);
         notes = [read.title, ...read.lines].filter(Boolean);

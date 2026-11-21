@@ -2,7 +2,8 @@ import * as cheerio from "cheerio";
 import JSZip from "jszip";
 import { epubToText } from "./epub";
 import { parseGoogleDocLink, privateDocMessage, titleFromDisposition, type GoogleDocLink } from "./googledocs";
-import { ArchiveLimitError, readEntryCapped } from "./zipread";
+import { ArchiveLimitError, assertZipEntryCount, readEntryCapped } from "./zipread";
+import { assertOfficeWithinLimits } from "./officeguard";
 import mammoth from "mammoth";
 import { describeImage, imageMimeFor } from "./vision";
 import { BlockedHostError, readCapped, safeFetch } from "./safefetch";
@@ -10,6 +11,7 @@ import { transcribe } from "./ai";
 import { pptxToText } from "./pptx";
 import {
   MAX_ARCHIVE_DEPTH,
+  MAX_ARCHIVE_ENTRIES,
   MAX_ARCHIVE_EXPANDED_BYTES,
   MAX_ARCHIVE_FILES,
   MAX_UPLOAD_BYTES,
@@ -127,6 +129,18 @@ export async function extractFromFile(file: File): Promise<Extracted> {
 export const SCANNED_PDF_HELP =
   "has no text layer, so it is probably a scan of paper pages, and this app does not run OCR on PDFs. Make it searchable first (Google Drive: right-click, Open with Google Docs; Adobe Acrobat: Scan & OCR; or save a \"searchable PDF\" from your scanner app) and add it again. You can also add photos of the pages as images, which the vision model reads.";
 
+/** Run an Office check or read, saying plainly why a file that is far too large for its kind was not opened. */
+async function guardOffice<T>(name: string, run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (e) {
+    if (e instanceof ArchiveLimitError) {
+      throw new Error(`"${name}" was not opened because ${e.message}, far more than a real document holds.`);
+    }
+    throw e;
+  }
+}
+
 async function extractFromBuffer(buf: Buffer, name: string, type = ""): Promise<Extracted> {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
 
@@ -151,6 +165,7 @@ async function extractFromBuffer(buf: Buffer, name: string, type = ""): Promise<
   if (ext === "docx") {
     const problem = describeUnreadableDocx(buf, name);
     if (problem) throw new Error(problem);
+    await guardOffice(name, () => assertOfficeWithinLimits(buf));
     const { value } = await mammoth.extractRawText({ buffer: buf });
     return { title: name, text: clean(value), kind: "docx" };
   }
@@ -158,7 +173,7 @@ async function extractFromBuffer(buf: Buffer, name: string, type = ""): Promise<
   if (ext === "pptx") {
     const problem = describeUnreadableOffice(buf, name, "pptx");
     if (problem) throw new Error(problem);
-    const text = clean(await pptxToText(buf));
+    const text = clean(await guardOffice(name, () => pptxToText(buf)));
     if (!text) {
       throw new Error(`"${name}" has no text on its slides or in its speaker notes — it may contain only images.`);
     }
@@ -237,6 +252,14 @@ export type ArchiveEntry =
 
 async function openZip(buf: Buffer, name: string): Promise<JSZip> {
   try {
+    assertZipEntryCount(buf, MAX_ARCHIVE_ENTRIES);
+  } catch (e) {
+    if (e instanceof ArchiveLimitError) {
+      throw new Error(`"${name}" was not opened because ${e.message}. Zip only the files you want to add.`);
+    }
+    throw e;
+  }
+  try {
     return await JSZip.loadAsync(buf);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";
@@ -287,7 +310,9 @@ async function* walkZip(
       yield { path, error: "archives nested this deeply are not opened." };
       continue;
     }
-    if (!nested && (budget.files <= 0 || budget.bytes <= 0)) {
+    // Archives inside archives use the file budget too, or thousands of tiny
+    // ones would each be opened for free.
+    if (budget.files <= 0 || budget.bytes <= 0) {
       // Reported once; listing every file left out would bury the real errors.
       if (!budget.truncated) {
         budget.truncated = true;
@@ -327,6 +352,7 @@ async function* walkZip(
     budget.bytes -= data.length;
 
     if (nested) {
+      budget.files--;
       try {
         yield* walkZip(data, path, `${path}/`, depth + 1, budget);
       } catch (e) {

@@ -11,10 +11,12 @@ import { normalizeTags, parseTags, serializeTags } from "./tags";
 import { audioPath, captionsPath, imagePath, videoPath } from "./paths";
 import { listSessions, sessionMessages } from "./sessions";
 import { MAX_TITLE_CHARS } from "./limits";
+import { ArchiveLimitError, assertZipEntryCount, readEntryCapped } from "./zipread";
 
 export const PACK_FORMAT = "infiniaibook-notebook";
 export const PACK_VERSION = 1;
 const MAX_ZIP_BYTES = 200 * 1024 * 1024;
+const MAX_MANIFEST_BYTES = 50_000_000;
 const MAX_SOURCE_CHARS = 5_000_000;
 const MAX_ITEMS = 2000;
 const ID = /^[A-Za-z0-9_-]{1,32}$/;
@@ -324,6 +326,12 @@ export async function importNotebookZip(buffer: Buffer): Promise<{ id: string; t
   }
   let zip: JSZip;
   try {
+    assertZipEntryCount(buffer, MAX_ITEMS);
+  } catch (e) {
+    if (e instanceof ArchiveLimitError) throw new NotebookImportError("That export has too many files.");
+    throw e;
+  }
+  try {
     zip = await JSZip.loadAsync(buffer);
   } catch {
     throw new NotebookImportError("That file is not a valid .zip archive. Choose a notebook export saved from this app.");
@@ -335,9 +343,12 @@ export async function importNotebookZip(buffer: Buffer): Promise<{ id: string; t
   }
   const manifestFile = zip.file("manifest.json");
   if (!manifestFile) throw new NotebookImportError("That file is not a notebook export.");
-  const manifestBytes = await manifestFile.async("uint8array");
-  if (manifestBytes.byteLength > 50_000_000) {
-    throw new NotebookImportError("The export manifest is too large.");
+  let manifestBytes: Buffer;
+  try {
+    manifestBytes = await readEntryCapped(manifestFile, MAX_MANIFEST_BYTES);
+  } catch (e) {
+    if (e instanceof ArchiveLimitError) throw new NotebookImportError("The export manifest is too large.");
+    throw new NotebookImportError("The export manifest could not be read. The file may be damaged.");
   }
   let pack: Pack;
   try {
@@ -375,9 +386,14 @@ export async function importNotebookZip(buffer: Buffer): Promise<{ id: string; t
     if (!name.startsWith("media/") || zip.files[name].dir) continue;
     const file = zip.file(name);
     if (!file) continue;
-    const bytes = await file.async("nodebuffer");
+    let bytes: Buffer;
+    try {
+      bytes = await readEntryCapped(file, MAX_ZIP_BYTES - mediaBytes);
+    } catch (e) {
+      if (e instanceof ArchiveLimitError) throw new NotebookImportError("The exported media is larger than 200 MB.");
+      throw new NotebookImportError("A media file in the export could not be read. The file may be damaged.");
+    }
     mediaBytes += bytes.length;
-    if (mediaBytes > MAX_ZIP_BYTES) throw new NotebookImportError("The exported media is larger than 200 MB.");
     const rel = name.slice("media/".length);
     // Pictures a training video shows are not artifacts; they still need new ids.
     const picture = /^image\/([A-Za-z0-9_-]{1,32})\.png$/.exec(rel);
