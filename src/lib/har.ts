@@ -248,6 +248,17 @@ export function parseServerTiming(value: string): { name: string; dur: number }[
 
 export const SECRET_PARAM = /(^|[_-])(token|access_token|id_token|api[_-]?key|apikey|key|secret|password|passwd|pwd|sig|signature|auth|session|sessionid|code)($|[_-])/i;
 
+/**
+ * A path with the value of every secret-looking query parameter hidden. Findings
+ * quote request paths, and findings are shown in the app and sent to the
+ * diagnosis model, so they must not carry a token.
+ */
+export function hideSecretParams(path: string): string {
+  return path.replace(/([?&])([^=&#]+)=([^&#]*)/g, (whole, sep: string, name: string) =>
+    SECRET_PARAM.test(name) ? `${sep}${name}=[redacted]` : whole
+  );
+}
+
 function hasSecretParam(url: string): boolean {
   try {
     for (const k of new URL(url).searchParams.keys()) if (SECRET_PARAM.test(k)) return true;
@@ -340,7 +351,7 @@ export function summarizeHar(data: unknown): HarSummary {
   const findings: Finding[] = [];
   const add = (severity: Finding["severity"], text: string, list: HarRequest[] = []) =>
     findings.push({ severity, text, requests: list.map((r) => r.index).slice(0, 50) });
-  const where = (r: HarRequest) => `${r.host}${r.path.slice(0, 60)}`;
+  const where = (r: HarRequest) => `${r.host}${hideSecretParams(r.path).slice(0, 60)}`;
 
   const failed = requests.filter((r) => r.failed);
   if (failed.length) {
