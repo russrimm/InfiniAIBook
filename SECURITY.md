@@ -92,3 +92,12 @@ mind before running it anywhere other than your own machine:
   would the documents themselves.
 - **`YOUTUBE_COOKIE` is a live session credential** for a Google account. Use a
   throwaway account if you set it at all.
+- **Builds and releases are pinned.** Every GitHub Action is pinned to a full
+  commit SHA and the Docker base image to a digest; Dependabot's
+  `github-actions` and `docker` updates propose newer ones as pull requests, so
+  review those like any dependency change. CI jobs do not keep the checkout
+  token and have time limits, and only the deploy job may request an Azure
+  sign-in token (OIDC). That job runs in the `production` environment, which
+  should keep a required reviewer and be limited to the `main` branch in the
+  repository's environment settings. `docker-compose.yml` drops all Linux
+  capabilities and sets `no-new-privileges` for the container.
