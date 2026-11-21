@@ -121,7 +121,7 @@ export function buildDigest(har: HarSummary, data: unknown, problem: string): st
           .join("\n")
     );
   }
-  parts.push("AUTOMATIC FINDINGS:\n" + har.findings.map((f) => `- [${f.severity}] ${f.text}`).join("\n"));
+  parts.push("AUTOMATIC FINDINGS:\n" + har.findings.map((f) => `- [${f.severity}] ${redactText(f.text)}`).join("\n"));
   parts.push("STATUS COUNTS: " + har.byStatus.map((b) => `${b.key}=${b.count}`).join(" "));
   parts.push(
     "TOP HOSTS: " + har.byHost.slice(0, 8).map((b) => `${b.key} (${b.count} req, ${b.bytes}B, ${ms(b.time)})`).join("; ")

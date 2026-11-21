@@ -124,6 +124,8 @@ export async function GET(req: Request) {
       : undefined;
 
     if (!blocked && res.ok) {
+      // The page is framed by the browser; this response body is not needed.
+      await res.body?.cancel().catch(() => {});
       return ok({
         url: finalUrl,
         frameable: true,

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Source } from "@/lib/types";
 import { MAX_TITLE_CHARS } from "@/lib/limits";
+import { useWindowFileDrop } from "./useWindowFileDrop";
 import type { DiscoverHit } from "./DiscoverModal";
 import { BulkBar, RowTags, TagFilter } from "./SourceTags";
 import { hasTag, tagCounts } from "@/lib/tags";
@@ -137,6 +139,7 @@ export default function SourcesPanel({
   onToggleAdding,
   onTogglePin,
   onClose,
+  onDropped,
 }: {
   notebookId: string;
   sources: Source[];
@@ -166,6 +169,8 @@ export default function SourcesPanel({
   onToggleAdding: () => void;
   onTogglePin: () => void;
   onClose: () => void;
+  /** Files were dropped anywhere on the page and are now uploading here; show this panel. */
+  onDropped?: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -372,6 +377,12 @@ export default function SourcesPanel({
     }
   };
 
+  // A file dropped anywhere on the page, not only on the zone below, is added.
+  const pageDragging = useWindowFileDrop((files) => {
+    uploadFiles(files);
+    onDropped?.();
+  });
+
   const addUrl = (url: string, title?: string, learn = false) => {
     const label =
       title ??
@@ -431,6 +442,26 @@ export default function SourcesPanel({
       aria-labelledby="sources-heading"
       className="flex h-full min-h-0 flex-col bg-[var(--panel)]"
     >
+      {pageDragging &&
+        // A portal, because this panel is hidden while collapsed and a hidden
+        // parent would hide the cue with it.
+        createPortal(
+          <div
+            data-testid="page-drop"
+            className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center bg-[color-mix(in_srgb,var(--bg)_72%,transparent)] p-6"
+          >
+            <div className="rounded-2xl border-2 border-dashed border-[var(--accent)] bg-[var(--panel)] px-10 py-8 text-center shadow-xl">
+              <div aria-hidden className="mb-2 text-3xl">
+                📎
+              </div>
+              <p className="text-[15px] font-medium">Drop files to add them as sources</p>
+              <p className="mt-1 text-[11px] text-[var(--muted)]">
+                PDF, DOCX, PPTX, EPUB, ZIP, text, images, audio and video
+              </p>
+            </div>
+          </div>,
+          document.body
+        )}
       <div className="px-4 pt-4 pb-3">
         <div className="flex items-center justify-between">
           <h2 id="sources-heading" className="text-sm font-semibold tracking-wide">
