@@ -12,6 +12,12 @@ services:
       - .env.local
     environment:
       DATA_DIR: /data
+    # The app needs no extra privileges: it runs as a non-root user and listens
+    # on an unprivileged port.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     volumes:
       - infiniaibook-data:/data
     # Same probe as the image's HEALTHCHECK; see docs/getting-started.md.
