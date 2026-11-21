@@ -43,11 +43,15 @@ What each generator counts:
   confirmation with the breakdown before anything is billed. Set
   `COST_CONFIRM_USD` to change the size (for example `5`), or to `0` to never ask.
 - **Over budget is refused up front.** `DAILY_BUDGET_USD` is the daily ceiling
-  (default $25 for cloud providers, off for local models; `0` turns it off).
-  When today's remaining budget cannot pay for the estimate, the status window
-  says how much it would cost and how much is left, and nothing starts.
+  (default $25 for cloud providers, off for local models; `0` turns it off, and
+  nothing else does: a value that is not a number, such as `25 USD`, uses the
+  default and logs a warning). When today's remaining budget cannot pay for the
+  estimate, the status window says how much it would cost and how much is left,
+  and nothing starts.
 - The budget counts a call when it is made. A call that fails or is cancelled
   after it started is still counted, so a retry loop cannot spend without limit.
+  Describing an image and transcribing a YouTube video count as Studio-sized
+  calls, so adding many of them cannot run past the ceiling.
 
 ## Cancelling
 
