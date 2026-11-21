@@ -9,6 +9,7 @@
  * quad sees nothing to object to and lets loopback through.
  */
 import http from "node:http";
+import zlib from "node:zlib";
 import {
   assertPublicUrl,
   BlockedHostError,
@@ -54,6 +55,14 @@ const MUST_BLOCK = [
   "http://2130706433/",
   "http://0x7f.0x0.0x0.0x1/",
   "http://017700000001/",
+  "http://0x7f000001/",
+  "http://0177.0.0.1/",
+  "http://[::ffff:7f00:1]/",
+  "http://[fd00:ec2::254]/",
+  "http://user:pass@example.com/",
+  "http://example.com@127.0.0.1/",
+  "data:text/plain,hi",
+  "javascript:alert(1)",
 ];
 
 const MUST_ALLOW = ["https://example.com/", "http://93.184.215.14/"];
@@ -124,6 +133,23 @@ async function sizeCap() {
     }
   }
   server.close();
+
+  // A few hundred KB on the wire that inflates to 64 MB: the declared length
+  // looks harmless, so only counting after decompression stops it.
+  const bomb = zlib.gzipSync(Buffer.alloc(64 * MB), { level: 9 });
+  const bombServer = http.createServer((_q, r) => {
+    r.writeHead(200, { "content-encoding": "gzip", "content-length": String(bomb.length) });
+    r.end(bomb);
+  });
+  await new Promise<void>((r) => bombServer.listen(9891, "127.0.0.1", () => r()));
+  const res = await fetch("http://127.0.0.1:9891/");
+  try {
+    await readCapped(res, 4 * MB);
+    report(false, "gzip bomb", "was read in full");
+  } catch (e) {
+    report(e instanceof ResponseTooLargeError, `gzip bomb (${Math.round(bomb.length / 1024)}KB wire)`, "stopped");
+  }
+  bombServer.close();
 }
 
 async function main() {
