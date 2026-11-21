@@ -6,6 +6,7 @@ import { chunkText, extractFromFile, extractFromUrl, extractFromZip, isZipUpload
 import { fetchYouTubeTranscript, isYouTubeUrl } from "@/lib/youtube";
 import { chatText, embed, describeAuthError, embedModel } from "@/lib/ai";
 import { MAX_TITLE_CHARS, MAX_UPLOAD_BYTES, mb } from "@/lib/limits";
+import { BODY_OVERHEAD_BYTES, readLimitedForm } from "@/lib/bodylimits";
 import { fetchLearnPage, normalizeLearnUrl } from "@/lib/learn";
 import { canonicalLearnUrl } from "@/lib/learndiscover";
 
@@ -250,7 +251,7 @@ export async function POST(req: Request, { params }: Ctx) {
     // memory, so the size has to be known first. Multipart framing adds a
     // little, hence the small allowance.
     const declared = Number(req.headers.get("content-length") || 0);
-    if (declared > MAX_UPLOAD_BYTES + 64 * 1024) {
+    if (declared > MAX_UPLOAD_BYTES + BODY_OVERHEAD_BYTES) {
       return NextResponse.json(
         {
           error: `That upload is ${mb(declared)}; the limit is ${mb(MAX_UPLOAD_BYTES)} (MAX_UPLOAD_BYTES).`,
@@ -261,7 +262,11 @@ export async function POST(req: Request, { params }: Ctx) {
     }
 
     if (ctype.includes("multipart/form-data")) {
-      const form = await req.formData();
+      const form = await readLimitedForm(
+        req,
+        MAX_UPLOAD_BYTES + BODY_OVERHEAD_BYTES,
+        `That upload is larger than ${mb(MAX_UPLOAD_BYTES)}, the most this server accepts (MAX_UPLOAD_BYTES). Upload smaller files, or raise MAX_UPLOAD_BYTES.`,
+      );
       const files = form.getAll("files").filter((f): f is File => f instanceof File);
       for (const f of files) {
         try {
@@ -283,7 +288,7 @@ export async function POST(req: Request, { params }: Ctx) {
         }
       }
     } else {
-      const body = (await readBody(req)) as {
+      const body = (await readBody(req, MAX_UPLOAD_BYTES + BODY_OVERHEAD_BYTES)) as {
         learnUrl?: string;
         url?: string;
         text?: string;

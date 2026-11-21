@@ -97,6 +97,27 @@ describe("proxy without a password", () => {
   it("does not apply the cross-site check to pages", async () => {
     expect(passes(await call("/", { "sec-fetch-site": "cross-site" }, "POST"))).toBe(true);
   });
+
+  it("refuses an API request whose declared size is over the limit, before reading it", async () => {
+    const res = await call("/api/chat", { "content-length": String(300 * 1024 * 1024) }, "POST");
+    expect(res.status).toBe(413);
+    expect(await res.json()).toMatchObject({ code: "too_large", error: expect.stringContaining("this endpoint accepts") });
+    expect(passes(await call("/api/chat", { "content-length": "2048" }, "POST"))).toBe(true);
+    expect(passes(await call("/api/music", { "content-length": String(80 * 1024 * 1024) }, "POST"))).toBe(true);
+  });
+
+  it("asks for a Content-Length when an ordinary API route gets a chunked body, but not an upload route", async () => {
+    const res = await call("/api/chat", { "transfer-encoding": "chunked" }, "POST");
+    expect(res.status).toBe(411);
+    expect(await res.json()).toMatchObject({ code: "length_required" });
+    expect(passes(await call("/api/notebooks/abc/sources", { "transfer-encoding": "chunked" }, "POST"))).toBe(true);
+  });
+
+  it("applies the size limit before sign-in, so an oversized anonymous request is not buffered either", async () => {
+    process.env.INFINIAIBOOK_PASSWORD = "correct horse";
+    const res = await call("/api/chat", { "content-length": String(300 * 1024 * 1024) }, "POST");
+    expect(res.status).toBe(413);
+  });
 });
 
 describe("proxy with a password", () => {
