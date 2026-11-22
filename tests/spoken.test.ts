@@ -113,6 +113,9 @@ describe("narration settings", () => {
 });
 
 describe("music library", () => {
+  /** The start of an MPEG audio frame, enough to be recognized as MP3. */
+  const MP3 = new Uint8Array([0xff, 0xfb, 0x90, 0x00, 0, 0, 0, 0]);
+
   it("rejects malformed choices", () => {
     expect(normalizeMusicChoice(null)).toBeNull();
     expect(normalizeMusicChoice({ track: "../etc/passwd" })).toBeNull();
@@ -126,7 +129,7 @@ describe("music library", () => {
   it("uploads, lists, resolves and deletes tracks", () => {
     expect(listTracks()).toEqual([]);
     expect(() => saveUpload("evil.exe", new Uint8Array([1]))).toThrow(/audio file/);
-    const t = saveUpload("My Song (final).mp3", new Uint8Array([1, 2, 3]));
+    const t = saveUpload("My Song (final).mp3", MP3);
     expect(t.name).toBe("My Song final");
     expect(listTracks().map((x) => x.id)).toEqual([t.id]);
     expect(resolveMusic({ track: t.id, volume: "low" })?.gain).toBeCloseTo(0.18);
@@ -265,7 +268,7 @@ describe("video scripts", () => {
 describe("review fixes", () => {
   it("keeps the id of a track whose name starts with a dash", async () => {
     const { saveUpload, listTracks, deleteTrack } = await import("@/lib/music");
-    const t = saveUpload("音楽-01.mp3", new Uint8Array([1]));
+    const t = saveUpload("音楽-01.mp3", new Uint8Array([0xff, 0xfb, 0x90, 0x00, 0, 0, 0, 0]));
     expect(listTracks().map((x) => x.id)).toContain(t.id);
     expect(deleteTrack(t.id)).toBe(true);
   });

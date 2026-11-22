@@ -22,11 +22,16 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 \
 # background music is mixed with it; everything else works without it.
 # Enable them with: docker build --build-arg WITH_PYTHON=true .
 ARG WITH_PYTHON=false
+# Pinned with hashes: pip refuses any file that does not match, so a changed or
+# swapped release cannot get into the image. Refresh it as described in
+# docs/rendering-dependencies.md.
+COPY scripts/requirements-render.txt /tmp/requirements-render.txt
 RUN if [ "$WITH_PYTHON" = "true" ]; then \
       apt-get update && apt-get install -y --no-install-recommends python3 python3-pip fonts-dejavu-core \
-      && pip3 install --no-cache-dir --break-system-packages numpy pillow imageio-ffmpeg \
+      && pip3 install --no-cache-dir --break-system-packages --require-hashes -r /tmp/requirements-render.txt \
       && rm -rf /var/lib/apt/lists/*; \
-    fi
+    fi \
+    && rm -f /tmp/requirements-render.txt
 ENV PYTHON_BIN=python3
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static

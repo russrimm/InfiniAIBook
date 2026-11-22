@@ -25,9 +25,19 @@ import imageio_ffmpeg
 
 ff = imageio_ffmpeg.get_ffmpeg_exe()
 
+# Inputs are opened as plain files only: FFmpeg otherwise follows playlists and
+# other protocols named inside a file (http:, tcp:, concat:), which an uploaded
+# clip must never be able to trigger. Uploads are checked on arrival as well.
+FILE_ONLY = ["-protocol_whitelist", "file"]
+
+
+def safe_path(p):
+    """An absolute path, so a name that starts with "-" can never be read as an ffmpeg option."""
+    return os.path.abspath(p)
+
 
 def probe(path):
-    r = subprocess.run([ff, "-hide_banner", "-i", path], capture_output=True, text=True, errors="replace")
+    r = subprocess.run([ff, "-hide_banner", *FILE_ONLY, "-i", safe_path(path)], capture_output=True, text=True, errors="replace")
     err = r.stderr
     dur = re.search(r"Duration: (\d+):(\d+):(\d+(?:\.\d+)?)", err)
     video = next((l for l in err.splitlines() if "Video:" in l), None)
@@ -74,7 +84,7 @@ def concat(cfg):
 
     cmd = [ff, "-y", "-loglevel", "error"]
     for _, path in pieces:
-        cmd += ["-i", path]
+        cmd += [*FILE_ONLY, "-i", safe_path(path)]
     graph = []
     for i, ((name, _), info) in enumerate(zip(pieces, infos)):
         graph.append(
@@ -108,7 +118,7 @@ def concat(cfg):
 
     cmd += ["-filter_complex", ";".join(graph), "-map", f"[{vout}]", "-map", f"[{aout}]", "-t", f"{total:.3f}",
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p",
-            "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart", cfg["output"]]
+            "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart", safe_path(cfg["output"])]
     subprocess.run(cmd, check=True)
     print("bookended", cfg["output"], round(total, 2), "seconds, fade", fade)
     if cfg.get("result"):

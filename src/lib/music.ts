@@ -11,6 +11,7 @@ import {
   type MusicTrack,
 } from "./musicchoice";
 import { runPythonRenderer } from "./python";
+import { audioUploadProblem, id3Length, sniffAudio, type AudioKind } from "./mediasniff";
 
 /**
  * The background-music library: tracks uploaded in the app (under
@@ -126,7 +127,41 @@ export function resolveMusic(
       ? all[Math.floor(Math.random() * all.length)]!
       : all.find((t) => t.id === choice.track);
   if (!e) return null;
+  // An upload is checked when it arrives, but a track can also come from a
+  // restored backup or the MOTION_MUSIC_DIR folder. FFmpeg decides what a file
+  // is from its contents, so one that is not audio is not handed to it.
+  if (!sniffAudioFile(e.file)) {
+    console.warn(`[music] skipped "${e.name}": its contents are not a supported audio format.`);
+    return null;
+  }
   return { file: e.file, id: e.id, name: e.name, gain: MUSIC_VOLUMES[choice.volume].gain };
+}
+
+/** The `sniffAudio` check for a file on disk, reading the whole ID3 tag when there is one so the audio after it can be checked. */
+export function sniffAudioFile(file: string): AudioKind | null {
+  let fd: number;
+  try {
+    fd = fs.openSync(file, "r");
+  } catch {
+    return null;
+  }
+  try {
+    let buf: Buffer = Buffer.alloc(4096);
+    buf = buf.subarray(0, fs.readSync(fd, buf, 0, 4096, 0));
+    const tag = id3Length(buf);
+    if (tag !== null) {
+      const want = Math.min(tag + 4096, 64 * 1024 * 1024);
+      if (want > buf.length) {
+        const whole = Buffer.alloc(want);
+        buf = whole.subarray(0, fs.readSync(fd, whole, 0, want, 0));
+      }
+    }
+    return sniffAudio(buf);
+  } catch {
+    return null;
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 export function saveUpload(originalName: string, bytes: Uint8Array): MusicTrack {
@@ -138,6 +173,8 @@ export function saveUpload(originalName: string, bytes: Uint8Array): MusicTrack 
   if (bytes.byteLength > MAX_MUSIC_BYTES) {
     throw userError(`Tracks are limited to ${Math.round(MAX_MUSIC_BYTES / 1_048_576)} MB.`, 413);
   }
+  const problem = audioUploadProblem(originalName, bytes, MUSIC_EXTENSIONS);
+  if (problem) throw userError(problem);
   const slug =
     path
       .basename(originalName, path.extname(originalName))

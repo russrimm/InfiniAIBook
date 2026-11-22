@@ -44,6 +44,8 @@
 - [How grounding works](grounding.md) — chunking, retrieval, citations and
   changing the embedding model
 - [Architecture](architecture.md) — source layout and storage
+- [Renderer dependencies](rendering-dependencies.md) — the pinned, hash-checked
+  Python packages the video renderers use, and how to refresh them
 - [REST API](API.md)
 - [Agent skill](agent-skill.md) — install the InfiniAIBook skill so a coding
   agent can set it up, run it and script it for you

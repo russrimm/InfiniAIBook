@@ -131,7 +131,9 @@ Press **＋** to upload a track (MP3, M4A, AAC, WAV, OGG or FLAC, up to 50 MB)
 into the notebook-wide music library under `.data/music`; ✕ deletes an uploaded
 track. Tracks in the folder named by `MOTION_MUSIC_DIR`, if set, are listed too,
 read-only. No music ships with the app. Only upload tracks you have the rights
-to use.
+to use. A file is accepted only when its contents are the audio format its
+extension says: a renamed text file, a playlist or a track with the wrong
+extension (an MP3 named `.wav`, say) is refused with a message saying which.
 
 Mixing uses the same Python and `imageio-ffmpeg` as the video renderers. If a
 mix fails, the narration or video is kept without music and a note says so.
