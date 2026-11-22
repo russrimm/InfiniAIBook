@@ -139,6 +139,19 @@ jobs:
           echo "::error::The container did not serve http://127.0.0.1:3000/ within 60 seconds."
           exit 1
 
+  bicep:
+    # Compiles the infrastructure templates so a syntax error or a broken
+    # parameter constraint is caught here instead of in the middle of a manual
+    # deployment. It only compiles; nothing is sent to Azure.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the Bicep templates
+        run: az bicep build --file infra/main.bicep --stdout > /dev/null
+
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 40

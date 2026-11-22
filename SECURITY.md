@@ -59,6 +59,13 @@ mind before running it anywhere other than your own machine:
   The one unauthenticated exception is `GET`/`HEAD /api/health`, which skips the
   host and password checks so container probes and the deploy smoke test work. It
   returns only `ok` or `unavailable`, with no version, path or error text.
+- **The Azure template refuses weak secrets and protects the vault.**
+  `infra/main.bicep` rejects an `appPassword` under 12 characters or a
+  `sessionSecret` under 32 before anything is created, both parameters are
+  `@secure()`, and the Key Vault has soft delete and purge protection on (see
+  [docs/azure-deployment.md](docs/azure-deployment.md) for what that means when
+  recreating an environment). CI compiles the templates, and
+  `tests/infra.test.ts` keeps these properties from being edited away.
 - **The server fetches URLs on your behalf.** Links, feeds, discovery results
   and the built-in browser are fetched server-side. Addresses that resolve to
   loopback, private, link-local or cloud-metadata ranges are refused on every
