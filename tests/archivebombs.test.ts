@@ -18,6 +18,7 @@ import { importNotebookZip, NotebookImportError } from "@/lib/notebookpack";
 import { pptxToText } from "@/lib/pptx";
 import { assertOfficeWithinLimits } from "@/lib/officeguard";
 import { ArchiveLimitError, assertZipEntryCount, countZipEntries } from "@/lib/zipread";
+import { buildZip } from "./zipfixture";
 
 /** A ZIP listing `n` empty files. */
 async function manyEntries(n: number): Promise<Buffer> {
@@ -59,10 +60,10 @@ describe("counting ZIP entries before they are opened", () => {
 
 describe("Office files and archives that inflate far past their size", () => {
   it("refuses a Word file with a part that expands past the per-file cap", async () => {
-    const zip = new JSZip();
-    zip.file("[Content_Types].xml", "<Types/>");
-    zip.file("word/document.xml", Buffer.alloc(3 * 1024 * 1024, 0x61));
-    const bomb = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+    const bomb = buildZip([
+      { name: "[Content_Types].xml", data: "<Types/>" },
+      { name: "word/document.xml", data: Buffer.alloc(3 * 1024 * 1024, 0x61) },
+    ]);
     expect(bomb.length).toBeLessThan(1024 * 1024);
     await expect(assertOfficeWithinLimits(bomb)).rejects.toBeInstanceOf(ArchiveLimitError);
 
@@ -77,9 +78,7 @@ describe("Office files and archives that inflate far past their size", () => {
   });
 
   it("stops reading a deck whose slide expands past the part cap", async () => {
-    const zip = new JSZip();
-    zip.file("ppt/slides/slide1.xml", Buffer.alloc(7 * 1024 * 1024, 0x20));
-    const bomb = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+    const bomb = buildZip([{ name: "ppt/slides/slide1.xml", data: Buffer.alloc(7 * 1024 * 1024, 0x20) }]);
     await expect(pptxToText(bomb)).rejects.toBeInstanceOf(ArchiveLimitError);
   });
 
@@ -87,12 +86,10 @@ describe("Office files and archives that inflate far past their size", () => {
 
 describe("notebook import against hostile archives", () => {
   it("refuses a manifest that inflates past its cap without keeping it", async () => {
-    const zip = new JSZip();
-    zip.file("manifest.json", Buffer.alloc(51 * 1000 * 1000, 0x20));
-    const bomb = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE", compressionOptions: { level: 1 } });
+    const bomb = buildZip([{ name: "manifest.json", data: Buffer.alloc(51 * 1000 * 1000, 0x20) }]);
     expect(bomb.length).toBeLessThan(1024 * 1024);
     await expect(importNotebookZip(bomb)).rejects.toThrow(/manifest is too large/);
-  }, 30_000);
+  });
 
   it("refuses an archive that lists too many files, whatever its end record says", async () => {
     const lying = lieAboutCount(await manyEntries(2100));
