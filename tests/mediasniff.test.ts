@@ -66,6 +66,14 @@ describe("sniffAudio", () => {
     expect(id3Length(bytes("ID3", [9, 0, 0], [0, 0, 0, 1]))).toBeNull();
     expect(id3Length(bytes(MP3_FRAME))).toBeNull();
   });
+
+  it("accepts a FLAC file that an older tagger put an ID3 tag in front of, but not one with a playlist behind the tag", () => {
+    const tagged = bytes(id3(64), "fLaC", pad(32));
+    expect(sniffAudio(tagged)).toBe("flac");
+    expect(audioUploadProblem("old.flac", tagged, MUSIC_EXTENSIONS)).toBeNull();
+    expect(audioUploadProblem("old.mp3", tagged, MUSIC_EXTENSIONS)).toMatch(/is FLAC audio, but its name ends in \.mp3/);
+    expect(sniffAudio(bytes(id3(64), "#fLaC\n#EXTM3U\n"))).toBeNull();
+  });
 });
 
 describe("audioUploadProblem", () => {
