@@ -25,6 +25,14 @@ updates:
       # API that exists only in a newer runtime. Same revisit condition as undici.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # unpdf 2 requires Node >=24 (1.x needs >=22). Same revisit condition as undici.
+      - dependency-name: unpdf
+        update-types: ["version-update:semver-major"]
+      # typescript-eslint (through eslint-config-next) refuses to run on TypeScript 7
+      # ("typescript-eslint does not support TS 7.0"), which fails lint and type-check.
+      # Revisit when typescript-eslint supports it.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
