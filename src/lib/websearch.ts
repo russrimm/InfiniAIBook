@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { FETCH_HEADERS } from "./ingest";
+import { decodeEntities, stripTags } from "./htmltext";
 import { safeFetch } from "./safefetch";
 
 /**
@@ -26,17 +27,7 @@ export type SearchHit = {
 
 export class SearchUnavailableError extends Error {}
 
-const stripTags = (s: string) =>
-  s
-    .replace(/<[^>]*>/g, "")
-    .replace(/&amp;/g, "&")
-    .replace(/&#x27;|&#39;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&nbsp;/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+const plainText = (s: string) => decodeEntities(stripTags(s)).replace(/\s+/g, " ").trim();
 
 function hostOf(url: string): string {
   try {
@@ -111,9 +102,9 @@ const brave: Provider = {
       web?: { results?: { title?: string; url?: string; description?: string }[] };
     };
     return (j.web?.results ?? []).map((r) => ({
-      title: stripTags(r.title ?? ""),
+      title: plainText(r.title ?? ""),
       url: r.url ?? "",
-      snippet: stripTags(r.description ?? ""),
+      snippet: plainText(r.description ?? ""),
       host: hostOf(r.url ?? ""),
       provider: "brave",
     }));
@@ -150,9 +141,9 @@ const googleCse: Provider = {
       items?: { title?: string; link?: string; snippet?: string }[];
     };
     return (j.items ?? []).map((r) => ({
-      title: stripTags(r.title ?? ""),
+      title: plainText(r.title ?? ""),
       url: r.link ?? "",
-      snippet: stripTags(r.snippet ?? ""),
+      snippet: plainText(r.snippet ?? ""),
       host: hostOf(r.link ?? ""),
       provider: "google",
     }));
@@ -180,9 +171,9 @@ const bing: Provider = {
       .map((item): SearchHit => {
         const url = $(item).children("link").text().trim();
         return {
-          title: stripTags($(item).children("title").text()),
+          title: plainText($(item).children("title").text()),
           url,
-          snippet: stripTags($(item).children("description").text()).slice(0, 300),
+          snippet: plainText($(item).children("description").text()).slice(0, 300),
           host: hostOf(url),
           provider: "bing",
         };
