@@ -47,6 +47,8 @@
 - [Renderer dependencies](rendering-dependencies.md) — the pinned, hash-checked
   Python packages the video renderers use, and how to refresh them
 - [REST API](API.md)
+- [Content Security Policy](csp.md) — what is enforced, the stricter nonce-based
+  policy running in report-only mode, what was measured, and how to enforce it
 - [Agent skill](agent-skill.md) — install the InfiniAIBook skill so a coding
   agent can set it up, run it and script it for you
 - [Recreation prompt](recreation-prompt.md) — a beginner-level LLM prompt for
