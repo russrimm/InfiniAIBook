@@ -89,6 +89,20 @@ mind before running it anywhere other than your own machine:
   bodies without one (for example nginx with `proxy_request_buffering off`)
   must buffer them for the API paths. See `src/lib/bodylimits.ts` and
   `src/proxy.ts`.
+- **Uploaded media is checked by its contents before FFmpeg sees it.** FFmpeg
+  decides what a file is by looking inside it, and can follow a text playlist
+  (HLS, `ffconcat`) to other local files or URLs, so a playlist renamed
+  `track.mp3` must never reach it. A music upload is accepted only when its
+  first bytes are a supported audio container (MP3 with or without an ID3 tag,
+  AAC, WAV, OGG, FLAC, M4A) that matches its extension, and the same check runs
+  again when a track is picked for a render, which covers tracks that arrived in
+  a restored backup or in `MOTION_MUSIC_DIR`. An intro or outro must be a real
+  MP4, a video-clip reference image must be the PNG, JPEG or WebP it claims to
+  be, and training and watermark images are re-checked as PNG. The renderers
+  also open their inputs with `-protocol_whitelist file` and as absolute paths,
+  so even a file that got through cannot make FFmpeg open a URL, and no file
+  name can be read as an option (`src/lib/mediasniff.ts`, `scripts/audio/mix.py`,
+  `scripts/bookends/bookends.py`, `scripts/motion/audio.py`).
 - **Uploaded archives are checked as they inflate.** ZIP, DOCX, PPTX, EPUB and
   notebook-export files can be tiny and still expand to gigabytes (a "zip
   bomb"). The number of entries is counted from the real directory before any
