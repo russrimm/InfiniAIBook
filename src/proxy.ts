@@ -3,6 +3,7 @@ import { AUTH_COOKIE, authPassword, bearerAllowed, verifySessionToken } from "@/
 import { hostAllowed, isCrossSiteRead, isCrossSiteWrite, parseAllowedHosts } from "@/lib/access";
 import { authThrottle, clientKey } from "@/lib/clientthrottle";
 import { declaredBodyProblem } from "@/lib/bodylimits";
+import { buildCsp, newNonce, themeScriptHash } from "@/lib/csp";
 
 function refuse(pathname: string, status: number, error: string, code: string) {
   if (pathname.startsWith("/api/")) {
@@ -40,7 +41,7 @@ function refuse(pathname: string, status: number, error: string, code: string) {
  * uses (a pod IP, say). It returns only "ok" or "unavailable", so skipping the
  * checks exposes nothing; every other method and path is still checked.
  */
-export async function proxy(req: NextRequest) {
+async function access(req: NextRequest) {
   const password = authPassword();
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host");
@@ -119,6 +120,33 @@ export async function proxy(req: NextRequest) {
   url.pathname = "/login";
   url.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname + req.nextUrl.search)}`;
   return NextResponse.redirect(url);
+}
+
+/**
+ * Adds the strict Content Security Policy, in report-only mode, to the pages
+ * this app serves (see src/lib/csp.ts and docs/csp.md). The nonce also goes to
+ * Next.js on the request, which stamps it on the scripts it renders; a page
+ * must therefore be rendered per request, not prerendered. Refusals, redirects
+ * and API responses carry no policy.
+ */
+export async function proxy(req: NextRequest) {
+  const res = await access(req);
+  const passed = res.headers.get("x-middleware-next") === "1";
+  if (!passed || req.nextUrl.pathname.startsWith("/api/")) return res;
+
+  const nonce = newNonce();
+  const policy = buildCsp({
+    nonce,
+    themeHash: await themeScriptHash(),
+    dev: process.env.NODE_ENV !== "production",
+    env: process.env,
+  });
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("content-security-policy-report-only", policy);
+  const out = NextResponse.next({ request: { headers: requestHeaders } });
+  out.headers.set("Content-Security-Policy-Report-Only", policy);
+  return out;
 }
 
 export const config = {

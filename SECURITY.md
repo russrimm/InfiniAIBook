@@ -138,14 +138,23 @@ mind before running it anywhere other than your own machine:
   enforced Content Security Policy that allows no remote images
   (`next.config.ts`). Behind a TLS-terminating proxy that sends
   `X-Forwarded-Proto: https`, responses also carry `Strict-Transport-Security`
-  (one year, no subdomains); plain-HTTP localhost never does. The CSP still
-  allows inline scripts (`'unsafe-inline'`, Next's bootstrap) and connections to
-  the Azure OpenAI, Speech and OpenAI host families, not only your own
-  resource, so it limits where a script can reach rather than which Azure
-  tenant. Remote images in your own notes do not load, and a note's
+  (one year, no subdomains); plain-HTTP localhost never does. The enforced CSP
+  still allows inline scripts (`'unsafe-inline'`, Next's bootstrap) and
+  connections to the Azure OpenAI, Speech and OpenAI host families, not only
+  your own resource, so it limits where a script can reach rather than which
+  Azure tenant. A stricter policy is sent alongside it in report-only mode:
+  scripts only with a per-request nonce (no `'unsafe-inline'`) and connections
+  only to this app and your Speech region's host, with violations written to the
+  server log as `[csp] report-only: …` (`/api/csp-report`). The whole browser
+  test suite passes against it on a production build with no reports other than
+  one harmless Zod `eval` probe; it is not enforced until you have watched its
+  reports from a real deployment, because the live avatar and live discussion
+  cannot be exercised without Azure (see [docs/csp.md](docs/csp.md) for the
+  measurements and how to enforce it). Remote images in your own notes do not
+  load, and a note's
   image may only be one this app serves (`/api/image/<id>`), so an imported
   note cannot point an image at an API route. Live
-  discussions may connect to Azure OpenAI or OpenAI realtime hosts (the CSP
+  discussions may connect to Azure OpenAI or OpenAI realtime hosts (the enforced CSP
   allows the whole `*.openai.azure.com` and `api.openai.com` families); other
   remote connections are refused. The in-app browser does not frame
   this app's own origin or a loopback address.
