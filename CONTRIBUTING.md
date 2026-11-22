@@ -35,8 +35,7 @@ npm run check:ai        # live provider checks; add --studio, --styles or --imag
 `check:ai` calls the configured model provider and costs tokens; run it when you
 change prompts, schemas or `src/lib/ai.ts`. Everything else except `check:ai`
 also runs in CI (`.github/workflows/ci.yml`) on every pull request, along with
-a Docker build and boot test, `npm audit` for production dependencies and
-CodeQL. The coverage thresholds in `vitest.config.mts` sit just under the
+a Docker build and boot test, a dependency audit and CodeQL. The coverage thresholds in `vitest.config.mts` sit just under the
 current numbers; raise them when you add tests, and don't lower them. Unit tests
 live in `tests/` and use a temporary `DATA_DIR`, never your real `.data/`.
 Browser tests live in `e2e/`. They start their own dev server on port 3123 with
@@ -49,6 +48,35 @@ screen or dialog.
 
 New pull requests start from a [template](.github/pull_request_template.md)
 with these checks and the guidelines below as a checklist.
+
+## Dependency audit
+
+CI fails when `npm audit --omit=dev` reports a **high or critical** advisory in a
+production dependency (`scripts/audit-gate.ts`, tested in
+`tests/auditgate.test.ts`). The usual fix is to update the package, or to add an
+`overrides` entry when the vulnerable copy is a transitive one. If the advisory
+cannot apply here or no fix exists yet, record a reviewed exception in
+[`.github/audit-allowlist.json`](.github/audit-allowlist.json):
+
+```json
+{
+  "exceptions": [
+    {
+      "id": "GHSA-xxxx-xxxx-xxxx",
+      "reason": "Why it does not apply, or what is blocking the fix (at least 20 characters).",
+      "expires": "2027-01-31"
+    }
+  ]
+}
+```
+
+An exception must name the GitHub advisory, give a reason, and expire within 90
+days, so it is looked at again; after that date the advisory fails the build
+again. A check run prints which exceptions are in use, which have expired and
+which match nothing and can be deleted. If npm's registry cannot be reached or is
+rate limiting, the gate reports a warning and passes instead of blocking every
+merge; a failure to run the audit for any other reason (no lockfile, output the
+script cannot read) fails the job. To run it yourself: `npx tsx scripts/audit-gate.ts`.
 
 ## Guidelines
 

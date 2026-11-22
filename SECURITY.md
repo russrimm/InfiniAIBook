@@ -169,5 +169,10 @@ mind before running it anywhere other than your own machine:
   choose their own host, protocol and address.
 - **What watches this repository:** CodeQL on every pull request, Dependabot
   version and security updates, GitHub secret scanning with push protection,
-  and a CI check that the lockfile resolves only from the public npm registry.
+  a CI check that the lockfile resolves only from the public npm registry, and
+  a CI gate that fails on any high or critical advisory in a production npm
+  dependency. The gate allows only reviewed exceptions listed in
+  `.github/audit-allowlist.json`, each with a reason and an expiry date within
+  90 days (see CONTRIBUTING.md); if npm's registry cannot be reached it reports
+  a warning and passes, so an outage there cannot block merges.
   Report anything they miss through the private reporting link above.
