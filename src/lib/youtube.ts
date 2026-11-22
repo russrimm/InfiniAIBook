@@ -13,6 +13,7 @@
  */
 
 import { hasGemini, transcribeYouTube } from "./gemini";
+import { decodeEntities } from "./htmltext";
 
 const WEB_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -69,16 +70,6 @@ function headers(): Record<string, string> {
   if (cookie) h.cookie = cookie;
   return h;
 }
-
-const decodeEntities = (s: string) =>
-  s
-    .replace(/&amp;/g, "&")
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(Number(d)));
 
 type Meta = {
   title: string;

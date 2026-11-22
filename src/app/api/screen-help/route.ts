@@ -10,6 +10,7 @@ import {
   turnPrompt,
 } from "@/lib/screenhelp";
 import { ImageNotReadError, assertReadsImages } from "@/lib/vision";
+import { JSON_BODY_BYTES, readLimitedText } from "@/lib/bodylimits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ const MAX_BODY_CHARS = MAX_FRAME_CHARS + 100_000;
  */
 export async function POST(req: Request) {
   try {
-    const raw = await req.text();
+    const raw = await readLimitedText(req, JSON_BODY_BYTES, "The screenshot is too large.");
     if (raw.length > MAX_BODY_CHARS) {
       return NextResponse.json({ error: "The screenshot is too large." }, { status: 413 });
     }

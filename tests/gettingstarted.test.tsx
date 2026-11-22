@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import GettingStarted from "@/components/GettingStarted";
+import { stripTags } from "@/lib/htmltext";
 
 const noop = () => {};
 
@@ -20,13 +21,13 @@ function render(sourceCount: number, selectedCount: number) {
 /** The text of the rail button that is marked as the current step. */
 function currentStep(html: string) {
   const match = html.match(/<button[^>]*aria-current="step"[^>]*>([\s\S]*?)<\/button>/);
-  return match ? match[1].replace(/<[^>]+>/g, "") : "";
+  return match ? stripTags(match[1]) : "";
 }
 
 /** The button labelled `name` in the step card, or null. */
 function button(html: string, name: RegExp) {
   for (const m of html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)) {
-    if (name.test(m[2].replace(/<[^>]+>/g, "").trim()) || name.test(m[1])) return m[1];
+    if (name.test(stripTags(m[2]).trim()) || name.test(m[1])) return m[1];
   }
   return null;
 }

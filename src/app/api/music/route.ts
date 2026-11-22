@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ok, fail } from "@/lib/http";
 import { listTracks, saveUpload } from "@/lib/music";
 import { MAX_MUSIC_BYTES } from "@/lib/musicchoice";
+import { BODY_OVERHEAD_BYTES, readLimitedForm } from "@/lib/bodylimits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,16 +19,14 @@ export async function GET() {
 /** Upload one track as multipart form data in a field named "file". */
 export async function POST(req: Request) {
   try {
-    const form = await req.formData();
+    const tooLarge = `Tracks are limited to ${Math.round(MAX_MUSIC_BYTES / 1_048_576)} MB. Trim or compress the track and try again.`;
+    const form = await readLimitedForm(req, MAX_MUSIC_BYTES + BODY_OVERHEAD_BYTES, tooLarge);
     const file = form.get("file");
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Choose an audio file to upload." }, { status: 400 });
     }
     if (file.size > MAX_MUSIC_BYTES) {
-      return NextResponse.json(
-        { error: `Tracks are limited to ${Math.round(MAX_MUSIC_BYTES / 1_048_576)} MB.` },
-        { status: 413 }
-      );
+      return NextResponse.json({ error: tooLarge }, { status: 413 });
     }
     const track = saveUpload(file.name, new Uint8Array(await file.arrayBuffer()));
     return ok({ track, tracks: listTracks() });

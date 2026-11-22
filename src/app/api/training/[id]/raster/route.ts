@@ -5,6 +5,7 @@ import { trainingRasterPath, trainingVisualsDir } from "@/lib/paths";
 import { composeInput, missingRasters } from "@/lib/trainingbuild";
 import { rasterJobs } from "@/lib/trainingtimeline";
 import { loadTraining, pngFromDataUrl } from "@/lib/trainingroute";
+import { base64JsonBytes, readJSONOr } from "@/lib/bodylimits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export async function PUT(req: Request, { params }: Ctx) {
     const { id } = await params;
     const t = loadTraining(id);
     if (!t) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const body = (await req.json().catch(() => ({}))) as { key?: unknown; state?: unknown; dataUrl?: unknown };
+    const body = (await readJSONOr(req, base64JsonBytes(MAX_BYTES), {})) as { key?: unknown; state?: unknown; dataUrl?: unknown };
     const job = rasterJobs(composeInput(t.content)).find((j) => j.key === body.key);
     const state = Number(body.state);
     if (!job || !Number.isInteger(state) || state < 0 || state >= job.states) {

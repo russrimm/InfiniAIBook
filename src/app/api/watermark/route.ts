@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ok, fail } from "@/lib/http";
 import { listWatermarkImages, saveWatermarkImage } from "@/lib/watermark";
 import { MAX_WATERMARK_BYTES } from "@/lib/watermarkchoice";
+import { base64JsonBytes, readJSONOr } from "@/lib/bodylimits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export async function GET() {
 /** Upload one image as `{ name, dataUrl }`; the browser converts it to PNG first. */
 export async function POST(req: Request) {
   try {
-    const body = (await req.json().catch(() => ({}))) as { name?: unknown; dataUrl?: unknown };
+    const body = (await readJSONOr(req, base64JsonBytes(MAX_WATERMARK_BYTES), {})) as { name?: unknown; dataUrl?: unknown };
     const image = saveWatermarkImage(body.name, body.dataUrl);
     return ok({ image, images: listWatermarkImages() });
   } catch (e) {
