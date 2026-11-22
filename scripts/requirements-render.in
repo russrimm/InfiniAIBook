@@ -1,0 +1,11 @@
+# Python packages the video renderers need (whiteboard, motion and training
+# videos, music mixing, intro and outro). The Dockerfile (WITH_PYTHON=true), CI
+# and the docs install the pinned, hash-checked scripts/requirements-render.txt
+# that is compiled from this file; edit this file, then recompile (see
+# docs/rendering-dependencies.md).
+#
+# numpy stays below 2.5, which needs Python 3.12; the Docker image's Debian
+# 12 base ships Python 3.11.
+numpy>=2.4,<2.5
+pillow>=13,<14
+imageio-ffmpeg>=0.8,<0.9
