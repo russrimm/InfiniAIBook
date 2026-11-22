@@ -101,7 +101,8 @@ jobs:
           python-version: "3.12"
       - run: npm ci
       - name: Install renderer packages
-        run: python -m pip install numpy pillow imageio-ffmpeg
+        # Pinned with hashes; see docs/rendering-dependencies.md.
+        run: python -m pip install --require-hashes -r scripts/requirements-render.txt
       - name: Motion renderer check
         run: npm run check:motion
         env:

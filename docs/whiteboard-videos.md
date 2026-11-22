@@ -37,9 +37,11 @@ Frames are composited and encoded by a Python renderer,
 and `imageio-ffmpeg`:
 
 ```bash
-python -m pip install numpy pillow imageio-ffmpeg
+python -m pip install --require-hashes -r scripts/requirements-render.txt
 ```
 
+That installs the exact versions CI and the Docker image use and refuses any
+file whose hash does not match; see [Renderer dependencies](rendering-dependencies.md).
 Set `PYTHON_BIN` if `python` is not the interpreter you want.
 
 ## Timings, measured
