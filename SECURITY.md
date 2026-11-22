@@ -59,6 +59,13 @@ mind before running it anywhere other than your own machine:
   The one unauthenticated exception is `GET`/`HEAD /api/health`, which skips the
   host and password checks so container probes and the deploy smoke test work. It
   returns only `ok` or `unavailable`, with no version, path or error text.
+- **The Azure template refuses weak secrets and protects the vault.**
+  `infra/main.bicep` rejects an `appPassword` under 12 characters or a
+  `sessionSecret` under 32 before anything is created, both parameters are
+  `@secure()`, and the Key Vault has soft delete and purge protection on (see
+  [docs/azure-deployment.md](docs/azure-deployment.md) for what that means when
+  recreating an environment). CI compiles the templates, and
+  `tests/infra.test.ts` keeps these properties from being edited away.
 - **The server fetches URLs on your behalf.** Links, feeds, discovery results
   and the built-in browser are fetched server-side. Addresses that resolve to
   loopback, private, link-local or cloud-metadata ranges are refused on every
@@ -74,6 +81,14 @@ mind before running it anywhere other than your own machine:
   you trust everyone who can add a source. A response is also stopped when it
   grows past `MAX_FETCH_BYTES` or takes longer than `DOWNLOAD_TIMEOUT_MS` (two
   minutes) to arrive, so a site that trickles bytes cannot hold a request open.
+  Links a model provider hands back (a generated image returned as a URL, the
+  finished avatar video and its job summary) are fetched the same way
+  (`src/lib/providerfetch.ts`): public addresses only on every redirect hop,
+  no credential, and a size and time limit, so a misbehaving or compromised
+  provider cannot aim the server at a cloud metadata address or the private
+  network. The one exception is an image hosted on the provider endpoint you
+  configured yourself (`AI_BASE_URL`, `AZURE_OPENAI_ENDPOINT`), so a local
+  OpenAI-compatible server that serves its own images keeps working.
 - **Request bodies are size-checked before they are buffered.** Next.js holds a
   whole request body in memory before a route sees it (up to about 200 MB), so
   every API request is refused with 413 when its `Content-Length` is over its
@@ -89,6 +104,20 @@ mind before running it anywhere other than your own machine:
   bodies without one (for example nginx with `proxy_request_buffering off`)
   must buffer them for the API paths. See `src/lib/bodylimits.ts` and
   `src/proxy.ts`.
+- **Uploaded media is checked by its contents before FFmpeg sees it.** FFmpeg
+  decides what a file is by looking inside it, and can follow a text playlist
+  (HLS, `ffconcat`) to other local files or URLs, so a playlist renamed
+  `track.mp3` must never reach it. A music upload is accepted only when its
+  first bytes are a supported audio container (MP3 with or without an ID3 tag,
+  AAC, WAV, OGG, FLAC, M4A) that matches its extension, and the same check runs
+  again when a track is picked for a render, which covers tracks that arrived in
+  a restored backup or in `MOTION_MUSIC_DIR`. An intro or outro must be a real
+  MP4, a video-clip reference image must be the PNG, JPEG or WebP it claims to
+  be, and training and watermark images are re-checked as PNG. The renderers
+  also open their inputs with `-protocol_whitelist file` and as absolute paths,
+  so even a file that got through cannot make FFmpeg open a URL, and no file
+  name can be read as an option (`src/lib/mediasniff.ts`, `scripts/audio/mix.py`,
+  `scripts/bookends/bookends.py`, `scripts/motion/audio.py`).
 - **Uploaded archives are checked as they inflate.** ZIP, DOCX, PPTX, EPUB and
   notebook-export files can be tiny and still expand to gigabytes (a "zip
   bomb"). The number of entries is counted from the real directory before any
