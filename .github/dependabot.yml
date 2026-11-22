@@ -47,6 +47,12 @@ updates:
     groups:
       renderer-packages:
         patterns: ["*"]
+    # numpy 2.5 requires Python >=3.12, but the Docker image installs Debian
+    # bookworm's python3 (3.11), so the image build fails. Patch updates still
+    # arrive. Revisit when the image moves to Python 3.12 or later.
+    ignore:
+      - dependency-name: numpy
+        update-types: ["version-update:semver-minor"]
   # Keeps the digest-pinned node base image in the Dockerfile current. The app
   # targets the Node 22 LTS line, so major version jumps are not proposed.
   - package-ecosystem: docker

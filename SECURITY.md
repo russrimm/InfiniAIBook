@@ -171,11 +171,12 @@ mind before running it anywhere other than your own machine:
 - **Builds and releases are pinned.** Every GitHub Action is pinned to a full
   commit SHA and the Docker base image to a digest; Dependabot's
   `github-actions` and `docker` updates propose newer ones as pull requests, so
-  review those like any dependency change. Some npm majors are held back on
-  purpose and explained in `.github/dependabot.yml`: undici 8 and unpdf 2 (need
-  Node 22.19 and 24, the app supports 22.13), eslint 10 and TypeScript 7 (not
-  yet supported by `eslint-config-next`'s plugins and typescript-eslint) and
-  `@types/node` above 22. CI jobs do not keep the checkout
+  review those like any dependency change. Some dependency updates are held
+  back on purpose and explained in `.github/dependabot.yml`: undici 8 and unpdf
+  2 (need Node 22.19 and 24, the app supports 22.13), eslint 10 and TypeScript 7
+  (not yet supported by `eslint-config-next`'s plugins and typescript-eslint),
+  `@types/node` above 22, and numpy 2.5 (needs Python 3.12, the image has 3.11).
+  CI jobs do not keep the checkout
   token and have time limits, and only the deploy job may request an Azure
   sign-in token (OIDC). That job runs in the `production` environment, which
   should keep a required reviewer and be limited to the `main` branch in the
