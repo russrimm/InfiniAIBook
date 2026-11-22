@@ -4,6 +4,7 @@ import { MissingConfigError, describeAuthError, isConnectionError, isDroppedConn
 import { db } from "./db";
 import { SourceBoundaryError } from "./artifactsources";
 import { BadRequestError } from "./badrequest";
+import { PayloadTooLargeError } from "./bodylimits";
 import { isCancellation } from "./jobs";
 
 export { readBody } from "./badrequest";
@@ -19,6 +20,9 @@ export function fail(e: unknown) {
   }
   if (e instanceof BadRequestError) {
     return NextResponse.json({ error: e.message, code: "invalid" }, { status: 400 });
+  }
+  if (e instanceof PayloadTooLargeError) {
+    return NextResponse.json({ error: e.message, code: "too_large" }, { status: 413 });
   }
   if (e instanceof SourceBoundaryError) {
     return NextResponse.json({ error: e.message, code: "invalid_sources" }, { status: 400 });

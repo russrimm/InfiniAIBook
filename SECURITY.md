@@ -74,6 +74,21 @@ mind before running it anywhere other than your own machine:
   you trust everyone who can add a source. A response is also stopped when it
   grows past `MAX_FETCH_BYTES` or takes longer than `DOWNLOAD_TIMEOUT_MS` (two
   minutes) to arrive, so a site that trickles bytes cannot hold a request open.
+- **Request bodies are size-checked before they are buffered.** Next.js holds a
+  whole request body in memory before a route sees it (up to about 200 MB), so
+  every API request is refused with 413 when its `Content-Length` is over its
+  endpoint's limit, before anything is read: 8 MB for ordinary JSON,
+  about 24 MB for the endpoints that take an image as a data URL, and the
+  upload limits (`MAX_UPLOAD_BYTES` for sources, 50 MB for music, 100 MB for an
+  intro or outro clip, 200 MB for a notebook export or backup) for the file
+  endpoints. Those endpoints also count the bytes that really arrive and stop
+  at the limit, so a chunked upload, or one whose `Content-Length` is wrong,
+  cannot get past it. An ordinary endpoint that receives a chunked body with no
+  `Content-Length` answers 411, because its size cannot be checked; browsers
+  and every common reverse proxy send the length. A proxy that streams request
+  bodies without one (for example nginx with `proxy_request_buffering off`)
+  must buffer them for the API paths. See `src/lib/bodylimits.ts` and
+  `src/proxy.ts`.
 - **Uploaded archives are checked as they inflate.** ZIP, DOCX, PPTX, EPUB and
   notebook-export files can be tiny and still expand to gigabytes (a "zip
   bomb"). The number of entries is counted from the real directory before any

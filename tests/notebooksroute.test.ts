@@ -246,10 +246,10 @@ describe("/api/notebooks/[id]/export and /api/notebooks/import", () => {
     const big = new File(["x"], "big.zip");
     Object.defineProperty(big, "size", { value: 200 * 1024 * 1024 + 1 });
     const form = { get: () => big } as unknown as FormData;
-    const req = { formData: async () => form } as unknown as Request;
-    const res = await importNotebook(req);
+    vi.spyOn(Request.prototype, "formData").mockResolvedValueOnce(form);
+    const res = await importNotebook(new Request("http://localhost/api/notebooks/import", { method: "POST", body: "x" }));
     expect(res.status).toBe(413);
-    expect(await res.json()).toEqual({ error: "That export is larger than 200 MB." });
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("larger than 200 MB"), code: "too_large" });
   });
 
   it("rejects a file that is not a notebook export", async () => {
