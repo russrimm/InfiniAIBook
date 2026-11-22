@@ -57,6 +57,7 @@ next-env.d.ts
 !.github/pull_request_template.md
 !.github/workflows/
 !.github/dependabot.yml
+!.github/audit-allowlist.json
 !.github/ISSUE_TEMPLATE/
 skills/*
 !skills/infiniaibook/

@@ -1,10 +1,11 @@
 import fs from "node:fs";
-import { Readable } from "node:stream";
+import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { getBearerTokenProvider } from "@azure/identity";
 import { buildCredential } from "./azureCredential";
 import { BATCH_PHOTO_MODELS, DEFAULT_PHOTO_MODEL } from "./avatars";
 import { avatarCents, reserve } from "./budget";
+import { downloadProviderAsset, openProviderAsset, providerAssetTooLarge } from "./providerfetch";
 import {
   fetchWithRetry,
   RateGate,
@@ -354,26 +355,55 @@ export async function deleteAvatarJob(
   }
 }
 
+/** A finished avatar render is a video of a few minutes; a link to anything past this is not one. */
+const MAX_AVATAR_RESULT_BYTES = 1024 * 1024 * 1024;
+const AVATAR_DOWNLOAD_TIMEOUT_MS = 15 * 60_000;
+const MAX_AVATAR_SUMMARY_BYTES = 2 * 1024 * 1024;
+
 /**
  * Stream the finished video to disk. The result link is a pre-signed blob URL,
- * so it takes no credential — and must not be sent one.
+ * so it takes no credential — and must not be sent one. It comes back in the
+ * service's reply, so it is fetched like any untrusted address: public hosts
+ * only, on every redirect, with a cap on size and time.
  */
 export async function downloadAvatarResult(
   resultUrl: string,
   file: string,
 ): Promise<number> {
+  const what = "rendered avatar video";
   if (!/^https:\/\//i.test(resultUrl)) {
     throw new Error("The avatar service returned an unexpected result link.");
   }
-  const res = await fetch(resultUrl);
+  const res = await openProviderAsset(resultUrl, { what, maxBytes: MAX_AVATAR_RESULT_BYTES, httpsOnly: true });
   if (!res.ok || !res.body) {
+    void res.body?.cancel().catch(() => {});
     throw new Error(`Could not download the rendered video (${res.status}).`);
   }
+  const declared = Number(res.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_AVATAR_RESULT_BYTES) {
+    void res.body.cancel().catch(() => {});
+    throw new Error(providerAssetTooLarge(what, MAX_AVATAR_RESULT_BYTES));
+  }
   const tmp = `${file}.part`;
-  await pipeline(
-    Readable.fromWeb(res.body as import("node:stream/web").ReadableStream),
-    fs.createWriteStream(tmp),
-  );
+  let bytes = 0;
+  const meter = new Transform({
+    transform(chunk: Buffer, _enc, cb) {
+      bytes += chunk.length;
+      if (bytes > MAX_AVATAR_RESULT_BYTES) cb(new Error(providerAssetTooLarge(what, MAX_AVATAR_RESULT_BYTES)));
+      else cb(null, chunk);
+    },
+  });
+  try {
+    await pipeline(
+      Readable.fromWeb(res.body as import("node:stream/web").ReadableStream),
+      meter,
+      fs.createWriteStream(tmp),
+      { signal: AbortSignal.timeout(AVATAR_DOWNLOAD_TIMEOUT_MS) },
+    );
+  } catch (e) {
+    fs.rmSync(tmp, { force: true });
+    throw e;
+  }
   try {
     fs.renameSync(tmp, file);
   } catch {
@@ -392,14 +422,16 @@ export async function avatarFailureReason(job: AvatarJob): Promise<string> {
   const summary = job.outputs?.summary;
   if (summary && /^https:\/\//i.test(summary)) {
     try {
-      const res = await fetch(summary);
-      if (res.ok) {
-        const j = (await res.json()) as {
-          results?: { status?: string; error?: string }[];
-        };
-        const err = j.results?.find((r) => r.error)?.error;
-        if (err) return err;
-      }
+      const bytes = await downloadProviderAsset(summary, {
+        what: "avatar render summary",
+        maxBytes: MAX_AVATAR_SUMMARY_BYTES,
+        httpsOnly: true,
+      });
+      const j = JSON.parse(bytes.toString("utf8")) as {
+        results?: { status?: string; error?: string }[];
+      };
+      const err = j.results?.find((r) => r.error)?.error;
+      if (err) return err;
     } catch {
       /* fall through */
     }

@@ -276,7 +276,9 @@ a signed-in `YOUTUBE_COOKIE` does not guarantee access to public captions.
 You can also use **Paste** to add a transcript you already have.
 
 Whiteboard videos and motion explainers also need Python 3 with `numpy`,
-`Pillow` and `imageio-ffmpeg`. Training videos and motion explainers can
+`Pillow` and `imageio-ffmpeg` (pinned, with hashes, in
+[`scripts/requirements-render.txt`](scripts/requirements-render.txt); see
+[Renderer dependencies](docs/rendering-dependencies.md)). Training videos and motion explainers can
 optionally be composed with [HyperFrames](docs/training-videos.md#the-hyperframes-compositor)
 (`TRAINING_RENDERER=hyperframes`, `MOTION_RENDERER=hyperframes`), falling back
 to the Python renderer if it fails.

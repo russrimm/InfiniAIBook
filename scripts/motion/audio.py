@@ -7,6 +7,16 @@ untouched.
 """
 import os, shutil, subprocess, sys
 
+# Inputs are opened as plain files only: FFmpeg otherwise follows playlists and
+# other protocols named inside a file (http:, tcp:, concat:), which a music
+# track must never be able to trigger.
+FILE_ONLY = ["-protocol_whitelist", "file"]
+
+
+def safe_path(p):
+    """An absolute path, so a name that starts with "-" can never be read as an ffmpeg option."""
+    return os.path.abspath(p)
+
 
 def mux(ff, silent, out, cfg):
     """Write `out`: the silent video plus the soundtrack described by the render config `cfg`."""
@@ -22,9 +32,9 @@ def mux(ff, silent, out, cfg):
         return
 
     fmt = "aformat=sample_rates=48000:channel_layouts=stereo"
-    cmd = [ff, "-y", "-loglevel", "error", "-i", silent]
+    cmd = [ff, "-y", "-loglevel", "error", *FILE_ONLY, "-i", safe_path(silent)]
     for c in clips:
-        cmd += ["-i", c["src"]]
+        cmd += [*FILE_ONLY, "-i", safe_path(c["src"])]
     parts = []
     if clips:
         for i, c in enumerate(clips, 1):
@@ -35,7 +45,7 @@ def mux(ff, silent, out, cfg):
                      f"apad=whole_dur={total:.3f},atrim=0:{total:.3f}[narr]")
     if music:
         m = len(clips) + 1
-        cmd += ["-stream_loop", "-1", "-i", music["src"]]
+        cmd += ["-stream_loop", "-1", *FILE_ONLY, "-i", safe_path(music["src"])]
         fade_at = max(0.0, total - 2.5)
         parts.append(
             f"[{m}:a]{fmt},volume={music.get('volume', 0.35)},atrim=0:{total:.3f},asetpts=PTS-STARTPTS,"
@@ -52,5 +62,5 @@ def mux(ff, silent, out, cfg):
         parts.append("[narr]anull[pre]")
     parts.append("[pre]loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000[mix]")
     cmd += ["-filter_complex", ";".join(parts), "-map", "0:v", "-map", "[mix]", "-c:v", "copy",
-            "-c:a", "aac", "-b:a", "160k", "-t", f"{total:.3f}", "-movflags", "+faststart", out]
+            "-c:a", "aac", "-b:a", "160k", "-t", f"{total:.3f}", "-movflags", "+faststart", safe_path(out)]
     subprocess.run(cmd, check=True)
