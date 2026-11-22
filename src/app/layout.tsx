@@ -9,6 +9,11 @@ import { DESCRIPTION } from "@/lib/brand";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
+// The Content Security Policy carries a nonce that is new for every request
+// (src/proxy.ts), and Next.js can only stamp it on a page rendered per
+// request, so no page is prerendered.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: {
     default: "InfiniAIBook — self-hosted research notebook",
