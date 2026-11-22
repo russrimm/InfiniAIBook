@@ -68,15 +68,24 @@ describe("normalizeClipRequest", () => {
   });
 
   it("accepts a reference image only when supported, and checks its type and size", () => {
-    const data = Buffer.from("png-bytes").toString("base64");
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+    const data = png.toString("base64");
     expect(ok({ prompts: ["x"], reference: { mime: "image/png", data: `data:image/png;base64,${data}` } }).reference).toEqual({
       mime: "image/png",
       data,
     });
     expect(err({ prompts: ["x"], reference: { mime: "image/gif", data } })).toMatch(/JPEG, PNG or WebP/);
-    expect(err({ prompts: ["x"], reference: { mime: "image/png", data: "A".repeat(6 * 1024 * 1024) } })).toMatch(/under 4 MB/);
+    expect(err({ prompts: ["x"], reference: { mime: "image/png", data: data + "A".repeat(6 * 1024 * 1024) } })).toMatch(/under 4 MB/);
     const noRef = normalizeClipRequest({ ...caps, referenceImage: false }, { prompts: ["x"], reference: { mime: "image/png", data } });
     expect(noRef.ok).toBe(false);
+  });
+
+  it("refuses a reference image whose contents are not the type it claims", () => {
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46]).toString("base64");
+    const text = Buffer.from("#EXTM3U\nhttp://169.254.169.254/\n").toString("base64");
+    expect(err({ prompts: ["x"], reference: { mime: "image/png", data: jpeg } })).toMatch(/do not match its type/);
+    expect(err({ prompts: ["x"], reference: { mime: "image/png", data: text } })).toMatch(/do not match its type/);
+    expect(ok({ prompts: ["x"], reference: { mime: "image/jpeg", data: jpeg } }).reference?.mime).toBe("image/jpeg");
   });
 });
 

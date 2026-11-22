@@ -2,6 +2,7 @@ import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { epubToText, resolveInArchive } from "@/lib/epub";
 import { extractFromFile, extractFromZip } from "@/lib/ingest";
+import { buildZip } from "./zipfixture";
 
 const CONTAINER = `<?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
@@ -11,12 +12,11 @@ const CONTAINER = `<?xml version="1.0"?>
 type Chapter = { id: string; file: string; body: string; linear?: boolean };
 
 async function epub(chapters: Chapter[], over: { title?: string; author?: string; extra?: Record<string, string>; container?: string | null } = {}): Promise<Buffer> {
-  const zip = new JSZip();
-  zip.file("mimetype", "application/epub+zip");
-  if (over.container !== null) zip.file("META-INF/container.xml", over.container ?? CONTAINER);
-  zip.file(
-    "OEBPS/content.opf",
-    `<?xml version="1.0"?>
+  const files: { name: string; data: string }[] = [{ name: "mimetype", data: "application/epub+zip" }];
+  if (over.container !== null) files.push({ name: "META-INF/container.xml", data: over.container ?? CONTAINER });
+  files.push({
+    name: "OEBPS/content.opf",
+    data: `<?xml version="1.0"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
     <dc:title>${over.title ?? "Field Guide"}</dc:title>
@@ -28,12 +28,15 @@ async function epub(chapters: Chapter[], over: { title?: string; author?: string
   </manifest>
   <spine>${chapters.map((c) => `<itemref idref="${c.id}"${c.linear === false ? ' linear="no"' : ""}/>`).join("")}</spine>
 </package>`,
-  );
+  });
   for (const c of chapters) {
-    zip.file(`OEBPS/${c.file}`, `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>${c.body}</body></html>`);
+    files.push({
+      name: `OEBPS/${c.file}`,
+      data: `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head><body>${c.body}</body></html>`,
+    });
   }
-  for (const [name, data] of Object.entries(over.extra ?? {})) zip.file(name, data);
-  return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+  for (const [name, data] of Object.entries(over.extra ?? {})) files.push({ name, data });
+  return buildZip(files);
 }
 
 describe("EPUB ingestion", () => {
@@ -97,7 +100,7 @@ describe("EPUB ingestion", () => {
     await expect(epubToText(await epub([{ id: "a", file: "a.xhtml", body: "<img src='p1.png'/>" }]), "f.epub")).rejects.toThrow(/no readable text/);
   });
 
-  // These build multi-megabyte archives, which is slow on a busy CI runner with coverage on.
+  // Archives are built with native deflate (see zipfixture.ts), but reading these big ones still takes a while on a busy CI runner with coverage on.
   it("refuses an archive with an absurd number of files", { timeout: 60_000 }, async () => {
     const extra: Record<string, string> = {};
     for (let i = 0; i < 5001; i++) extra[`junk/${i}.txt`] = "x";

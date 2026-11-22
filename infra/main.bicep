@@ -17,9 +17,13 @@ param deployedBy string
 param createdAt string
 param deployerObjectId string
 
+@description('Password people type to sign in. At least 12 characters; generate one rather than choosing one.')
+@minLength(12)
 @secure()
 param appPassword string
 
+@description('Key that signs session cookies. At least 32 characters; generate it, e.g. openssl rand -hex 32. Changing it signs everyone out.')
+@minLength(32)
 @secure()
 param sessionSecret string
 
@@ -28,6 +32,9 @@ param geminiApiKey string = ''
 
 @secure()
 param youtubeApiKey string = ''
+
+@description('Turn on Key Vault purge protection: a deleted vault or secret cannot be purged until its retention period (7 days) ends. It cannot be turned off again once on, and it keeps the vault name reserved after a delete, so set false only for a throwaway environment you will recreate under the same name.')
+param keyVaultPurgeProtection bool = true
 
 param containerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 param initImage string = 'mcr.microsoft.com/azurelinux/base/core:3.0'
@@ -105,6 +112,7 @@ module keyVault './modules/key-vault.bicep' = {
     sessionSecret: sessionSecret
     geminiApiKey: geminiApiKey
     youtubeApiKey: youtubeApiKey
+    purgeProtection: keyVaultPurgeProtection
   }
 }
 

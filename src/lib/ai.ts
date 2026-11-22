@@ -6,6 +6,10 @@ import { getSetting, SETTING_CHAT_MODEL, SETTING_EMBED_MODEL, SETTING_IMAGE_MODE
 import { resolveEndpoint, type ResolvedEndpoint } from "./providers";
 import { classifyNetworkError, failedAfterResponse, markAfterResponse, networkErrorCode, type NetworkFailure } from "./connectionerror";
 import { retryTransient } from "./netretry";
+import { ProviderAssetError, downloadProviderAsset } from "./providerfetch";
+
+/** A generated picture the provider returns as a link; PNGs at the sizes offered are a few MB. */
+const MAX_GENERATED_IMAGE_BYTES = 32 * 1024 * 1024;
 
 /**
  * Two client families are supported.
@@ -285,19 +289,22 @@ async function requestImage(prompt: string, opts: ImageOptions): Promise<Generat
     const first = json.data?.[0];
 
     // Some OpenAI-compatible servers ignore response_format and hand back a URL.
+    // The link is untrusted: it is fetched like any user-supplied address, so a
+    // provider cannot aim this server at a private or metadata address.
     if (!first?.b64_json && first?.url) {
-      const img = await fetch(first.url).catch((e: unknown) => {
+      const png = await downloadProviderAsset(first.url, {
+        what: "generated image",
+        maxBytes: MAX_GENERATED_IMAGE_BYTES,
+        trusted: [baseURL, endpoint],
+        signal: opts.signal,
+      }).catch((e: unknown) => {
         throw markAfterResponse(
-          new Error(`Could not download generated image (${e instanceof Error ? e.message : String(e)}).`, { cause: e })
+          e instanceof ProviderAssetError
+            ? e
+            : new Error(`Could not download generated image (${e instanceof Error ? e.message : String(e)}).`, { cause: e })
         );
       });
-      if (!img.ok) throw markAfterResponse(new Error(`Could not download generated image (${img.status}).`));
-      const bytes = await img.arrayBuffer().catch((e: unknown) => {
-        throw markAfterResponse(
-          new Error(`Could not download generated image (${e instanceof Error ? e.message : String(e)}).`, { cause: e })
-        );
-      });
-      return { png: Buffer.from(bytes), model, size };
+      return { png, model, size };
     }
 
     if (!first?.b64_json) {
