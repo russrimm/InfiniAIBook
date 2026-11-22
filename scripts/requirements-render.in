@@ -6,6 +6,6 @@
 #
 # numpy stays below 2.5, which needs Python 3.12; the Docker image's Debian
 # 12 base ships Python 3.11.
-numpy>=2.4,<2.5
+numpy>=2.5.5,<2.6
 pillow>=13,<14
 imageio-ffmpeg>=0.8,<0.9
