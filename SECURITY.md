@@ -74,6 +74,14 @@ mind before running it anywhere other than your own machine:
   you trust everyone who can add a source. A response is also stopped when it
   grows past `MAX_FETCH_BYTES` or takes longer than `DOWNLOAD_TIMEOUT_MS` (two
   minutes) to arrive, so a site that trickles bytes cannot hold a request open.
+  Links a model provider hands back (a generated image returned as a URL, the
+  finished avatar video and its job summary) are fetched the same way
+  (`src/lib/providerfetch.ts`): public addresses only on every redirect hop,
+  no credential, and a size and time limit, so a misbehaving or compromised
+  provider cannot aim the server at a cloud metadata address or the private
+  network. The one exception is an image hosted on the provider endpoint you
+  configured yourself (`AI_BASE_URL`, `AZURE_OPENAI_ENDPOINT`), so a local
+  OpenAI-compatible server that serves its own images keeps working.
 - **Request bodies are size-checked before they are buffered.** Next.js holds a
   whole request body in memory before a route sees it (up to about 200 MB), so
   every API request is refused with 413 when its `Content-Length` is over its
