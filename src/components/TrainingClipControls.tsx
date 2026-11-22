@@ -59,6 +59,9 @@ export default function TrainingClipControls({
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const applied = useRef<string | null>(null);
+  // Status checks are numbered so a late reply cannot undo a newer one: `floor` is the last check
+  // sent before the clip was started, `applied` the newest reply already used.
+  const pollSeq = useRef({ issued: 0, floor: 0, applied: 0 });
   const change = useRef(onChange);
   change.current = onChange;
 
@@ -79,9 +82,14 @@ export default function TrainingClipControls({
   }, [loadStatus]);
 
   const poll = useCallback(async () => {
+    const seq = pollSeq.current;
+    const mine = ++seq.issued;
     const res = await fetch(`${url}?cueId=${cue.id}`, { cache: "no-store" });
     if (!res.ok) return;
     const j = (await res.json()) as { state: CueClipState | null };
+    // The check made on opening can answer "no clip" late, and must not wipe the job that Generate just started.
+    if (mine <= seq.floor || mine < seq.applied) return;
+    seq.applied = mine;
     setJob(j.state);
     // A finished clip is put on the cue once, however many polls see it.
     if (j.state?.status === "completed" && j.state.clipId && applied.current !== j.state.clipId) {
@@ -122,6 +130,7 @@ export default function TrainingClipControls({
       const j = (await res.json().catch(() => ({}))) as { state?: CueClipState; error?: string };
       if (!res.ok || !j.state) throw new Error(j.error || "Could not start the clip.");
       applied.current = null;
+      pollSeq.current.floor = pollSeq.current.issued;
       setJob(j.state);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not start the clip.");
