@@ -32,6 +32,21 @@ type Training = {
 
 test("proposes clips on request, makes one on demand, previews it and renders without making another", async ({ page, request }) => {
   const notebookId = await notebookWithSource(request);
+
+  // The status check made when a visual is opened can be answered late, after Generate has started
+  // the clip. That answer says "no clip yet" and must not hide the job that has started since, so
+  // the first check is held back until the editor is showing the started job.
+  let releaseStaleCheck!: () => void;
+  const staleCheckMayLand = new Promise<void>((resolve) => (releaseStaleCheck = resolve));
+  let held = false;
+  await page.route(/\/api\/training\/[^/]+\/assets\/clip\?cueId=/, async (route) => {
+    if (held) return route.continue();
+    held = true;
+    const reply = await route.fetch();
+    await staleCheckMayLand;
+    await route.fulfill({ response: reply });
+  });
+
   await page.goto(`/notebook/${notebookId}`);
   await page.getByRole("button", { name: "Generate Training video" }).click();
 
@@ -62,6 +77,8 @@ test("proposes clips on request, makes one on demand, previews it and renders wi
   await expect(controls).toContainText("A visual without a clip is left out of the render");
 
   await controls.getByTestId("clip-cue-generate").click();
+  await expect(controls.getByTestId("clip-cue-status")).toHaveText(/Waiting for the video model|Generating the clip/);
+  releaseStaleCheck();
   await expect(controls.getByTestId("clip-cue-video")).toBeVisible({ timeout: 40_000 });
   await expect(controls.getByTestId("clip-cue-status")).toHaveText("Clip ready");
   expect((await (await request.get(`${VIDEO}/state`)).json()).created).toHaveLength(1);

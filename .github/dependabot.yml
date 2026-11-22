@@ -21,6 +21,10 @@ updates:
       # cleanly against eslint 10 without overrides or --legacy-peer-deps.
       - dependency-name: eslint
         update-types: ["version-update:semver-major"]
+      # Types for the oldest Node the app supports (22), so code cannot use an
+      # API that exists only in a newer runtime. Same revisit condition as undici.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
