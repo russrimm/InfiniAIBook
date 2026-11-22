@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_COOKIE, authPassword, bearerAllowed, verifySessionToken } from "@/lib/auth";
 import { hostAllowed, isCrossSiteRead, isCrossSiteWrite, parseAllowedHosts } from "@/lib/access";
 import { authThrottle, clientKey } from "@/lib/clientthrottle";
+import { declaredBodyProblem } from "@/lib/bodylimits";
 
 function refuse(pathname: string, status: number, error: string, code: string) {
   if (pathname.startsWith("/api/")) {
@@ -14,7 +15,7 @@ function refuse(pathname: string, status: number, error: string, code: string) {
 }
 
 /**
- * Two checks run first, on every page and API route:
+ * Three checks run first, on every page and API route:
  *
  *  - Without INFINIAIBOOK_PASSWORD (or whenever ALLOWED_HOSTS is set), only
  *    loopback names and ALLOWED_HOSTS are served, so a DNS-rebinding page
@@ -24,6 +25,10 @@ function refuse(pathname: string, status: number, error: string, code: string) {
  *    visit could otherwise trigger a paid voice sample or a server-side fetch
  *    with a plain audio or image element). Clients that send no Origin /
  *    Sec-Fetch-Site are not browsers and pass.
+ *  - API requests whose Content-Length is over the endpoint's limit are
+ *    refused with 413 before the body is read, and a chunked body with no
+ *    length is refused with 411 except on the file-upload endpoints, which
+ *    cap what actually arrives (src/lib/bodylimits.ts).
  *
  * With INFINIAIBOOK_PASSWORD set, every page and API route requires either the
  * signed session cookie from /login or INFINIAIBOOK_API_TOKEN. The password is
@@ -78,6 +83,8 @@ export async function proxy(req: NextRequest) {
     ) {
       return refuse(pathname, 403, "Cross-site request blocked.", "csrf");
     }
+    const sizeProblem = declaredBodyProblem(req.method, pathname, req.headers);
+    if (sizeProblem) return refuse(pathname, sizeProblem.status, sizeProblem.error, sizeProblem.code);
   }
 
   if (!password) return NextResponse.next();

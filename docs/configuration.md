@@ -180,7 +180,7 @@ commentary. Only a model provider is required.
 | `PRICE_STUDIO_CALL_CENTS`, `PRICE_IMAGE_CENTS`, `PRICE_SPEECH_PER_1K_CHARS_CENTS`, `PRICE_AVATAR_PER_150_WORDS_CENTS` | Rough prices (US cents) behind cost estimates and the daily budget; defaults 8, 12, 3, 40. See [Costs, budget and cancelling](costs-and-budget.md) |
 | `COST_CONFIRM_USD` | Ask before a generation estimated at this many dollars or more (default 1; `0` never asks) |
 | `BACKUP_MAX_RESTORE_BYTES` | Largest unpacked size a [backup restore](backup-and-restore.md) accepts (default 50 GiB) |
-| `MAX_UPLOAD_BYTES` | Largest uploaded file or request body when adding sources (default 50 MB; larger requests get a 413) |
+| `MAX_UPLOAD_BYTES` | Largest uploaded file or request body when adding sources (default 50 MB). A larger request gets a 413 from its `Content-Length`, before it is read, or as soon as the bytes that arrive pass the limit. Other uploads have fixed limits: 50 MB music tracks, 100 MB intro/outro clips, 200 MB notebook exports and backups, 5 MB watermark images |
 | `MAX_ARCHIVE_FILES`, `MAX_ARCHIVE_EXPANDED_BYTES` | Most files imported from one uploaded ZIP (default 100) and the total size it may expand to (default 500 MB) |
 | `DATA_DIR` | Where the database and generated media live (default `./.data`) |
 | `SQLITE_JOURNAL_MODE` | SQLite journal mode: `WAL` (default) or `DELETE`. Use `DELETE` when `DATA_DIR` is on a network share such as Azure Files |

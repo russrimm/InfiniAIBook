@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { ok, fail } from "@/lib/http";
 import { imageDir, imagePath } from "@/lib/paths";
 import { loadTraining, pngFromDataUrl } from "@/lib/trainingroute";
+import { base64JsonBytes, readJSONOr } from "@/lib/bodylimits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export async function POST(req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
     if (!loadTraining(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const body = (await req.json().catch(() => ({}))) as { dataUrl?: unknown };
+    const body = (await readJSONOr(req, base64JsonBytes(MAX_BYTES), {})) as { dataUrl?: unknown };
     const png = pngFromDataUrl(body.dataUrl, MAX_BYTES);
     const imageId = nanoid(12);
     fs.mkdirSync(imageDir(), { recursive: true });

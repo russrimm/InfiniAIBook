@@ -11,11 +11,12 @@ import { normalizeTags, parseTags, serializeTags } from "./tags";
 import { audioPath, captionsPath, imagePath, videoPath } from "./paths";
 import { listSessions, sessionMessages } from "./sessions";
 import { MAX_TITLE_CHARS } from "./limits";
+import { MAX_NOTEBOOK_ZIP_BYTES } from "./bodylimits";
 import { ArchiveLimitError, assertZipEntryCount, readEntryCapped } from "./zipread";
 
 export const PACK_FORMAT = "infiniaibook-notebook";
 export const PACK_VERSION = 1;
-const MAX_ZIP_BYTES = 200 * 1024 * 1024;
+const MAX_ZIP_BYTES = MAX_NOTEBOOK_ZIP_BYTES;
 const MAX_MANIFEST_BYTES = 50_000_000;
 const MAX_SOURCE_CHARS = 5_000_000;
 const MAX_ITEMS = 2000;

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
 import { MAX_BOOKEND_UPLOAD_BYTES } from "@/lib/bookends";
+import { BODY_OVERHEAD_BYTES, readLimitedForm } from "@/lib/bodylimits";
 import { storeBookendFile } from "@/lib/bookendbuild";
 import { hostIsRendering, loadHost, slotOf, updateSlot } from "@/lib/bookendroute";
 import { clipPath } from "@/lib/paths";
@@ -34,10 +35,11 @@ export async function POST(req: Request, { params }: Ctx) {
     let label: string;
 
     if (type.includes("multipart/form-data")) {
-      if (Number(req.headers.get("content-length") ?? 0) > MAX_BOOKEND_UPLOAD_BYTES + 1_000_000) {
-        return NextResponse.json({ error: "That video is larger than 100 MB.", code: "too_large" }, { status: 413 });
-      }
-      const form = await req.formData();
+      const form = await readLimitedForm(
+        req,
+        MAX_BOOKEND_UPLOAD_BYTES + BODY_OVERHEAD_BYTES,
+        "That video is larger than 100 MB. Trim it or export it at a lower quality.",
+      );
       slot = slotOf(form.get("slot"));
       const file = form.get("file");
       if (!slot || !(file instanceof File)) return NextResponse.json({ error: "Send a slot and an MP4 file.", code: "invalid" }, { status: 400 });
