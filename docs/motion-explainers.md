@@ -159,9 +159,11 @@ It uses the same pieces as [whiteboard videos](whiteboard-videos.md), listed
 under [What you need](#what-you-need). Install the renderer's Python packages:
 
 ```bash
-python -m pip install numpy pillow imageio-ffmpeg
+python -m pip install --require-hashes -r scripts/requirements-render.txt
 ```
 
+That installs the exact versions CI and the Docker image use and refuses any
+file whose hash does not match; see [Renderer dependencies](rendering-dependencies.md).
 Set `PYTHON_BIN` if `python` is not the interpreter you want. To check the
 renderer without spending any model calls:
 

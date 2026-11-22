@@ -44,6 +44,8 @@
 - [How grounding works](grounding.md) — chunking, retrieval, citations and
   changing the embedding model
 - [Architecture](architecture.md) — source layout and storage
+- [Renderer dependencies](rendering-dependencies.md) — the pinned, hash-checked
+  Python packages the video renderers use, and how to refresh them
 - [REST API](API.md)
 - [Content Security Policy](csp.md) — what is enforced, the stricter nonce-based
   policy running in report-only mode, what was measured, and how to enforce it

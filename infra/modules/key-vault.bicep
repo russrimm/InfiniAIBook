@@ -2,9 +2,11 @@ param name string
 param location string
 param tags object
 
+@minLength(12)
 @secure()
 param appPassword string
 
+@minLength(32)
 @secure()
 param sessionSecret string
 
@@ -13,6 +15,9 @@ param geminiApiKey string = ''
 
 @secure()
 param youtubeApiKey string = ''
+
+@description('Soft delete is always on. Purge protection stops a deleted vault or secret from being purged before its 7-day retention ends; once enabled it cannot be disabled.')
+param purgeProtection bool = true
 
 resource keyVault 'Microsoft.KeyVault/vaults@2024-11-01' = {
   name: name
@@ -27,6 +32,9 @@ resource keyVault 'Microsoft.KeyVault/vaults@2024-11-01' = {
     enableRbacAuthorization: true
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
+    // Azure rejects an explicit false here once protection is on, so an
+    // opt-out leaves the property out rather than setting it.
+    enablePurgeProtection: purgeProtection ? true : null
     // Policy keeps vaults private; the app reads secrets through a private endpoint.
     publicNetworkAccess: 'Disabled'
     networkAcls: {

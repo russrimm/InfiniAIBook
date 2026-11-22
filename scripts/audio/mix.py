@@ -24,7 +24,18 @@ import imageio_ffmpeg
 cfg = json.load(open(sys.argv[1], encoding="utf-8"))
 ff = imageio_ffmpeg.get_ffmpeg_exe()
 
-SRC, OUT, MUSIC = cfg["input"], cfg["output"], cfg["music"]
+
+def safe_path(p):
+    """An absolute path, so a name that starts with "-" can never be read as an ffmpeg option."""
+    return os.path.abspath(p)
+
+
+# Inputs are opened as plain files only. FFmpeg otherwise follows playlists and
+# other protocols named inside a file (http:, tcp:, concat:), which an uploaded
+# track must never be able to trigger. The upload is checked on arrival as well.
+FILE_ONLY = ["-protocol_whitelist", "file"]
+
+SRC, OUT, MUSIC = (safe_path(cfg[k]) for k in ("input", "output", "music"))
 VOLUME = float(cfg.get("volume", 0.3))
 KIND = cfg.get("kind", "audio")
 
@@ -35,7 +46,7 @@ if not os.path.exists(MUSIC):
 
 
 def duration(path):
-    err = subprocess.run([ff, "-i", path, "-f", "null", "-"], capture_output=True, text=True).stderr
+    err = subprocess.run([ff, *FILE_ONLY, "-i", path, "-f", "null", "-"], capture_output=True, text=True).stderr
     times = re.findall(r"time=(\d+):(\d+):(\d+(?:\.\d+)?)", err)
     if times:
         h, m, s = times[-1]
@@ -59,7 +70,7 @@ graph = ";".join([
     "[voice][duck]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.95[mix]",
 ])
 
-cmd = [ff, "-y", "-loglevel", "error", "-i", SRC, "-stream_loop", "-1", "-i", MUSIC,
+cmd = [ff, "-y", "-loglevel", "error", *FILE_ONLY, "-i", SRC, "-stream_loop", "-1", *FILE_ONLY, "-i", MUSIC,
        "-filter_complex", graph, "-t", f"{TOTAL:.3f}"]
 if KIND == "video":
     cmd += ["-map", "0:v:0", "-map", "[mix]", "-c:v", "copy", "-c:a", "aac", "-b:a", "160k",
