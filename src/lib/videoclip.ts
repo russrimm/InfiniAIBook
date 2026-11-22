@@ -1,11 +1,13 @@
 /**
  * Short AI video clips: the vocabulary shared by every video provider.
  *
- * Pure and import-free, so the browser can read the capability table to build
+ * Pure, with no server-only imports, so the browser can read the capability table to build
  * its controls and tests can run it without a server. Everything a provider
  * differs on (sizes, durations, price) is data in a ClipCapabilities, and the
  * request a person builds is checked against it here before any money is spent.
  */
+
+import { sniffImage } from "./mediasniff";
 
 export type ClipProviderKind = "gemini" | "openai" | "azure";
 
@@ -115,7 +117,7 @@ export type NormalizedClip =
 const bad = (error: string): NormalizedClip => ({ ok: false, error });
 
 /** The data URL a browser makes of a chosen file, or the bare base64, plus its type. */
-function readReference(raw: unknown): ClipReference | null | "invalid" {
+function readReference(raw: unknown): ClipReference | null | "invalid" | "mismatch" {
   if (raw === undefined || raw === null) return null;
   if (!isObject(raw)) return "invalid";
   const mime = String(raw.mime ?? "").toLowerCase().replace("image/jpg", "image/jpeg");
@@ -123,6 +125,8 @@ function readReference(raw: unknown): ClipReference | null | "invalid" {
   if (!(REFERENCE_TYPES as readonly string[]).includes(mime) || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) {
     return "invalid";
   }
+  // The type is whatever the sender declared; the picture's own first bytes say what it is.
+  if (sniffImage(Buffer.from(data.slice(0, 48), "base64"))?.mime !== mime) return "mismatch";
   return { mime: mime as ClipReference["mime"], data };
 }
 
@@ -172,6 +176,9 @@ export function normalizeClipRequest(caps: ClipCapabilities, raw: unknown): Norm
 
   const reference = readReference(raw.reference);
   if (reference === "invalid") return bad("The reference image must be a JPEG, PNG or WebP picture.");
+  if (reference === "mismatch") {
+    return bad("That reference image's contents do not match its type. Choose a real JPEG, PNG or WebP file.");
+  }
   if (reference && !caps.referenceImage) {
     return bad(`${caps.label} cannot start a clip from a reference image.`);
   }
