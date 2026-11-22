@@ -18,6 +18,9 @@ const { version } = JSON.parse(readFileSync("./package.json", "utf8")) as { vers
  *   own origin is refused before the iframe is created.
  * - script-src 'unsafe-inline': Next's inline bootstrap; 'unsafe-eval' only in
  *   development, for React Refresh.
+ *
+ * A stricter, nonce-based policy is sent next to this one in report-only mode
+ * (src/proxy.ts, src/lib/csp.ts); docs/csp.md says how to enforce it.
  */
 const connectSrc = [
   "'self'",

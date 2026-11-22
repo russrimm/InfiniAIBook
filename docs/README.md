@@ -44,6 +44,8 @@
 - [How grounding works](grounding.md) — chunking, retrieval, citations and
   changing the embedding model
 - [Architecture](architecture.md) — source layout and storage
+- [Content Security Policy](csp.md) — what is enforced, the stricter nonce-based
+  policy running in report-only mode, what was measured, and how to enforce it
 - [REST API](API.md)
 - [Agent skill](agent-skill.md) — install the InfiniAIBook skill so a coding
   agent can set it up, run it and script it for you

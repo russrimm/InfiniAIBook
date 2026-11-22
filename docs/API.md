@@ -301,3 +301,4 @@ stored. A model that cannot read images returns `400` with `code: "vision"`.
 | POST | `/api/estimate` | Expected cost of a generation before it starts: `{ type, ...options }` → `{ cents, display, lines, fits, message, confirmAboveCents, budget }`. See [Costs, budget and cancelling](costs-and-budget.md) |
 | POST | `/api/jobs/{id}/cancel` | Stop a running generation (the `x-job-id` you sent), build, narration or training render. `{ cancelled }` |
 | GET | `/api/browse?url=` | Server-side page fetch for the in-app browser |
+| POST | `/api/csp-report` | Receives the browser's report-only Content Security Policy violation reports and logs a short line for each (at most 16 KB, 30 lines a minute); `204` whatever it receives. See [Content Security Policy](csp.md) |
