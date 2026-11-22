@@ -29,11 +29,22 @@ export function nextPreference(pref: ThemePreference): ThemePreference {
 }
 
 /**
+ * A string as a JavaScript literal that is safe inside an inline <script>:
+ * JSON.stringify alone leaves `</script>` and the U+2028/2029 line separators
+ * as they are.
+ */
+const scriptString = (value: string) =>
+  JSON.stringify(value).replace(
+    /[<>/\u2028\u2029]/g,
+    (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  );
+
+/**
  * Runs before first paint (inlined in <head>) so a light-mode user never sees
  * a dark flash, and keeps "system" in step with the operating system. It must
  * stay self-contained: it is serialized into the page as-is.
  */
-export const THEME_INIT_SCRIPT = `(function(){var K=${JSON.stringify(THEME_KEY)};var d=document.documentElement;var q=window.matchMedia("(prefers-color-scheme: light)");function apply(){var p="system";try{var s=localStorage.getItem(K);if(s==="light"||s==="dark")p=s}catch(e){}d.setAttribute("data-theme-pref",p);d.setAttribute("data-theme",p==="system"?(q.matches?"light":"dark"):p)}apply();q.addEventListener("change",apply);window.addEventListener("storage",function(e){if(e.key===K)apply()});window.addEventListener(${JSON.stringify(THEME_EVENT)},apply)})();`;
+export const THEME_INIT_SCRIPT = `(function(){var K=${scriptString(THEME_KEY)};var d=document.documentElement;var q=window.matchMedia("(prefers-color-scheme: light)");function apply(){var p="system";try{var s=localStorage.getItem(K);if(s==="light"||s==="dark")p=s}catch(e){}d.setAttribute("data-theme-pref",p);d.setAttribute("data-theme",p==="system"?(q.matches?"light":"dark"):p)}apply();q.addEventListener("change",apply);window.addEventListener("storage",function(e){if(e.key===K)apply()});window.addEventListener(${scriptString(THEME_EVENT)},apply)})();`;
 
 /** Saves and applies a preference. Safe to call from event handlers only. */
 export function setPreference(pref: ThemePreference) {

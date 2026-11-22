@@ -8,7 +8,7 @@ const title = "Deep Dive into LLMs like ChatGPT";
 function mockYouTube(options: { description?: string; geminiError?: boolean } = {}) {
   const fetchMock = vi.fn(async (input: string | URL | Request) => {
     const requestUrl = String(input);
-    if (requestUrl.includes("generativelanguage.googleapis.com")) {
+    if (new URL(requestUrl).hostname === "generativelanguage.googleapis.com") {
       if (options.geminiError) throw new Error("Connection interrupted");
       return Response.json({
         candidates: [{ content: { parts: [{ text: "The spoken words from the video." }] } }],

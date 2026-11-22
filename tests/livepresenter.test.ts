@@ -66,7 +66,7 @@ describe("live presenter session", () => {
       ice: { urls: ["turn:relay.example:3478"], username: "u", credential: "p" },
     });
     expect(JSON.stringify(s)).not.toContain("secret-key");
-    expect(seen.some((u) => u.includes("westus2.tts.speech.microsoft.com"))).toBe(true);
+    expect(seen.some((u) => new URL(u).hostname === "westus2.tts.speech.microsoft.com")).toBe(true);
   });
 
   it("exchanges the Entra token server-side and never returns it", async () => {

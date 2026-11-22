@@ -60,6 +60,12 @@ describe("source discovery providers", () => {
     expect(activeProvider()).toBe("bing");
   });
 
+  it("decodes entities once in titles and snippets", async () => {
+    providers(() => new Response(rss.replace("Research &amp; evidence", "Use &amp;amp;lt;div&amp;amp;gt; &amp;amp; more")));
+    const [hit] = await searchWeb(["research"]);
+    expect(hit.title).toBe("Use &lt;div&gt; & more");
+  });
+
   it("falls back after an HTTP error or a network failure", async () => {
     vi.stubEnv("TAVILY_API_KEY", "test-key");
     for (const bing of [

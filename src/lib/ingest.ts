@@ -18,6 +18,7 @@ import {
   mb,
 } from "./limits";
 import { envInt } from "./envnumber";
+import { decodeEntities } from "./htmltext";
 
 export type Extracted = { title: string; text: string; kind: string };
 
@@ -68,20 +69,6 @@ function clean(s: string): string {
     .replace(/\n{3,}/g, "\n\n")
     .replace(/[ \t]{2,}/g, " ")
     .trim();
-}
-
-/** Entities survive .text() when they were double-encoded in the source. */
-function decodeEntities(s: string): string {
-  return s
-    .replace(/&amp;/g, "&")
-    .replace(/&#0?39;|&apos;|&rsquo;/g, "'")
-    .replace(/&quot;|&ldquo;|&rdquo;/g, '"')
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&ndash;/g, "–")
-    .replace(/&mdash;/g, "—")
-    .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(Number(d)));
 }
 
 const OLE_MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
@@ -453,6 +440,8 @@ function htmlToText(html: string): { title: string; text: string } {
     if (stripped.length > best.length) best = stripped;
   }
 
+  // Entities survive .text() when they were double-encoded in the source, so
+  // decode once more. Single pass: "&amp;lt;" must end as "&lt;", not "<".
   return {
     title,
     text: decodeEntities(best.length >= whole.length * 0.25 ? best : whole),
