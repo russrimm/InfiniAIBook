@@ -83,11 +83,12 @@ export function sniffAudio(bytes: Uint8Array): AudioKind | null {
 
   if (ascii(b, 0, 3) === "ID3") {
     // FFmpeg skips an ID3 tag when it probes what follows, so what follows must
-    // be audio too, after any zero padding.
+    // be audio too, after any zero padding. FLAC files from older taggers carry one as well.
     const tag = id3Length(b);
     if (tag === null) return null;
     let at = tag;
     while (at < bytes.length && bytes[at] === 0) at++;
+    if (ascii(bytes, at, at + 4) === "fLaC") return "flac";
     return mpegAudioFrame(bytes, at);
   }
   return mpegAudioFrame(b);
@@ -106,7 +107,9 @@ export function audioUploadProblem(name: string, bytes: Uint8Array, allowed: rea
   }
   // An ID3 tag can sit in front of MP3 and AAC audio alike.
   const startsWithTag = bytes.length >= 3 && ascii(bytes, 0, 3) === "ID3";
-  const fits = AUDIO_EXTENSIONS[kind].includes(ext) || (startsWithTag && (ext === ".mp3" || ext === ".aac"));
+  const fits =
+    AUDIO_EXTENSIONS[kind].includes(ext) ||
+    (startsWithTag && (kind === "mp3" || kind === "aac") && (ext === ".mp3" || ext === ".aac"));
   if (!fits) {
     return `That file is ${AUDIO_NAMES[kind]} audio, but its name ends in ${ext || "no extension"}. Rename it to .${AUDIO_EXTENSIONS[kind][0]!.slice(1)} or export it again in the format its name says.`;
   }
