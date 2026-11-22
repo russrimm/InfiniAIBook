@@ -29,6 +29,16 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  # The renderer's Python packages (scripts/requirements-render.in compiled to
+  # the hash-pinned scripts/requirements-render.txt). Dependabot rewrites both
+  # files together.
+  - package-ecosystem: pip
+    directory: /scripts
+    schedule:
+      interval: weekly
+    groups:
+      renderer-packages:
+        patterns: ["*"]
   # Keeps the digest-pinned node base image in the Dockerfile current. The app
   # targets the Node 22 LTS line, so major version jumps are not proposed.
   - package-ecosystem: docker

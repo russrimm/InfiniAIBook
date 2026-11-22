@@ -20,6 +20,15 @@ Storage and Key Vault stay private (no shared keys, no public network access),
 which many organizations enforce by policy. NFS also gives SQLite proper file
 locking.
 
+The Key Vault has soft delete (7 days) and purge protection on, so a deleted
+vault or secret can be recovered and cannot be purged early. Purge protection
+cannot be turned off once it is on, and a deleted vault keeps its name
+reserved until the retention period ends, so deleting the resource group and
+redeploying straight away under the same `environmentName` fails until then
+(recover the vault, or pick a new name). For
+a throwaway environment you expect to recreate, pass
+`keyVaultPurgeProtection=false` on its first deploy.
+
 > **One replica only.** SQLite allows a single writer. Do not scale the app
 > out, and keep `SQLITE_JOURNAL_MODE=DELETE` on the share.
 
@@ -58,6 +67,20 @@ az deployment sub create --name "iabook-$tag" --location eastus2 `
     appPassword=$APP_PASSWORD sessionSecret=$SESSION_SECRET `
     containerImage="<registry>.azurecr.io/infiniaibook:$tag"
 ```
+
+The template refuses a weak secret before it creates anything: `appPassword`
+must be at least 12 characters and `sessionSecret` at least 32. Generate them
+instead of choosing them, for example:
+
+```powershell
+$APP_PASSWORD   = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 24 | ForEach-Object { [char]$_ })
+$SESSION_SECRET = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+```
+
+(or `openssl rand -base64 24` and `openssl rand -hex 32`). Keep them in a password
+manager: you pass the same values on every deploy, and changing either one signs
+everyone out. If the values you deployed earlier are shorter than the minimums,
+the next deployment stops with a length error; replace them then.
 
 ## Deploy automatically from GitHub
 

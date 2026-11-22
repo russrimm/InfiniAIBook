@@ -59,6 +59,13 @@ mind before running it anywhere other than your own machine:
   The one unauthenticated exception is `GET`/`HEAD /api/health`, which skips the
   host and password checks so container probes and the deploy smoke test work. It
   returns only `ok` or `unavailable`, with no version, path or error text.
+- **The Azure template refuses weak secrets and protects the vault.**
+  `infra/main.bicep` rejects an `appPassword` under 12 characters or a
+  `sessionSecret` under 32 before anything is created, both parameters are
+  `@secure()`, and the Key Vault has soft delete and purge protection on (see
+  [docs/azure-deployment.md](docs/azure-deployment.md) for what that means when
+  recreating an environment). CI compiles the templates, and
+  `tests/infra.test.ts` keeps these properties from being edited away.
 - **The server fetches URLs on your behalf.** Links, feeds, discovery results
   and the built-in browser are fetched server-side. Addresses that resolve to
   loopback, private, link-local or cloud-metadata ranges are refused on every
@@ -191,5 +198,10 @@ mind before running it anywhere other than your own machine:
   choose their own host, protocol and address.
 - **What watches this repository:** CodeQL on every pull request, Dependabot
   version and security updates, GitHub secret scanning with push protection,
-  and a CI check that the lockfile resolves only from the public npm registry.
+  a CI check that the lockfile resolves only from the public npm registry, and
+  a CI gate that fails on any high or critical advisory in a production npm
+  dependency. The gate allows only reviewed exceptions listed in
+  `.github/audit-allowlist.json`, each with a reason and an expiry date within
+  90 days (see CONTRIBUTING.md); if npm's registry cannot be reached it reports
+  a warning and passes, so an outage there cannot block merges.
   Report anything they miss through the private reporting link above.
