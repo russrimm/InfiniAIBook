@@ -39,7 +39,7 @@
     "microsoft-cognitiveservices-speech-sdk": "^1.53.0",
     "nanoid": "^6.0.2",
     "next": "16.4.6",
-    "openai": "^7.60.0",
+    "openai": "^7.61.0",
     "pptxgenjs": "^4.0.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
