@@ -75,6 +75,7 @@ import {
   type Draft,
   type Tab,
 } from "./trainingVideoParts";
+import { videoDownloadHref, videoFilename } from "@/lib/videoexport";
 
 export default function TrainingVideo({
   artifactId,
@@ -802,6 +803,13 @@ export default function TrainingVideo({
                 {Math.round(content.billedSeconds)} s of avatar time billed
               </span>
             ) : null}
+            <a
+              className="underline hover:text-[var(--fg)]"
+              href={videoDownloadHref(content.videoUrl)}
+              download={videoFilename(content.title)}
+            >
+              Download MP4
+            </a>
             {content.captionsUrl && (
               <a
                 className="underline hover:text-[var(--fg)]"
@@ -1545,6 +1553,7 @@ export default function TrainingVideo({
         </button>
         <button
           className="btn btn-primary !text-xs"
+          data-render-video
           disabled={!processing && (locked || tooLong || wordCount === 0)}
           onClick={() => processing ? setStatusOpen(true) : void run("render")}
           aria-label={processing ? "View video processing status" : undefined}

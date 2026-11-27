@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { ok, fail, readBody } from "@/lib/http";
 import { videoPath } from "@/lib/paths";
 import { serveRangedFile } from "@/lib/rangefile";
+import { attachmentDisposition, videoFilename } from "@/lib/videoexport";
 import { normalizeMotionPlan, normalizeMotionOptions, type MotionPlan } from "@/lib/motion";
 import { normalizeScenePlan, type ScenePlan } from "@/lib/whiteboard";
 import { normalizeMusicChoice } from "@/lib/musicchoice";
@@ -23,12 +24,22 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /**
  * Serves rendered MP4s with byte-range support — without it, browsers cannot
- * seek within the video and some refuse to play it at all.
+ * seek within the video and some refuse to play it at all. With `?download=1`
+ * the file is sent as an attachment named after the artifact, so a plain link
+ * saves a real .mp4 straight from disk without holding it in browser memory.
  */
 export async function GET(req: Request, { params }: Ctx) {
   const { id } = await params;
   try {
-    return serveRangedFile(req, videoPath(id), "video/mp4");
+    const file = videoPath(id);
+    const extra: Record<string, string> = {};
+    if (new URL(req.url).searchParams.get("download") === "1") {
+      const row = db.prepare("SELECT title FROM artifacts WHERE id = ?").get(id) as
+        | { title: string }
+        | undefined;
+      extra["content-disposition"] = attachmentDisposition(videoFilename(row?.title ?? ""));
+    }
+    return serveRangedFile(req, file, "video/mp4", extra);
   } catch {
     // videoPath rejects anything that is not a nanoid.
     return NextResponse.json({ error: "Not found" }, { status: 404 });

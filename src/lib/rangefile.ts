@@ -14,7 +14,8 @@ import { NextResponse } from "next/server";
 export function serveRangedFile(
   req: Request,
   file: string,
-  contentType: string
+  contentType: string,
+  extraHeaders: Record<string, string> = {}
 ): NextResponse {
   if (!fs.existsSync(file)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -25,6 +26,7 @@ export function serveRangedFile(
     "content-type": contentType,
     "accept-ranges": "bytes",
     "cache-control": "private, max-age=31536000, immutable",
+    ...extraHeaders,
   };
 
   const stream = (start: number, end: number) =>

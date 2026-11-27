@@ -248,8 +248,8 @@ theme colors and speaker notes.
 | Artifact | Formats |
 |---|---|
 | Audio overview | **MP3**, Markdown transcript |
-| Whiteboard video / Motion explainer | **MP4**, Markdown script |
-| Training video | **MP4**, Markdown transcript; **WebVTT** when separate captions are selected |
+| Whiteboard video / Motion explainer | **MP4** (**Export MP4**), Markdown script (**Script (Markdown)**) |
+| Training video | **MP4** (**Export MP4**), Markdown transcript (**Script (Markdown)**); **WebVTT** when separate captions are selected |
 | Video clip | **MP4** for each clip, Markdown list of the prompts |
 | PowerPoint deck | **PPTX**, Markdown |
 | Infographic | **PNG**, Markdown |
